@@ -11,6 +11,7 @@
   D28 stand-ins via `--wrap` (`tools/safety/stand-ins.txt`), `gate-selftest.sh`, `tools/symbolize-crash`, 10 crash drills.
 - **Green:** unit tests (both builds), desktop E2E 14/14 (+`oom` skipped: Switch only), npm test 99, typecheck, Switch release and
   test builds (gate PASS: 0 banned, hooks ours 2/2, both stand-ins in use), gate self-test (S2 + S3 probes fail, no `.nro`).
+  CI green on `4ec29c6` (all 4 jobs; the Switch job now runs the gate self-test too, ~3m45s).
 - **For WP-08:** `makeRuntimeProfile()` must take `LastRun.crashed` (safe mode: budgets halved, prefetch off, no screen restore).
   New threads: `crash::prepareThread()`, explicit stack size, `addExitStep()` for pools, `recordWorkerException()` at task boundaries.
 ## Waiting for the console: WP-03c (`docs/wp/WP-03c-crash-drills-on-the-console.md`)
