@@ -11,20 +11,20 @@ using a minimal test-hook event writer added to the Hello app.
 `docs/TESTING.md` (all), STATUS.md console facts, `tools/spike/`.
 
 ## Deliverables
-- [ ] `tests/e2e/` in the root npm package (D30, made in WP-02; `tests/e2e/lib/` already has `pagecode.ts`, `suwayomi.ts`, `cli.ts`):
+- [x] `tests/e2e/` in the root npm package (D30, made in WP-02; `tests/e2e/lib/` already has `pagecode.ts`, `suwayomi.ts`, `cli.ts`):
       add pixelmatch, jpeg-js/pngjs and an E2E vitest config
-- [ ] `Driver` interface + `DesktopDriver` (Xvfb by default, `--visible` uses WSLg; xdotool; ImageMagick screenshot)
-- [ ] `launch()` starts the app in application mode on both drivers (D21). Switch uses the hold-R path recorded in WP-00
+- [x] `Driver` interface + `DesktopDriver` (Xvfb by default, `--visible` uses WSLg; xdotool; ImageMagick screenshot)
+- [x] `launch()` starts the app in application mode on both drivers (D21). Switch uses the hold-R path recorded in WP-00
       (`tests/e2e/device/profile.json`). Desktop passes `--mem-limit` when a scenario asks for it. `launch({mode: 'applet'})` exists only
       for the later `applet-guard` scenario (WP-08): desktop passes `--simulate-applet-mode`, Switch uses the Album path
-- [ ] `SwitchDriver` (sys-autopilot REST with token from `tests/e2e/device/.env`). Deploy+hash-verify, launch (method from WP-00),
+- [x] `SwitchDriver` (sys-autopilot REST with token from `tests/e2e/device/.env`). Deploy+hash-verify, launch (method from WP-00),
       quit, recover-to-home, crash-report diff, fatal-screen detection → clear message asking the owner to press POWER
-- [ ] `EventStream`: tail `test/events.jsonl` (file on desktop, `GET /files?offset=` polling on Switch). `waitFor(pred, timeout)`
-- [ ] Minimal C++ `TestHooks` in `src/app/` emitting `app_start`, `screen`, `idle` (full set comes in WP-08)
-- [ ] Golden compare with masks + `--update-goldens`. Failure artefacts in `tests/e2e/out/<scenario>/`
-- [ ] `smoke.test.ts` passing on desktop and on the Switch
-- [ ] `tools/e2e.sh desktop|switch [scenario]` and CLAUDE.md commands
-- [ ] Short `tests/e2e/README.md`: how to write a scenario (used by every later UI WP)
+- [x] `EventStream`: tail `test/events.jsonl` (file on desktop, `GET /files?offset=` polling on Switch). `waitFor(pred, timeout)`
+- [x] Minimal C++ `TestHooks` in `src/app/` emitting `app_start`, `screen`, `idle` (full set comes in WP-08)
+- [x] Golden compare with masks + `--update-goldens`. Failure artefacts in `tests/e2e/out/<scenario>/`
+- [x] `smoke.test.ts` passing on desktop and on the Switch
+- [x] `tools/e2e.sh desktop|switch [scenario]` and CLAUDE.md commands
+- [x] Short `tests/e2e/README.md`: how to write a scenario (used by every later UI WP)
 
 ## Acceptance
 `tools/e2e.sh desktop smoke` and `tools/e2e.sh switch smoke` both green twice in a row

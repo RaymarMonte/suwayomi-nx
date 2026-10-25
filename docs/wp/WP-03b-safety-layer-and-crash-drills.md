@@ -30,7 +30,7 @@ mode the app supports (D21). The applet-mode refusal screen gets its own drill i
 - [ ] Watchdog thread (main loop stall > 10 s → log + clean exit) with a drill
 
 ## Acceptance
-`crash-drills` green in application mode, twice in a row. Zero new `atmosphere/fatal_errors` files.
+`crash-drills` green in application mode, twice in a row. Zero new `atmosphere/fatal_errors` or `atmosphere/fatal_reports` files.
 `check-elf.sh` fails when a banned symbol is deliberately linked, and passes on the clean build.
 
 ## Sonnet-safe chunks

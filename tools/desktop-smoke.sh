@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Desktop smoke test (WP-01; WP-03's DesktopDriver replaces it): starts the desktop build on a virtual X screen (Xvfb),
+# Desktop smoke test (WP-01; CI's desktop job still uses it, D32. The E2E harness's smoke scenario does more: tools/e2e.sh desktop smoke): starts the desktop build on a virtual X screen (Xvfb),
 # waits until the log says the Hello screen has the focus, saves a screenshot, checks the app is still running, stops it.
 # Runs inside WSL and in CI. Exit code 0 = pass.
 #

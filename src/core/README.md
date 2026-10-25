@@ -6,6 +6,12 @@
 
 **Public headers** (include as `"core/<Name>.hpp"`):
 - `Version.hpp`: `appVersion()` (from CMake), `buildFlavor()` ("test" with `SNX_TEST_HOOKS`, else "release"), `versionLabel()`.
+- `LaunchOptions.hpp`: `parseLaunchOptions(argc, argv)` → `-d`, `--log-file`, `--simulate-applet-mode`, `--mem-limit=<MB>`; never throws,
+  unknown flags and bad values go into `problems`.
+- `RuntimeInfo.hpp`: `LaunchMode` (Application/Applet), `launchModeName()`, `RuntimeInfo {mode, totalMem, usedMem}` (filled by
+  `platform::runtimeInfo()`, input for WP-08's `makeRuntimeProfile()`).
+- `TestEvents.hpp`: test event lines (`line()`, `appStart()`, `screen()`, `idle()`) and `IdleTracker` (when to write `idle`). The app's
+  `src/app/TestHooks` writes them (TESTING.md "Test hooks").
 
 **Depends on:** the C++17 standard library and nlohmann/json 3.12.0 (`third_party/`, include `<nlohmann/json.hpp>`).
 
@@ -13,4 +19,4 @@
 
 **Tests:** `tests/unit/test_core.cpp` (doctest suite `core`). Coverage target ≥ 80% lines (TESTING.md).
 
-**Status:** placeholder from WP-01. Models and GraphQL come in WP-04.
+**Status:** WP-03 added launch options, runtime info and test events. Models and GraphQL come in WP-04.

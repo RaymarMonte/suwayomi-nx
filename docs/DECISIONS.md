@@ -272,3 +272,31 @@ Rejected: one package per tool (duplicated installs), pnpm via corepack in WSL (
 - Because Local Source copies the first page in as the cover when a folder has none, a manga without a cover can't exist. The
   "fallback art" case is the Broken series instead: its page 1 is the corrupt JPEG, so its cover is broken too.
 Rejected: SVG text via sharp/librsvg (depends on installed fonts), OCR of the printed text, QR codes (need a decoder library and more pixels).
+
+**D32 How the E2E harness is built** (WP-03, 2026-10-25). Carries out TESTING.md "Drivers"/"Golden screenshots" and D24. How to use it: `tests/e2e/README.md`.
+- Node + vitest in the root package (D30): `tests/e2e/{drivers,lib,scenarios,goldens}`, own config `vitest.e2e.config.ts` (one scenario at a
+  time, stop at the first failure), `tools/e2e.sh desktop|switch [scenario]` builds the test build first. A scenario only uses the `Driver`
+  interface; `scenario()` always cleans up and saves the events, the app log and the last screen to `tests/e2e/out/<scenario>/`.
+- Pictures: pixelmatch **7.2.0** (pinned; 8.0.0 was three weeks old) for goldens, sharp (already pinned) to decode and encode, instead of
+  jpeg-js/pngjs as WP-03 listed. Masks are painted magenta into both pictures and the stored golden. Screen checks (D24) compute the same RMSE
+  as ImageMagick in JS (equal to 4 decimals on WP-01's screenshots), so the device path needs no ImageMagick.
+- Test events: `core/TestEvents` formats lines and decides `idle` (no running borealis ticking for 3 frames, once per quiet spell);
+  `src/app/TestHooks` writes them open → append → close with a pending queue, because Horizon's file system won't open a file for writing
+  while sys-autopilot reads it (an `idle` got lost that way). The Hello screen's `screen` event comes from `main.cpp` until WP-08.
+- App flags and runtime info: `core::parseLaunchOptions` (never throws, unknown flags are logged), `core::RuntimeInfo`/`LaunchMode`,
+  `platform::runtimeInfo()` (Switch: appletType, heap, mallinfo; desktop: PC RAM or `--mem-limit`, `--simulate-applet-mode`). Applet mode
+  reports profile `none` (D21). Desktop SIGTERM/Ctrl+C = normal quit (exit code 0), which is how the desktop driver quits (no PLUS key there).
+- Desktop driver: Xvfb from `:90`, xdotool; only Enter = A, Escape = B, middle mouse = X, arrows = D-pad exist on desktop borealis, other
+  buttons and sticks throw `NotSupportedError`. Switch driver: steps and screen checks from `device/profile.json`, nxlink launch,
+  `APPLET_MODE_READY = false` until WP-08 (applet mode needs WP-03b's crash handler first).
+- sys-autopilot client: its own HTTP/1.1 over a TCP socket, one request at a time, ≥ 150 ms apart, the PC closes each connection. Bursts
+  (~50 connections in a second) made the console reset every new connection for ~10 s, curl's too; reads, uploads and deletes then back off
+  0.5 → 8 s, inputs are never repeated. Node's fetch and http modules had reported resets on `GET /files` where a plain socket didn't
+  (possibly the same burst effect; not proven). Events are polled every 500 ms, "is the app still there" every 3 s by screenshot.
+- Fatal gate: `atmosphere/fatal_reports/` joins `fatal_errors/` (owner OK 2026-10-25): Atmosphère's fatal screen writes `fatal_reports/`
+  (except when creport caused it), `fatal_errors/` is only written at the next boot. A new file in either writes
+  `tests/e2e/out/STOP-console-fatal.txt`, and the Switch driver refuses to start until the owner deletes it.
+- CI is unchanged for now: the desktop job still runs `tools/desktop-smoke.sh`. A desktop-E2E job is a later chore (whether CI's Mesa renders
+  the goldens within tolerance is untested).
+Rejected: fetch/node:http for the console (resets), reusing connections (the console closes them after 50 ms idle anyway), parallel requests,
+a uinput virtual gamepad on desktop (needs root), keeping the events file open (blocks the console's reads), ImageMagick for screen checks.

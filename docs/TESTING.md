@@ -16,7 +16,9 @@ The real console is the final check, driven by **sys-autopilot**.
 | S | **Safety** | build + host + Switch | `check-elf.sh` gate, SafeFs/allowlist unit tests, fuzzing, crash drills (application mode, + one inside the applet-mode guard) | gate: seconds, drills ~10 min | gate every build. Drills after WP-03b, before releases, after any crash-layer change |
 
 Safety details are in `docs/SAFETY.md` ("How safety is tested"). One rule applies to **every** device run: a new file in
-`atmosphere/fatal_errors/` is a hard failure. The harness stops and asks the owner. It never retries or continues.
+`atmosphere/fatal_errors/` or `atmosphere/fatal_reports/` is a hard failure. The harness stops and asks the owner. It never retries or continues.
+(Atmosphère's "A fatal error occurred" screen writes `fatal_reports/`, unless creport caused it; `fatal_errors/` is written at the next boot
+after a secure-monitor panic. Both watched since WP-03, owner OK 2026-10-25.)
 
 Coverage target: ≥ 80% lines for `core/`, ≥ 60% for `net/ api/ image/`. UI is covered by scenarios, not line coverage.
 
@@ -40,7 +42,13 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
 ```
 (`launch_refused` is the only event a run in applet mode writes, D21.)
 
-- `idle` is emitted when there are no pending net/decode jobs and no running animations. **Tests wait for `idle`, never `sleep`.**
+- WP-03 built `app_start`, `screen` and `idle` (`src/app/TestHooks`, line format and idle rule in `core/TestEvents`). The rest comes
+  with WP-08 and the WPs that own them. `app_start` also has `platform`; on desktop `memTotal` is the PC's RAM or `--mem-limit`.
+- `idle` is emitted when there are no pending net/decode jobs and no running animations (borealis's running tickings) for 3 frames in a row,
+  once per quiet spell: again only after something was busy or a new `screen` came. **Tests wait for `idle`, never `sleep`.**
+- The app empties the file at start and appends each event with open → write → close, never keeping it open: on the Switch a file that one
+  program has open for writing can't be opened by another, so a line the app can't write right now (sys-autopilot is reading the file)
+  stays in a queue and goes out on the next frame. The same lock means `logs/app.log` (kept open by the logger) can only be read after the app quits.
 - Test config `<data>/test/config.json` (uploaded by the harness) can pre-set the server URL/auth, turn off animations,
   fix the language, and skip the first-run screen. That's how we avoid driving the on-screen keyboard.
 - Events are text. Asserting on them costs almost no tokens, while screenshots are images and cost a lot.
@@ -70,22 +78,23 @@ the other two are in no category (the Default category, id 0). Real answers for 
 
 ## Drivers (one scenario, two drivers)
 
-`tests/e2e/drivers/Driver.ts`:
+`tests/e2e/drivers/Driver.ts` (how to write a scenario: `tests/e2e/README.md`):
 
 ```ts
 interface Driver {
-  deploy(buildPath: string): Promise<void>;        // desktop: no-op; switch: PUT /files + verify sha256
-  launch(opts?: {testConfig?: object}): Promise<void>;
-  quit(): Promise<void>;
+  deploy(buildPath: string): Promise<void>;        // desktop: checks the build folder; switch: PUT /files + verify sha256 (skipped if equal)
+  launch(opts?: {mode?, testConfig?, memLimitMb?, args?}): Promise<void>;   // waits for app_start
+  quit(): Promise<void>;                           // desktop: SIGTERM, exit code 0; switch: PLUS, no new crash report
   press(btn: Button, ms?: number): Promise<void>;
   sequence(btns: Button[]): Promise<void>;
   stick(side: 'left'|'right', x: number, y: number, ms: number): Promise<void>;
   touch(x: number, y: number, ms?: number): Promise<void>;   // one finger, screen pixels 0-1279 × 0-719, tap = default 100 ms
   swipe(x1: number, y1: number, x2: number, y2: number, ms: number, steps?: number): Promise<void>;
-  screenshot(): Promise<Buffer>;                   // JPEG 1280×720
-  readFile(path: string, offset?: number): Promise<Buffer>;
+  screenshot(): Promise<Buffer>;                   // 1280×720: PNG on desktop (lossless), JPEG on the Switch
+  readFile(path: string, offset?: number): Promise<Buffer>;   // paths inside the app's data folder (D10), e.g. "logs/app.log"
   writeFile(path: string, data: Buffer|string): Promise<void>;
-  events(): EventStream;                           // tails test/events.jsonl
+  events(): EventStream;                           // tails test/events.jsonl of the current launch
+  dispose(): Promise<void>;                        // end of scenario: stop the app, back to the start state
 }
 ```
 
@@ -98,6 +107,11 @@ interface Driver {
     Wayland first and otherwise opens on the WSLg screen even with `DISPLAY=:99`. Mesa renders in software there, which is fine at 1280×720.
   - A **tap** is `mousedown`, 100 ms, `mouseup`. `xdotool click` is too quick: borealis reads the mouse once a frame and misses it.
     A **drag** is `mousedown`, moves every ~16 ms, `mouseup`. Tap opened a tab, drag scrolled a recycling list (with momentum), arrow keys moved the focus.
+  - Built in WP-03: Xvfb on the first free display from `:90` (under WSLg `/tmp/.X11-unix` is read-only, so Xvfb only has its abstract
+    socket; "ready" = `xdotool getdisplaygeometry` answers). The window is found by the app's process id and gets the focus (borealis ignores
+    input without it). Desktop borealis maps only **Enter = A, Escape = B, middle mouse = X, arrow keys = D-pad**; other buttons and sticks
+    throw `NotSupportedError`. There is no key for PLUS, so `quit()` sends SIGTERM, which the app turns into a normal quit (exit code 0).
+    The app's stdout goes to `out/<scenario>/stdout.txt`.
 - **SwitchDriver**: talks to our sys-autopilot-nx (D19, `tools/sys-autopilot-nx/README.md`) at `http://<switch-ip>:4150`, the IP from
   `tests/e2e/device/.env` together with the Bearer token. Use the IP: `switch-dev.local` resolves on Windows but not inside WSL. Without
   the token every request gets 401, and removed upstream routes get 404.
@@ -114,8 +128,12 @@ interface Driver {
   - **screen checks** (D24): before any press that could start something, crop the screenshot and compare it with a reference crop
     (ImageMagick RMSE < 0.08). Regions and references: `tests/e2e/device/profile.json`, crops in git-ignored `tests/e2e/device/local/`.
     Text-free, cheap, and no model looks at the image
-  - logs/events: `GET /files?path=…&offset=-N` (tail), polled every 250 ms
-  - crash check: list `atmosphere/crash_reports/` and `atmosphere/fatal_errors/` before/after each scenario
+  - events: `GET /files?path=…/test/events.jsonl&offset=<bytes read so far>`, polled every 500 ms. Whether the app is still there is
+    checked every 3 s with a screenshot (hbmenu or the HOME menu on screen = it's gone)
+  - **requests (WP-03, D32):** one at a time, at least 150 ms apart, a fresh connection each that the PC closes once the answer is complete.
+    Bursts of connections (~50 in a second) made the console reset every new one, curl's too, for ~10 s. Reads, uploads and deletes that hit a
+    reset back off (0.5 → 8 s) and try again; `/input` and `/controller` calls never do (a repeated A could start a game)
+  - crash check: list `atmosphere/crash_reports/`, `atmosphere/fatal_errors/` and `atmosphere/fatal_reports/` at launch and after quit/cleanup
   - status: `GET /status` (version, firmware, controller attached, uptime, battery, `screenshots` available, `heap` size/peak/used)
   - the virtual Pro Controller is released before sleep and comes back on the next button call (`controllerAttached` goes false after a wake)
   - launch: get to hbmenu (sequence calibrated in WP-00 and stored in `tests/e2e/device/profile.json`), then either
@@ -125,7 +143,10 @@ interface Driver {
     hbmenu lists `sdmc:/switch/X/` as an app if it holds `X.nro` or exactly one `.nro`, so D10's `suwayomi-nx/suwayomi-nx.nro` shows as the app.
   - quit: PLUS → hbmenu again (~1.3 s). Read the app's log afterwards with `GET /files` (nxlink `-s` can't reach WSL through the NAT).
   - recover: HOME → X → wait for the "Close the software…?" dialog (screen check) → A → back to known state (first HOME tile selected).
-    If a fatal error screen is detected, stop and ask the owner to press POWER.
+    If a fatal error screen is detected, stop and ask the owner to press POWER. WP-03 detects it two ways: a new fatal file (above), or the
+    console no longer answering at all (`ConsoleUnreachableError`, whose message asks the owner to look at the screen and press POWER if it
+    shows the fatal screen). A new fatal file also writes `tests/e2e/out/STOP-console-fatal.txt`, and the SwitchDriver refuses to start
+    while that file exists, so nothing retries until the owner has checked the console and deleted it.
   - **safety allowlist**: the driver can only call the endpoints listed in SAFETY.md S10. Anything else throws before sending.
 
 ## Launch mode (application mode only, D21)
@@ -164,9 +185,11 @@ Initial list, grown per UI WP:
 
 ## Golden screenshots
 - Stored per driver: `tests/e2e/goldens/{desktop,switch}/<scenario>/<step>.png`.
-- Compared with `pixelmatch` (threshold + allowed diff %), with masks for clock/battery/animated regions.
-- Update with `npm run e2e -- --update-goldens` only when a UI change is intended (and say so in the commit).
-- On failure, the harness writes `actual.png`, `diff.png` and the event log tail to `tests/e2e/out/`. Claude opens the diff image only then.
+- Compared with `pixelmatch` (per-pixel threshold 0.1, allowed diff 0.1 % of the pixels by default), with masks for clock/battery/animated
+  regions. Masks are painted magenta into both pictures, and into the stored golden, so the PNG shows what is ignored.
+- Update with `tools/e2e.sh <driver> <scenario> --update-goldens` only when a UI change is intended (and say so in the commit).
+- On failure, the harness writes `<step>.actual.png`, `<step>.diff.png`, the events and the app log to `tests/e2e/out/<scenario>/`.
+  Claude opens the diff image only then.
 
 ## Using sys-autopilot interactively (exploration/debug sessions)
 Add it as an MCP server so Claude can look and press buttons directly:

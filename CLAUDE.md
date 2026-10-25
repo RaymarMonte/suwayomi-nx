@@ -86,7 +86,8 @@ push from WSL, where `gh` is logged in (SETUP.md C). `<repo>` below = the repo p
 - Switch build: `<repo>/tools/build.sh switch` → `~/build/suwayomi-nx/switch/suwayomi-nx.nro`. Also archives .elf + .nro under
   `~/build/suwayomi-nx/archive/<build id>/` and writes `safety-report.txt` (S2/S3 scan, report-only until WP-03b).
 - Device check (console on, Spelunky 2 first on HOME): `<repo>/tools/spike/wp01-hello.sh` (build → app mode → nxlink → screenshot → PLUS → log)
-- App flags: `-d` debug log, `--log-file` → `<data>/logs/app.log` (Switch: `sdmc:/switch/suwayomi-nx/logs/app.log`)
+- App flags: `-d` debug log, `--log-file` → `<data>/logs/app.log` (Switch: `sdmc:/switch/suwayomi-nx/logs/app.log`). Desktop test flags:
+  `--simulate-applet-mode`, `--mem-limit=<MB>`. Desktop quits cleanly on SIGTERM/Ctrl+C. Test builds write `<data>/test/events.jsonl`.
 - Node tooling (D30, run from `<repo>`): `npm ci` once (pinned packages), `npm test` (vitest), `npm run typecheck` (tsc).
   Node runs the `.ts` tools directly. Full fixture-determinism test: `SNX_FULL_FIXTURES=1 npm test`.
 - Test server (D29, Windows Java, port 4568, `tools/test-server/README.md`): `<repo>/tools/test-server/test-server.sh reset`, then
@@ -94,7 +95,10 @@ push from WSL, where `gh` is logged in (SETUP.md C). `<repo>` below = the repo p
   `eval "$(tools/test-server/test-server.sh env)"`. Its files live in `<repo>/.test-server/` (git-ignored).
 - Fixtures: `npm run gen-fixtures -- --out <dir>` (the test server does this itself). Schema: `npm run dump-schema` →
   `tests/fixtures/schema.graphql`. Recorded answers: `tools/record-fixtures/record-all.sh` → `tests/fixtures/responses/`.
-- E2E desktop / device: _TBD in WP-03_
+- E2E (D32, `tests/e2e/README.md` = how to write a scenario): `<repo>/tools/e2e.sh desktop|switch [scenario]` builds the test build, then
+  runs `tests/e2e/scenarios/<scenario>.test.ts` (all of them without a name). Flags: `--update-goldens`, `--visible` (desktop in WSLg),
+  `--no-build`. Output: `tests/e2e/out/<scenario>/`. Desktop smoke ~1 s; Switch smoke ~20 s (console on, HOME menu's first tile = Spelunky 2).
+  A new console fatal file writes `tests/e2e/out/STOP-console-fatal.txt`: the Switch driver refuses to run until the owner deletes it.
 
 ## Docs index
 

@@ -16,7 +16,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-00](wp/WP-00-toolchain-and-device-loop.md) | Device loop spike (borealis demo: deploy, launch, input, touch, screenshot, memory probe) | 00b | Opus | M | **Yes**: console, handheld | done |
 | [WP-01](wp/WP-01-repo-scaffold-and-ci.md) | Repo scaffold, CMake, doctest, CI | 00 | Opus | M | GitHub repo (optional) | done |
 | [WP-02](wp/WP-02-test-server-and-fixtures.md) | Suwayomi test server + fixture manga + schema dump | 01 | Opus | M | Firewall prompt | done |
-| [WP-03](wp/WP-03-e2e-harness.md) | E2E harness: drivers + smoke scenario | 01, 02 | Opus | L | Console on + reachable | todo |
+| [WP-03](wp/WP-03-e2e-harness.md) | E2E harness: drivers + smoke scenario | 01, 02 | Opus | L | Console on + reachable | done |
 | [WP-03b](wp/WP-03b-safety-layer-and-crash-drills.md) | **Safety layer**: crash containment, write jail, banned-API gate, crash drills | 03 | Opus | M | Console; optional control-case OK; D28 stand-ins | todo |
 | [WP-04](wp/WP-04-core-models-graphql.md) | core: models, JSON, GraphQL docs, contract tests | 02 | Opus | M | – | todo |
 | [WP-05](wp/WP-05-net-http-client.md) | net: HttpClient, worker pool, cancellation | 01 ∥04 | Opus | M | – | todo |

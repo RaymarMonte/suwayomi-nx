@@ -97,8 +97,10 @@ A **main-loop watchdog** thread logs and exits cleanly if the UI loop stalls for
 **S9 Power/thermal.** Never touch clocks or performance modes (also in S3). vsync frame pacing. Keep-awake only inside the reader.
 
 **S10 Test-tool safety.** The E2E harness talks to sys-autopilot through an **allowlist**: `GET /status`, `GET /screenshot`, `/input/*`
-(this includes our fork's `/input/touch` and `/input/swipe`, D19), `/controller/*`; `GET /files` only under our folder, `atmosphere/crash_reports`, `atmosphere/fatal_errors`; `PUT`/`DELETE /files` only
-under `/switch/suwayomi-nx/`. **Never**: `/install`, `POST /settings/*`, `POST /network/dns`, `/settings/airplane`. The allowlist is unit-tested.
+(this includes our fork's `/input/touch` and `/input/swipe`, D19), `/controller/*`; `GET /files` (and `/files/hash`) only under our folder, `atmosphere/crash_reports`, `atmosphere/fatal_errors`,
+`atmosphere/fatal_reports` (added in WP-03, owner OK 2026-10-25); `PUT`/`DELETE /files` only
+under `/switch/suwayomi-nx/`. **Never**: `/install`, `POST /settings/*`, `POST /network/dns`, `/settings/airplane`. The allowlist is unit-tested
+(`tests/e2e/drivers/autopilot.ts` + `.test.ts`): paths are checked segment by segment (no `..`, `.`, `//`, backslashes, look-alike folders).
 
 **S11 No self-update in the MVP.** If we add it later: download to a temp file, verify size + SHA-256, atomic rename, keep the previous
 `.nro` as `.bak`, and touch nothing else.
@@ -125,12 +127,12 @@ would be a system fatal. So that path stays tiny:
 | Fuzz targets (S6) | host, 60 s each in CI, longer on demand | parsers/decoders survive garbage |
 | Atomic-write kill test (S5) | desktop | kill the app mid-save 100× → config always loads |
 | **Crash drills** | device, **application mode** (+ one drill inside the S12 guard in applet mode) | see below |
-| fatal-errors gate | every device scenario | any new file in `atmosphere/fatal_errors/` = **hard failure, stop the run, tell the owner** |
+| fatal-errors gate | every device scenario | any new file in `atmosphere/fatal_errors/` or `atmosphere/fatal_reports/` = **hard failure, stop the run, tell the owner** (the harness writes `tests/e2e/out/STOP-console-fatal.txt` and won't run again until the owner deletes it) |
 
 **Crash drills** (test builds only, triggered through the test config): null-pointer write, misaligned access, stack overflow on a
 worker thread, `std::terminate`, `diagAbortWithResult` (simulated GPU error), 2 GB allocation, and an exit request in the middle of a cache write.
 For each one, in application mode (D21), the drill passes only if: the app exits, `logs/crash-*.txt` exists and can be parsed,
-**no new `atmosphere/fatal_errors` file appears**, the console is back at hbmenu/HOME (screenshot check), sys-autopilot still answers,
+**no new `atmosphere/fatal_errors` or `fatal_reports` file appears**, the console is back at hbmenu/HOME (screenshot check), sys-autopilot still answers,
 and the next launch enters safe mode. The null-pointer drill also runs once inside the applet-mode guard screen (S12, WP-08), because that's
 the one place where a crash would still be a system fatal. Same pass rules (the safe-mode check uses the next launch in application mode).
 **Optional control case**, only with the owner's explicit OK and the owner watching: the same null-pointer drill with our handler
