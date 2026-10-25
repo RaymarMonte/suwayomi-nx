@@ -9,6 +9,7 @@ set(SNX_BOREALIS_RESOURCES ${PROJECT_SOURCE_DIR}/library/borealis/resources)
 
 set(SNX_APP_SOURCES
     main.cpp
+    TestHooks.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/hello/HelloActivity.cpp
 )
 if (PLATFORM_SWITCH)

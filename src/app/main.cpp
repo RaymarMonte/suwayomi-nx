@@ -1,15 +1,16 @@
-// suwayomi-nx entry point. WP-01: starts borealis and shows the Hello screen.
-// Later WPs put things in front of borealis, in this order: crash handler (WP-03b), logger + test events (WP-03),
-// applet-mode guard (WP-08, D21).
+// suwayomi-nx entry point. WP-01: starts borealis and shows the Hello screen. WP-03: launch flags, runtime info and test events.
+// Later WPs put things in front of borealis, in this order: crash handler (WP-03b), logger (WP-08), applet-mode guard (WP-08, D21).
 
 #include <sys/stat.h>
 
 #include <borealis.hpp>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 #include <string>
 
+#include "app/TestHooks.hpp"
+#include "core/LaunchOptions.hpp"
 #include "core/Version.hpp"
 #include "platform/Platform.hpp"
 #include "ui/hello/HelloActivity.hpp"
@@ -18,25 +19,9 @@ using namespace brls::literals;  // for _i18n
 
 namespace {
 
-// Command-line flags (desktop command line, or nxlink --args "..." on the Switch).
-struct Options {
-    bool debugLog = false;   // -d: debug log level
-    bool logToFile = false;  // --log-file: also write the log to <data>/logs/app.log, so device runs can read it back
-};
+constexpr std::uint64_t kBytesPerMb = 1024ULL * 1024ULL;
 
-Options parseOptions(int argc, char* argv[]) {
-    Options options;
-    for (int i = 1; i < argc; i++) {
-        if (std::strcmp(argv[i], "-d") == 0) {
-            options.debugLog = true;
-        } else if (std::strcmp(argv[i], "--log-file") == 0) {
-            options.logToFile = true;
-        }
-    }
-    return options;
-}
-
-// Stop-gap until WP-03's logger and WP-03b's SafeFs: one fixed file inside our own folder (D10, D14), never a path
+// Stop-gap until WP-08's logger and WP-03b's SafeFs: one fixed file inside our own folder (D10, D14), never a path
 // from the command line. Returns nullptr if it can't be opened (the app then logs to stdout only).
 std::FILE* openLogFile() {
     const std::string dir = snx::platform::dataDir();
@@ -54,7 +39,7 @@ std::FILE* openLogFile() {
 }  // namespace
 
 int main(int argc, char* argv[]) {
-    const Options options = parseOptions(argc, argv);
+    const snx::core::LaunchOptions options = snx::core::parseLaunchOptions(argc, argv);
     if (options.debugLog) {
         brls::Logger::setLogLevel(brls::LogLevel::LOG_DEBUG);
     }
@@ -67,6 +52,21 @@ int main(int argc, char* argv[]) {
 
     brls::Logger::info("suwayomi-nx {} ({} build, {})", std::string(snx::core::appVersion()),
                        std::string(snx::core::buildFlavor()), std::string(snx::platform::platformName()));
+    for (const std::string& problem : options.problems) {
+        brls::Logger::warning("command line: {}", problem);
+    }
+
+    snx::platform::setDesktopTestFlags(options.simulateAppletMode, options.memLimitMb * kBytesPerMb);
+    snx::platform::installQuitSignalHandlers();
+    const snx::core::RuntimeInfo runtime = snx::platform::runtimeInfo();
+    brls::Logger::info("launch mode: {}, memory: {} MiB, {} MiB in use", std::string(snx::core::launchModeName(runtime.mode)),
+                       runtime.totalMem / kBytesPerMb, runtime.usedMem / kBytesPerMb);
+
+    // Only the Full profile exists (D21). Applet mode gets none: WP-08's guard will refuse to run there.
+    // Until then the Hello app simply carries on, and app_start says "applet" / "none".
+    const char* profile = runtime.mode == snx::core::LaunchMode::Application ? "full" : "none";
+    snx::app::testhooks::start(snx::platform::dataDir());
+    snx::app::testhooks::appStart(runtime, profile);
 
     brls::Platform::APP_LOCALE_DEFAULT = brls::LOCALE_AUTO;
     if (!brls::Application::init()) {
@@ -80,10 +80,18 @@ int main(int argc, char* argv[]) {
     brls::Application::setGlobalQuit(true);
 
     brls::Application::pushActivity(new snx::ui::HelloActivity());
+    // WP-08 moves this into the screens themselves, once there is more than one.
+    snx::app::testhooks::screen("Hello");
 
     while (brls::Application::mainLoop()) {
+        snx::app::testhooks::onFrame();
+        if (snx::platform::quitRequested()) {
+            brls::Logger::info("suwayomi-nx: quit requested by a signal");
+            brls::Application::quit();
+        }
     }
 
     brls::Logger::info("suwayomi-nx: main loop ended, exiting");
+    snx::app::testhooks::finish();
     return EXIT_SUCCESS;
 }

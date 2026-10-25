@@ -13,11 +13,13 @@
     "gen-fixtures": "node tools/gen-fixtures/gen-fixtures.ts",
     "seed": "node tools/test-server/seed.ts",
     "dump-schema": "node tools/dump-schema/dump-schema.ts",
-    "record-fixtures": "node tools/record-fixtures/record-fixtures.ts"
+    "record-fixtures": "node tools/record-fixtures/record-fixtures.ts",
+    "e2e": "vitest run -c vitest.e2e.config.ts"
   },
   "devDependencies": {
     "@types/node": "22.20.5",
     "graphql": "17.0.2",
+    "pixelmatch": "7.2.0",
     "sharp": "0.35.5",
     "typescript": "7.0.2",
     "vitest": "5.0.5"

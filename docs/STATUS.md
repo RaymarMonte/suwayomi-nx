@@ -1,26 +1,30 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
 
 **Current phase:** 0 – Foundations
-**Next WP:** WP-03 E2E harness (Opus). WP-00a, WP-00b, WP-00, WP-01 and WP-02 are done.
+**Next WP:** finish WP-03 (paused, see below). WP-00a, WP-00b, WP-00, WP-01 and WP-02 are done.
 
-## Last session (2026-10-25, WP-02, Opus) — done
-- **Acceptance met:** `tools/test-server/test-server.sh reset` + `start` = **~8–10 s** (Java answers in ~4.5 s, then `seed.ts`) with the fixture
-  library: 6 manga, categories Reading / Long series. Fixtures: 665 files, 16 MB, same digest every run (Linux disk, Windows disk, test).
-  Schema (363 types) + 17 recorded answers committed; re-recording on a fresh server gives identical files. ❔ list in SUWAYOMI-API.md resolved.
-  Reachable from WSL (`http://<windows-host>:4568`, the default gateway), via the PC's LAN address, and from the owner's phone.
-  `npm test` 14/14 (page code read back from a scaled 1280×720 JPEG screenshot), `npm run typecheck` clean, `tools/build.sh tests` green.
-- **Decisions:** D29 test server (pinned v2.4.2366, files in `<repo>/.test-server/`, Java started via WMI), D30 Node tooling (root npm package,
-  not pnpm; Node runs `.ts` directly; new CI job `node`), D31 fixture pages + colour code. WP-03's line about a pnpm package now points to D30.
-- **Found:** Claude Code's sandbox hides files that Windows programs write outside the project folder from WSL (hence `.test-server/` in the repo).
-  Firewall: the PC's Ethernet is classed Public; the owner added a TCP 4568 LocalSubnet rule (all profiles) and switched off two old
-  "OpenJDK Platform binary" Public **Block** rules for jdk-21.0.11 (SETUP.md A.4). After a Java update, check for a new Block rule.
-- **For WP-04/05/06 (SUWAYOMI-API.md):** `pageCount` is -1 until `fetchChapterPages` ran, and progress sent before that is saved as 0; the cap is
-  `pageCount`. Fields of one request run concurrently. ui_login without a token = HTTP 200 + "Unauthorized" GraphQL error; basic = HTTP 401.
-  Error messages contain a Java stack trace after the first line. `category(id: 0)` = manga in no category. Page URLs use the chapter's sourceOrder.
-- **CI green** (run 40171940065): host, desktop, switch and the new `node` job (14/14, full fixture set twice, 17 s). CLAUDE.md's "pause at 92 %" rule is committed too.
+## Paused (2026-10-25, WP-03, Opus) at the 5-hour usage limit (resets 11:10 UTC). Last test runs all green, committed as WIP.
+- **Done, green:** app test hooks (`src/app/TestHooks`, events queued and appended per frame), `core/LaunchOptions` (`--simulate-applet-mode`,
+  `--mem-limit=`), `core/RuntimeInfo` + `platform::runtimeInfo()` (Switch: appletType, heap, mallinfo), SIGTERM = clean quit on desktop.
+  Harness: `tests/e2e/drivers/` (Driver, DesktopDriver, SwitchDriver, autopilot.ts with the S10 allowlist, screencheck.ts), `lib/events.ts`,
+  `lib/golden.ts` (pixelmatch 7.2.0 + sharp), `lib/scenario.ts`, `scenarios/smoke.test.ts` + desktop-only `harness.test.ts`, goldens for both
+  drivers, `tools/e2e.sh`, `npm run e2e`. **Acceptance met:** desktop smoke green many times (~1 s); `tools/e2e.sh switch smoke` green twice in a
+  row (14–22 s); applet flag checked (`harness-applet-flag`); a painted golden fails with `hello.diff.png`; a killed app fails in < 1 s.
+  C++ unit tests, 96 Node tests, typecheck green. Owner OK: `atmosphere/fatal_reports/` joins the S10 read list as a second hard-stop folder.
+- **Exact next steps:** (1) `tests/e2e/README.md` (how to write a scenario; Sonnet-safe). (2) TESTING.md: Driver interface (PNG desktop /
+  JPEG Switch, `dispose()`, desktop keys only A=Enter B=Esc X=middle mouse + D-pad, quit = SIGTERM), fatal_reports, events written
+  open-append-close with a pending queue, request pacing. (3) SAFETY.md S10 + fatal gate: add `fatal_reports`. (4) CLAUDE.md "E2E desktop /
+  device" command line. (5) DECISIONS D32 harness design (sharp instead of jpeg-js/pngjs; own HTTP client; pacing; `APPLET_MODE_READY` flag in
+  SwitchDriver for WP-08). (6) core/platform READMEs list the new headers. (7) Tick WP-03 checklist, ROADMAP status, commit `WP-03: ...`.
+  Optional: check "app closed mid-test" once on the Switch; `--visible` (WSLg) is untested.
+- **Found (for D32/TESTING):** (a) the console resets new connections for ~10 s after bursts (~50/s), curl's too. Fix: one request at a time,
+  ≥ 150 ms apart, the PC closes each connection, reads back off up to 8 s; inputs never retried. (b) Horizon FS: a file open for writing can't
+  be read by sys-autopilot and vice versa, so the app's events go through a pending queue (an `idle` got lost before), and `app.log` is read
+  only after the app quits. (c) Node fetch/http reported resets that a plain socket didn't; the client now speaks HTTP over `net` itself.
+  (d) Atmosphère's fatal screen writes `atmosphere/fatal_reports/` (not when creport caused it); `fatal_errors/` is written at the next boot.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM, 24 threads. PC on Ethernet, DHCP, network classed Public (LAN address: `test-server.sh status`). WSL 3.0.3 + WSLg, Ubuntu 24.04. Java 21, git. devkitPro + Node 22 in WSL (SETUP.md A). Run WSL commands
-  with `wsl.exe -d Ubuntu --exec bash -lc '…'` (not `--`); from Git Bash set `MSYS_NO_PATHCONV=1`. Rancher Desktop's Docker daemon was not responding.
+  with `wsl.exe -d Ubuntu --exec bash -lc '…'` (not `--`); from Git Bash set `MSYS_NO_PATHCONV=1`. Under WSLg `/tmp/.X11-unix` is read-only (Xvfb uses its abstract socket).
 - Builds (from `/mnt/c`): unit tests ~10 s, desktop ~50 s, Switch ~55 s clean; `.nro` 2.5 MB, `.elf` 52 MB (debug info), 0 warnings in our code.
   Router: DHCP reservation for the Switch (SETUP.md B.6); WSL reaches it by IP (`.local` 10× slower). Backups (WP-00a): `C:\Users\JohnDoe\SwitchBackup\2026-10-22\` (`sd\` + `hekate-backup\` emuMMC, SHA-256 checked). sysMMC NAND: owner's external drive.
 ## Console facts
@@ -29,12 +33,11 @@
 - SD: **FAT32**, 64 KB clusters, 189.6 GB partition (~88 GB free). `exosphere.ini`: blank_prodinfo_emummc=1. DNS mitm on. hbmenu 3.6.1, nx-hbloader 2.4.5.
 - Sysmodules at boot: sys-clk, emuiibo, MissionControl, sys-patch (exits), nx-ovlloader + **sys-autopilot-nx `4200000000004150`** (`log = false`).
 - **sys-autopilot-nx:** `http://<switch-ip>:4150` (DHCP reservation). Heap 304,768 B idle. Screenshot ~190 KB in 0.1–0.7 s (fails during app switches: retry).
-- Baseline: `fatal_errors` empty, `crash_reports` 17 files + 10 in `dumps/` (unchanged after WP-01). Console clock is off: compare lists, not dates.
+- Baseline: `fatal_errors` empty, `fatal_reports` only `dumps/`, `crash_reports` 17 files + 10 in `dumps/`. Console clock is off: compare lists, not dates.
 - Auto-Sleep: Never. Airplane mode must be off. **App mode:** Spelunky 2 must be the **first HOME tile**; hold R + A, then A on "Who is using
   the software?", hbmenu ~3.7 s later. Album → hbmenu shows a red "Applet Mode" badge; HOME leaves it (PLUS doesn't).
-- **Memory (probe):** application mode: heap **3,184 MiB**. Album: appletType 2, heap 266 MiB (WP-21 only).
+- **Memory:** application mode: heap **3,181–3,184 MiB** (app_start memTotal 3,336,155,136). Album: appletType 2, heap 266 MiB (WP-21 only).
 ## Open questions for the owner
 - A DHCP reservation for the PC (like the Switch has) would keep the test-server URL stable for device tests (WP-05). Owner's choice.
-Answered 2026-10-25: personal details in docs (D23), commit email (noreply), banned library functions (D28), publish repo: yes.
 ## Escalation
 (none)
