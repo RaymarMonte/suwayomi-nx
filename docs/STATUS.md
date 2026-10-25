@@ -9,7 +9,7 @@
   passed twice (~24 s; app mode → nxlink → SHA-256 → screenshot → PLUS → log → no new crash/fatal files; reference crop
   `tests/e2e/device/local/hello-header.png` cut from run 1, checked by eye). Coverage 90% lines.
 - Repo: public `RaymarMonte/suwayomi-nx`, noreply commits (repo-local git config). `gh` 2.103.2 in WSL, logged in: push from WSL (SETUP.md C).
-  CI: `.github/workflows/ci.yml`, jobs host / desktop / switch (D27). Docs write `<switch-ip>` and `JohnDoe` (user name) since D23.
+  **CI green** (run 40158713560): host / desktop / switch, D27 (CI's Switch compiler: devkitA64 r29.2, gcc 15.2). Docs: `<switch-ip>`, `JohnDoe` (D23).
 - **Decisions:** D25 layout + borealis pin `5f08b28` (only its glfw submodule), D26 two nlohmann/json copies kept apart, D27 CI,
   D28 (owner OK) banned functions pulled in by libraries get `ld --wrap` do-nothing stand-ins → **WP-03b builds them**. D23 answered.
 - Safety baseline: `docs/safety-baseline.txt`. Two S3 hits, both never called: libnx `appletInitialize` → `apmSetPerformanceConfiguration`
