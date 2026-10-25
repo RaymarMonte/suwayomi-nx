@@ -17,7 +17,7 @@
 - **For WP-04/05/06 (SUWAYOMI-API.md):** `pageCount` is -1 until `fetchChapterPages` ran, and progress sent before that is saved as 0; the cap is
   `pageCount`. Fields of one request run concurrently. ui_login without a token = HTTP 200 + "Unauthorized" GraphQL error; basic = HTTP 401.
   Error messages contain a Java stack trace after the first line. `category(id: 0)` = manga in no category. Page URLs use the chapter's sourceOrder.
-- CI's new `node` job (also checks fixture determinism on another machine) runs on the next push. CLAUDE.md's "pause at 92 %" rule is committed too.
+- **CI green** (run 40171940065): host, desktop, switch and the new `node` job (14/14, full fixture set twice, 17 s). CLAUDE.md's "pause at 92 %" rule is committed too.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM, 24 threads. PC on Ethernet, DHCP, network classed Public (LAN address: `test-server.sh status`). WSL 3.0.3 + WSLg, Ubuntu 24.04. Java 21, git. devkitPro + Node 22 in WSL (SETUP.md A). Run WSL commands
   with `wsl.exe -d Ubuntu --exec bash -lc '…'` (not `--`); from Git Bash set `MSYS_NO_PATHCONV=1`. Rancher Desktop's Docker daemon was not responding.
