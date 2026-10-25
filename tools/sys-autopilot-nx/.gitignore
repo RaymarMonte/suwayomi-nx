@@ -1,0 +1,11 @@
+build/
+dist/
+*.nsp
+*.nso
+*.npdm
+*.elf
+*.nro
+*.nacp
+*.map
+node_modules/
+.DS_Store

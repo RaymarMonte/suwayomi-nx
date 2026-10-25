@@ -1,0 +1,37 @@
+<!-- WP-01 Hello screen (src/ui/hello/HelloActivity). The header title and icon are attributes of the content view (the box),
+     not of the AppletFrame. The box is focusable (with the highlight hidden) because borealis only handles buttons,
+     PLUS-to-quit included, when some view has the focus. -->
+<brls:AppletFrame
+    iconInterpolation="linear"
+    footerHidden="false">
+
+    <brls:Box
+        id="hello/box"
+        title="@i18n/app/title"
+        icon="@res/icon/icon.png"
+        width="auto"
+        height="auto"
+        grow="1.0"
+        axis="column"
+        justifyContent="center"
+        alignItems="center"
+        focusable="true"
+        hideHighlight="true"
+        hideClickAnimation="true">
+
+        <brls:Label
+            id="hello/text"
+            text="@i18n/hello/text"
+            fontSize="48"
+            horizontalAlign="center" />
+
+        <brls:Label
+            id="hello/version"
+            text=""
+            fontSize="24"
+            marginTop="24"
+            horizontalAlign="center" />
+
+    </brls:Box>
+
+</brls:AppletFrame>

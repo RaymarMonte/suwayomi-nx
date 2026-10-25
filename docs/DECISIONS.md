@@ -1,0 +1,229 @@
+# Decisions log
+
+Short records so later sessions don't re-argue settled questions. Change one only with the owner's OK.
+Format: ID, decision, why, alternatives rejected.
+
+**D1 UI framework: `xfangfang/borealis`** (Apache-2.0, maintained fork of natinusala/borealis).
+Why: Switch-native look, automatic controller navigation, recycling lists, swkbd, i18n, storage helpers,
+and a desktop build (PLATFORM_DESKTOP) so the whole UI can be tested on the PC. Used by Switchfin, wiliwili, Moonlight-Switch.
+Rejected: Plutonium (Switch-only, no desktop build), raw SDL2 (we'd rebuild navigation/lists ourselves),
+Dear ImGui (not controller-first), natinusala/borealis upstream (less maintained; mangadex-reader had to patch two bugs).
+
+**D2 Build system: CMake**, from `xfangfang/borealis_template`. Targets: `PLATFORM_DESKTOP` (Linux in WSL) and `PLATFORM_SWITCH`.
+Switch graphics backend: deko3d (`-DUSE_DEKO3D=ON`). Fall back to OpenGL only if deko3d causes a blocking bug.
+
+**D3 Language: C++17**, exceptions and RTTI on (borealis requires it).
+
+**D4 Server API: GraphQL** at `/api/graphql` for everything except image bytes. Image bytes come from the page URLs that
+`fetchChapterPages` returns, plus thumbnail URLs. JSON: nlohmann/json. Query documents live as `.graphql` files and are
+embedded at build time, so contract tests can validate the same files against the schema.
+Rejected: REST v1 (legacy), OPDS-PSE (read-only, misses library and progress features).
+
+**D5 HTTP: libcurl** (devkitPro `switch-curl`, system curl on desktop) behind our own `HttpClient` interface.
+One network thread drives a curl multi handle (applet mode only has 2 socket sessions). Concurrency comes from the runtime profile (D12),
+with request priorities (visible covers > current reader pages > prefetch).
+
+**D6 Images: decode JPEG/PNG/WebP on the device** (stb_image or libjpeg-turbo, plus libwebp), downscaled at decode time to screen size,
+with tall images split into tiles. `?format=image/jpeg` server-side conversion is an optional setting, off by default.
+
+**D7 Tests: doctest** for C++ (single header, fast), **Node + TypeScript + vitest** for the E2E harness and contract tests
+(Node and pnpm are already installed; sys-autopilot's own tooling is pnpm-based). Python isn't installed and isn't needed.
+
+**D8 Licence: Apache-2.0 (confirmed by the owner 2026-10-21).** It's compatible with borealis and Switchfin.
+A GitHub repo will be created (it enables CI). It's public (owner, 2026-10-25, D23).
+Consequence: never copy code from GPL projects (wiliwili, komga-switch). Reading them for ideas is fine.
+
+**D9 Supported Suwayomi: the stable release current when the schema is dumped in WP-02** (v2.4.2366 as of 2026-09-30) and newer.
+The app checks `aboutServer` and shows a warning on older servers. Preview-only features (multi-user `ui_login`) are supported
+but optional.
+
+**D10 On-SD layout:** `sdmc:/switch/suwayomi-nx/` → `suwayomi-nx.nro`, `config.json`, `cache/`, `logs/`, `test/` (test builds only).
+Desktop uses the same layout under `./data/`.
+
+**D12 Two runtime profiles, chosen at startup: `Full` (application mode) and `Lite` (applet mode).**
+**Amended by D21 (2026-10-22): only `Full` is used for now, and the app refuses to run in applet mode. The `Lite` parts below wait for WP-21.**
+**Amended 2026-10-25 (WP-00, owner OK): the memory inputs.** `svcGetInfo(UsedMemorySize)` can't be used for budgets: libnx reserves the
+whole heap at start-up, so it already reads 3,185 of 3,189 MiB before the app allocates anything (measured, application mode). So
+`totalMem` = the heap libnx got (`fake_heap_end - fake_heap_start`: 3,184 MiB in application mode on the owner's v1 console) and
+`usedMem` = the bytes our allocator has handed out (`mallinfo().uordblks`). Desktop: `--mem-limit=<MB>` sets `totalMem`.
+Detection: `appletGetAppletType()`. `AppletType_Application` or `AppletType_SystemApplication` → Full, anything else → Lite.
+This is the same check hbmenu and borealis's `isApplicationMode()` use. Budgets aren't hard-coded per mode. They come from
+a pure function `makeRuntimeProfile(mode, totalMem, usedMem)` in `core`, fed by the heap size and the allocator's in-use bytes (see the
+2026-10-25 amendment above), because applet-mode memory shrinks further when a game is suspended in the background. Lite never blocks the user (unlike Switchfin's hint
+screen). It shows a dismissible tip explaining how to launch in full mode. Desktop builds pick a profile with `--profile=lite|full`
+(default full) and can cap memory with `--mem-limit=<MB>`, so both profiles are tested on the PC too.
+Rejected: refusing to run in applet mode (unfriendly), one-size-fits-all budgets (either wastes full mode or crashes lite mode).
+
+**D13 Crash containment is mandatory** (SAFETY.md S1/S2): our own `__libnx_exception_handler` (with `__nx_exception_stack`),
+`diagAbortWithResult` override and `std::set_terminate`, all ending in a logged, clean `exit()`. `fatalThrow*` is banned by a build gate.
+Why: Atmosphère's creport turns crashes of non-application processes (our app in applet mode) into a system fatal, and deko3d routes
+GPU failures through `diagAbortWithResult` even in release. Pattern follows nxdumptool/Goldleaf (GPL, so we reimplement, not copy).
+
+**D14 The app never writes outside `sdmc:/switch/suwayomi-nx/`** and never calls system-writing APIs (SAFETY.md S3/S4 list), enforced
+by `SafeFs` plus an ELF symbol gate. Any exception needs the owner's OK. Why: that's the only realistic way a userland reader app could brick
+or soft-brick a console.
+
+**D15 No in-app self-update in the MVP** (SAFETY.md S11). Updates are a manual `.nro` copy. Revisit after v0.1 with the safeguards listed.
+
+**D11 Development environment: WSL2 Ubuntu 24.04** for host toolchain, devkitPro, Xvfb/WSLg, and Node harness.
+**Suwayomi *test* server runs on Windows** (Java 21 is installed) on port **4568**, so the Switch can reach it through the LAN.
+It's kept separate from the owner's real server so tests never touch the real library.
+
+**D16 Touch first, controller second** (owner, 2026-10-21). Handheld touch is the main way to use the app. Every screen must work fully
+by touch from the first UI WP (WP-08) on. Touch isn't a WP-19 polish item any more. Controllers still work everywhere, because docked mode has no
+touchscreen and borealis gives controller navigation for free.
+Basics: touch targets big enough for a thumb (aim for ≥ 72 px at 1280×720), tap to open, drag/flick to scroll lists. Reader: tap the left/right
+edge for previous/next page (mirrored for right-to-left), tap the centre for the menu, swipe to turn pages. Pinch or double-tap zoom and drag-to-pan come in WP-13.
+Testing: the desktop build uses the mouse as one finger. Multi-finger gestures (pinch) go through a test hook that injects touch events into the app.
+On the console, automated touch comes from our own sys-autopilot build (D19, built in WP-00b). Until it works, each UI WP has a short manual touch checklist.
+Rejected: controller-first with touch added in WP-19 (the original plan).
+
+**D17 Stock clocks, no overclocking** (owner, 2026-10-21). The app must run smoothly at Nintendo's stock clocks on the oldest model (v1 Erista):
+CPU 1020 MHz, GPU 307–384 MHz handheld / 768 MHz docked. The app never changes clocks (not even the official CPU boost mode) and never depends on
+sys-clk. All performance checks (page turns, list scrolling, decode time) are measured at stock clocks.
+Why: most users don't overclock, and overclocking costs battery and heat. Consequences: decode stays off the main thread, images are downscaled
+at decode time (D6), WP-11/WP-13 measure frame time, and WP-03b adds the clock-setting APIs to the banned-symbol gate.
+
+**D18 The owner's real server and network** (owner, 2026-10-21). Latest stable Suwayomi-Server on the owner's always-on laptop.
+Auth: `basic_auth` (recommended: it's the simplest, every client supports it, and the app supports all modes anyway). Plain HTTP on the home Wi-Fi.
+Anyone on the same Wi-Fi could read a Basic-auth password sent over HTTP, so use one that isn't used anywhere else.
+Tailscale: there's no Tailscale client for the Switch, so the Switch reaches the server only on the home network. Away from home, the options are,
+in order: offline reading (WP-18, download at home and read anywhere); a travel router with Tailscale built in that lets devices on its Wi-Fi reach
+the tailnet (no app change, but check the router supports it); Tailscale Funnel (a public HTTPS URL, which needs our HTTPS support from WP-19 and a strong password).
+Consequences: the MVP is HTTP + basic auth on the LAN. HTTPS stays optional (WP-19). Offline reading matters more. Tests still never touch this server (D11).
+
+**D19 sys-autopilot: use our own slim fork that can inject touch** (owner OK 2026-10-21, after comparing it with "try stock 1.5.0 first").
+It's called **sys-autopilot-nx** and lives in this repo at `tools/sys-autopilot-nx/`: upstream's code copied in at a pinned commit (not a git submodule),
+so there's only one repo to manage. It's built in WP-00b. We maintain it ourselves, so a future firmware that breaks it means we rebuild or fix it.
+Why: (1) Stock v1.5.0 needs about 6.7 MB of the small memory pool Atmosphère keeps for background system modules. On FW 22, with other
+sysmodules installed, that has crashed `am` at boot (upstream PR #30, tested on a v1 Erista like the owner's). Open upstream issues also report
+a `/screenshot` crash on FW 22.1.0 + AMS 1.11.2 emuMMC (#28) and a boot crash on FW 17 (#27). (2) Stock includes endpoints we never want on a
+test console: title install (to internal NAND too), DNS changes, airplane mode, power, system settings. (3) It can't inject touch, and touch is our main input (D16).
+Plan: fork TooTallNate/sys-autopilot (MIT, declared in its package.json) at a pinned commit. Shrink its heap and buffers (the idea from PR #30,
+reviewed by us, not merged blind). Compile out the installer, settings, DNS, power and titles code. Add `POST /input/touch` (tap or hold at x,y)
+and `POST /input/swipe` (x1,y1 → x2,y2 over N ms) plus matching MCP tools, using libnx `hiddbgSetTouchScreenAutoPilotState` /
+`hiddbgUnsetTouchScreenAutoPilotState`. We write that code ourselves from the libnx header. sys-botbase does the same thing but it's GPL, so we only read it.
+Keep the same title ID `4200000000004150`, so the fork replaces stock cleanly. Host tests for the new argument parsing, following upstream's `tests/run.sh`.
+The two touch endpoints join the SAFETY.md S10 allowlist.
+Rejected: stock v1.5.0 as-is (crash reports on FW 22). Waiting for upstream to merge PR #30 (it's open and unreviewed).
+
+**D20 Node runs inside WSL (Node 22 LTS via nvm)** (WP-00a, 2026-10-21; SETUP.md left this to WP-00a). The E2E harness, contract tests and fixture
+generator use Node installed in WSL Ubuntu with nvm, not Windows Node. Today: nvm v0.40.8 + Node v22.23.4.
+Why: the desktop driver starts the Linux build of the app and drives it with xdotool/Xvfb, and the test server, fixtures and build dirs all live in WSL.
+Windows Node would cross the WSL boundary on every step and need path translation. nvm needs no sudo and pins the version per user.
+Upstream sys-autopilot's `tests/run.sh` also runs a Node test when `node` is on the path.
+Rejected: Windows Node (boundary crossing, path translation), Ubuntu's apt `nodejs` (v18, too old), NodeSource apt repo (another root apt repo, sudo for every upgrade).
+
+**D21 Application mode only. The app refuses to run in applet mode** (owner OK 2026-10-22). Amends D12. Owner: "Making the app available in
+applet mode seems to make things complex. Let's leave it off for now and make it nice to have."
+- The app supports only application mode: hold R while starting an installed game → hbmenu → Suwayomi NX (or an hbmenu forwarder).
+  All tuning, budgets and device tests use this mode. Applet mode (from the Album) becomes a later nice-to-have, WP-21 in ROADMAP.md.
+- **Applet-mode guard.** Right after the logger and the crash handler's set-up, `main()` asks `platform::runtimeInfo()` for the mode.
+  On Switch that's `appletGetAppletType()`: `AppletType_Application` or `AppletType_SystemApplication` → run normally (the same check as hbmenu and borealis). Anything else, unknown values
+  included → applet mode: log one line, emit a `launch_refused` test event, show one short screen, then return from `main()` normally, which goes
+  back to hbmenu. Screen text: "Suwayomi NX can't run from the Album yet. It needs the full memory a game gets. To open it: on the HOME Menu, hold R
+  and start any game. Keep holding R until the Homebrew Menu appears, then choose Suwayomi NX. Press any button or tap the screen to close."
+  (Text approved by the owner 2026-10-25.) It closes on any button, a tap, or by itself after 60 s. Built in WP-08.
+- **The guard must be crash-safe**, because in applet mode any crash is a system fatal (SAFETY.md). It runs before borealis, the GPU, network,
+  images and config. It draws with libnx's plain text console, writes its log line before showing anything, and if any step fails it just exits.
+  Our crash handler (D13) is active from the first instruction, so it covers the guard too. Rules: SAFETY.md S12.
+- **`RuntimeProfile` stays.** Keep the struct, its `mode` field and `makeRuntimeProfile(mode, totalMem, usedMem)`, but build and use only `Full`.
+  Every module still reads its limits from the profile, never from constants: budgets still depend on measured memory and on safe mode
+  (after a crash: memory budgets halved, prefetch off; this replaces "Lite budgets" in SAFETY.md S1). So applet support can come back later
+  as one more profile, not a rewrite. ARCHITECTURE.md keeps the `Lite` column as a reference for WP-21.
+- Desktop: `--profile=lite|full` goes away. `--mem-limit=<MB>` stays (low-memory tests). New test flag `--simulate-applet-mode` makes the desktop
+  build act as if it was started from the Album, so the guard is tested on the PC.
+- Tests: every scenario runs in application mode only. Applet mode is used only by the `applet-guard` scenario (desktop flag, and the console
+  via the Album), which includes one crash drill inside the guard screen, because that's the one place where a crash would still be a system fatal.
+Why: applet mode has far less memory (even less with a game suspended), only 2 network sockets, and turns any crash into a system fatal.
+Supporting it doubles the device test matrix and the budget tuning. Application mode costs the user one extra button (hold R).
+Rejected: keeping `Lite` as D12 planned (too complex for now, owner). Running in applet mode with just a warning (users would hit the low-memory and
+system-fatal risks we no longer test). Drawing the refusal screen with borealis (GPU setup, fonts and much more code running in the one mode where
+a crash is a system fatal). The system error applet (it may add an entry to the console's Error History, a system write that D14 rules out).
+D12 had rejected "refusing to run in applet mode" as unfriendly. The owner accepts that for now, and the screen says exactly how to open the app.
+
+**D22 How sys-autopilot-nx is built and used** (WP-00b, 2026-10-25; carries out D19). Details and numbers in `tools/sys-autopilot-nx/README.md`.
+- Removed for good: title installer, settings (incl. volume/brightness/clock), airplane mode, DNS, title list, power actions, OAuth. `build.sh`
+  fails the build if any of those system functions (or `fatalThrow`) gets linked in. NPDM services cut from 17 to 8.
+- Memory: inner heap 640 KiB (stock 4 MiB; upstream PR #30 tried 512 KiB, we keep a margin for the worst-case `read_file`). The 512 KiB
+  screenshot buffer stays at libnx's documented size. One shared 512-token JSON parser for REST, one for MCP. Total 1.56 MiB vs 6.69 MiB stock.
+  `/status` reports the heap (size/peak/used); heap trimming is off so `peak` is a true high-water mark.
+- Safer than upstream: no token in `config.ini` = every request refused (upstream was then open to the whole Wi-Fi). Only sm, fs, hid:dbg and
+  bsd may abort at start-up. caps:sc missing = no screenshots (503). PSC (sleep) registration failing = no sockets and a clean exit, because
+  sockets without sleep handling crash the console at the next sleep.
+- Touch API: `POST /input/touch` and `/input/swipe` plus MCP `touch`/`swipe`. Plain JSON integers only, on-screen coordinates only
+  (0–1279 × 0–719), else HTTP 400. Durations ≥ 1 ms, capped at 10 s. Every call ends by lifting the finger, waiting 50 ms and handing the
+  panel back (`hiddbgUnsetTouchScreenAutoPilotState`); `/input/clear` and sleep also hand it back.
+- Use: the PC talks to it by IP (`switch-dev.local` doesn't resolve inside WSL), token from `tests/e2e/device/.env` via
+  `tools/sys-autopilot-nx/scripts/sa.sh`. `log = false` normally (each request would otherwise write to the SD card).
+- Updating the sysmodule itself goes through the SD card (Hekate USB mount, SETUP.md B.2), never through its own `PUT /files`: that writes in
+  place and deletes the file when an upload breaks off, which could leave the console without a working sysmodule until the card is fixed on the PC.
+Rejected: PR #30's numbers taken as-is (we measured each buffer instead). Shrinking the screenshot buffer (saves a few hundred KiB at most; screenshots were ~190 KB, and a too-small buffer makes captures fail).
+Keeping upstream's open-without-token behaviour. Self-update over `/files`.
+
+**D23 The GitHub repo is public** (owner, 2026-10-25; answers the question D8 left to WP-01). Licence Apache-2.0 (D8), so anyone can read, build
+and reuse the code. Public repos also get free GitHub Actions minutes, which suits the CI plan.
+Consequences for WP-01, before the first push:
+- Check every tracked file for things that shouldn't be public. The bearer token is safe: it lives only in the git-ignored
+  `tests/e2e/device/.env` (WP-00b checked that no tracked file contains it). Low-risk but personal details are in the docs today: the
+  Switch's MAC address, home LAN addresses, the router model and Windows paths with the user name. WP-01 asks the owner whether to keep or blank them.
+- Commits use the owner's GitHub "noreply" email address, so their real email address isn't published in the git history.
+- Never commit backups, SD card dumps, crash reports from the console, or anything from `C:\Users\JohnDoe\SwitchBackup\`.
+- **Answered 2026-10-25 (owner, WP-01):** the MAC address and router model are gone from the docs, the Switch's LAN IP is written
+  `<switch-ip>` (the real one stays in the git-ignored `.env`), and the Windows/WSL user name in paths is written `JohnDoe`/`johndoe`.
+  Commits use `29355973+RaymarMonte@users.noreply.github.com`, set in this repo's own git config only. Repo: `RaymarMonte/suwayomi-nx`.
+
+**D24 How the device harness launches and drives the app** (WP-00, 2026-10-25). Calibrated steps: `tests/e2e/device/profile.json`.
+- **Launch with hbmenu's network loader**: press Y in hbmenu, then `nxlink -a <ip> -p <path under sdmc:/switch/> --args "<args>" <nro>` from WSL.
+  It doesn't depend on where the entry sits in hbmenu's list, and sends 4.5 MB in about 1 s. `-p` is relative to `sdmc:/switch/`. hbmenu writes
+  the file there in place, then starts it. That write doesn't go through sys-autopilot's allowlist (S10), so the harness only ever passes
+  `-p suwayomi-nx/…` (our folder). `PUT /files` + `/files/hash` stays the way to put and verify other files (test config) on the card.
+- **Application mode** = HOME → first tile (the app-mode title, Spelunky 2: launching it once puts it first) → hold R + A → A on the user picker
+  → hbmenu → release R. hbmenu shows a red "Applet Mode" badge when opened from the Album and nothing in application mode, and the harness checks it.
+- **Every press that could start something waits for a screen check first.** The screenshot region is compared with a reference crop
+  (ImageMagick RMSE < 0.08; same screen measured 0.000–0.009, other screens 0.12–0.39). No fixed sleeps before such presses: on the wrong
+  screen an A starts a game or another homebrew. The crops are console-specific and git-ignored (`tests/e2e/device/local/`, D23).
+- Logs come back from the SD card through `/files` (nxlink's `-s` stdio server can't reach WSL through Windows 10's NAT).
+- The virtual controller drives HOME, hbmenu and borealis with the Joy-Cons attached or detached, so device runs leave them on.
+- Screenshots during an app switch fail (HTTP 500, `capture failed`, rc `0xe0ce`). The harness retries and accepts only HTTP 200 + JPEG data.
+Rejected: picking the entry in hbmenu's list as the main way (its position depends on what else is on the card; kept as a fallback).
+An hbmenu forwarder (installing a title, ruled out by D14/D19). LEFT × N to reach the first HOME tile (the row wraps around).
+
+**D25 Repo layout and build setup** (WP-01, 2026-10-25). Carries out D1–D3 and D7.
+- borealis is a git submodule at `library/borealis`, **pinned to `5f08b286f3df737f3321d2247a6fe633fcead03c`** (xfangfang/borealis main,
+  2026-04-25, the commit WP-00 tested). Of its own submodules only `library/lib/extern/glfw` is needed (GLFW on desktop and Switch); SDL isn't.
+  Moving the pin is a deliberate change: build desktop + Switch, run the device check, record the new commit here.
+- One CMake project, three builds (`tools/build.sh tests|desktop|switch`). Without `PLATFORM_DESKTOP`/`PLATFORM_SWITCH` it builds only our
+  module libraries and the unit tests, without borealis, so unit tests build in seconds and CI's test job needs no submodules.
+- Modules are static libraries `snx_core`, `snx_net`, `snx_api`, `snx_image`, `snx_platform`. Headers sit next to their `.cpp`
+  (`#include "core/Version.hpp"`, include root `src/`). `src/ui/` is compiled into the app target, because only the app links borealis.
+- Runtime resources are put together at build time: our `resources/` plus borealis's icon font, system images, `hints.json` texts and
+  (desktop only) fonts, taken from the submodule. So borealis's fonts are never copied into our repo. deko3d shaders are compiled into the
+  build folder, not the source tree.
+- Every Switch build keeps its `.elf` (debug info) and `.nro` in `~/build/suwayomi-nx/archive/<GNU build id>/` (newest 20), so a crash log
+  that names the build id can be symbolized later.
+Rejected: one CMake target per test module (slower links, no gain at this size), copying borealis in (a submodule keeps upstream's history
+and licence clear), building tests against the desktop app build (needs all of borealis for every unit-test run).
+
+**D26 Two copies of nlohmann/json, kept apart** (WP-01, 2026-10-25). We vendor 3.12.0 (`third_party/nlohmann/`, D4). borealis bundles
+3.11.2 and puts it on the include path of everything that links it. Our app target puts `third_party/` first and treats borealis's headers
+as system headers, so our code always gets 3.12.0. borealis uses its copy only inside its own `.cpp` files (no borealis header exposes json
+types), and the two versions live in different inline namespaces (`json_abi_v3_11_2` / `json_abi_v3_12_0`), so they can't mix at link time.
+Rule: never pass nlohmann types to or from borealis. Rejected: using borealis's 3.11.2 everywhere (the unit tests would then need the
+borealis submodule, and we'd be stuck on its version).
+
+**D27 CI on GitHub Actions** (WP-01, 2026-10-25). `.github/workflows/ci.yml`, three jobs on every push to `main` and every PR:
+`host` (ubuntu-24.04: unit tests, test-hooks unit tests, coverage report as an artifact), `desktop` (build + `tools/desktop-smoke.sh` on Xvfb,
+screenshot as an artifact), `switch` (`devkitpro/devkita64` image pinned by digest, tag 20260219, then `dkp-pacman -Syu` so it builds with the
+same current devkitPro packages as the PC; artifacts `.nro`, `.elf`, safety report). Later WPs add contract, integration and desktop E2E jobs.
+Rejected: building Switch packages from the image as-is (it's months older than the PC's toolchain), `latest` tag (moves without notice).
+
+**D28 Banned functions that libraries pull in get do-nothing stand-ins** (owner OK 2026-10-25, WP-01; built in WP-03b). The WP-01 scan
+(`docs/safety-baseline.txt`) finds two S3 functions in the plain Hello app, neither of which ever runs: libnx's `appletInitialize` calls
+`apmSetPerformanceConfiguration` only for a non-zero entry of `__nx_applet_PerformanceConfiguration` (default all zeros), and borealis's
+virtual `SwitchPlatform::setBacklightBrightness` calls `lblSetCurrentBrightnessSetting` but nothing calls it. WP-03b links the app with
+`-Wl,--wrap=<function>` for each of them and defines `__wrap_<function>` as a tiny stand-in of ours that does nothing and returns success
+(0), so libnx's start-up never sees an error. The real functions then aren't linked at all, and the S3 gate stays strict with no
+exceptions in `allowed-symbols.txt`. A banned function that a library update pulls in later gets the same treatment, with the owner's OK.
+Rejected: allowlist entries with caller checks (more rules to keep right, and the functions stay in the binary), patching borealis (we'd
+maintain a fork, and libnx's call would still need one of the other options).

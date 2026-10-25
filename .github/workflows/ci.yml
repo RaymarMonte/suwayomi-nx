@@ -1,0 +1,88 @@
+# CI (docs/TESTING.md "CI", WP-01): unit tests + coverage, desktop build + smoke test, Switch build (.nro + .elf).
+# Later WPs add contract, integration and desktop E2E jobs. Device tests run on the owner's PC only.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host:
+    name: Unit tests + coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7   # no submodules needed: the unit tests don't use borealis
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build gcovr
+      - name: Unit tests
+        run: tools/build.sh tests
+      - name: Unit tests, test-hooks build
+        run: tools/build.sh tests --test-hooks
+      - name: Coverage
+        run: tools/build.sh coverage
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-html
+          path: tests/out/coverage/
+
+  desktop:
+    name: Desktop build + smoke test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true   # library/borealis only; its glfw comes next (its SDL submodule isn't needed)
+      - name: borealis's glfw
+        run: git -C library/borealis submodule update --init --depth 1 library/lib/extern/glfw
+      - name: Install build deps (docs/SETUP.md A.2) + Xvfb
+        run: >
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends
+          build-essential cmake ninja-build pkg-config
+          xorg-dev libdbus-1-dev libxkbcommon-dev libwayland-dev wayland-protocols libgl1-mesa-dev libgl1-mesa-dri
+          xvfb imagemagick
+      - name: Build
+        run: tools/build.sh desktop
+      - name: Smoke test (Xvfb)
+        run: tools/desktop-smoke.sh
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: desktop-smoke
+          path: ~/build/suwayomi-nx/desktop/smoke/
+
+  switch:
+    name: Switch build (.nro + .elf)
+    runs-on: ubuntu-24.04
+    # devkitPro's image, pinned by digest (tag 20260219). The step below then updates its packages, so CI builds with the
+    # same current devkitPro packages as the PC (docs/SETUP.md A.2 lists them). D27.
+    container: devkitpro/devkita64@sha256:1fc388c3a0d34bd2045a6dadcb1020e069d5f876a187fd705de14b4440c00282
+    steps:
+      - name: Tools the checkout and the build need
+        run: apt-get update && apt-get install -y --no-install-recommends git ca-certificates cmake ninja-build
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: borealis's glfw
+        run: |
+          git config --global --add safe.directory '*'
+          git -C library/borealis submodule update --init --depth 1 library/lib/extern/glfw
+      - name: devkitPro packages
+        run: |
+          dkp-pacman -Syu --noconfirm
+          dkp-pacman -S --needed --noconfirm switch-dev switch-glfw switch-mesa switch-glm switch-curl switch-libwebp \
+            switch-libjpeg-turbo switch-libpng switch-zlib deko3d uam
+          dkp-pacman -Q devkitA64 libnx deko3d uam switch-tools
+      - name: Build
+        run: tools/build.sh switch
+      - uses: actions/upload-artifact@v7
+        with:
+          name: suwayomi-nx-switch
+          path: |
+            ~/build/suwayomi-nx/switch/suwayomi-nx.nro
+            ~/build/suwayomi-nx/switch/suwayomi-nx.elf
+            ~/build/suwayomi-nx/switch/safety-report.txt

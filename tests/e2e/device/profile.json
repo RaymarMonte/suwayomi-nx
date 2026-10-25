@@ -1,0 +1,56 @@
+{
+  "about": "How the SwitchDriver drives THIS console. Calibrated in WP-00 (2026-10-25); used by tools/spike/wp00-loop.sh, then by WP-03's driver. Host, port and token come from .env.",
+  "console": { "model": "v1 Erista", "firmware": "22.5.0", "atmosphere": "1.11.2 emuMMC", "hbmenu": "3.6.1", "hbloader": "2.4.5" },
+
+  "screenCheck": {
+    "how": "crop the screenshot to the region, compare with the reference PNG: ImageMagick 'compare -metric RMSE'; normalized value below the threshold = same screen",
+    "threshold": 0.08,
+    "measured": "same screen 0.000-0.009, different screens 0.12-0.39"
+  },
+  "references": {
+    "home-first-tile":      { "region": "340x320+40+140", "screen": "HOME menu, cursor on the first tile (Spelunky 2), nothing running (no 'Playing' badge)" },
+    "user-picker":          { "region": "520x50+50+345",  "screen": "'Who is using the software?' after A on the tile" },
+    "hbmenu-header":        { "region": "260x100+30+20",  "screen": "hbmenu, any mode ('hbmenu v3.6.1 / nx-hbloader v2.4.5')" },
+    "hbmenu-applet-badge":  { "region": "340x60+700+18",  "screen": "hbmenu opened from the Album: red 'Applet Mode' badge. Must NOT match in application mode" },
+    "close-dialog":         { "region": "420x60+530+285", "screen": "HOME menu after X: 'Close the software you are currently using?' (Close preselected)" },
+    "demo-header":          { "region": "520x90+40+0",    "screen": "borealis demo running ('Borealis Demo App')" },
+    "demo-pokedex":         { "region": "600x150+460+100","screen": "borealis demo, Pokedex tab open (Bulbasaur, Charmander rows)" },
+    "files": "tests/e2e/device/local/<name>.png (git-ignored). To recreate: take a screenshot of the described screen and crop the region."
+  },
+
+  "toHbmenuApplicationMode": [
+    { "press": "HOME", "thenWaitMs": 1500 },
+    { "expect": "home-first-tile", "ifNot": "closeSoftware, then expect again; still not: stop and ask the owner" },
+    { "hold": "R", "thenWaitMs": 300 },
+    { "press": "A" },
+    { "waitFor": "user-picker", "timeoutMs": 8000, "note": "Spelunky 2 always asks; the first user is preselected" },
+    { "press": "A" },
+    { "waitFor": "hbmenu-header", "timeoutMs": 15000, "note": "about 3.7 s after the second A" },
+    { "release": "R" },
+    { "expectNot": "hbmenu-applet-badge" }
+  ],
+  "launchWithNxlink": {
+    "steps": [ { "press": "Y", "thenWaitMs": 1500 }, { "run": "nxlink -a <ip> -p <path relative to sdmc:/switch/> --args \"<app args>\" <local .nro>", "retries": 5 } ],
+    "notes": [
+      "-p is relative to sdmc:/switch/ (hbmenu prepends it): -p suwayomi-nx/suwayomi-nx.nro -> sdmc:/switch/suwayomi-nx/suwayomi-nx.nro. A leading /switch/ gives 'open: err=2'.",
+      "hbmenu writes the received .nro to that path in place (not atomic), then starts it. Without -p: sdmc:/switch/<file name>.",
+      "4.5 MB borealis demo: 0.9 s to send (zlib), on screen about 2 s after nxlink starts."
+    ]
+  },
+  "launchFromHbmenuList": "fallback only: the entry's position depends on what else is in sdmc:/switch/. RIGHT x N then A; demo on screen 1.2 s after A",
+  "quitApp": { "press": "PLUS", "waitFor": "hbmenu-header", "timeoutMs": 10000, "note": "about 1.3 s" },
+  "closeSoftware": [
+    { "press": "HOME", "thenWaitMs": 1500, "note": "the running title is the first tile, cursor on it, marked 'Playing'" },
+    { "press": "X" },
+    { "waitFor": "close-dialog", "timeoutMs": 4000, "note": "never press A without this check: on a normal HOME screen A starts a game" },
+    { "press": "A", "thenWaitMs": 2500 },
+    { "expect": "home-first-tile" }
+  ],
+  "toHbmenuAppletMode": {
+    "use": "only the applet-guard scenario (D21)",
+    "steps": [ { "touch": [550, 544], "note": "selects the Album icon (first tap selects)" }, { "press": "A" }, { "waitFor": "hbmenu-header", "timeoutMs": 10000 }, { "expect": "hbmenu-applet-badge" } ],
+    "leave": "HOME (PLUS does nothing in hbmenu). Back on HOME the cursor is on the first tile again"
+  },
+  "screenshots": "retry on failure: during an app switch /screenshot answers HTTP 500 {\"error\":\"capture failed\",\"rc\":\"0xe0ce\"}. Accept only HTTP 200 + JPEG magic FF D8",
+  "virtualController": "works in HOME, hbmenu and the borealis demo with the Joy-Cons attached (handheld). Joy-Cons detached: see STATUS / WP-00"
+}

@@ -1,0 +1,32 @@
+# WP-12 MVP hardening, soak test, v0.1 release
+
+Model: **Opus** · Size: M · Needs: WP-11 · Owner: **use the app with your real server** and report issues
+
+## Goal
+Make the MVP trustworthy: survive network loss, server restarts, sleep/resume, long sessions. Then ship v0.1.
+
+## Read first
+STATUS.md, `docs/TESTING.md` (scenarios 8–10), any open bug notes.
+
+## Deliverables
+- [ ] Scenario `offline-errors`: stop the test server mid-session → errors shown → restart → retry works everywhere
+- [ ] Sleep/resume (manual, owner presses the power button once): app reconnects, reader continues, no crash
+- [ ] Touch pass on the console in handheld mode across all MVP screens: automated if the touch fork exists (D19), otherwise the owner runs a 5-minute checklist
+- [ ] Scenario `soak` (device, application mode): 500 page turns across chapters + library scrolls. Assert memory within the profile's budget,
+      no crash reports, no `error` events
+- [ ] Applet-mode guard on the **release** build (D21): open it from the Album → the message shows → back to hbmenu, no new crash report or fatal file
+- [ ] Tune `makeRuntimeProfile` budgets and disk budgets from soak data → DECISIONS.md
+- [ ] Crash-safety pass: long fuzz runs (≥ 10 min per target), full `crash-drills` in application mode plus `applet-guard`, `check-elf.sh` on the release build,
+      zero `atmosphere/fatal_errors` files across all device runs of this WP
+- [ ] Release build keeps the crash handler (only test hooks/drills are compiled out). Archive the matching `.elf` with the release for symbolizing user crash logs
+- [ ] Owner dogfooding against the **real** server (read-only use; note issues in STATUS). Fix the blocking ones
+- [ ] App icon, name, version, author in NACP. Release build (no test hooks)
+- [ ] `README.md` user section: install, first run, controls, **safety notes** (open it by holding R while starting a game: the Album isn't supported yet, D21; FAT32 recommended,
+      exit with + rather than HOME → Close while downloading, close games before opening the Album, where crash logs are). `CHANGELOG.md`
+- [ ] Tag `v0.1.0`. GitHub Release with .nro + SHA-256 (if a repo exists)
+
+## Acceptance
+All layers green, soak green twice, owner happy to use it.
+
+## Sonnet-safe chunks
+- README user section, CHANGELOG, release notes.

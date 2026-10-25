@@ -1,0 +1,36 @@
+# Functions the Switch .elf must not contain (docs/SAFETY.md S2, S3; D13, D14, D17).
+# One per line: <rule> <shell glob matched against the symbol name>. Read by tools/safety/check-elf.sh.
+# Changing this list, or adding exceptions (tools/safety/allowed-symbols.txt, WP-03b), needs the owner's OK plus an Opus review.
+
+# S2: no fatal calls, ever (they show the "press POWER to reboot" screen)
+S2 fatalThrow
+S2 fatalThrowWithPolicy
+S2 fatalThrowWithContext
+
+# S3: system-writing APIs (brick guard)
+S3 fsOpenBisFileSystem
+S3 fsOpenBisStorage
+S3 fsOpenSaveDataFileSystemBySystemSaveDataId
+S3 fsCreate*SaveData*
+S3 fsDelete*SaveData*
+S3 fsFormat*
+S3 setsysSet*
+S3 setSet*
+S3 nsDeleteApplication*
+S3 ns*Install*
+S3 ncmContentStorageWritePlaceHolder*
+S3 ncmContentStorageRegister*
+S3 ncmContentStorageDelete*
+S3 ncmContentMetaDatabaseSet*
+S3 ncmContentMetaDatabaseRemove*
+S3 esImportTicket*
+S3 esDeleteTicket*
+S3 splSetConfig
+S3 bpcRebootSystem
+S3 bpcShutdownSystem
+S3 spsmShutdown
+# S3 + S9/D17: never touch clocks, performance modes or the backlight
+S3 pcvSet*
+S3 clkrstSet*
+S3 apmSetPerformanceConfiguration
+S3 lblSet*

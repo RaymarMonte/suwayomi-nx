@@ -1,0 +1,43 @@
+Safety symbol baseline (WP-01, 2026-10-25). docs/SAFETY.md S2/S3, report-only. WP-03b turns the scan into a gate.
+
+Build: the WP-01 "Hello" app, Switch release, borealis 5f08b28 (deko3d), libnx 4.12.0, devkitA64 r30.
+Made with: tools/build.sh switch   (it runs tools/safety/check-elf.sh suwayomi-nx.elf suwayomi-nx.map)
+
+What the two S3 hits are (checked in the disassembly, 2026-10-25):
+
+1. apmSetPerformanceConfiguration, called only from libnx's appletInitialize.
+   libnx calls it only for applications, and only for an entry of the weak array __nx_applet_PerformanceConfiguration[2]
+   that is non-zero ("ldr w1, [x3, x2, lsl #2]; cbnz w1, <call>"). The default array is libnx's, in .bss, so all zeros:
+   the call never runs unless our code defines that array. It is linked in only because the code path exists.
+
+2. lblSetCurrentBrightnessSetting (rule lblSet*), called only from brls::SwitchPlatform::setBacklightBrightness(float).
+   That's a virtual function, so the linker keeps it even though nothing calls it: borealis never calls
+   setBacklightBrightness itself (only its platform classes define it), and our code doesn't either.
+
+So neither runs today. Both are in the binary, so a strict gate would fail every build. The choice of how the WP-03b gate
+handles them is recorded in DECISIONS.md (D28).
+
+S2: no fatalThrow* in the binary. Crash hooks: libnx's default diagAbortWithResult is linked, __libnx_exception_handler is
+not linked at all. Both are expected until WP-03b adds our own (S1).
+
+---- report ----
+suwayomi-nx safety symbol report (docs/SAFETY.md S2/S3). REPORT-ONLY: WP-03b turns it into a gate.
+elf: suwayomi-nx.elf  build id: 44401c13a4476f8343f5a4209d657ccd2c803b40  functions: 5514
+rules: tools/safety/banned-symbols.txt
+
+== S2 matches ==
+(none)
+
+== S3 matches ==
+apmSetPerformanceConfiguration   (rule: apmSetPerformanceConfiguration)
+    defined in:  /opt/devkitpro/libnx/lib/libnx.a(apm.o)
+    called from: appletInitialize
+lblSetCurrentBrightnessSetting   (rule: lblSet*)
+    defined in:  /opt/devkitpro/libnx/lib/libnx.a(lbl.o)
+    called from: brls::SwitchPlatform::setBacklightBrightness(float)
+
+== crash hooks (S1/S2: from WP-03b these must be defined by our code, not libnx's weak defaults) ==
+__libnx_exception_handler: not linked
+diagAbortWithResult: libnx default (/opt/devkitpro/libnx/lib/libnx.a(diag.o))
+
+SUMMARY: banned matches=2 (S2 fatal=0, S3=2), crash hooks ours=0/2. Report-only, exit 0.

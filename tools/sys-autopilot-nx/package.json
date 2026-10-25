@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "name": "sys-autopilot-nx",
+  "version": "1.5.0-nx.1",
+  "license": "MIT",
+  "description": "Slim fork of sys-autopilot (by Nathan Rajlich) for the suwayomi-nx test harness: screenshots, controller and touch input, SD file access. The Makefiles read the version from here.",
+  "author": {
+    "name": "Nathan Rajlich",
+    "email": "n@n8.io"
+  },
+  "scripts": {
+    "test": "./tests/run.sh"
+  }
+}

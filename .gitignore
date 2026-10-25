@@ -1,0 +1,26 @@
+# Secrets: the sys-autopilot-nx bearer token for the test Switch (WP-00b).
+tests/e2e/device/.env
+
+# Test output: screenshots, logs, copies of console crash reports (D23: never commit those).
+tests/e2e/out/
+tests/out/
+
+# Reference crops cut from this console's screenshots (game art, HOME menu, user picker). Console-specific,
+# and the art isn't ours to publish. tests/e2e/device/profile.json says how to recreate them.
+tests/e2e/device/local/
+
+# Build folders. tools/build.sh builds in ~/build/suwayomi-nx/ (outside the repo); these catch builds made by hand.
+/build/
+/build-*/
+cmake-build-*/
+# The desktop app's data folder (D10), when it's run from inside the repo.
+/data/
+
+node_modules/
+
+# Editors and OS clutter
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

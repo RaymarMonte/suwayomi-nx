@@ -1,0 +1,81 @@
+# The app: main() and wiring (src/app/) plus the borealis screens (src/ui/). Only built with PLATFORM_DESKTOP or PLATFORM_SWITCH.
+# Outputs land in the top of the build folder:
+#   desktop: suwayomi-nx + resources/          (run it from that folder: borealis looks for ./resources/)
+#   switch:  suwayomi-nx.elf (with debug info), suwayomi-nx.map, suwayomi-nx.nacp, suwayomi-nx.nro (target "suwayomi-nx.nro")
+set(SNX_APP suwayomi-nx)
+set(SNX_APP_TITLE "Suwayomi NX")
+set(SNX_APP_AUTHOR "suwayomi-nx contributors")
+set(SNX_BOREALIS_RESOURCES ${PROJECT_SOURCE_DIR}/library/borealis/resources)
+
+set(SNX_APP_SOURCES
+    main.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/hello/HelloActivity.cpp
+)
+if (PLATFORM_SWITCH)
+    # borealis's userAppInit/userAppExit: sockets, romfs and the system services it uses (as in borealis_template).
+    list(APPEND SNX_APP_SOURCES ${BOREALIS_LIBRARY}/lib/platforms/switch/switch_wrapper.c)
+endif ()
+
+find_package(Threads REQUIRED)
+program_target(${SNX_APP} "${SNX_APP_SOURCES}")
+set_target_properties(${SNX_APP} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+target_link_libraries(${SNX_APP} PRIVATE snx_api snx_image snx_platform borealis Threads::Threads)
+snx_target_defaults(${SNX_APP})
+# Our nlohmann/json goes before borealis's older copy (D26).
+target_include_directories(${SNX_APP} BEFORE PRIVATE ${PROJECT_SOURCE_DIR}/third_party)
+# borealis's headers count as system headers here: their warnings under our -Wextra are upstream's, not ours, and
+# GCC searches system folders after -I folders, which keeps borealis's nlohmann/json behind ours as well.
+get_target_property(SNX_BOREALIS_INCLUDES borealis INTERFACE_INCLUDE_DIRECTORIES)
+target_include_directories(${SNX_APP} SYSTEM PRIVATE ${SNX_BOREALIS_INCLUDES})
+
+# Resources, put together at build time: our resources/ on top of the parts of borealis's resources it needs at runtime.
+# borealis's files come from the submodule, so its fonts and icons are never copied into our repo.
+#   material/  icon font (Apache-2.0)      img/sys/  battery, Wi-Fi and cursor images
+#   i18n/<lang>/hints.json  borealis's own texts ("hints/exit", "hints/back", ...). Its other i18n files belong to its demo.
+#   font/      desktop only: on the Switch borealis uses the system font
+#   shaders/   Switch only: deko3d shaders compiled by uam
+if (PLATFORM_SWITCH)
+    set(SNX_RESOURCES_OUT ${CMAKE_BINARY_DIR}/romfs)
+else ()
+    set(SNX_RESOURCES_OUT ${CMAKE_BINARY_DIR}/resources)
+endif ()
+set(SNX_RESOURCE_COMMANDS
+    COMMAND ${CMAKE_COMMAND} -E remove_directory ${SNX_RESOURCES_OUT}
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${SNX_BOREALIS_RESOURCES}/material ${SNX_RESOURCES_OUT}/material
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${SNX_BOREALIS_RESOURCES}/img/sys ${SNX_RESOURCES_OUT}/img/sys
+)
+file(GLOB SNX_BOREALIS_HINTS RELATIVE ${SNX_BOREALIS_RESOURCES}/i18n ${SNX_BOREALIS_RESOURCES}/i18n/*/hints.json)
+foreach (hints ${SNX_BOREALIS_HINTS})
+    get_filename_component(lang ${hints} DIRECTORY)
+    list(APPEND SNX_RESOURCE_COMMANDS
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${SNX_RESOURCES_OUT}/i18n/${lang}
+        COMMAND ${CMAKE_COMMAND} -E copy ${SNX_BOREALIS_RESOURCES}/i18n/${hints} ${SNX_RESOURCES_OUT}/i18n/${lang}/hints.json)
+endforeach ()
+if (PLATFORM_DESKTOP)
+    list(APPEND SNX_RESOURCE_COMMANDS
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${SNX_BOREALIS_RESOURCES}/font ${SNX_RESOURCES_OUT}/font)
+endif ()
+list(APPEND SNX_RESOURCE_COMMANDS
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/resources ${SNX_RESOURCES_OUT})
+if (PLATFORM_SWITCH AND USE_DEKO3D)
+    # borealis's gen_dksh compiles the shaders at configure time, into the folder we give it (the build folder, not the source).
+    gen_dksh(${CMAKE_BINARY_DIR}/shaders)
+    list(APPEND SNX_RESOURCE_COMMANDS
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_BINARY_DIR}/shaders ${SNX_RESOURCES_OUT}/shaders)
+endif ()
+add_custom_target(snx_resources ${SNX_RESOURCE_COMMANDS} COMMENT "Collecting resources into ${SNX_RESOURCES_OUT}")
+
+if (PLATFORM_DESKTOP)
+    add_dependencies(${SNX_APP} snx_resources)
+elseif (PLATFORM_SWITCH)
+    # The linker map says which object pulled in each library function. tools/safety/check-elf.sh uses it.
+    target_link_options(${SNX_APP} PRIVATE "-Wl,-Map,${CMAKE_BINARY_DIR}/${SNX_APP}.map")
+    add_custom_target(${SNX_APP}.nro ALL
+        DEPENDS ${SNX_APP} snx_resources
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMAND ${NX_NACPTOOL_EXE} --create "${SNX_APP_TITLE}" "${SNX_APP_AUTHOR}" "${PROJECT_VERSION}" ${SNX_APP}.nacp
+        COMMAND ${NX_ELF2NRO_EXE} $<TARGET_FILE:${SNX_APP}> ${SNX_APP}.nro
+                --icon=${PROJECT_SOURCE_DIR}/resources/icon/icon.jpg --nacp=${SNX_APP}.nacp --romfsdir=${SNX_RESOURCES_OUT}
+        COMMENT "Packing ${SNX_APP}.nro"
+    )
+endif ()

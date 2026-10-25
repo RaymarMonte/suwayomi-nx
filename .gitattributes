@@ -1,0 +1,9 @@
+# LF line endings everywhere, whatever the Windows git setting says: the shell scripts run in WSL and in Linux CI,
+# where a CRLF ending breaks them.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ttf binary
+*.nro binary
+*.elf binary
