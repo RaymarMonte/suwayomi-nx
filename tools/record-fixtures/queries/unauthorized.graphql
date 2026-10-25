@@ -1,0 +1,6 @@
+# auth: ui_login
+# anonymous
+# ui_login without a token: what the server answers.
+query Unauthorized {
+  categories { nodes { id } }
+}

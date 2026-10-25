@@ -1,0 +1,9 @@
+# vars: {"id": "$chapter:Alpha:1"}
+# Start reading a chapter: the page URLs (relative to the server).
+mutation FetchChapterPages($id: Int!) {
+  fetchChapterPages(input: { chapterId: $id }) {
+    pages
+    chapter { id pageCount lastPageRead }
+    syncConflict { deviceName remotePage }
+  }
+}

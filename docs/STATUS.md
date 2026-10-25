@@ -1,26 +1,25 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
 
 **Current phase:** 0 – Foundations
-**Next WP:** WP-02 test server + fixtures (Opus). WP-00a, WP-00b, WP-00 and WP-01 are done.
+**Next WP:** WP-03 E2E harness (Opus). WP-00a, WP-00b, WP-00, WP-01 and WP-02 are done.
 
-## Last session (2026-10-25, WP-01, Opus) — done
-- **Acceptance met:** `tools/build.sh tests` green (5 ctest entries, one per module; also with `--test-hooks`). Desktop app opens in WSLg
-  (seen by the owner) and passes `tools/desktop-smoke.sh` on Xvfb. `.nro` shows Hello on the console: `tools/spike/wp01-hello.sh`
-  passed twice (~24 s; app mode → nxlink → SHA-256 → screenshot → PLUS → log → no new crash/fatal files; reference crop
-  `tests/e2e/device/local/hello-header.png` cut from run 1, checked by eye). Coverage 90% lines.
-- Repo: public `RaymarMonte/suwayomi-nx`, noreply commits (repo-local git config). `gh` 2.103.2 in WSL, logged in: push from WSL (SETUP.md C).
-  **CI green** (run 40158713560): host / desktop / switch, D27 (CI's Switch compiler: devkitA64 r29.2, gcc 15.2). Docs: `<switch-ip>`, `JohnDoe` (D23).
-- **Decisions:** D25 layout + borealis pin `5f08b28` (only its glfw submodule), D26 two nlohmann/json copies kept apart, D27 CI,
-  D28 (owner OK) banned functions pulled in by libraries get `ld --wrap` do-nothing stand-ins → **WP-03b builds them**. D23 answered.
-- Safety baseline: `docs/safety-baseline.txt`. Two S3 hits, both never called: libnx `appletInitialize` → `apmSetPerformanceConfiguration`
-  (only for a non-zero `__nx_applet_PerformanceConfiguration`, default zeros), borealis's virtual `setBacklightBrightness` → `lblSet…`.
-- **For WP-03/03b:** `main.cpp` opens `<data>/logs/app.log` with `mkdir` + `fopen` (flag `--log-file`) as a stop-gap: replace with the
-  logger + SafeFs (S4 grep would flag it). Desktop borealis maps no key to PLUS (only Enter/Esc/arrows): the desktop driver needs a test
-  hook to quit. GLFW picks WSLg's Wayland even without `WAYLAND_DISPLAY`; headless runs need an empty `XDG_RUNTIME_DIR` (smoke script does it).
-  borealis aborts (libdbus assertion) when there's no D-Bus session bus: CI installs `dbus-x11` so a bus starts on demand.
-
+## Last session (2026-10-25, WP-02, Opus) — done
+- **Acceptance met:** `tools/test-server/test-server.sh reset` + `start` = **~8–10 s** (Java answers in ~4.5 s, then `seed.ts`) with the fixture
+  library: 6 manga, categories Reading / Long series. Fixtures: 665 files, 16 MB, same digest every run (Linux disk, Windows disk, test).
+  Schema (363 types) + 17 recorded answers committed; re-recording on a fresh server gives identical files. ❔ list in SUWAYOMI-API.md resolved.
+  Reachable from WSL (`http://<windows-host>:4568`, the default gateway), via the PC's LAN address, and from the owner's phone.
+  `npm test` 14/14 (page code read back from a scaled 1280×720 JPEG screenshot), `npm run typecheck` clean, `tools/build.sh tests` green.
+- **Decisions:** D29 test server (pinned v2.4.2366, files in `<repo>/.test-server/`, Java started via WMI), D30 Node tooling (root npm package,
+  not pnpm; Node runs `.ts` directly; new CI job `node`), D31 fixture pages + colour code. WP-03's line about a pnpm package now points to D30.
+- **Found:** Claude Code's sandbox hides files that Windows programs write outside the project folder from WSL (hence `.test-server/` in the repo).
+  Firewall: the PC's Ethernet is classed Public; the owner added a TCP 4568 LocalSubnet rule (all profiles) and switched off two old
+  "OpenJDK Platform binary" Public **Block** rules for jdk-21.0.11 (SETUP.md A.4). After a Java update, check for a new Block rule.
+- **For WP-04/05/06 (SUWAYOMI-API.md):** `pageCount` is -1 until `fetchChapterPages` ran, and progress sent before that is saved as 0; the cap is
+  `pageCount`. Fields of one request run concurrently. ui_login without a token = HTTP 200 + "Unauthorized" GraphQL error; basic = HTTP 401.
+  Error messages contain a Java stack trace after the first line. `category(id: 0)` = manga in no category. Page URLs use the chapter's sourceOrder.
+- CI's new `node` job (also checks fixture determinism on another machine) runs on the next push. CLAUDE.md's "pause at 92 %" rule is committed too.
 ## Known facts about the environment
-- Windows 10 19044, 32 GB RAM, 24 threads. WSL 3.0.3 + WSLg, Ubuntu 24.04. Java 21, git. devkitPro + Node 22 in WSL (SETUP.md A). Run WSL commands
+- Windows 10 19044, 32 GB RAM, 24 threads. PC on Ethernet, DHCP, network classed Public (LAN address: `test-server.sh status`). WSL 3.0.3 + WSLg, Ubuntu 24.04. Java 21, git. devkitPro + Node 22 in WSL (SETUP.md A). Run WSL commands
   with `wsl.exe -d Ubuntu --exec bash -lc '…'` (not `--`); from Git Bash set `MSYS_NO_PATHCONV=1`. Rancher Desktop's Docker daemon was not responding.
 - Builds (from `/mnt/c`): unit tests ~10 s, desktop ~50 s, Switch ~55 s clean; `.nro` 2.5 MB, `.elf` 52 MB (debug info), 0 warnings in our code.
   Router: DHCP reservation for the Switch (SETUP.md B.6); WSL reaches it by IP (`.local` 10× slower). Backups (WP-00a): `C:\Users\JohnDoe\SwitchBackup\2026-10-22\` (`sd\` + `hekate-backup\` emuMMC, SHA-256 checked). sysMMC NAND: owner's external drive.
@@ -35,6 +34,7 @@
   the software?", hbmenu ~3.7 s later. Album → hbmenu shows a red "Applet Mode" badge; HOME leaves it (PLUS doesn't).
 - **Memory (probe):** application mode: heap **3,184 MiB**. Album: appletType 2, heap 266 MiB (WP-21 only).
 ## Open questions for the owner
-(none) · Answered 2026-10-25: personal details in docs (D23), commit email (noreply), banned library functions (D28), publish repo: yes.
+- A DHCP reservation for the PC (like the Switch has) would keep the test-server URL stable for device tests (WP-05). Owner's choice.
+Answered 2026-10-25: personal details in docs (D23), commit email (noreply), banned library functions (D28), publish repo: yes.
 ## Escalation
 (none)

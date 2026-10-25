@@ -1,0 +1,4 @@
+# Server name and version (the app warns on servers older than D9's version).
+query AboutServer {
+  aboutServer { name version buildType buildTime }
+}

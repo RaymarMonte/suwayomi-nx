@@ -1,0 +1,7 @@
+# auth: ui_login
+# anonymous
+# vars: {"t": "$refreshToken"}
+# ui_login: a new access token from the refresh token.
+mutation RefreshToken($t: String!) {
+  refreshToken(input: { refreshToken: $t }) { accessToken }
+}

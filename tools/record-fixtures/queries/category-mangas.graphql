@@ -1,0 +1,8 @@
+# vars: {"id": "$category:Reading"}
+# One category with its manga.
+query CategoryMangas($id: Int!) {
+  category(id: $id) {
+    id name
+    mangas { nodes { id title thumbnailUrl unreadCount } totalCount }
+  }
+}

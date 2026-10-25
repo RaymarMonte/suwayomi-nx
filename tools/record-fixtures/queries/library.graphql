@@ -1,0 +1,11 @@
+# The whole library, by title.
+query Library {
+  mangas(condition: { inLibrary: true }, order: [{ by: TITLE }]) {
+    nodes {
+      id title thumbnailUrl status unreadCount downloadCount
+      categories { nodes { id } }
+    }
+    totalCount
+    pageInfo { hasNextPage endCursor }
+  }
+}

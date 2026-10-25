@@ -1,0 +1,9 @@
+# vars: {"id": "$manga:Alpha"}
+# Details screen: Alpha has a details.json and a cover.jpg.
+query MangaDetails($id: Int!) {
+  manga(id: $id) {
+    id title author artist description genre status thumbnailUrl inLibrary unreadCount
+    source { id name displayName }
+    categories { nodes { id name } }
+  }
+}

@@ -1,0 +1,8 @@
+# vars: {"id": "$manga:日本語タイトル テスト"}
+# Details of the Unicode-titled manga: no details.json, cover copied from its first page by the server.
+query MangaDetailsUnicode($id: Int!) {
+  manga(id: $id) {
+    id title author description genre status thumbnailUrl
+    categories { nodes { id name } }
+  }
+}

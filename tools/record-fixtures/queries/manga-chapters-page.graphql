@@ -1,0 +1,9 @@
+# vars: {"id": "$manga:Delta Big"}
+# Long chapter lists come in pages: Delta Big has 300 chapters, this is the first 50.
+query MangaChaptersPage($id: Int!) {
+  chapters(condition: { mangaId: $id }, order: [{ by: SOURCE_ORDER, byType: DESC }], first: 50, offset: 0) {
+    nodes { id name chapterNumber }
+    totalCount
+    pageInfo { hasNextPage endCursor }
+  }
+}

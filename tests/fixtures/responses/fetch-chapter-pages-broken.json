@@ -1,0 +1,17 @@
+{
+  "data": {
+    "fetchChapterPages": {
+      "pages": [
+        "/api/v1/manga/3/chapter/1/page/0",
+        "/api/v1/manga/3/chapter/1/page/1",
+        "/api/v1/manga/3/chapter/1/page/2",
+        "/api/v1/manga/3/chapter/1/page/3",
+        "/api/v1/manga/3/chapter/1/page/4"
+      ],
+      "chapter": {
+        "id": 6,
+        "pageCount": 5
+      }
+    }
+  }
+}

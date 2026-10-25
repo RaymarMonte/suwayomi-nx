@@ -1,0 +1,4 @@
+# An error answer: a manga id that doesn't exist.
+query MangaNotFound {
+  manga(id: 999999) { id title }
+}

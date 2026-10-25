@@ -231,3 +231,44 @@ virtual `SwitchPlatform::setBacklightBrightness` calls `lblSetCurrentBrightnessS
 exceptions in `allowed-symbols.txt`. A banned function that a library update pulls in later gets the same treatment, with the owner's OK.
 Rejected: allowlist entries with caller checks (more rules to keep right, and the functions stay in the binary), patching borealis (we'd
 maintain a fork, and libnx's call would still need one of the other options).
+
+**D29 The Suwayomi test server: pinned jar, Windows Java, files in `<repo>/.test-server/`** (WP-02, 2026-10-25). Carries out D9 and D11.
+- Suwayomi-Server **v2.4.2366** (the stable release when the schema was dumped, D9), pinned in `tools/test-server/server.json` with its
+  SHA-256. Bumping it = new version/URL/hash, then re-dump the schema and re-record the responses (`tools/test-server/README.md`).
+- `tools/test-server/test-server.sh` (WSL) is the entry point: fixtures, library set-up (`seed.ts`), auth modes. `test-server.ps1` (Windows
+  PowerShell, also usable alone) downloads the jar and starts/stops Java. Every setting is a `-Dsuwayomi.tachidesk.config.server.*`
+  flag: port 4568 on all addresses, no tray/browser/WebUI/KCEF, no automatic updates or backups, `--auth none|basic|ui_login` with a
+  20 s JWT. `reset` + `start` takes ~10 s.
+- Files live in `<repo>/.test-server/` (git-ignored), not `%LOCALAPPDATA%`: inside Claude Code's sandbox, files that Windows programs write
+  outside the project folder are invisible to WSL (found in WP-02). In the repo, WSL, Windows and the owner all see the same files.
+  `reset` deletes `root\` only when it holds the `.snx-test-root` marker; `stop` only stops the java.exe whose command line names our root.
+- Java is started through WMI (`Win32_Process.Create` → hidden `cmd.exe` writing the logs), not `Start-Process`: a child of the PowerShell
+  that WSL called would inherit the pipe WSL reads from, and WSL would wait for Java to end.
+- Network: WSL reaches Windows at its default gateway (NAT on Windows 10). The firewall needed a port rule for 4568 from LocalSubnet on
+  every profile (the PC's network is Public) and the old Public Block rules for this Java switched off (SETUP.md A.4, owner).
+Rejected: Docker (Rancher Desktop's daemon doesn't respond; CI can still use the image later), the server inside WSL (the Switch can't reach
+it through the NAT, D11), `%LOCALAPPDATA%` (sandbox, above), allowing all of java.exe on Public networks (opens every Java port).
+
+**D30 Node tooling: one npm package at the repo root, Node runs the `.ts` files directly** (WP-02, 2026-10-25). Carries out D7 and D20.
+- `package.json` + `package-lock.json` at the repo root, exact versions: sharp 0.35.5, vitest 5.0.5, typescript 7.0.2 (type check only),
+  graphql 17.0.2, @types/node 22. `npm ci` installs them. The test-server tools, the fixture generator, the schema dump and later the
+  E2E harness (WP-03) and contract tests all share it, so there is one `node_modules`.
+- **npm, not pnpm**: inside WSL the `pnpm` on the PATH is the Windows nvm4w shim (`/mnt/c/nvm4w/nodejs/pnpm`), which would mix Windows and
+  Linux Node. npm comes with WSL's Node (D20). TESTING.md's `pnpm e2e` becomes `npm run e2e`.
+- Node 22.23 strips TypeScript types itself, so tools run as `node tools/x/y.ts` with no build step and no tsx. Only syntax that can be
+  erased is allowed (no enums, namespaces, constructor parameter properties): `tsconfig.json` sets `erasableSyntaxOnly`.
+- CI (D27) gets a fourth job, `node`: `npm ci`, type check, `npm test` with the full fixture set generated twice.
+Rejected: one package per tool (duplicated installs), pnpm via corepack in WSL (one more global shim for little gain), tsx/ts-node.
+
+**D31 Fixture pages are drawn pixel by pixel, with a checksummed 4×4 colour code** (WP-02, 2026-10-25). Carries out TESTING.md "Fixture manga".
+- `tools/gen-fixtures` draws every page into a raw RGB buffer with its own 5×7 pixel font (no system fonts, no SVG text) and only uses
+  sharp to encode JPEG/PNG/WebP. Same bytes on every run (checked: identical digest on the Linux disk, the Windows disk and in the test).
+  File and folder times are fixed (2026-01-01 + series days + chapter minutes), because Local Source uses the folder time as the
+  chapter's upload date. The pristine set is regenerated only when the generator changes, then copied into the server's `local\`.
+- The colour code (`tests/e2e/lib/pagecode.ts`): 4×4 cells of 8 pure colours (3 bits each) in a black frame with white gutters, top right
+  of each page. Cells 0/3/12 are red/green/blue markers that give position, size and direction; the other 13 cells hold series (5 bits),
+  chapter (10), page (8), tall-strip segment (4) and a 12-bit checksum. It's read with plain pixel maths from a 1280×720 JPEG screenshot
+  of a scaled page (tested), so the harness never needs OCR or a model to know which page is on screen.
+- Because Local Source copies the first page in as the cover when a folder has none, a manga without a cover can't exist. The
+  "fallback art" case is the Broken series instead: its page 1 is the corrupt JPEG, so its cover is broken too.
+Rejected: SVG text via sharp/librsvg (depends on installed fonts), OCR of the printed text, QR codes (need a decoder library and more pixels).

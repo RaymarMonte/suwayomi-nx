@@ -1,0 +1,7 @@
+# auth: ui_login
+# anonymous
+# vars: {"u": "$username", "p": "$password"}
+# ui_login: log in, get tokens (the recorder replaces the token values with placeholders).
+mutation Login($u: String!, $p: String!) {
+  login(input: { username: $u, password: $p }) { accessToken refreshToken }
+}

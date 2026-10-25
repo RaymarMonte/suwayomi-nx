@@ -1,0 +1,7 @@
+# All categories, including the default one (id 0), in the user's order.
+query Categories {
+  categories(order: [{ by: ORDER }]) {
+    nodes { id name order default }
+    totalCount
+  }
+}

@@ -22,6 +22,15 @@ Sonnet is only for WPs/chores marked **S** in `docs/ROADMAP.md`. If you are Sonn
 stop, write what you found in STATUS under "Escalation", and end the session. Don't push through.
 An Opus session may delegate a WP's listed "Sonnet-safe chunks" to a Sonnet subagent with a tight spec, then review its output.
 
+Usage limit: **pause at 92 %.** This means the plan's 5-hour session limit. Read it with the app's usage tool
+(`mcp__ccd_session_mgmt__get_usage`, the "5-hour limit" window): at the start, before each new plan step, before anything long
+(a build, a device run, a subagent), and at least every ~15 tool calls. At 92 % or more, pause: start nothing new, finish only the
+edit you are in the middle of, and let a running command end (stop it if it would run long). Write a "Paused" part in
+`docs/STATUS.md`: what's done, what's half-done, the exact next step, and when the limit resets. Commit
+(`WP-xx: WIP, paused at usage limit`) only if your last test run was green; don't start a new run just for that.
+Then stop, tell the owner, and resume only when they say so. Side sessions check for themselves.
+If the tool is missing or says "unavailable", say so once and check again at the next point; don't stop for that alone.
+
 ## Layout (target, created in WP-01)
 
 ```
@@ -78,7 +87,13 @@ push from WSL, where `gh` is logged in (SETUP.md C). `<repo>` below = the repo p
   `~/build/suwayomi-nx/archive/<build id>/` and writes `safety-report.txt` (S2/S3 scan, report-only until WP-03b).
 - Device check (console on, Spelunky 2 first on HOME): `<repo>/tools/spike/wp01-hello.sh` (build → app mode → nxlink → screenshot → PLUS → log)
 - App flags: `-d` debug log, `--log-file` → `<data>/logs/app.log` (Switch: `sdmc:/switch/suwayomi-nx/logs/app.log`)
-- Test server start/stop: _TBD in WP-02_
+- Node tooling (D30, run from `<repo>`): `npm ci` once (pinned packages), `npm test` (vitest), `npm run typecheck` (tsc).
+  Node runs the `.ts` tools directly. Full fixture-determinism test: `SNX_FULL_FIXTURES=1 npm test`.
+- Test server (D29, Windows Java, port 4568, `tools/test-server/README.md`): `<repo>/tools/test-server/test-server.sh reset`, then
+  `... start [--auth none|basic|ui_login]` (~10 s), `... stop`, `... status`. Other tools get its address with
+  `eval "$(tools/test-server/test-server.sh env)"`. Its files live in `<repo>/.test-server/` (git-ignored).
+- Fixtures: `npm run gen-fixtures -- --out <dir>` (the test server does this itself). Schema: `npm run dump-schema` →
+  `tests/fixtures/schema.graphql`. Recorded answers: `tools/record-fixtures/record-all.sh` → `tests/fixtures/responses/`.
 - E2E desktop / device: _TBD in WP-03_
 
 ## Docs index

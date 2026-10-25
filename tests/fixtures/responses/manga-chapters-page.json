@@ -1,0 +1,263 @@
+{
+  "data": {
+    "chapters": {
+      "nodes": [
+        {
+          "id": 306,
+          "name": "Chapter 300",
+          "chapterNumber": 300
+        },
+        {
+          "id": 305,
+          "name": "Chapter 299",
+          "chapterNumber": 299
+        },
+        {
+          "id": 304,
+          "name": "Chapter 298",
+          "chapterNumber": 298
+        },
+        {
+          "id": 303,
+          "name": "Chapter 297",
+          "chapterNumber": 297
+        },
+        {
+          "id": 302,
+          "name": "Chapter 296",
+          "chapterNumber": 296
+        },
+        {
+          "id": 301,
+          "name": "Chapter 295",
+          "chapterNumber": 295
+        },
+        {
+          "id": 300,
+          "name": "Chapter 294",
+          "chapterNumber": 294
+        },
+        {
+          "id": 299,
+          "name": "Chapter 293",
+          "chapterNumber": 293
+        },
+        {
+          "id": 298,
+          "name": "Chapter 292",
+          "chapterNumber": 292
+        },
+        {
+          "id": 297,
+          "name": "Chapter 291",
+          "chapterNumber": 291
+        },
+        {
+          "id": 296,
+          "name": "Chapter 290",
+          "chapterNumber": 290
+        },
+        {
+          "id": 295,
+          "name": "Chapter 289",
+          "chapterNumber": 289
+        },
+        {
+          "id": 294,
+          "name": "Chapter 288",
+          "chapterNumber": 288
+        },
+        {
+          "id": 293,
+          "name": "Chapter 287",
+          "chapterNumber": 287
+        },
+        {
+          "id": 292,
+          "name": "Chapter 286",
+          "chapterNumber": 286
+        },
+        {
+          "id": 291,
+          "name": "Chapter 285",
+          "chapterNumber": 285
+        },
+        {
+          "id": 290,
+          "name": "Chapter 284",
+          "chapterNumber": 284
+        },
+        {
+          "id": 289,
+          "name": "Chapter 283",
+          "chapterNumber": 283
+        },
+        {
+          "id": 288,
+          "name": "Chapter 282",
+          "chapterNumber": 282
+        },
+        {
+          "id": 287,
+          "name": "Chapter 281",
+          "chapterNumber": 281
+        },
+        {
+          "id": 286,
+          "name": "Chapter 280",
+          "chapterNumber": 280
+        },
+        {
+          "id": 285,
+          "name": "Chapter 279",
+          "chapterNumber": 279
+        },
+        {
+          "id": 284,
+          "name": "Chapter 278",
+          "chapterNumber": 278
+        },
+        {
+          "id": 283,
+          "name": "Chapter 277",
+          "chapterNumber": 277
+        },
+        {
+          "id": 282,
+          "name": "Chapter 276",
+          "chapterNumber": 276
+        },
+        {
+          "id": 281,
+          "name": "Chapter 275",
+          "chapterNumber": 275
+        },
+        {
+          "id": 280,
+          "name": "Chapter 274",
+          "chapterNumber": 274
+        },
+        {
+          "id": 279,
+          "name": "Chapter 273",
+          "chapterNumber": 273
+        },
+        {
+          "id": 278,
+          "name": "Chapter 272",
+          "chapterNumber": 272
+        },
+        {
+          "id": 277,
+          "name": "Chapter 271",
+          "chapterNumber": 271
+        },
+        {
+          "id": 276,
+          "name": "Chapter 270",
+          "chapterNumber": 270
+        },
+        {
+          "id": 275,
+          "name": "Chapter 269",
+          "chapterNumber": 269
+        },
+        {
+          "id": 274,
+          "name": "Chapter 268",
+          "chapterNumber": 268
+        },
+        {
+          "id": 273,
+          "name": "Chapter 267",
+          "chapterNumber": 267
+        },
+        {
+          "id": 272,
+          "name": "Chapter 266",
+          "chapterNumber": 266
+        },
+        {
+          "id": 271,
+          "name": "Chapter 265",
+          "chapterNumber": 265
+        },
+        {
+          "id": 270,
+          "name": "Chapter 264",
+          "chapterNumber": 264
+        },
+        {
+          "id": 269,
+          "name": "Chapter 263",
+          "chapterNumber": 263
+        },
+        {
+          "id": 268,
+          "name": "Chapter 262",
+          "chapterNumber": 262
+        },
+        {
+          "id": 267,
+          "name": "Chapter 261",
+          "chapterNumber": 261
+        },
+        {
+          "id": 266,
+          "name": "Chapter 260",
+          "chapterNumber": 260
+        },
+        {
+          "id": 265,
+          "name": "Chapter 259",
+          "chapterNumber": 259
+        },
+        {
+          "id": 264,
+          "name": "Chapter 258",
+          "chapterNumber": 258
+        },
+        {
+          "id": 263,
+          "name": "Chapter 257",
+          "chapterNumber": 257
+        },
+        {
+          "id": 262,
+          "name": "Chapter 256",
+          "chapterNumber": 256
+        },
+        {
+          "id": 261,
+          "name": "Chapter 255",
+          "chapterNumber": 255
+        },
+        {
+          "id": 260,
+          "name": "Chapter 254",
+          "chapterNumber": 254
+        },
+        {
+          "id": 259,
+          "name": "Chapter 253",
+          "chapterNumber": 253
+        },
+        {
+          "id": 258,
+          "name": "Chapter 252",
+          "chapterNumber": 252
+        },
+        {
+          "id": 257,
+          "name": "Chapter 251",
+          "chapterNumber": 251
+        }
+      ],
+      "totalCount": 300,
+      "pageInfo": {
+        "hasNextPage": true,
+        "endCursor": "257-251"
+      }
+    }
+  }
+}

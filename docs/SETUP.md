@@ -31,9 +31,17 @@ Items marked 👤 need you (hardware, admin prompts, SD card). Claude runs every
    - Toolchain proofs (WP-00a): the libnx `templates/application` example builds to `hello.nro` in `~/build/suwayomi-nx/spike/hello/`.
      Upstream sys-autopilot (commit in STATUS) builds unmodified with `make` → `sys-autopilot.nsp`, `make -C app` → `sys-autopilot-app.nro`,
      and `./tests/run.sh` passes (C host tests plus its Node test). Clone: `~/build/suwayomi-nx/sys-autopilot-upstream/`.
-3. **Java 21** is already on Windows. It runs the Suwayomi *test* server (see D11).
-4. 👤 **Windows Firewall**: allow inbound TCP **4568** (test server) from your LAN only (Private profile).
-   Windows will prompt the first time Java listens. Choose *Private networks*.
+3. **Java 21** is already on Windows (Temurin 21.0.11). It runs the Suwayomi *test* server (D11, D29).
+4. 👤 **Windows Firewall** (done 2026-10-25, WP-02). The PC's Ethernet network is classed *Public*, and WSL's virtual network
+   counts as Public too, so a "Private networks only" answer to Windows' Java pop-up doesn't help. Two steps, in an admin PowerShell:
+   - Allow TCP 4568 from the home network only, on every profile:
+     `New-NetFirewallRule -DisplayName "suwayomi-nx test server (TCP 4568, LAN only)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 4568 -RemoteAddress LocalSubnet -Profile Any`
+   - Switch off the old "OpenJDK Platform binary" **Block** rules (TCP + UDP, Public) for this Java, which an earlier pop-up had
+     made. Block rules beat allow rules. Switched off, not deleted:
+     `Get-NetFirewallApplicationFilter | Where-Object { $_.Program -like '*jdk-21.0.11.10-hotspot*' } | Get-NetFirewallRule | Where-Object { $_.Action -eq 'Block' } | Disable-NetFirewallRule`
+   - Inbound stays blocked for everything else (the profile's default). After a Java update (new folder name), check for a new
+     Block rule the same way if the test server stops being reachable from WSL, the phone or the Switch.
+   - Check: a phone on the home Wi-Fi opens `http://<pc-ip>:4568/api/v1/settings/about` and shows a line with the server version.
 5. Optional: fix Rancher Desktop's Docker daemon (it timed out). This is only needed if we prefer containers to the jar locally.
    CI uses containers either way.
 

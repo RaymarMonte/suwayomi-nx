@@ -1,0 +1,22 @@
+{
+  "data": {
+    "mangas": {
+      "nodes": [
+        {
+          "id": 3,
+          "title": "Broken"
+        },
+        {
+          "id": 4,
+          "title": "Delta Big"
+        }
+      ],
+      "totalCount": 6,
+      "pageInfo": {
+        "hasNextPage": true,
+        "hasPreviousPage": true,
+        "endCursor": "4-Delta Big"
+      }
+    }
+  }
+}

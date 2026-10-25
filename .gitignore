@@ -18,6 +18,9 @@ cmake-build-*/
 
 node_modules/
 
+# The test server's jar, fixture manga and data (tools/test-server, D29).
+/.test-server/
+
 # Editors and OS clutter
 .vscode/
 .idea/

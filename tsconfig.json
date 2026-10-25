@@ -1,0 +1,19 @@
+{
+  // Type checking only (npm run typecheck). Node runs the .ts files directly by stripping the types,
+  // so only syntax that can simply be erased is allowed (no enums, namespaces or constructor parameter properties).
+  "compilerOptions": {
+    "target": "es2023",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": false,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["tools/**/*.ts", "tests/**/*.ts", "vitest.config.ts"],
+  "exclude": ["node_modules", "tools/sys-autopilot-nx", "library"]
+}

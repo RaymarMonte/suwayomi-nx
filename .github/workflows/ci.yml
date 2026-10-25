@@ -1,4 +1,4 @@
-# CI (docs/TESTING.md "CI", WP-01): unit tests + coverage, desktop build + smoke test, Switch build (.nro + .elf).
+# CI (docs/TESTING.md "CI", WP-01): unit tests + coverage, desktop build + smoke test, Node tooling tests (WP-02), Switch build (.nro + .elf).
 # Later WPs add contract, integration and desktop E2E jobs. Device tests run on the owner's PC only.
 name: CI
 
@@ -56,6 +56,23 @@ jobs:
         with:
           name: desktop-smoke
           path: ~/build/suwayomi-nx/desktop/smoke/
+
+  node:
+    name: Node tooling (fixtures, page code)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Type check
+        run: npm run typecheck
+      - name: Unit tests, including the whole fixture set generated twice (D31)
+        run: npm test
+        env:
+          SNX_FULL_FIXTURES: '1'
 
   switch:
     name: Switch build (.nro + .elf)

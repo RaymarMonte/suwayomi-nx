@@ -1,0 +1,25 @@
+{
+  "data": {
+    "category": {
+      "id": 1,
+      "name": "Reading",
+      "mangas": {
+        "nodes": [
+          {
+            "id": 1,
+            "title": "Alpha",
+            "thumbnailUrl": "/api/v1/manga/1/thumbnail",
+            "unreadCount": 3
+          },
+          {
+            "id": 2,
+            "title": "Beta RTL",
+            "thumbnailUrl": "/api/v1/manga/2/thumbnail",
+            "unreadCount": 2
+          }
+        ],
+        "totalCount": 2
+      }
+    }
+  }
+}

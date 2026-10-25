@@ -1,0 +1,8 @@
+# Library pagination: the second page of 2.
+query LibraryPage {
+  mangas(condition: { inLibrary: true }, order: [{ by: TITLE }], first: 2, offset: 2) {
+    nodes { id title }
+    totalCount
+    pageInfo { hasNextPage hasPreviousPage endCursor }
+  }
+}

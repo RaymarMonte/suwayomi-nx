@@ -1,0 +1,95 @@
+{
+  "data": {
+    "mangas": {
+      "nodes": [
+        {
+          "id": 1,
+          "title": "Alpha",
+          "thumbnailUrl": "/api/v1/manga/1/thumbnail",
+          "status": "ONGOING",
+          "unreadCount": 3,
+          "downloadCount": 0,
+          "categories": {
+            "nodes": [
+              {
+                "id": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": 2,
+          "title": "Beta RTL",
+          "thumbnailUrl": "/api/v1/manga/2/thumbnail",
+          "status": "UNKNOWN",
+          "unreadCount": 2,
+          "downloadCount": 0,
+          "categories": {
+            "nodes": [
+              {
+                "id": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": 3,
+          "title": "Broken",
+          "thumbnailUrl": "/api/v1/manga/3/thumbnail",
+          "status": "UNKNOWN",
+          "unreadCount": 1,
+          "downloadCount": 0,
+          "categories": {
+            "nodes": []
+          }
+        },
+        {
+          "id": 4,
+          "title": "Delta Big",
+          "thumbnailUrl": "/api/v1/manga/4/thumbnail",
+          "status": "UNKNOWN",
+          "unreadCount": 300,
+          "downloadCount": 0,
+          "categories": {
+            "nodes": [
+              {
+                "id": 2
+              }
+            ]
+          }
+        },
+        {
+          "id": 5,
+          "title": "Gamma Webtoon",
+          "thumbnailUrl": "/api/v1/manga/5/thumbnail",
+          "status": "UNKNOWN",
+          "unreadCount": 2,
+          "downloadCount": 0,
+          "categories": {
+            "nodes": [
+              {
+                "id": 2
+              }
+            ]
+          }
+        },
+        {
+          "id": 6,
+          "title": "日本語タイトル テスト",
+          "thumbnailUrl": "/api/v1/manga/6/thumbnail",
+          "status": "UNKNOWN",
+          "unreadCount": 1,
+          "downloadCount": 0,
+          "categories": {
+            "nodes": []
+          }
+        }
+      ],
+      "totalCount": 6,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "6-日本語タイトル テスト"
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "suwayomi-nx-tools",
+  "private": true,
+  "description": "Node tooling for suwayomi-nx: fixture generator, test-server seeding, schema dump, recorded responses, E2E harness (D20, D30)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "gen-fixtures": "node tools/gen-fixtures/gen-fixtures.ts",
+    "seed": "node tools/test-server/seed.ts",
+    "dump-schema": "node tools/dump-schema/dump-schema.ts",
+    "record-fixtures": "node tools/record-fixtures/record-fixtures.ts"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "graphql": "17.0.2",
+    "sharp": "0.35.5",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

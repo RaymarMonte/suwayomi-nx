@@ -1,0 +1,10 @@
+# vars: {"id": "$chapter:Alpha:3"}
+# prepare: mutation P($id: Int!) { fetchChapterPages(input: { chapterId: $id }) { pages } }
+# Save reading progress (page index 4 = the 5th page). The server caps lastPageRead at the chapter's pageCount, which is -1
+# until the pages were fetched once (then progress is saved as 0). So the pages are fetched first, in a separate request:
+# fields of one request don't wait for each other.
+mutation UpdateChapterProgress($id: Int!) {
+  updateChapter(input: { id: $id, patch: { lastPageRead: 4 } }) {
+    chapter { id lastPageRead isRead pageCount }
+  }
+}

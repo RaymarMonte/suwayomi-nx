@@ -1,0 +1,8 @@
+# vars: {"id": "$chapter:Broken:1"}
+# The Broken chapter: page 1 corrupt, page 2 empty, page 3 is 1x1. The server still lists all five.
+mutation FetchChapterPagesBroken($id: Int!) {
+  fetchChapterPages(input: { chapterId: $id }) {
+    pages
+    chapter { id pageCount }
+  }
+}

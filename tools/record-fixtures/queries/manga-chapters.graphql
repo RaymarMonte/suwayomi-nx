@@ -1,0 +1,8 @@
+# vars: {"id": "$manga:Alpha"}
+# Chapter list of a manga, newest first.
+query MangaChapters($id: Int!) {
+  chapters(condition: { mangaId: $id }, order: [{ by: SOURCE_ORDER, byType: DESC }]) {
+    nodes { id name chapterNumber sourceOrder uploadDate isRead isBookmarked lastPageRead pageCount isDownloaded }
+    totalCount
+  }
+}
