@@ -39,12 +39,14 @@ jobs:
           submodules: true   # library/borealis only; its glfw comes next (its SDL submodule isn't needed)
       - name: borealis's glfw
         run: git -C library/borealis submodule update --init --depth 1 library/lib/extern/glfw
+      # dbus-x11: borealis asks the D-Bus session bus for a screensaver inhibitor at start-up and aborts inside libdbus when there
+      # is no bus (it doesn't check for a failed connection). dbus-x11 starts a bus on demand, as on the PC.
       - name: Install build deps (docs/SETUP.md A.2) + Xvfb
         run: >
           sudo apt-get update && sudo apt-get install -y --no-install-recommends
           build-essential cmake ninja-build pkg-config
           xorg-dev libdbus-1-dev libxkbcommon-dev libwayland-dev wayland-protocols libgl1-mesa-dev libgl1-mesa-dri
-          xvfb imagemagick
+          xvfb imagemagick dbus-x11
       - name: Build
         run: tools/build.sh desktop
       - name: Smoke test (Xvfb)

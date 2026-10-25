@@ -17,13 +17,13 @@
 - **For WP-03/03b:** `main.cpp` opens `<data>/logs/app.log` with `mkdir` + `fopen` (flag `--log-file`) as a stop-gap: replace with the
   logger + SafeFs (S4 grep would flag it). Desktop borealis maps no key to PLUS (only Enter/Esc/arrows): the desktop driver needs a test
   hook to quit. GLFW picks WSLg's Wayland even without `WAYLAND_DISPLAY`; headless runs need an empty `XDG_RUNTIME_DIR` (smoke script does it).
+  borealis aborts (libdbus assertion) when there's no D-Bus session bus: CI installs `dbus-x11` so a bus starts on demand.
 
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM, 24 threads. WSL 3.0.3 + WSLg, Ubuntu 24.04. Java 21, git. devkitPro + Node 22 in WSL (SETUP.md A). Run WSL commands
   with `wsl.exe -d Ubuntu --exec bash -lc '…'` (not `--`); from Git Bash set `MSYS_NO_PATHCONV=1`. Rancher Desktop's Docker daemon was not responding.
 - Builds (from `/mnt/c`): unit tests ~10 s, desktop ~50 s, Switch ~55 s clean; `.nro` 2.5 MB, `.elf` 52 MB (debug info), 0 warnings in our code.
-- Router: DHCP reservation for the Switch (SETUP.md B.6); WSL reaches it by IP (`.local` 10× slower). Backups (WP-00a): `C:\Users\JohnDoe\SwitchBackup\2026-10-22\` (`sd\` + `hekate-backup\` emuMMC, SHA-256 checked). sysMMC NAND: owner's external drive.
-
+  Router: DHCP reservation for the Switch (SETUP.md B.6); WSL reaches it by IP (`.local` 10× slower). Backups (WP-00a): `C:\Users\JohnDoe\SwitchBackup\2026-10-22\` (`sd\` + `hekate-backup\` emuMMC, SHA-256 checked). sysMMC NAND: owner's external drive.
 ## Console facts
 - **v1 Erista · FW 22.5.0 · AMS 1.11.2 · emuMMC partition-based** (`emuMMC/RAW1`). Boots by **RCM payload**. Hekate **6.5.3**, autoboot off;
   Restart from HOME → Hekate → Launch → **CFW (EMUMMC)**. SD over USB: Hekate → Tools → USB Tools → SD Card = "SWITCH SD" (FAT32); never format the 2nd drive.
