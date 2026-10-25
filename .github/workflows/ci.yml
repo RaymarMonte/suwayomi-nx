@@ -60,8 +60,9 @@ jobs:
   switch:
     name: Switch build (.nro + .elf)
     runs-on: ubuntu-24.04
-    # devkitPro's image, pinned by digest (tag 20260219). The step below then updates its packages, so CI builds with the
-    # same current devkitPro packages as the PC (docs/SETUP.md A.2 lists them). D27.
+    # devkitPro's image, pinned by digest (tag 20260219), used as it is (D27). It already has every package we need, with the
+    # same libnx/deko3d/portlib versions as the PC. No dkp-pacman updates: devkitPro's server refuses CI machines (HTTP 403) and
+    # asks CI to use the images. Its compiler is one release older than the PC's (see the version step).
     container: devkitpro/devkita64@sha256:1fc388c3a0d34bd2045a6dadcb1020e069d5f876a187fd705de14b4440c00282
     steps:
       - name: Tools the checkout and the build need
@@ -73,12 +74,10 @@ jobs:
         run: |
           git config --global --add safe.directory '*'
           git -C library/borealis submodule update --init --depth 1 library/lib/extern/glfw
-      - name: devkitPro packages
-        run: |
-          dkp-pacman -Syu --noconfirm
-          dkp-pacman -S --needed --noconfirm switch-dev switch-glfw switch-mesa switch-glm switch-curl switch-libwebp \
-            switch-libjpeg-turbo switch-libpng switch-zlib deko3d uam
-          dkp-pacman -Q devkitA64 libnx deko3d uam switch-tools
+      - name: devkitPro package versions (local query, no download)
+        run: >
+          dkp-pacman -Q devkitA64 devkita64-gcc libnx deko3d uam switch-tools switch-glfw switch-mesa switch-glm
+          switch-curl switch-libwebp switch-libjpeg-turbo switch-libpng switch-zlib
       - name: Build
         run: tools/build.sh switch
       - uses: actions/upload-artifact@v7

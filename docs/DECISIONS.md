@@ -214,9 +214,13 @@ borealis submodule, and we'd be stuck on its version).
 
 **D27 CI on GitHub Actions** (WP-01, 2026-10-25). `.github/workflows/ci.yml`, three jobs on every push to `main` and every PR:
 `host` (ubuntu-24.04: unit tests, test-hooks unit tests, coverage report as an artifact), `desktop` (build + `tools/desktop-smoke.sh` on Xvfb,
-screenshot as an artifact), `switch` (`devkitpro/devkita64` image pinned by digest, tag 20260219, then `dkp-pacman -Syu` so it builds with the
-same current devkitPro packages as the PC; artifacts `.nro`, `.elf`, safety report). Later WPs add contract, integration and desktop E2E jobs.
-Rejected: building Switch packages from the image as-is (it's months older than the PC's toolchain), `latest` tag (moves without notice).
+screenshot as an artifact; it installs `dbus-x11` because borealis aborts without a D-Bus session bus), `switch` (`devkitpro/devkita64` image
+pinned by digest, tag 20260219, used as it is; artifacts `.nro`, `.elf`, safety report). Later WPs add contract, integration and desktop E2E jobs.
+The image has every package we need with the PC's versions (libnx 4.12.0, deko3d 0.5.0, the same portlibs), only an older compiler than the
+PC's devkitA64 r30 / gcc 16.1, so CI also proves the code builds with one compiler release back. When devkitPro publishes a newer image,
+bumping the digest is a chore (ROADMAP "CI version bumps").
+Rejected: `dkp-pacman -Syu` in CI (tried in the first run: devkitPro's server answers CI machines with HTTP 403 and asks CI to use the
+images), the `latest` tag (moves without notice).
 
 **D28 Banned functions that libraries pull in get do-nothing stand-ins** (owner OK 2026-10-25, WP-01; built in WP-03b). The WP-01 scan
 (`docs/safety-baseline.txt`) finds two S3 functions in the plain Hello app, neither of which ever runs: libnx's `appletInitialize` calls
