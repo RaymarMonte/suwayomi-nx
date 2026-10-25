@@ -22,11 +22,16 @@ struct AppStart {
     std::string_view platform;  // "switch" or "desktop"
     RuntimeInfo runtime;
     std::string_view profile;   // "full" in application mode. "none" in applet mode, which gets no profile (D21)
+    bool safeMode = false;      // the last run crashed, so this one runs in safe mode (SAFETY.md S1)
+    std::string_view lastCrash; // the crash record behind it ("logs/crashes/crash-....txt"), empty if none
 };
 
 std::string appStart(std::int64_t tMs, const AppStart& info);
 std::string screen(std::int64_t tMs, std::string_view name);
 std::string idle(std::int64_t tMs);
+// {"ev":"drill","name":"null-write","phase":"start"}: a crash drill starts (phase "start"), or the cache-write drill is
+// writing (phase "writing").
+std::string drill(std::int64_t tMs, std::string_view name, std::string_view phase);
 
 // Decides when to write an "idle" event: after kQuietFrames frames in a row with nothing running (no animation; later also no
 // network or decode job). One idle event per quiet spell: it comes again only after something was busy, or after markBusy().

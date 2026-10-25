@@ -17,12 +17,13 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-01](wp/WP-01-repo-scaffold-and-ci.md) | Repo scaffold, CMake, doctest, CI | 00 | Opus | M | GitHub repo (optional) | done |
 | [WP-02](wp/WP-02-test-server-and-fixtures.md) | Suwayomi test server + fixture manga + schema dump | 01 | Opus | M | Firewall prompt | done |
 | [WP-03](wp/WP-03-e2e-harness.md) | E2E harness: drivers + smoke scenario | 01, 02 | Opus | L | Console on + reachable | done |
-| [WP-03b](wp/WP-03b-safety-layer-and-crash-drills.md) | **Safety layer**: crash containment, write jail, banned-API gate, crash drills | 03 | Opus | M | Console; optional control-case OK; D28 stand-ins | todo |
+| [WP-03b](wp/WP-03b-safety-layer-and-crash-drills.md) | **Safety layer**: crash containment, write jail, banned-API gate, crash drills (PC side; device runs moved to WP-03c) | 03 | Opus | M | – | done |
+| [WP-03c](wp/WP-03c-crash-drills-on-the-console.md) | Crash drills on the console (WP-03b's device half), optional control case | 03b | Opus | S/M | **Yes**: console; boost-mode stand-in OK; control-case OK | todo |
 | [WP-04](wp/WP-04-core-models-graphql.md) | core: models, JSON, GraphQL docs, contract tests | 02 | Opus | M | – | todo |
 | [WP-05](wp/WP-05-net-http-client.md) | net: HttpClient, worker pool, cancellation | 01 ∥04 | Opus | M | – | todo |
 | [WP-06](wp/WP-06-api-suwayomi-client.md) | api: SuwayomiClient + auth modes | 04, 05 | Opus | M | – | todo |
 | [WP-07](wp/WP-07-image-pipeline-and-cache.md) | image: decode, downscale, tile, caches, memory budget | 05 | Opus | L | – | todo |
-| [WP-08](wp/WP-08-app-shell-and-setup.md) | App shell, settings, logging, test hooks, server setup/login | 03b, 06 | Opus | L | – | todo |
+| [WP-08](wp/WP-08-app-shell-and-setup.md) | App shell, settings, logging, test hooks, server setup/login | 03b, 06 (its applet-guard device drill: 03c) | Opus | L | – | todo |
 | [WP-09](wp/WP-09-library-screen.md) | Library screen (categories + cover grid) | 07, 08 | Opus | M | – | todo |
 | [WP-10](wp/WP-10-manga-details.md) | Manga details + chapter list | 09 | Opus | M | – | todo |
 | [WP-11](wp/WP-11-paged-reader.md) | Paged reader + progress sync | 10 | Opus | L | – | todo |

@@ -300,3 +300,37 @@ Rejected: SVG text via sharp/librsvg (depends on installed fonts), OCR of the pr
   the goldens within tolerance is untested).
 Rejected: fetch/node:http for the console (resets), reusing connections (the console closes them after 50 ms idle anyway), parallel requests,
 a uinput virtual gamepad on desktop (needs root), keeping the events file open (blocks the console's reads), ImageMagick for screen checks.
+
+**D33 How crash containment and the write jail are built** (WP-03b, 2026-10-25). Carries out D13, D14, D28 and SAFETY.md S1–S5, S8.
+Details: `src/app/crash/README.md`, `src/platform/README.md`.
+- **How a crash ends.** Main thread (CPU crash, `std::terminate`, `diagAbortWithResult`): record, then D13's `exit(EXIT_FAILURE)`
+  after the "exit steps" stopped the other threads (borealis's task thread now, worker pools later) and with a 3 s deadline.
+  Another thread: record, the thread parks forever, the healthy main thread shows the crash screen and quits normally. The
+  watchdog (main loop stuck 10 s), a second crash, or an exit that hangs: `platform::exitProcessNow()` (`svcExitProcess`, an
+  ordinary process exit like closing a game, never creport). Why not `exit()` everywhere: on the Switch `exit()` hands the CPU
+  back to hbloader, which unloads our code; from a non-main thread, or with threads still running, they would run into unloaded
+  memory (an application crash after all). GPU aborts (module 359) never show the crash screen.
+- **Crash screen** = our own `ui::CrashActivity` (borealis's `Application::crash()` is an empty stub), only when the main thread
+  is fine. After a main-thread crash the next launch shows a short "closed unexpectedly" note instead.
+- **Record**: `logs/crash-<UTC time>-<n>.txt`, written into `logs/crash-pending.tmp` (opened empty at start-up, no allocation
+  after a crash) and then renamed. The next launch files records into `logs/crashes/` (newest 10) and runs in safe mode
+  (`app_start.safeMode`, cache cleared; WP-08 halves budgets). Text `key: value` format, `BASE + 0x…` offsets for
+  `tools/symbolize-crash`. Our Switch code is built with `-fno-omit-frame-pointer` for the stack walk.
+- The libnx hooks live in the app's own objects, not `platform/switch/` (libnx refers to the handler only weakly, so a library
+  definition would never be linked). The desktop uses POSIX signals with per-thread alternate stacks, so all of it runs on the PC.
+- **Watchdog**: its own 64 KB pthread, counts 20 ticks of 0.5 s without a frame (counting ticks, so a sleeping console doesn't
+  trigger it), paused while the app is out of focus (borealis keeps the loop running in the background).
+- **SafeFs** (`platform/SafeFs`, one POSIX implementation) + pure path rules (`core::jailPath`: case-insensitive match of the
+  root, `sdmc:` only, `..` never above the root, odd characters and `.nro` files refused). Rename replaces the target (deleting
+  it first where Horizon refuses). `tools/safety/check-writes.sh` (run by `tools/build.sh tests`, so CI) fails on raw writes
+  anywhere else in `src/`.
+- **Safety gate**: `check-elf.sh` runs inside the CMake `.nro` target before `elf2nro`, so no `.nro` exists unless the `.elf` passes
+  (banned symbols, our hooks, `__nx_exception_stack` ≥ 32 KB). `tools/safety/stand-ins.txt` is the one list for the `--wrap`
+  flags and the gate. `tools/safety/gate-selftest.sh` proves a deliberately linked `fatalThrow` / `setsysSet*` fails the build.
+  `allowed-symbols.txt` exists and is empty. `appletSetCpuBoostMode` (D17) is written down but switched off: libnx's
+  `_appletCleanup` references it, so it needs a D28 stand-in and therefore the owner's OK (STATUS "Open questions").
+- Drills start on the first `idle`; the desktop driver's `launch()` returns without a window if the app has already ended.
+Rejected: `svcExitProcess` for every crash (D13 says `exit()`; the device drills, WP-03c, show whether that's worth changing),
+a borealis loop inside the exception handler to show the crash screen for main-thread crashes (borealis isn't re-entrant),
+pre-opening the final `crash-<time>.txt` (an empty one after a kill would look like a crash), the gate only as a `tools/build.sh`
+step (a plain `cmake --build` would skip it), `std::thread` for the watchdog and drills (no way to set the stack size, S8).

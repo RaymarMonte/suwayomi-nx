@@ -44,6 +44,9 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
 
 - WP-03 built `app_start`, `screen` and `idle` (`src/app/TestHooks`, line format and idle rule in `core/TestEvents`). The rest comes
   with WP-08 and the WPs that own them. `app_start` also has `platform`; on desktop `memTotal` is the PC's RAM or `--mem-limit`.
+- WP-03b added `app_start.safeMode` / `lastCrash` (the last run crashed: `src/app/crash/README.md`), the `drill` event
+  (`{"ev":"drill","name":"null-write","phase":"start"}`, or `"phase":"writing"` for the cache-write drill), and the test config's
+  `"drill"` key: that crash drill starts the first time the app is idle (test builds only).
 - `idle` is emitted when there are no pending net/decode jobs and no running animations (borealis's running tickings) for 3 frames in a row,
   once per quiet spell: again only after something was busy or a new `screen` came. **Tests wait for `idle`, never `sleep`.**
 - The app empties the file at start and appends each event with open → write → close, never keeping it open: on the Switch a file that one
@@ -91,6 +94,9 @@ interface Driver {
   touch(x: number, y: number, ms?: number): Promise<void>;   // one finger, screen pixels 0-1279 × 0-719, tap = default 100 ms
   swipe(x1: number, y1: number, x2: number, y2: number, ms: number, steps?: number): Promise<void>;
   screenshot(): Promise<Buffer>;                   // 1280×720: PNG on desktop (lossless), JPEG on the Switch
+  requestExit(): Promise<void>;                    // WP-03b: desktop SIGTERM, Switch HOME → Close software (an exit request)
+  waitForExit(timeoutMs: number): Promise<string>; // WP-03b: the app ended by itself (crash drills); Switch: crash folders checked
+  listFiles(dir: string): Promise<string[]>;       // WP-03b: names in a folder of the data folder, e.g. "logs"
   readFile(path: string, offset?: number): Promise<Buffer>;   // paths inside the app's data folder (D10), e.g. "logs/app.log"
   writeFile(path: string, data: Buffer|string): Promise<void>;
   events(): EventStream;                           // tails test/events.jsonl of the current launch
@@ -181,7 +187,9 @@ Initial list, grown per UI WP:
     is the only event, a button press or tap closes it and the app is back in hbmenu, no new crash report or fatal file. On the device it also runs
     the null-pointer drill inside that screen (SAFETY.md S12)
 12. `low-memory` (desktop) – a `--mem-limit` run triggers `mem_pressure` without a crash, and About shows the mode and memory
-13. `crash-drills` (device, application mode) – every drill in SAFETY.md ends in a clean exit + crash log + safe mode next launch, with zero system fatals
+13. `crash-drills` (device and desktop, application mode) – every drill in SAFETY.md ends in a clean exit + crash log + safe mode next launch,
+    with zero system fatals. One test per drill (`crash-drill-<name>`); the drills and what each should end in: `src/app/crash/README.md`.
+    Desktop green since WP-03b; the device runs are WP-03c
 
 ## Golden screenshots
 - Stored per driver: `tests/e2e/goldens/{desktop,switch}/<scenario>/<step>.png`.

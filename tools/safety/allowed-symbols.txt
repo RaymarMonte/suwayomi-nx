@@ -1,0 +1,5 @@
+# Exceptions to the S3 rules in banned-symbols.txt (docs/SAFETY.md S3). tools/safety/check-elf.sh lets a banned S3 function
+# through only if it is listed here. S2 (fatalThrow*) can never be listed.
+# Each entry needs the owner's OK plus an Opus review. Format: <function name>  # why, who calls it, "owner OK <date>"
+# Empty on purpose: D28 gives banned functions that libraries pull in a do-nothing stand-in (tools/safety/stand-ins.txt)
+# instead, so they never reach the binary at all.

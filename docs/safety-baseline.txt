@@ -1,5 +1,10 @@
 Safety symbol baseline (WP-01, 2026-10-25). docs/SAFETY.md S2/S3, report-only. WP-03b turns the scan into a gate.
 
+Since WP-03b (2026-10-25): the gate is enforcing. Both hits below now go to do-nothing stand-ins (D28, tools/safety/stand-ins.txt),
+so the real functions are no longer in the .elf: SUMMARY banned matches=0, crash hooks ours=2/2, PASS. This file stays as the
+record of why the stand-ins exist. (A third reference found in WP-03b, appletSetCpuBoostMode from libnx's _appletCleanup,
+waits for the owner: tools/safety/banned-symbols.txt.)
+
 Build: the WP-01 "Hello" app, Switch release, borealis 5f08b28 (deko3d), libnx 4.12.0, devkitA64 r30.
 Made with: tools/build.sh switch   (it runs tools/safety/check-elf.sh suwayomi-nx.elf suwayomi-nx.map)
 

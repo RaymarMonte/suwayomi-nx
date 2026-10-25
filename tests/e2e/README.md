@@ -74,9 +74,12 @@ Switch: closes the software and goes back to the HOME menu), and the logs land i
 4. **Same scenario, both drivers.** Use `press`, `touch`, `swipe` and `readFile`/`writeFile` (paths inside the app's data folder, like
    `logs/app.log`). Desktop limits: buttons A (Enter), B (Escape), X (middle mouse) and the D-pad only (`press('Y')` throws
    NotSupportedError there); no sticks. Touch works on both (desktop: the mouse is one finger).
-5. **Low memory and applet mode:** `launch({ memLimitMb })` is desktop only. `launch({ mode: 'applet' })` is only for the
+5. **An app that ends by itself** (crash drills, `scenarios/crash-drills.test.ts`): `waitForExit(ms)` instead of `quit()`; it
+   says how it ended (desktop "exited with code 1"). `requestExit()` is the system's exit request (desktop SIGTERM, Switch HOME →
+   Close software). `listFiles('logs')` lists a folder of the data folder; `lib/crashrecord.ts` reads crash records.
+6. **Low memory and applet mode:** `launch({ memLimitMb })` is desktop only. `launch({ mode: 'applet' })` is only for the
    applet-guard scenario (WP-08); on the Switch it stays switched off (`APPLET_MODE_READY` in SwitchDriver) until the crash handler exists.
-6. Fixture manga and the test server: `docs/TESTING.md` "Fixture manga", `tools/test-server/README.md`. Read the page on screen with
+7. Fixture manga and the test server: `docs/TESTING.md` "Fixture manga", `tools/test-server/README.md`. Read the page on screen with
    `findPageCodes()` from `lib/pagecode.ts` (decode the screenshot with sharp first), not by looking at the picture.
 
 ### Goldens

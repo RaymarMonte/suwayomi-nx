@@ -31,4 +31,9 @@ core::RuntimeInfo runtimeInfo();
 void installQuitSignalHandlers();
 bool quitRequested();
 
+// Ends the whole process at once: no destructors, no atexit handlers, nothing more of our code runs. Only for the crash path
+// when a normal exit() can't work (a second crash, a stalled main loop, an exit that hangs: src/app/crash/README.md).
+// Switch: svcExitProcess() (the process ends like a closed game, never through Atmosphère's crash reporter). Desktop: _exit(code).
+[[noreturn]] void exitProcessNow(int code);
+
 }  // namespace snx::platform

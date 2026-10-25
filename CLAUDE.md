@@ -84,7 +84,11 @@ push from WSL, where `gh` is logged in (SETUP.md C). `<repo>` below = the repo p
   `tools/build.sh run [-- -d --log-file]` builds and opens it in WSLg. Headless check: `<repo>/tools/desktop-smoke.sh` (Xvfb).
   Any desktop run on Xvfb must hide WSLg's Wayland socket (empty `XDG_RUNTIME_DIR`), or the window opens on the owner's screen.
 - Switch build: `<repo>/tools/build.sh switch` → `~/build/suwayomi-nx/switch/suwayomi-nx.nro`. Also archives .elf + .nro under
-  `~/build/suwayomi-nx/archive/<build id>/` and writes `safety-report.txt` (S2/S3 scan, report-only until WP-03b).
+  `~/build/suwayomi-nx/archive/<build id>/`. The safety gate (`tools/safety/check-elf.sh`, S2/S3, D28) runs before packing:
+  a failing .elf gets no .nro; report in `safety-report.txt`.
+- Safety tools (WP-03b, D33): `tools/safety/check-writes.sh` (write-jail grep gate, also run by `build.sh tests`),
+  `tools/safety/gate-selftest.sh` (proves the gate fails on a banned call, ~1 min), `tools/symbolize-crash/symbolize-crash.sh
+  <crash-record.txt>` (crash record addresses → function and file:line). Crash records: `<data>/logs/crash-*.txt`, then `logs/crashes/`.
 - Device check (console on, Spelunky 2 first on HOME): `<repo>/tools/spike/wp01-hello.sh` (build → app mode → nxlink → screenshot → PLUS → log)
 - App flags: `-d` debug log, `--log-file` → `<data>/logs/app.log` (Switch: `sdmc:/switch/suwayomi-nx/logs/app.log`). Desktop test flags:
   `--simulate-applet-mode`, `--mem-limit=<MB>`. Desktop quits cleanly on SIGTERM/Ctrl+C. Test builds write `<data>/test/events.jsonl`.

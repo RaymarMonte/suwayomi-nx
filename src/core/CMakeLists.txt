@@ -1,7 +1,10 @@
 # core: pure C++ (models, JSON mapping, GraphQL docs, reader math, policies). Never curl, borealis, libnx or platform headers.
 add_library(snx_core STATIC
+    CrashRecord.cpp
     LaunchOptions.cpp
     RuntimeInfo.cpp
+    SafePath.cpp
+    TestConfig.cpp
     TestEvents.cpp
     Version.cpp
 )

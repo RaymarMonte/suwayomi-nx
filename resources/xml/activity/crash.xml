@@ -1,0 +1,52 @@
+<!-- The crash screen (src/ui/crash/CrashActivity, SAFETY.md S1). Plain text only: it shows up when something already went
+     wrong, so it uses nothing that could fail on its own (no images to load, no lists). The box is focusable (highlight hidden)
+     because borealis only handles buttons when some view has the focus. The record's name has its own line, so the E2E
+     golden can mask just that (it changes every run). -->
+<brls:AppletFrame
+    footerHidden="false">
+
+    <brls:Box
+        id="crash/box"
+        title="@i18n/app/title"
+        width="auto"
+        height="auto"
+        grow="1.0"
+        axis="column"
+        justifyContent="center"
+        alignItems="center"
+        paddingLeft="80"
+        paddingRight="80"
+        focusable="true"
+        hideHighlight="true"
+        hideClickAnimation="true">
+
+        <brls:Label
+            id="crash/title"
+            text="@i18n/crash/title"
+            fontSize="36"
+            horizontalAlign="center" />
+
+        <brls:Label
+            id="crash/detail"
+            text="@i18n/crash/detail"
+            fontSize="22"
+            marginTop="24"
+            horizontalAlign="center" />
+
+        <brls:Label
+            id="crash/record"
+            text=""
+            fontSize="22"
+            marginTop="8"
+            horizontalAlign="center" />
+
+        <brls:Label
+            id="crash/hint"
+            text="@i18n/crash/hint"
+            fontSize="22"
+            marginTop="24"
+            horizontalAlign="center" />
+
+    </brls:Box>
+
+</brls:AppletFrame>

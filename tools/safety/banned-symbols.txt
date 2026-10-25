@@ -30,7 +30,12 @@ S3 bpcRebootSystem
 S3 bpcShutdownSystem
 S3 spsmShutdown
 # S3 + S9/D17: never touch clocks, performance modes or the backlight
+# (pcvSet* and clkrstSet* include pcvSetClockRate and clkrstSetClockRate)
 S3 pcvSet*
 S3 clkrstSet*
 S3 apmSetPerformanceConfiguration
 S3 lblSet*
+# WAITING FOR THE OWNER (WP-03b): D17 also bans appletSetCpuBoostMode, but libnx's own exit code (_appletCleanup) references it,
+# only to undo a CPU boost nobody set, so the rule fails every build. Switching it on needs a D28 stand-in
+# (tools/safety/stand-ins.txt), and every new stand-in needs the owner's OK (D28). docs/STATUS.md "Open questions".
+# S3 appletSetCpuBoostMode

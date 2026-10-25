@@ -7,7 +7,7 @@
 #   coverage  unit tests with gcov, then a gcovr HTML report    -> tests/out/coverage/index.html (in the repo, git-ignored)
 #   desktop   desktop app                                       -> ~/build/suwayomi-nx/desktop/suwayomi-nx
 #   run       desktop build, then starts it (WSLg window). Extra args after "--" go to the app, e.g. run -- -d --log-file
-#   switch    Switch app: .elf + .nro, archived by build id, plus the safety symbol report
+#   switch    Switch app: .elf + .nro (only if the safety gate passes), archived by build id
 #                                                               -> ~/build/suwayomi-nx/switch/suwayomi-nx.nro
 #   all       tests, desktop and switch
 # Flags:
@@ -65,6 +65,9 @@ check_borealis() {
 build_tests() {
     local dir="$BUILD_ROOT/tests$SUFFIX"
     log "unit tests -> $dir"
+    # The write-jail grep gate (SAFETY.md S4) first: it takes a second and fails before anything is built.
+    "$REPO/tools/safety/check-writes.sh" --self-test
+    "$REPO/tools/safety/check-writes.sh"
     configure "$dir" -DSNX_BUILD_TESTS=ON
     cmake --build "$dir" -j "$JOBS"
     ctest --test-dir "$dir" --output-on-failure
@@ -107,8 +110,8 @@ build_switch() {
     configure "$dir" -DPLATFORM_SWITCH=ON -DUSE_DEKO3D=ON
     cmake --build "$dir" -j "$JOBS" --target suwayomi-nx.nro
     archive_switch "$dir"
-    "$REPO/tools/safety/check-elf.sh" "$dir/suwayomi-nx.elf" "$dir/suwayomi-nx.map" > "$dir/safety-report.txt"
-    log "safety symbol report (report-only until WP-03b): $dir/safety-report.txt"
+    # The safety gate (tools/safety/check-elf.sh) already ran inside the build, before elf2nro: a failing .elf has no .nro.
+    log "safety gate report: $dir/safety-report.txt"
     grep '^SUMMARY' "$dir/safety-report.txt" || true
 }
 

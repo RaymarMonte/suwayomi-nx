@@ -43,12 +43,16 @@ but it should exit cleanly and leave a log behind.
 
 ## The safety rules (S1–S12)
 
-**S1 Crash containment** (`src/app/crash/`, Switch only, ~200 lines):
+**S1 Crash containment** (`src/app/crash/`, built in WP-03b; how each kind of crash ends, the record format and the drills:
+`src/app/crash/README.md`, D33. The desktop build has the same logic on POSIX signals, so it's tested on the PC too):
 - Define `__nx_exception_stack` (32 KB) + `__nx_exception_stack_size` + `__libnx_exception_handler`.
 - Override `diagAbortWithResult`, call `std::set_terminate`, and catch `...` at the main loop and at every worker task boundary.
 - The handler has a re-entrancy guard (second entry → `svcExitProcess()` immediately). It writes a small crash record (type, PC/LR/SP/FAR
   relative to module base, ~32-frame stack trace, build id, mode, last 64 log lines from an in-memory ring buffer) to `logs/crash-<time>.txt`
   using a file descriptor opened at start-up (no allocation in the handler). Then it exits cleanly with `exit(EXIT_FAILURE)`.
+  (D33: that `exit()` runs on the main thread after the other threads are stopped. A crash on another thread parks that thread and
+  the main thread shows the crash screen and quits; a stuck main loop, a second crash or a hanging exit end the process with
+  `svcExitProcess()`, an ordinary process exit. None of them reaches creport.)
 - borealis crash screen (`brls::Application::crash(msg)`): only for non-GPU aborts, and only if the UI is healthy. A GPU-origin abort
   (result module 359) skips straight to exit.
 - Next launch: a crash file present → short "the app closed unexpectedly last time" note + **safe mode** for that session
@@ -56,7 +60,9 @@ but it should exit cleanly and leave a log behind.
 
 **S2 No fatal calls, ever.** A build gate (`tools/safety/check-elf.sh`, runs `nm` on the final `.elf`) fails if the binary references
 `fatalThrow`, `fatalThrowWithPolicy` or `fatalThrowWithContext`. It also fails if our `__libnx_exception_handler` / `diagAbortWithResult`
-aren't the ones linked (libnx's weak defaults would be a regression).
+aren't the ones linked (libnx's weak defaults would be a regression), or `__nx_exception_stack` isn't ours and ≥ 32 KB.
+Since WP-03b it runs inside the Switch build before `elf2nro`, so a failing `.elf` never becomes a `.nro` (locally and in CI);
+`tools/safety/gate-selftest.sh` proves it fails on a deliberately linked `fatalThrow` and `setsysSet*` call.
 
 **S3 Brick guard: banned system APIs.** The same gate fails on references to anything that writes the system:
 `fsOpenBisFileSystem`, `fsOpenBisStorage`, `fsOpenSaveDataFileSystemBySystemSaveDataId`, `fsCreate*SaveData*`, `fsDelete*SaveData*`, `fsFormat*`,
@@ -64,12 +70,15 @@ aren't the ones linked (libnx's weak defaults would be a regression).
 `esImportTicket*`, `esDeleteTicket*`, `splSetConfig`, `bpcRebootSystem`, `bpcShutdownSystem`, `spsmShutdown`, `pcvSet*`, `clkrstSet*`,
 `apmSetPerformanceConfiguration`, `lblSet*`. Exceptions go in `tools/safety/allowed-symbols.txt`, which needs the owner's OK plus an Opus review.
 (WP-01 ran the scan on the plain Hello app: `docs/safety-baseline.txt`, list in `tools/safety/banned-symbols.txt`. Two hits, both pulled in
-by libraries and never called. They get do-nothing stand-ins through `ld --wrap` instead of allowlist entries, D28, built in WP-03b.)
+by libraries and never called. They get do-nothing stand-ins through `ld --wrap` instead of allowlist entries, D28, built in WP-03b:
+`tools/safety/stand-ins.txt`, `src/app/SwitchStandIns.cpp`. D17's `appletSetCpuBoostMode` is written into the list but switched off
+until the owner OKs a third stand-in: libnx's exit code references it, only to undo a boost nobody set.)
 
 **S4 Filesystem jail.** All writes go through `platform::SafeFs`, which refuses any path outside `sdmc:/switch/suwayomi-nx/`
 (desktop: `./data/`). It normalises `..`, `//`, case and the `sdmc:` prefix, and is unit-tested against traversal tricks and `sdmc:/atmosphere`,
 `sdmc:/bootloader`, `sdmc:/config`, `sdmc:/hbmenu.nro`. A CI grep fails on `fopen(…"w"/"a")`, `std::ofstream`, `rename`, `remove`,
-`mkdir` outside `SafeFs`.
+`mkdir` outside `SafeFs` (`tools/safety/check-writes.sh`, run by `tools/build.sh tests`). Built in WP-03b: `src/platform/SafeFs`,
+path rules in `core::jailPath`. It also refuses any `.nro` (no self-update, D15).
 
 **S5 Write discipline (SD/exFAT safety).**
 - Atomic writes: `x.tmp` → write → `fflush` → `fsync` → close → `rename` over `x`. Config also keeps `x.bak`.

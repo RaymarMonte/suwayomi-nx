@@ -1,0 +1,6 @@
+# D28: banned functions (banned-symbols.txt) that libraries reference but never call. The Switch link wraps each one
+# (-Wl,--wrap=<name>, src/app/CMakeLists.txt) and src/app/SwitchStandIns.cpp defines __wrap_<name> as a do-nothing stand-in,
+# so the real function never ends up in the .elf. tools/safety/check-elf.sh reads this list too.
+# One name per line. Adding a name needs the owner's OK (D28) plus an Opus review, and a stand-in in SwitchStandIns.cpp.
+apmSetPerformanceConfiguration
+lblSetCurrentBrightnessSetting

@@ -10,11 +10,24 @@ set(SNX_BOREALIS_RESOURCES ${PROJECT_SOURCE_DIR}/library/borealis/resources)
 set(SNX_APP_SOURCES
     main.cpp
     TestHooks.cpp
+    crash/Crash.cpp
+    crash/Drills.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/crash/CrashActivity.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/hello/HelloActivity.cpp
 )
 if (PLATFORM_SWITCH)
-    # borealis's userAppInit/userAppExit: sockets, romfs and the system services it uses (as in borealis_template).
-    list(APPEND SNX_APP_SOURCES ${BOREALIS_LIBRARY}/lib/platforms/switch/switch_wrapper.c)
+    # crash/CrashSwitch.cpp defines libnx's crash hooks and SwitchStandIns.cpp the D28 stand-ins. Both must be in the
+    # executable's own objects, not in a library (crash/README.md says why).
+    # switch_wrapper.c: borealis's userAppInit/userAppExit (sockets, romfs and the system services it uses, as in borealis_template).
+    list(APPEND SNX_APP_SOURCES crash/CrashSwitch.cpp SwitchStandIns.cpp ${BOREALIS_LIBRARY}/lib/platforms/switch/switch_wrapper.c)
+else ()
+    list(APPEND SNX_APP_SOURCES crash/CrashDesktop.cpp)
+endif ()
+
+# tools/safety/gate-selftest.sh only: S2 or S3 links one banned call on purpose, so the safety gate must fail the build.
+set(SNX_SAFETY_GATE_PROBE "" CACHE STRING "Safety gate self-test only: S2 or S3 links a banned call, the build must then fail")
+if (PLATFORM_SWITCH AND SNX_SAFETY_GATE_PROBE)
+    list(APPEND SNX_APP_SOURCES SafetyGateProbe.cpp)
 endif ()
 
 find_package(Threads REQUIRED)
@@ -71,9 +84,24 @@ if (PLATFORM_DESKTOP)
 elseif (PLATFORM_SWITCH)
     # The linker map says which object pulled in each library function. tools/safety/check-elf.sh uses it.
     target_link_options(${SNX_APP} PRIVATE "-Wl,-Map,${CMAKE_BINARY_DIR}/${SNX_APP}.map")
+    # D28: every call to a function in stand-ins.txt goes to our do-nothing __wrap_<name> (SwitchStandIns.cpp) instead.
+    set(SNX_STAND_INS_FILE ${PROJECT_SOURCE_DIR}/tools/safety/stand-ins.txt)
+    file(STRINGS ${SNX_STAND_INS_FILE} SNX_STAND_INS REGEX "^[A-Za-z_][A-Za-z0-9_]*$")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${SNX_STAND_INS_FILE})
+    foreach (name ${SNX_STAND_INS})
+        target_link_options(${SNX_APP} PRIVATE "-Wl,--wrap=${name}")
+    endforeach ()
+    if (SNX_SAFETY_GATE_PROBE)
+        # --undefined keeps the probe function although nothing calls it (it is a root for --gc-sections).
+        target_compile_definitions(${SNX_APP} PRIVATE SNX_SAFETY_GATE_PROBE_${SNX_SAFETY_GATE_PROBE}=1)
+        target_link_options(${SNX_APP} PRIVATE "-Wl,--undefined=snxSafetyGateProbe")
+    endif ()
     add_custom_target(${SNX_APP}.nro ALL
         DEPENDS ${SNX_APP} snx_resources
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        # The safety gate (SAFETY.md S2/S3, D28) comes first: no .nro at all unless the .elf passes. Report: safety-report.txt.
+        COMMAND ${CMAKE_COMMAND} -E rm -f ${SNX_APP}.nro
+        COMMAND ${PROJECT_SOURCE_DIR}/tools/safety/check-elf.sh $<TARGET_FILE:${SNX_APP}> ${SNX_APP}.map --report safety-report.txt
         COMMAND ${NX_NACPTOOL_EXE} --create "${SNX_APP_TITLE}" "${SNX_APP_AUTHOR}" "${PROJECT_VERSION}" ${SNX_APP}.nacp
         COMMAND ${NX_ELF2NRO_EXE} $<TARGET_FILE:${SNX_APP}> ${SNX_APP}.nro
                 --icon=${PROJECT_SOURCE_DIR}/resources/icon/icon.jpg --nacp=${SNX_APP}.nacp --romfsdir=${SNX_RESOURCES_OUT}

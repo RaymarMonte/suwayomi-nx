@@ -13,7 +13,7 @@
 
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { closeSync, existsSync, mkdtempSync, openSync, rmSync } from 'node:fs';
-import { mkdir, open, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, open, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
@@ -111,7 +111,12 @@ export class DesktopDriver implements Driver {
         await this.stream.waitForEvent('app_start', {}, { timeoutMs: 20_000 });
 
         // The window: found by the app's process id, then given the focus (borealis ignores input without it).
-        const found = await this.xdotool(['search', '--sync', '--onlyvisible', '--pid', String(app.pid)], 20_000);
+        // A crash drill can end the app before its window turns up: then there's no window to find, and launch() is done
+        // anyway (the scenario sees the end with waitForExit(); any input would fail with "the app is gone").
+        const search = this.xdotool(['search', '--sync', '--onlyvisible', '--pid', String(app.pid)], 20_000);
+        search.catch(() => undefined); // if the app wins the race below, nobody waits for this any more
+        const found = await Promise.race([search, this.appExited.then(() => null)]);
+        if (found === null) return;
         this.windowId = found.trim().split('\n')[0];
         if (!this.windowId) throw new Error('the app has no window');
         await this.xdotool(['windowfocus', '--sync', this.windowId], 5_000);
@@ -185,6 +190,27 @@ export class DesktopDriver implements Driver {
             timeout: 15_000,
         });
         return stdout;
+    }
+
+    async requestExit(): Promise<void> {
+        if (!this.app || this.appExit !== null) throw new Error('the app is not running');
+        this.app.kill('SIGTERM');
+    }
+
+    async waitForExit(timeoutMs: number): Promise<string> {
+        if (!this.app) throw new Error('the app was never started');
+        const ended = await Promise.race([this.appExited.then(() => true), sleep(timeoutMs).then(() => false)]);
+        if (!ended) throw new Error(`the app was still running ${timeoutMs} ms later`);
+        return this.appExit ?? 'ended';
+    }
+
+    async listFiles(dir: string): Promise<string[]> {
+        try {
+            return (await readdir(dataPath(this.dataDir, dir))).sort();
+        } catch (e) {
+            if ((e as NodeJS.ErrnoException).code === 'ENOENT') return [];
+            throw e;
+        }
     }
 
     async readFile(path: string, offset = 0): Promise<Buffer> {

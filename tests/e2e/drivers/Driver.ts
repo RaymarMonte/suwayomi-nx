@@ -53,6 +53,22 @@ export interface Driver {
     /** The screen at 1280×720: PNG on desktop (lossless), JPEG on the Switch. sharp and the golden compare read both. */
     screenshot(): Promise<Buffer>;
 
+    /**
+     * Asks the app to close the way the system does, and doesn't wait: desktop SIGTERM, Switch HOME → Close software
+     * (an exit request, which borealis answers by quitting). Then call waitForExit().
+     */
+    requestExit(): Promise<void>;
+
+    /**
+     * Waits until the app has ended by itself (a crash drill) or after requestExit(), and says how: desktop "exited with
+     * code 1" or "killed by SIGSEGV", Switch "the console is back in hbmenu" or "the console shows the HOME menu". On the
+     * Switch it then checks the crash folders like quit() does (a new fatal file stops everything).
+     */
+    waitForExit(timeoutMs: number): Promise<string>;
+
+    /** The names in a folder of the app's data folder, e.g. "logs". Missing folder = []. */
+    listFiles(dir: string): Promise<string[]>;
+
     /** A file in the app's data folder (D10), e.g. "logs/app.log". Missing file = empty buffer. */
     readFile(path: string, offset?: number): Promise<Buffer>;
     /** Writes a file in the app's data folder (D10), e.g. "test/config.json". */

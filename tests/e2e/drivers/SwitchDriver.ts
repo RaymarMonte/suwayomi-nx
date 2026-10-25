@@ -161,6 +161,38 @@ export class SwitchDriver implements Driver {
         return this.autopilot.screenshot();
     }
 
+    /** An exit request like the user's: HOME, then X → "Close the software?" → A (profile.json closeSoftware). */
+    async requestExit(): Promise<void> {
+        if (!this.launched) throw new Error('the app is not running');
+        await this.autopilot.clearInput();
+        await this.autopilot.tap(['HOME']);
+        await sleep(1_500);
+        await this.closeSoftware();
+    }
+
+    /**
+     * WP-03b, not yet run on the console (STATUS "Waiting for the console"): polls the screen until hbmenu or the HOME menu
+     * shows, then compares the crash folders like quit() does.
+     */
+    async waitForExit(timeoutMs: number): Promise<string> {
+        if (!this.launched) throw new Error('the app is not running');
+        const until = Date.now() + timeoutMs;
+        for (;;) {
+            const gone = await this.appGone();
+            if (gone) {
+                this.launched = false;
+                await this.checkCrashes();
+                return gone;
+            }
+            if (Date.now() > until) throw new Error(`the app was still on screen ${timeoutMs} ms later`);
+            await sleep(2_000);
+        }
+    }
+
+    async listFiles(dir: string): Promise<string[]> {
+        return (await this.autopilot.listDir(this.sdPath(dir))).map((e) => e.name);
+    }
+
     async readFile(path: string, offset = 0): Promise<Buffer> {
         return (await this.autopilot.getFile(this.sdPath(path), offset)) ?? Buffer.alloc(0);
     }

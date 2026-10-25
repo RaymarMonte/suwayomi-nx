@@ -71,4 +71,8 @@ bool quitRequested() {
     return gQuitRequested != 0;
 }
 
+void exitProcessNow(int code) {
+    ::_exit(code);
+}
+
 }  // namespace snx::platform

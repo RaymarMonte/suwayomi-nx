@@ -26,6 +26,8 @@ std::string appStart(std::int64_t tMs, const AppStart& info) {
     fields["profile"] = std::string(info.profile);
     fields["memTotal"] = info.runtime.totalMem;
     fields["memUsed"] = info.runtime.usedMem;
+    fields["safeMode"] = info.safeMode;
+    fields["lastCrash"] = std::string(info.lastCrash);
     return line(tMs, "app_start", fields);
 }
 
@@ -37,6 +39,13 @@ std::string screen(std::int64_t tMs, std::string_view name) {
 
 std::string idle(std::int64_t tMs) {
     return line(tMs, "idle");
+}
+
+std::string drill(std::int64_t tMs, std::string_view name, std::string_view phase) {
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["name"] = std::string(name);
+    fields["phase"] = std::string(phase);
+    return line(tMs, "drill", fields);
 }
 
 bool IdleTracker::onFrame(bool busy) {

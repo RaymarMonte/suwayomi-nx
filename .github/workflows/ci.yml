@@ -1,4 +1,6 @@
 # CI (docs/TESTING.md "CI", WP-01): unit tests + coverage, desktop build + smoke test, Node tooling tests (WP-02), Switch build (.nro + .elf).
+# WP-03b: the write-jail grep gate runs in the unit-test job (tools/build.sh tests), the .elf safety gate inside the Switch build,
+# plus its self-test.
 # Later WPs add contract, integration and desktop E2E jobs. Device tests run on the owner's PC only.
 name: CI
 
@@ -95,8 +97,10 @@ jobs:
         run: >
           dkp-pacman -Q devkitA64 devkita64-gcc libnx deko3d uam switch-tools switch-glfw switch-mesa switch-glm
           switch-curl switch-libwebp switch-libjpeg-turbo switch-libpng switch-zlib
-      - name: Build
+      - name: Build (the safety gate runs inside it, D33)
         run: tools/build.sh switch
+      - name: Safety gate self-test (a deliberately linked banned call must fail the build)
+        run: tools/safety/gate-selftest.sh
       - uses: actions/upload-artifact@v7
         with:
           name: suwayomi-nx-switch

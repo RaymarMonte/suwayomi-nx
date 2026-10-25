@@ -40,4 +40,10 @@ bool quitRequested() {
     return false;
 }
 
+void exitProcessNow(int) {
+    // Horizon has no exit code here. The process (hbloader with our .nro in it) simply ends, and the console goes back to the
+    // HOME menu. That's an ordinary exit, so Atmosphère's crash reporter is never involved (SAFETY.md).
+    svcExitProcess();
+}
+
 }  // namespace snx::platform
