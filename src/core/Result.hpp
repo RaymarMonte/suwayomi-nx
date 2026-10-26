@@ -39,12 +39,14 @@ struct Error {
 };
 
 // Either a value or an Error. Check ok() before value(); value() on an error (or error() on a value) is a bug in the caller.
-template <typename T>
+// E is the error type: core's Error by default; the api layer uses its own ApiError (api/ApiError.hpp, WP-06).
+template <typename T, typename E = Error>
 class Result {
   public:
     Result(T value) : v_(std::move(value)) {}
-    Result(Error error) : v_(std::move(error)) {}
+    Result(E error) : v_(std::move(error)) {}
 
+    // Only for the default error type.
     static Result fail(ErrorKind kind, std::string message) { return Result(Error{kind, std::move(message)}); }
 
     bool ok() const { return v_.index() == 0; }
@@ -53,10 +55,10 @@ class Result {
     const T& value() const& { return std::get<0>(v_); }
     T& value() & { return std::get<0>(v_); }
     T&& value() && { return std::get<0>(std::move(v_)); }
-    const Error& error() const { return std::get<1>(v_); }
+    const E& error() const { return std::get<1>(v_); }
 
   private:
-    std::variant<T, Error> v_;
+    std::variant<T, E> v_;
 };
 
 }  // namespace snx::core

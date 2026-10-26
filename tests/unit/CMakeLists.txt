@@ -5,10 +5,11 @@ set(SNX_TEST_SOURCES main.cpp)
 foreach (module ${SNX_TEST_MODULES})
     list(APPEND SNX_TEST_SOURCES test_${module}.cpp)
 endforeach ()
-# More files for a module's suite: the safety layer's tests (WP-03b), models/GraphQL/config/profile (WP-04).
+# More files for a module's suite: the safety layer's tests (WP-03b), models/GraphQL/config/profile (WP-04), curl (WP-05),
+# SuwayomiClient (WP-06).
 list(APPEND SNX_TEST_SOURCES test_core_safety.cpp test_platform_safefs.cpp
     test_core_json.cpp test_core_models.cpp test_core_graphql.cpp test_core_config.cpp test_core_profile.cpp
-    test_net_curl.cpp)
+    test_net_curl.cpp test_api_client.cpp test_api_curl.cpp)
 
 add_executable(snx_unit_tests ${SNX_TEST_SOURCES})
 target_link_libraries(snx_unit_tests PRIVATE snx_core snx_net snx_api snx_image snx_platform third_party_doctest third_party_httplib)

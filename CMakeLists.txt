@@ -112,6 +112,7 @@ endif ()
 if (SNX_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests/unit)
+    add_subdirectory(tests/integration)  # built here, run by tools/build.sh integration (needs the test server)
 endif ()
 
 if (SNX_FUZZ)

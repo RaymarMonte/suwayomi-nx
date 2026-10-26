@@ -7,6 +7,8 @@
 #             SNX_SKIP_CONTRACT=1 skips it)                     -> ~/build/suwayomi-nx/tests/
 #   coverage  unit tests with gcov, then a gcovr HTML report    -> tests/out/coverage/index.html (in the repo, git-ignored)
 #   tsan      unit tests with ThreadSanitizer (data races, WP-05) -> ~/build/suwayomi-nx/tsan/
+#   integration [none|basic|ui_login ...]  the api against the Suwayomi test server (WP-06, tests/integration): resets it,
+#             then per auth mode (default: all three) starts it and runs the suites "all" + that mode. Stops it at the end.
 #   fuzz [s]  fuzz targets with ASan/UBSan (SAFETY.md S6), s seconds each (default 60). Needs clang for libFuzzer
 #             (sudo apt install clang libclang-rt-18-dev); without clang it only replays the seeds under GCC's sanitizers.
 #             New corpus -> ~/build/suwayomi-nx/fuzz*/corpus/, crash files -> tests/out/fuzz/ (git-ignored)
@@ -33,9 +35,12 @@ TEST_HOOKS=OFF
 BUILD_TYPE=Release
 APP_ARGS=()
 FUZZ_SECONDS=60
+AUTH_MODES=()
 while [ $# -gt 0 ]; do
     case "$1" in
         [0-9]*) [ "$WHAT" = fuzz ] || { echo "a number only goes with fuzz"; usage; }; FUZZ_SECONDS="$1" ;;
+        none|basic|ui_login) [ "$WHAT" = integration ] || { echo "an auth mode only goes with integration"; usage; }
+            AUTH_MODES+=("$1") ;;
         --test-hooks) TEST_HOOKS=ON ;;
         --debug) BUILD_TYPE=Debug ;;
         --) shift; APP_ARGS=("$@"); break ;;
@@ -139,6 +144,24 @@ build_tsan() {
     cmake --build "$dir" -j "$JOBS"
     TSAN_OPTIONS="halt_on_error=1 second_deadlock_stack=1" setarch "$(uname -m)" -R ctest --test-dir "$dir" --output-on-failure
 }
+# The integration tests (TESTING.md layer 3, WP-06): SuwayomiClient against the real test server, once per auth mode.
+# The test server runs on Windows (tools/test-server/README.md); it is stopped at the end, also when a test fails.
+build_integration() {
+    local dir="$BUILD_ROOT/tests$SUFFIX" server="$REPO/tools/test-server/test-server.sh" auth
+    [ ${#AUTH_MODES[@]} -gt 0 ] || AUTH_MODES=(none basic ui_login)
+    log "integration tests -> $dir/tests/integration/snx_integration_tests (auth: ${AUTH_MODES[*]})"
+    configure "$dir" -DSNX_BUILD_TESTS=ON
+    cmake --build "$dir" -j "$JOBS" --target snx_integration_tests
+    trap "'$server' stop > /dev/null 2>&1 || true" EXIT  # expanded now: $server is gone by the time the script exits
+    "$server" reset
+    for auth in "${AUTH_MODES[@]}"; do
+        log "integration: auth $auth"
+        "$server" start --auth "$auth"
+        (eval "$("$server" env)" && "$dir/tests/integration/snx_integration_tests" --test-suite="all,$auth")
+    done
+    log "integration tests passed (${AUTH_MODES[*]})"
+}
+
 build_coverage() {
     local dir="$BUILD_ROOT/coverage$SUFFIX" out="$REPO/tests/out/coverage"
     log "coverage -> $out/index.html"
@@ -208,6 +231,7 @@ case "$WHAT" in
     tests) build_tests ;;
     coverage) build_coverage ;;
     tsan) build_tsan ;;
+    integration) build_integration ;;
     fuzz) build_fuzz ;;
     desktop) build_desktop ;;
     run) run_desktop ;;

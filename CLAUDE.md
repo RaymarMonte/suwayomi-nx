@@ -79,6 +79,8 @@ The repo is public (D23), so docs write `JohnDoe` for the real Windows user name
 push from WSL, where `gh` is logged in (SETUP.md C). `<repo>` below = the repo path in WSL.
 
 - Unit tests: `<repo>/tools/build.sh tests` (ctest, one entry per module, then the GraphQL contract test). Test-hooks variant: add `--test-hooks`.
+- Integration (WP-06, D38): `<repo>/tools/build.sh integration [none|basic|ui_login]` (resets the test server, runs `tests/integration/`
+  once per auth mode, default all three, ~1 min, stops the server at the end).
 - Fuzz (WP-04, S6): `<repo>/tools/build.sh fuzz [seconds]` (libFuzzer with clang; without clang it only replays the seeds under GCC ASan/UBSan).
 - Coverage: `<repo>/tools/build.sh coverage` → `tests/out/coverage/index.html` (git-ignored)
 - Desktop build/run: `<repo>/tools/build.sh desktop` → `~/build/suwayomi-nx/desktop/suwayomi-nx` (run from that folder).

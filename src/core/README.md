@@ -6,6 +6,7 @@
 
 **Public headers** (include as `"core/<Name>.hpp"`):
 - `Result.hpp` (WP-04): `Result<T>` = a value or an `Error{kind, message}`; kinds Parse|Server|Unauthorized, and Network|Timeout|Cancelled|TooLarge for net (WP-05). Parsers never throw.
+  `Result<T, E>` takes another error type: api's `ApiResult<T>` = `Result<T, ApiError>` (WP-06).
 - `Json.hpp` (WP-04): `parseJson(text, JsonLimits)` with S6 size (8 MiB) and depth (64) limits, `dumpJson` (never throws), and
   `json::string/int32/int64/number/boolean/strings/object/array` field readers (missing, null, wrong type → nothing).
 - `models/*.hpp` (WP-04): plain structs `ServerInfo` (+ D9 version check), `Category`, `Source`, `Manga`, `Chapter`, `PageList`,

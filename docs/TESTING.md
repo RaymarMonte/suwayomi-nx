@@ -9,7 +9,7 @@ The real console is the final check, driven by **sys-autopilot**.
 |---|---|---|---|---|---|
 | 1 | Unit | WSL host | doctest + ctest, coverage via gcovr | seconds | every change |
 | 2 | Contract | WSL host | Node `graphql` validate: our `.graphql` docs vs `tests/fixtures/schema.graphql` | seconds | every change to queries |
-| 3 | Integration | WSL host → Suwayomi test server (Windows :4568) | doctest binary, real HTTP | ~1 min | end of each api/net/image WP, CI |
+| 3 | Integration | WSL host → Suwayomi test server (Windows :4568) | doctest binary, real HTTP: `tools/build.sh integration` (WP-06) | ~1 min | end of each api/net/image WP, CI |
 | 4 | Desktop E2E | WSL (Xvfb headless, or WSLg visible) | Node harness + `DesktopDriver` (xdotool keys, screenshots) | ~2–5 min | every UI WP |
 | 5 | Device E2E | Real Switch | Node harness + `SwitchDriver` (sys-autopilot REST) | ~5–15 min | end of every UI WP, before releases |
 | 6 | Soak / exploratory | Real Switch | harness soak scenario; Claude via sys-autopilot MCP | 30+ min | WP-12, releases, hard bugs |

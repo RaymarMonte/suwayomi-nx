@@ -1,20 +1,22 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 1 – Core (WP-04 … WP-07). Next WP:** WP-06 (api: SuwayomiClient, needs 04 + 05). Done: WP-00a … WP-05.
+**Phase 1 – Core (WP-04 … WP-07). Next WP:** WP-07 (image pipeline + caches, needs 05). Done: WP-00a … WP-06.
 
-## Last session (2026-10-26, WP-05, Opus; paused once at the usage limit, owner present at the end) — done
-- **net now has (D37, `src/net/README.md`):** `HttpClient` + `Request`/`Response`/`Priority`, `CancelToken`, `Future` with `then()`,
-  `CurlHttpClient` (one thread + curl multi, ≤ 6 transfers, priority queue, cancel ≤ 50 ms, body cap while streaming, gzip,
-  http/https-only redirects, retries for GETs and `idempotent` POSTs, `resetConnections`, `shutdown`), `FakeHttpClient`.
-  core: `RetryPolicy`, `ErrorKind` Network/Timeout/Cancelled/TooLarge + `errorKindName`, net limits in `RuntimeProfile`, test config
-  `server.url`, `net` test event. `main()` owns the client; the Hello screen shows the server version + a 20-request burst.
-- **For WP-06:** wrap `then()` with `brls::sync`; mark GraphQL queries `idempotent = true` (never mutations); POST to
-  `{url}/api/graphql`; read limits from the profile. The Hello server check is temporary (WP-08 replaces it).
-- **Green:** unit 6/6 (+ under ThreadSanitizer: new `tools/build.sh tsan`, also a CI step), contract 26/26, net coverage 95 %,
-  npm test 105, typecheck, desktop + Switch builds (gate PASS with curl linked), e2e `smoke` + new `net-hello` on desktop and Switch.
-  CI green on `ba8807e` (5 jobs, tsan step included).
-- **Fixed:** `tests/e2e/lib/suwayomi.ts` `windowsHost()` reversed the IP (1.64.27.172); now `gatewayFromRoute()` with a test.
-- **Facts:** the Switch's curl is 7.69 with the blocking DNS resolver (use IPs); borealis's socket setup (12 BSD sessions) is kept.
-  `appServerUrl()` finds the PC's LAN address from `test-server.sh status`, so no DHCP reservation is needed.
+## Last session (2026-10-26, WP-06, Opus) — done
+- **api now has (D38, `src/api/README.md`):** `SuwayomiClient(http, settings, clientOptionsFrom(profile))` with serverInfo,
+  categories, library(categoryId, page), manga, chapters(mangaId, page), pages(chapterId, PageFormat), setProgress, login, logout,
+  configure, settings, absoluteUrl. Every call: CancelToken → `ApiFuture<T>` = `Future<ApiResult<T>>`, `ApiError{kind, message,
+  detail}` (Offline/Timeout/Auth/Permission/Server/Parse/Cancelled). URL helpers in `ServerUrl.hpp`; `serverWarning()` for D9.
+  core's `Result<T, E>` gained an error-type parameter (default unchanged).
+- **Login:** basic header on everything; ui_login Bearer, renewal on refusal: refreshToken → login with saved password → Auth.
+  Single flight (5 parallel refusals → 1 refresh), refusals remembered until the login changes. Images get the header from the
+  decorator; an image 401 starts a background renewal. No early renewal by `exp` (token has no `iat`, the Switch clock is off).
+- **For WP-07 (image):** send image requests through the same `HttpClient` the app's SuwayomiClient decorates (auth is added for
+  you); full URL = `client.absoluteUrl(path)`; on HTTP 401 under ui_login try once more after a moment (the renewal is under way).
+- **For WP-08:** one SuwayomiClient in main() after the HttpClient; `deliver` = `brls::sync`, `onSettingsChanged` → save config.
+- **Green:** unit 6/6 (api 34 cases, 97 % lines), test-hooks build, ThreadSanitizer (single-flight on real threads, 30 repeat runs),
+  contract 26/26, coverage, new `tools/build.sh integration` in none/basic/ui_login (~64 s, incl. the 20 s expiry wait), desktop
+  build + smoke, Switch build (gate PASS). No Node or UI changes, so no npm/e2e/device runs.
+- **Facts:** a re-seeded test server shows Alpha's status UNKNOWN (first seeding: ONGOING). Integration isn't in CI (Linux server).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

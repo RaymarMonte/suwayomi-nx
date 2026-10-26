@@ -430,3 +430,35 @@ ARCHITECTURE.md "net"; `src/net/README.md` has the details.
   request writes a `net` event (method, url, status, attempts, error kind) through a ResponseObserver.
 Rejected: `std::future` (no continuation, the UI would have to poll); calling back on the main thread from net (net would need
 borealis); a thread per request (more sockets and stacks); retrying POSTs by default; buffering a whole body before checking its size.
+
+**D38 How the api works: one client per HttpClient, results delivered by the app, one shared token renewal** (WP-06, 2026-10-26).
+Carries out ARCHITECTURE.md "api" and "Error handling", D9; `src/api/README.md` has the details.
+- **Errors:** `ApiError{kind, message, detail}`: `message` for the screen, `detail` for the log. Kinds Offline, Timeout, Auth,
+  Permission, Server, Parse, plus Cancelled (never shown). `ApiResult<T>` = `core::Result<T, ApiError>`: core's `Result` gained an
+  error-type parameter (default `core::Error`, nothing else changed). Network → Offline, TooLarge → Parse, HTTP 401 → Auth,
+  403 → Permission, 408 → Timeout, other statuses → Server (404 says "check the URL and sub-path"), a 200 that isn't GraphQL → Parse.
+  Permission is also picked when a server text says "permission" or "forbidden" (multi-user servers; not seen on the stable server).
+- **Delivery:** `ClientOptions::deliver` hands each finished call to the app's thread of choice (the app: `brls::sync`), so api has
+  no borealis. If the call's token fired by then, the result is Cancelled: a screen that went away never gets a late answer.
+- **Auth headers:** GraphQL calls carry the header the client picks itself, so a call knows which token it used, and `login`/
+  `refreshToken` can go without one (the server refuses a login while logged in). Every other request to the server (images,
+  thumbnails) gets the header from the HttpClient's request decorator. So one SuwayomiClient per HttpClient; `configure()` changes it.
+- **ui_login renewal:** a refused token (GraphQL "Unauthorized" or HTTP 401) is renewed once, then the call is repeated: first
+  `refreshToken`; if the server refuses that (it lives 60 days), `login` with the saved username + password; else Auth ("Your login
+  has expired"). One renewal at a time: calls refused meanwhile wait for it; a call whose token was already replaced just repeats.
+  A refused renewal is remembered until the login changes (no stream of failed logins from a grid of thumbnails); Offline/Timeout
+  aren't remembered. An image answered 401 starts a background renewal, so the image module (WP-07) only needs to try it once more.
+  New tokens go to `onSettingsChanged` (the app saves config.json).
+- **No early renewal from the token's `exp`:** Suwayomi's access token has `exp` but no `iat`, and the Switch's clock can be off, so
+  "expires soon" can't be judged from the console's time. (If ever needed: compare `exp` with the answer's HTTP `Date` header.)
+- **logout** is local: Suwayomi has no logout for ui_login (tokens just expire). It drops the tokens and the saved password.
+  **`simple_login`** (cookie login page, expires on restart or after 30 min) isn't supported for now.
+- **Progress:** pages below 0 are sent as 0; above the end the server caps at the page count (the api doesn't know it). The server
+  saves 0 for a chapter whose pages were never fetched, so the reader calls `pages()` first (it does anyway).
+- **Server version:** `serverWarning(info)` gives D9's warning text; the setup/home screen shows it (WP-08).
+- **Integration tests:** `tests/integration/` (doctest binary, not a ctest entry). `tools/build.sh integration [modes]` resets the test
+  server, then per auth mode starts it and runs suites `all` + that mode (~1 min for all three), and stops it at the end. Not in CI
+  yet: CI would need the server on Linux (TESTING.md "CI" step 3).
+Rejected: renewing early by `exp` (clock); the decorator for GraphQL calls too (a call couldn't tell which token it used, and login
+must go without one); api calling `brls::sync` itself (api would need borealis); a second Result template for api (a copy of
+core's); one renewal per refused call (five parallel calls → five refreshes); retrying mutations.

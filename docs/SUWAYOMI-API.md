@@ -27,7 +27,11 @@ Checked in WP-02 (2026-10-25) against the real server v2.4.2366: its schema is `
 - Config values (server-reference.conf in the jar): `server.authMode = NONE | BASIC_AUTH | SIMPLE_LOGIN | UI_LOGIN`,
   `server.jwtTokenExpiry = "5m"` (access token, default 5 min), `server.jwtRefreshExpiry = "60d"`. The test server uses `"20s"`, and a token
   really stops working after 20 s; the refresh token then gives a new one that works (checked 2026-10-25).
-- `login` throws if you're already logged in (source), so send it without the old token.
+- `login` throws if you're already logged in ("Cannot login while already logged-in"), so send it without the old token.
+- Checked on the test server (WP-06, ui_login): `aboutServer` answers without a login. Images and thumbnails (`/api/v1/...`) without
+  a valid token: HTTP **401**, body `Unauthorized` (text/plain). `refreshToken` works with no or a junk `Authorization` header. A bad
+  refresh token is a GraphQL error (an access token: "Cannot use access token to refresh"; junk: a `JWTDecodeException` text).
+  The tokens are HS256 JWTs with `iss`, `aud`, `token_type` (access|refresh) and `exp`, but **no `iat`**. There is no logout mutation.
 - Multi-user (preview, `ui_login` only): each user has their own library/progress. Permissions such as `DOWNLOAD_CHAPTERS`
   and `INSTALL_EXTENSIONS` gate some mutations, so the UI must handle "permission denied" nicely. Library data made in `none` mode is
   the admin's (user 1) library in `ui_login` mode.
