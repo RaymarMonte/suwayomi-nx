@@ -15,7 +15,7 @@
 - **For WP-08:** one SuwayomiClient in main() after the HttpClient; `deliver` = `brls::sync`, `onSettingsChanged` → save config.
 - **Green:** unit 6/6 (api 34 cases, 97 % lines), test-hooks build, ThreadSanitizer (single-flight on real threads, 30 repeat runs),
   contract 26/26, coverage, new `tools/build.sh integration` in none/basic/ui_login (~64 s, incl. the 20 s expiry wait), desktop
-  build + smoke, Switch build (gate PASS). No Node or UI changes, so no npm/e2e/device runs.
+  build + smoke, Switch build (gate PASS). CI green on `0ac4667` (5 jobs). No Node/UI changes, so no npm/e2e/device runs.
 - **Facts:** a re-seeded test server shows Alpha's status UNKNOWN (first seeding: ONGOING). Integration isn't in CI (Linux server).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
