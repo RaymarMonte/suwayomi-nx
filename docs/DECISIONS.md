@@ -472,3 +472,67 @@ Carries out ARCHITECTURE.md "api" and "Error handling", D9; `src/api/README.md` 
 Rejected: renewing early by `exp` (clock); the decorator for GraphQL calls too (a call couldn't tell which token it used, and login
 must go without one); api calling `brls::sync` itself (api would need borealis); a second Result template for api (a copy of
 core's); one renewal per refused call (five parallel calls → five refreshes); retrying mutations.
+
+**D39 How the image module works: decoders, the size guard, caches, one loader** (WP-07, 2026-10-26). Carries out D6,
+ARCHITECTURE.md "image" and SAFETY.md S5–S8; `src/image/README.md` has the details and the budget numbers.
+- **Decoders, the same on both platforms:** libjpeg-turbo (DCT scaling 1/2, 1/4, 1/8; CMYK converted), libpng's simplified API
+  (every colour type), **libwebp 1.6.0 built from the pinned submodule `library/libwebp`** (decoder library only), and **our own
+  first-frame GIF decoder** (~250 lines, bounds-checked readers, fuzzed). libjpeg-turbo and libpng are the system packages on the
+  PC (`libjpeg-turbo8-dev`, `libpng-dev`) and devkitPro's on the Switch (2.1.2 / 1.6.48).
+  Why libwebp from source: devkitPro's `switch-libwebp` is 1.0.2, which has CVE-2023-4863 (the lossless Huffman heap overflow,
+  fixed in 1.3.2), and our pages come from scraped websites. Why our own GIF: stb_image's GIF code has open memory-safety
+  reports (GitHub Security Lab, 2023) and giflib isn't packaged for the Switch. GIF pages are rare; a small decoder we fuzz is safer.
+- **Type from magic bytes**, never Content-Type. Unknown → Unsupported; animated WebP → Unsupported (GIF: first frame).
+- **Corrupt means corrupt:** any libjpeg "corrupt data" warning (cut short, bad Huffman code) fails the image, as sharp does
+  (`failOn: warning`), so the Broken fixture's page 1 is a placeholder, not two thirds of grey. A file cut short in any format fails.
+- **Size guard (S6), from the header, before anything big is allocated:** each side ≤ `maxImageSide`, and **everything one decode
+  has alive at once** ≤ `maxDecodeBytes`: the decoder's output + the shrunk copy (if any) + the decoder's own big buffers (a
+  progressive JPEG's coefficients, 128 bytes per 8×8 block per component; a lossless WebP's full-size picture). `core::planDecode`
+  plans it: if the box would need too much, the output gets smaller (JPEG first tries a bigger DCT reduction); only if not even
+  that fits is the image TooLarge. So "no single decode exceeds the budget" holds by construction; libjpeg's `max_memory_to_use` is a second line.
+- **Never bigger than the original:** the output fits the box (a side of 0 = no limit, the webtoon `{width, 0}`) and the box is
+  capped at `maxDecodeScale` × the screen. The GPU scales up for free. Shrinking is a box filter (area average, alpha-weighted).
+- **Shrink slack (`shrinkSlackPercent` 15, from the Switch benchmark):** if what the decoder makes is at most 15 % bigger per side
+  than the box, it's kept as it is. A 1000×1500 page in the reader's 2× box (960×1440) took 134 ms on the console, 116 of them
+  for a 4 % shrink that saves 0.5 MB; now 18 ms. The reader draws it at screen size anyway (the GPU scales). Memory stays within
+  the decode budget, and the caches count the real size.
+- **Switch benchmark** (v1, application mode, stock clocks, from the SD-card cache; `image-bench`): JPEG 1000×1500 page 18 ms,
+  WebP strip 800×12000 176 ms (libwebp decoding 9.6 Mpx; the same when scaled down), cache read 6–11 ms, peak +38.6 MB while
+  the strip is alive (its 38.4 MB of pixels). The profile's budgets stay: 2 decode threads keep up with page turns, and one
+  decode needs well under the 128 MiB cap.
+- **The desktop counts mmap'd memory:** glibc hands out big blocks (any decoded page) with mmap, which `mallinfo2().uordblks`
+  leaves out; `runtimeInfo()` on the PC now adds `hblkhd`, so the memory-pressure guard and `--mem-limit` see images. The
+  Switch's allocator has no mmap.
+- **Safety-gate fix (`tools/safety/check-elf.sh`):** the only-from rule's data search compared hex words in awk as numbers, so a
+  word like `903e2100` (the new address of `appletSetCpuBoostMode`, read as 903×10^2100 = infinity) "matched" every other such
+  word: 236 false stored pointers. Now compared as text (also the adrp page check). Equally strict: `gate-selftest.sh` still
+  fails all four planted calls, the stored pointer at its exact address.
+- **Tiles:** `core::planTiles` cuts the decoded image into equal tiles ≤ `maxTextureSide` (2048, S7). A tile as wide as the image is
+  a pointer into it (no copy). `core::tileWindow` picks the tiles a webtoon reader keeps (`webtoonTilesAround`).
+- **GPU budget (S7):** `TextureBudget`/`TextureLease`: the UI reserves a texture's bytes before creating it, main thread only.
+- **Memory caches:** two `core::ByteLru` caches of decoded images, pages (`imageCacheBytes`) and covers (`coverCacheBytes`), so a
+  library grid never pushes out reader pages. Key = URL + box. Shared pointers: an evicted image the UI still draws stays alive.
+- **Disk cache (S5):** `cache/images/<2 hex>/<16 hex FNV-1a of the URL>.img` = magic + URL + length + FNV-1a checksum + the bytes as
+  downloaded, written once with `SafeFs::writeAtomic` (only images that decoded). Broken or cut-short files count as missing and
+  are deleted; .tmp leftovers and strangers go at the first scan. Budget `diskCacheBytes`, least recently used first (after a
+  restart: oldest file first). No write if the free space would drop below `minSdFreeBytes` (`SafeFs::freeBytes`, statvfs).
+  `stop()` at exit. A miss costs no SD access (the index is in memory).
+- **One `ImageLoader`** (made in `main()` after the HttpClient, so page requests carry the login, D38): `load(request, cancel,
+  done)`, `done` on the main thread through `deliver` (the app: `brls::sync`), like D38. Loads of one URL share one download (and
+  one decode per box). Stages: memory → disk (one disk thread) → download (`maxImageBytes`, `httpImageTimeoutMs`) → decode
+  (`decodeThreads`, 1 MiB stacks) → caches. HTTP 401 is tried once more after `imageAuthRetryMs` (the api renews meanwhile).
+  A load whose callers have all cancelled stops: a 50 ms sweep fires the job's own token (net drops the download, the decoder
+  stops at its next row check). More than `imageQueueLimit` jobs → Busy. Errors are values (`ImageError`: Network, Timeout,
+  Cancelled, Http, TooLarge, Unsupported, Corrupt, Busy, Paused).
+- **Memory-pressure guard:** the loader samples `platform::runtimeInfo()` every `pressureCheckMs` (on its disk thread);
+  `core::MemoryPressure` decides: ≥ `pressurePercent` → caches to `pressureShrinkPercent`, Prefetch/Background loads refused
+  (Paused), `mem_pressure` event; below `pressureRecoverPercent` (new, 75) → back to normal.
+- **Profile fields added:** `maxTextureSide` 2048, `shrinkSlackPercent` 15, `imageQueueLimit` 128, `imageAuthRetryMs` 1000,
+  `decodeThreadStackBytes` 1 MiB, `workerThreadStackBytes` 256 KiB (S8), `pressureRecoverPercent` 75. platform's SafeFs gained
+  `listDirEntries` and `freeBytes`.
+- **Dependencies:** image now includes `platform/SafeFs.hpp` (all writes go through it, D14), besides core and net. Never api.
+- **Test hooks:** `image` events (source memory/disk/net, sizes, fetch/decode ms, bytes, memUsed at the decode's peak) and
+  `mem_pressure`. The test config's `imageBench` runs WP-07's benchmark on the Hello screen (`image-bench` scenario).
+Rejected: stb_image for PNG/GIF (open security reports; libpng is better tested); devkitPro's libwebp 1.0.2 (CVE-2023-4863);
+checking only the source's w×h×4 (would refuse big pages that DCT scaling decodes cheaply, and miss progressive coefficients);
+partial images for corrupt JPEGs; one cache for pages and covers; textures inside the image module (it can't include borealis).

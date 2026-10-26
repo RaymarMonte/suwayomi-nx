@@ -238,4 +238,25 @@ TEST_CASE("SafeFs: the log file starts empty") {
     CHECK(slurp(tmp.root + "logs/app.log") == "new run\n");
 }
 
+TEST_CASE("SafeFs: listDirEntries says what each entry is, freeBytes how much space is left (WP-07)") {
+    TempRoot tmp;
+    const snx::platform::SafeFs fs(tmp.root);
+    REQUIRE(fs.makeDirs("cache/images/ab"));
+    REQUIRE(fs.writeAtomic("cache/images/file.img", "12345"));
+    auto entries = fs.listDirEntries("cache/images");
+    std::sort(entries.begin(), entries.end(), [](const auto& a, const auto& b) { return a.name < b.name; });
+    REQUIRE(entries.size() == 2);
+    CHECK(entries[0].name == "ab");
+    CHECK(entries[0].isDir);
+    CHECK(entries[1].name == "file.img");
+    CHECK_FALSE(entries[1].isDir);
+    CHECK(entries[1].size == 5);
+    CHECK(entries[1].modified > 0);
+    CHECK(fs.listDirEntries("missing").empty());
+    CHECK(fs.listDirEntries("../..").empty());  // outside the root: refused
+    const auto free = fs.freeBytes();
+    REQUIRE(free.has_value());
+    CHECK(*free > 0);
+}
+
 }  // TEST_SUITE("platform")

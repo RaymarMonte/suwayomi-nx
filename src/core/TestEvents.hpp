@@ -44,6 +44,30 @@ struct NetEvent {
 // {"ev":"net","method":"POST","url":"http://.../api/graphql","status":200,"attempts":1,"error":""}
 std::string net(std::int64_t tMs, const NetEvent& event);
 
+// How one image load ended (WP-07). Owns its text, like NetEvent.
+struct ImageEvent {
+    std::string url;
+    std::string source;          // where the bytes came from: "memory" (decoded cache hit), "disk" or "net"
+    std::string error;           // "" or the image error kind ("corrupt", "too-large", ...)
+    std::string format;          // "jpeg", "png", "webp", "gif", or "" when unknown
+    int width = 0;               // the decoded image
+    int height = 0;
+    int sourceWidth = 0;         // the image as stored
+    int sourceHeight = 0;
+    int tiles = 0;
+    int fetchMs = 0;             // getting the bytes (disk or net)
+    int decodeMs = 0;            // decode + downscale + tiling
+    std::uint64_t bytes = 0;     // decoded RGBA bytes
+    std::uint64_t fileBytes = 0; // the compressed image
+    std::uint64_t memUsed = 0;   // the allocator's in-use bytes just after the decode (0 = not measured)
+};
+// {"ev":"image","url":...,"source":"net","error":"","format":"jpeg","w":720,"h":1080,"srcW":1000,"srcH":1500,"tiles":1,
+//  "fetchMs":12,"decodeMs":31,"bytes":3110400,"fileBytes":58437,"memUsed":...}
+std::string image(std::int64_t tMs, const ImageEvent& event);
+
+// {"ev":"mem_pressure","usedPct":87,"action":"shrink_caches"} (or "recovered" once use is back down).
+std::string memPressure(std::int64_t tMs, int usedPct, std::string_view action);
+
 // Decides when to write an "idle" event: after kQuietFrames frames in a row with nothing running (no animation; later also no
 // network or decode job). One idle event per quiet spell: it comes again only after something was busy, or after markBusy().
 class IdleTracker {

@@ -13,7 +13,7 @@ Inside Linux (or WSL on Windows) with the tools from `docs/SETUP.md` section A (
 
 ```bash
 git clone https://github.com/RaymarMonte/suwayomi-nx.git && cd suwayomi-nx
-git submodule update --init library/borealis
+git submodule update --init library/borealis library/libwebp
 git -C library/borealis submodule update --init library/lib/extern/glfw
 tools/build.sh tests      # unit tests
 tools/build.sh desktop    # desktop app: ~/build/suwayomi-nx/desktop/suwayomi-nx

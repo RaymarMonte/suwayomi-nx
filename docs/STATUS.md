@@ -1,22 +1,22 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 1 – Core (WP-04 … WP-07). Next WP:** WP-07 (image pipeline + caches, needs 05). Done: WP-00a … WP-06.
+**Phase 1 – Core (WP-04 … WP-07) is done. Next WP:** WP-08 (app shell, settings, logging, server setup/login). Done: WP-00a … 07.
 
-## Last session (2026-10-26, WP-06, Opus) — done
-- **api now has (D38, `src/api/README.md`):** `SuwayomiClient(http, settings, clientOptionsFrom(profile))` with serverInfo,
-  categories, library(categoryId, page), manga, chapters(mangaId, page), pages(chapterId, PageFormat), setProgress, login, logout,
-  configure, settings, absoluteUrl. Every call: CancelToken → `ApiFuture<T>` = `Future<ApiResult<T>>`, `ApiError{kind, message,
-  detail}` (Offline/Timeout/Auth/Permission/Server/Parse/Cancelled). URL helpers in `ServerUrl.hpp`; `serverWarning()` for D9.
-  core's `Result<T, E>` gained an error-type parameter (default unchanged).
-- **Login:** basic header on everything; ui_login Bearer, renewal on refusal: refreshToken → login with saved password → Auth.
-  Single flight (5 parallel refusals → 1 refresh), refusals remembered until the login changes. Images get the header from the
-  decorator; an image 401 starts a background renewal. No early renewal by `exp` (token has no `iat`, the Switch clock is off).
-- **For WP-07 (image):** send image requests through the same `HttpClient` the app's SuwayomiClient decorates (auth is added for
-  you); full URL = `client.absoluteUrl(path)`; on HTTP 401 under ui_login try once more after a moment (the renewal is under way).
-- **For WP-08:** one SuwayomiClient in main() after the HttpClient; `deliver` = `brls::sync`, `onSettingsChanged` → save config.
-- **Green:** unit 6/6 (api 34 cases, 97 % lines), test-hooks build, ThreadSanitizer (single-flight on real threads, 30 repeat runs),
-  contract 26/26, coverage, new `tools/build.sh integration` in none/basic/ui_login (~64 s, incl. the 20 s expiry wait), desktop
-  build + smoke, Switch build (gate PASS). CI green on `0ac4667` (5 jobs). No Node/UI changes, so no npm/e2e/device runs.
-- **Facts:** a re-seeded test server shows Alpha's status UNKNOWN (first seeding: ONGOING). Integration isn't in CI (Linux server).
+## Last session (2026-10-26, WP-07, Opus) — done
+- **image now has (D39, `src/image/README.md`):** `ImageLoader::load(LoadRequest{url, box, priority, kind}, cancel, done)` →
+  `done(ImageResult)` on the main thread (`ImagePtr` = RGBA + tiles ≤ 2048 px, or `ImageError`); one download per URL; page and
+  cover memory caches; disk cache `cache/images/` (write-once, checksummed, budget, free-space guard); `TextureBudget` (S7).
+- **Decoders:** libjpeg-turbo (DCT scaling), libpng, libwebp 1.6.0 from the new submodule `library/libwebp` (devkitPro's 1.0.2
+  has CVE-2023-4863), our own GIF decoder. Header guard: sides ≤ 16384, one decode ≤ `maxDecodeBytes` (core `planDecode`).
+- **Switch benchmark** (`tools/e2e.sh switch image-bench`, v1, app mode, from the SD cache): JPEG 1000×1500 page 18 ms (was 134 ms
+  before the new `shrinkSlackPercent` 15: no 4 % CPU shrink), WebP strip 800×12000 176 ms, SD read 6–11 ms, peak +38.6 MB.
+- **Fixed on the way:** (1) **safety gate** `check-elf.sh` compared hex words as numbers (`903e2100` = infinity): 236 false
+  "stored pointers" once `appletSetCpuBoostMode` moved. Now text compares; self-test still fails all 4 planted calls. **Owner:
+  please OK this gate change** (CLAUDE.md). (2) Desktop `runtimeInfo()` counts glibc's mmap'd blocks (images were invisible).
+- **For WP-08+:** main() already has the `ImageLoader` (shutdown before http); screens `load()` with their token, `cached()` to
+  draw at once; idle check can add `activeJobs()`. Reader: box 2× screen, webtoon `{2× width, 0}` + `tileWindow()`.
+- **Green:** unit 6/6, test-hooks, TSan, one-off ASan/UBSan (170/171: `mallinfo2()` reads 0 under ASan; no memory errors),
+  coverage (`src/image` 89.5 %), fuzz (3 targets), contract, integration ×3 (+ loader on real pages), desktop + smoke, e2e
+  `image-bench` desktop + Switch, Switch build (gate PASS, `.nro` 3.8 MB), `gate-selftest`, npm. CI: see the commit.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

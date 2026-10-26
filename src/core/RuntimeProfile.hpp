@@ -58,10 +58,21 @@ struct RuntimeProfile {
     std::uint64_t maxImageBytes = 32 * kMiB;   // one downloaded image
     int maxImageSide = 16384;                  // pixels, either side, read from the header before decoding
 
+    // Images (image module, WP-07, D39).
+    int maxTextureSide = 2048;                          // GPU texture side; bigger decoded images are cut into tiles (S7)
+    int shrinkSlackPercent = 15;                        // a decoded image at most this much bigger (per side) than its box is
+                                                        // kept as it is: the GPU scales it, the CPU shrink would cost ~100 ms
+                                                        // on the Switch for a 4 % smaller page (WP-07 benchmark)
+    int imageQueueLimit = 128;                          // image loads waiting or running at once; more fail as "busy" (S8)
+    int imageAuthRetryMs = 1000;                        // an image answered HTTP 401 is tried once more after this (D38)
+    std::uint64_t decodeThreadStackBytes = 1 * kMiB;    // each decode thread's stack (S8)
+    std::uint64_t workerThreadStackBytes = 256 * 1024;  // other worker threads: the image module's disk thread (S8)
+
     // Memory-pressure guard (ARCHITECTURE.md): above pressurePercent of totalMem in use, caches shrink to pressureShrinkPercent
-    // and prefetch pauses.
+    // and prefetch pauses, until use is back under pressureRecoverPercent.
     int pressurePercent = 85;
     int pressureShrinkPercent = 50;
+    int pressureRecoverPercent = 75;
     int pressureCheckMs = 2000;
 
     // SD card (SAFETY.md S5).

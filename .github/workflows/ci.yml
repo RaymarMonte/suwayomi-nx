@@ -3,6 +3,8 @@
 # plus its self-test.
 # WP-04: the GraphQL contract test runs in the Node job; the fuzz job runs each libFuzzer target for 60 s (SAFETY.md S6).
 # WP-05: net links libcurl (libcurl4-openssl-dev on the PC jobs); the unit tests also run under ThreadSanitizer.
+# WP-07: image links libjpeg-turbo + libpng (system packages on the PC, devkitPro's on the Switch) and libwebp from the pinned
+# submodule library/libwebp (D39); the fuzz job also fuzzes the image decoders.
 # Later WPs add integration and desktop E2E jobs. Device tests run on the owner's PC only.
 name: CI
 
@@ -20,9 +22,13 @@ jobs:
     name: Unit tests + coverage
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7   # no submodules needed: the unit tests don't use borealis
+      - uses: actions/checkout@v7   # borealis isn't needed (the unit tests don't use it); libwebp is (next step)
+      - name: libwebp (built from the pinned submodule, D39)
+        run: git submodule update --init --depth 1 library/libwebp
       - name: Install tools
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build gcovr libcurl4-openssl-dev
+        run: >
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build gcovr libcurl4-openssl-dev
+          libjpeg-turbo8-dev libpng-dev
       # The contract test needs the Node packages; the node job runs it.
       - name: Unit tests
         run: tools/build.sh tests
@@ -55,7 +61,7 @@ jobs:
       - name: Install build deps (docs/SETUP.md A.2) + Xvfb
         run: >
           sudo apt-get update && sudo apt-get install -y --no-install-recommends
-          build-essential cmake ninja-build pkg-config libcurl4-openssl-dev
+          build-essential cmake ninja-build pkg-config libcurl4-openssl-dev libjpeg-turbo8-dev libpng-dev
           xorg-dev libdbus-1-dev libxkbcommon-dev libwayland-dev wayland-protocols libgl1-mesa-dev libgl1-mesa-dri
           xvfb imagemagick dbus-x11
       - name: Build
@@ -92,9 +98,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+      - name: libwebp (built from the pinned submodule, D39)
+        run: git submodule update --init --depth 1 library/libwebp
       # clang 18 is Ubuntu 24.04's default; libclang-rt-18-dev holds libFuzzer and the sanitizer runtimes.
       - name: Install tools
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build clang libclang-rt-18-dev libcurl4-openssl-dev
+        run: >
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build clang libclang-rt-18-dev
+          libcurl4-openssl-dev libjpeg-turbo8-dev libpng-dev
       - name: Fuzz every target for 60 s, starting from the recorded answers
         run: tools/build.sh fuzz 60
       - uses: actions/upload-artifact@v7

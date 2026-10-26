@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
 
 #include <cstring>
@@ -258,6 +259,37 @@ std::optional<std::string> SafeFs::readFile(std::string_view path, std::size_t m
 bool SafeFs::exists(std::string_view path) const {
     const auto full = jail(path);
     return full && fileExists(*full);
+}
+
+std::vector<SafeFs::Entry> SafeFs::listDirEntries(std::string_view dir) const {
+    std::vector<Entry> entries;
+    const auto full = jail(dir, true);
+    if (!full) {
+        return entries;
+    }
+    const std::string prefix = (!full->empty() && full->back() == '/') ? *full : *full + "/";
+    for (std::string& name : listDir(dir)) {
+        struct stat st {};
+        if (::stat((prefix + name).c_str(), &st) != 0) {
+            continue;  // gone since listDir, or unreadable
+        }
+        Entry entry;
+        entry.name = std::move(name);
+        entry.isDir = S_ISDIR(st.st_mode);
+        entry.size = st.st_size > 0 ? static_cast<std::uint64_t>(st.st_size) : 0;
+        entry.modified = static_cast<std::int64_t>(st.st_mtime);
+        entries.push_back(std::move(entry));
+    }
+    return entries;
+}
+
+std::optional<std::uint64_t> SafeFs::freeBytes() const {
+    struct statvfs info {};
+    if (::statvfs(root_.c_str(), &info) != 0) {
+        return std::nullopt;
+    }
+    const std::uint64_t blockSize = info.f_frsize != 0 ? info.f_frsize : info.f_bsize;
+    return static_cast<std::uint64_t>(info.f_bavail) * blockSize;
 }
 
 std::FILE* SafeFs::openLog(std::string_view path) const {

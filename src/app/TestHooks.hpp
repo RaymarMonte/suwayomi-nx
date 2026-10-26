@@ -1,9 +1,12 @@
 #pragma once
 
+#include <nlohmann/json.hpp>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "core/RuntimeInfo.hpp"
+#include "image/ImageLoader.hpp"
 #include "net/HttpClient.hpp"
 #include "platform/SafeFs.hpp"
 
@@ -27,6 +30,17 @@ std::string serverUrl();
 // Writes a {"ev":"net",...} event for every request the client finishes (WP-05). The observer runs on the network thread and
 // hands the event to the main thread with brls::sync. Release builds: nothing.
 void watchNet(net::HttpClient& http);
+
+// Writes {"ev":"image",...} for every finished image load and {"ev":"mem_pressure",...} when the memory guard acts (WP-07).
+// Same hand-over as watchNet. Release builds: nothing.
+void watchImages(image::ImageLoader& loader);
+
+// The test config's "imageBench" (WP-07): paths below the server URL, and how often to load each. Empty / 0 without one.
+std::vector<std::string> imageBenchPaths();
+int imageBenchRepeat();
+
+// Any other event: {"ev":<ev>, fields...}. Main thread only. Release builds: nothing.
+void write(std::string_view ev, const nlohmann::ordered_json& fields);
 
 // {"ev":"screen","name":...}: a screen is now on top. It also makes the next quiet spell report "idle" again.
 void screen(std::string_view name);

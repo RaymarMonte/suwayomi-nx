@@ -58,6 +58,32 @@ std::string net(std::int64_t tMs, const NetEvent& event) {
     return line(tMs, "net", fields);
 }
 
+std::string image(std::int64_t tMs, const ImageEvent& event) {
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["url"] = event.url;
+    fields["source"] = event.source;
+    fields["error"] = event.error;
+    fields["format"] = event.format;
+    fields["w"] = event.width;
+    fields["h"] = event.height;
+    fields["srcW"] = event.sourceWidth;
+    fields["srcH"] = event.sourceHeight;
+    fields["tiles"] = event.tiles;
+    fields["fetchMs"] = event.fetchMs;
+    fields["decodeMs"] = event.decodeMs;
+    fields["bytes"] = event.bytes;
+    fields["fileBytes"] = event.fileBytes;
+    fields["memUsed"] = event.memUsed;
+    return line(tMs, "image", fields);
+}
+
+std::string memPressure(std::int64_t tMs, int usedPct, std::string_view action) {
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["usedPct"] = usedPct;
+    fields["action"] = std::string(action);
+    return line(tMs, "mem_pressure", fields);
+}
+
 bool IdleTracker::onFrame(bool busy) {
     if (busy) {
         quietFrames_ = 0;

@@ -31,9 +31,13 @@ std::uint64_t physicalMemory() {
     return static_cast<std::uint64_t>(pages) * static_cast<std::uint64_t>(pageSize);
 }
 
+// In-use heap blocks plus the big blocks glibc gets with mmap (hblkhd): a decoded page or webtoon strip is one of those, and
+// without it the memory-pressure guard couldn't see images at all (WP-07). The Switch's allocator has no mmap, so its uordblks
+// already counts everything.
 std::uint64_t allocatorInUse() {
 #ifdef __GLIBC__
-    return static_cast<std::uint64_t>(mallinfo2().uordblks);
+    const struct mallinfo2 info = mallinfo2();
+    return static_cast<std::uint64_t>(info.uordblks) + static_cast<std::uint64_t>(info.hblkhd);
 #else
     return 0;
 #endif

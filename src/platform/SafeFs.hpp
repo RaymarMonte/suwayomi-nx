@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <optional>
 #include <string>
@@ -51,6 +52,19 @@ class SafeFs {
     std::vector<std::string> listDir(std::string_view dir) const;  // names (no "." or ".."); empty if the folder is missing
     std::optional<std::string> readFile(std::string_view path, std::size_t maxBytes) const;  // nothing if missing or bigger
     bool exists(std::string_view path) const;
+
+    // listDir() with what stat() says about each entry (the disk cache's start-up scan, WP-07).
+    struct Entry {
+        std::string name;
+        bool isDir = false;
+        std::uint64_t size = 0;
+        std::int64_t modified = 0;  // seconds since 1970 as the file system has it (the Switch's clock may be off; 0 if unknown)
+    };
+    std::vector<Entry> listDirEntries(std::string_view dir) const;
+
+    // Free bytes on the file system that holds the root (the SD card on the Switch), for S5's free-space guard. Nothing if
+    // the file system can't say.
+    std::optional<std::uint64_t> freeBytes() const;
 
     // A log file that stays open for the whole run (the logger). Starts empty. nullptr if refused or it can't be opened.
     std::FILE* openLog(std::string_view path) const;

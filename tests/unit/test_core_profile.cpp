@@ -73,7 +73,17 @@ TEST_SUITE("core") {
         CHECK(full.maxImageSide == 16384);
         CHECK(full.pressurePercent == 85);
         CHECK(full.pressureShrinkPercent == 50);
+        CHECK(full.pressureRecoverPercent < full.pressurePercent);
         CHECK(full.minSdFreeBytes == 1 * kGiB);
+        // Images (WP-07): tiles fit a texture, every image thread has a stack size, the queue is bounded.
+        CHECK(full.maxTextureSide == 2048);
+        CHECK(full.shrinkSlackPercent == 15);
+        CHECK(full.decodeThreadStackBytes == 1 * kMiB);
+        CHECK(full.workerThreadStackBytes == 256 * 1024);
+        CHECK(full.imageQueueLimit > 0);
+        CHECK(full.imageAuthRetryMs > 0);
+        // One decode never needs more than the page cache can hold.
+        CHECK(full.maxDecodeBytes <= full.imageCacheBytes);
         // The budgets together leave most of the heap to everything else.
         CHECK(full.imageCacheBytes + full.coverCacheBytes + full.textureBudgetBytes + full.maxDecodeBytes * full.decodeThreads <
               full.freeMem / 2);

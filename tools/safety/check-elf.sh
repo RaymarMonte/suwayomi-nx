@@ -104,15 +104,17 @@ references() {
         fn == sym { next }
         index($0, "<" sym ">") { print "code\t" fn }
         $2 == "adrp" { reg[$3] = $4 }
-        $2 == "add" && $5 == off && reg[$4] == page { print "address\t" fn }
+        $2 == "add" && $5 == off && reg[$4] "" == page "" { print "address\t" fn }  # as text, see the data search below
     ' "$TMP/disasm.txt" | sort -u
     # Sections that are loaded but not code (flag A without X): .rodata, .data, .data.rel.ro, .got, .init_array, ...
     sections=$("$READELF" -SW "$ELF" | sed -n 's/^ *\[ *[0-9]*\] //p' | awk '$7 ~ /A/ && $7 !~ /X/ { printf " -j %s", $1 }')
     [ -n "$sections" ] || return 0
     # shellcheck disable=SC2086  # $sections is a list of -j flags on purpose
+    # Compared as text ("" appended): awk would compare words that look like numbers as numbers, and a hex word such as
+    # 903e2100 reads as 903e2100 = infinity, equal to every other such word (WP-07 found 236 false matches that way).
     "$OBJDUMP" -s $sections "$ELF" | awk -v lo="$(le32 $((value & 0xffffffff)))" -v hi="$(le32 $((value >> 32)))" '
         /^Contents of section / { sec = $4; sub(/:$/, "", sec); next }
-        ($2 == lo && $3 == hi) || ($4 == lo && $5 == hi) { print "data\t" sec " 0x" $1 }
+        ($2 "" == lo "" && $3 "" == hi "") || ($4 "" == lo "" && $5 "" == hi "") { print "data\t" sec " 0x" $1 }
     '
 }
 

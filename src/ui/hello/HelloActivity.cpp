@@ -7,6 +7,7 @@
 #include "core/Version.hpp"
 #include "core/graphql/Gql.hpp"
 #include "core/graphql/Operations.hpp"
+#include "platform/Platform.hpp"
 
 using namespace brls::literals;  // for _i18n
 
@@ -51,8 +52,17 @@ std::string describe(const net::HttpResult& result, const core::JsonLimits& limi
 
 }  // namespace
 
-HelloActivity::HelloActivity(net::HttpClient* http, std::string serverUrl, core::JsonLimits jsonLimits)
-    : http_(http), serverUrl_(std::move(serverUrl)), jsonLimits_(jsonLimits) {}
+struct HelloActivity::BenchRun {
+    int index = 0;  // loads done so far
+    int ok = 0;
+    int failed = 0;
+    std::int64_t startMs = 0;
+    std::uint64_t memUsedBefore = 0;
+};
+
+HelloActivity::HelloActivity(net::HttpClient* http, std::string serverUrl, core::JsonLimits jsonLimits,
+                             image::ImageLoader* images, ImageBench bench)
+    : http_(http), serverUrl_(std::move(serverUrl)), jsonLimits_(jsonLimits), images_(images), bench_(std::move(bench)) {}
 
 HelloActivity::~HelloActivity() {
     cancel_.cancel();
@@ -82,6 +92,13 @@ void HelloActivity::onContentAvailable() {
                 server->setText("hello/server"_i18n + ": " + text);
                 if (ok) {
                     startBurst();
+                    if (images_ != nullptr && bench_.repeat > 0 && !bench_.urls.empty()) {
+                        auto run = std::make_shared<BenchRun>();
+                        run->startMs = image::steadyMs();
+                        run->memUsedBefore = platform::runtimeInfo().usedMem;
+                        brls::Logger::info("hello: image benchmark, {} images x {}", bench_.urls.size(), bench_.repeat);
+                        benchNext(run);
+                    }
                 }
             });
         });
@@ -115,6 +132,42 @@ void HelloActivity::startBurst() {
                 });
             });
     }
+}
+
+void HelloActivity::benchNext(const std::shared_ptr<BenchRun>& run) {
+    // Two loads per round: even = a page at 2x the screen, odd = a webtoon strip at 2x the screen's width.
+    const int perUrl = bench_.repeat * 2;
+    const int total = static_cast<int>(bench_.urls.size()) * perUrl;
+    if (run->index >= total) {
+        nlohmann::ordered_json summary = nlohmann::ordered_json::object();
+        summary["loads"] = total;
+        summary["ok"] = run->ok;
+        summary["failed"] = run->failed;
+        summary["ms"] = image::steadyMs() - run->startMs;
+        summary["memUsedBefore"] = run->memUsedBefore;
+        summary["memUsedAfter"] = platform::runtimeInfo().usedMem;
+        brls::Logger::info("hello: image benchmark done: {} of {} loaded", run->ok, total);
+        if (bench_.report) {
+            bench_.report(summary);
+        }
+        return;
+    }
+    const std::string& url = bench_.urls[static_cast<std::size_t>(run->index / perUrl)];
+    const core::ImageSize box = run->index % 2 == 0 ? core::ImageSize{2560, 1440} : core::ImageSize{2560, 0};
+    images_->clearMemory();  // so every load decodes (after the first, the bytes come from the disk cache)
+    const net::CancelToken cancel = cancel_;
+    images_->load(image::LoadRequest{url, box, net::Priority::Interactive, image::ImageKind::Page}, cancel,
+                  [this, run, cancel](const image::ImageResult& result) {
+                      if (cancel.cancelled()) {
+                          return;  // the screen is gone
+                      }
+                      ++(result.ok() ? run->ok : run->failed);
+                      if (!result.ok()) {
+                          brls::Logger::warning("hello: image benchmark: {}", result.error().message);
+                      }
+                      ++run->index;
+                      benchNext(run);
+                  });
 }
 
 }  // namespace snx::ui

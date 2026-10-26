@@ -7,7 +7,7 @@
 - `Platform.hpp`:
   - `platformName()` ("switch" or "desktop"), `dataDir()` (D10: `sdmc:/switch/suwayomi-nx/` or `./data/`).
   - `runtimeInfo()` → `core::RuntimeInfo`: Switch = `appletGetAppletType()`, the heap libnx got, `mallinfo().uordblks` (D12 amendment);
-    desktop = application mode (or applet with `--simulate-applet-mode`), the PC's RAM (or `--mem-limit`), glibc's `mallinfo2()`.
+    desktop = application mode (or applet with `--simulate-applet-mode`), the PC's RAM (or `--mem-limit`), glibc's `mallinfo2()` (`uordblks + hblkhd`: big mmap'd blocks count too, WP-07).
   - `setDesktopTestFlags(simulateApplet, memLimitBytes)`: the two desktop test flags, set once by `main()`. The Switch ignores them.
   - `installQuitSignalHandlers()` / `quitRequested()`: desktop SIGINT/SIGTERM become a normal quit (the E2E harness uses it). Switch: no-ops.
   - `exitProcessNow(code)`: ends the process at once, no more of our code runs (Switch `svcExitProcess()`, desktop `_exit()`).

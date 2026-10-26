@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -30,11 +31,19 @@ std::string_view drillName(Drill drill);
 // Drill::None for an unknown name.
 Drill drillFromName(std::string_view name);
 
+inline constexpr std::size_t kMaxBenchPaths = 8;
+inline constexpr int kMaxBenchRepeat = 20;
+
 struct TestConfig {
     Drill drill = Drill::None;
     // "server": {"url": "http://<ip>:4568"}: the Suwayomi test server. WP-05's Hello screen asks it for its version; WP-08 adds
     // auth. Empty when missing or not a plain http(s) URL (then `problems` says why). A trailing "/" is removed.
     std::string serverUrl;
+    // "imageBench": {"paths": ["/api/v1/manga/1/chapter/1/page/0", ...], "repeat": 5}: WP-07's image benchmark. The Hello
+    // screen loads each image (server URL + path) `repeat` times through the image pipeline, decoding it every time, and writes
+    // "image" events plus one "image_bench" summary. At most kMaxBenchPaths paths, each starting with "/"; repeat 1..20.
+    std::vector<std::string> benchPaths;
+    int benchRepeat = 0;  // 0 = no benchmark
     std::vector<std::string> problems;  // what couldn't be understood, in plain words (logged, otherwise ignored)
 };
 

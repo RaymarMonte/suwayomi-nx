@@ -26,6 +26,8 @@ core::testevents::IdleTracker gIdle;
 std::string gPending;  // lines not written yet
 core::testconfig::Drill gDrill = core::testconfig::Drill::None;
 std::string gServerUrl;
+std::vector<std::string> gBenchPaths;
+int gBenchRepeat = 0;
 bool gDrillStarted = false;
 bool gCacheWritingReported = false;
 
@@ -76,7 +78,32 @@ void start(const platform::SafeFs& fs) {
         }
         gDrill = config.drill;
         gServerUrl = config.serverUrl;
+        gBenchPaths = config.benchPaths;
+        gBenchRepeat = config.benchRepeat;
     }
+}
+
+std::vector<std::string> imageBenchPaths() {
+    return gBenchPaths;
+}
+
+int imageBenchRepeat() {
+    return gBenchRepeat;
+}
+
+void watchImages(image::ImageLoader& loader) {
+    // Loader threads here; the events file belongs to the main thread.
+    loader.setEventObserver([](const core::testevents::ImageEvent& event) {
+        brls::sync([event] { append(core::testevents::image(nowMs(), event)); });
+    });
+    loader.setPressureObserver([](int usedPercent, const char* action) {
+        const std::string what = action;
+        brls::sync([usedPercent, what] { append(core::testevents::memPressure(nowMs(), usedPercent, what)); });
+    });
+}
+
+void write(std::string_view ev, const nlohmann::ordered_json& fields) {
+    append(core::testevents::line(nowMs(), ev, fields));
 }
 
 void appStart(const core::RuntimeInfo& runtime, std::string_view profile, bool safeMode, std::string_view lastCrash) {
@@ -153,6 +180,14 @@ std::string serverUrl() {
     return {};
 }
 void watchNet(net::HttpClient&) {}
+void watchImages(image::ImageLoader&) {}
+std::vector<std::string> imageBenchPaths() {
+    return {};
+}
+int imageBenchRepeat() {
+    return 0;
+}
+void write(std::string_view, const nlohmann::ordered_json&) {}
 void appStart(const core::RuntimeInfo&, std::string_view, bool, std::string_view) {}
 void screen(std::string_view) {}
 void onFrame() {}

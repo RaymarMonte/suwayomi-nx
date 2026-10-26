@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
+#include <future>
 #include <memory>
 #include <string>
 #include <thread>
@@ -12,6 +13,7 @@
 #include "ApiTestKit.hpp"
 #include "api/SuwayomiClient.hpp"
 #include "core/RuntimeProfile.hpp"
+#include "image/ImageLoader.hpp"
 #include "net/CurlHttpClient.hpp"
 
 // SuwayomiClient against the real Suwayomi test server (tools/test-server, fixture library in docs/TESTING.md). The server's
@@ -198,6 +200,51 @@ TEST_CASE("pages and thumbnails download with the login, as stored and converted
     REQUIRE(converted.ok());
     CHECK(converted.value().status == 200);
     CHECK(isJpeg(converted.value().body));
+}
+
+TEST_CASE("image loader (WP-07): real pages through the login, decoded and tiled; the Broken manga fails cleanly") {
+    Live live;
+    // The same HttpClient the SuwayomiClient decorates, so every page request carries the login (D38).
+    snx::image::LoaderOptions options = snx::image::loaderOptionsFrom(
+        snx::core::makeRuntimeProfile(snx::core::LaunchMode::Application, 4 * snx::core::kGiB, 100 * snx::core::kMiB));
+    snx::image::ImageLoader loader(live.http, options);  // no deliver: answers come on a loader thread
+    const auto firstPage = [&](const std::string& title, int index) {
+        const auto chapters = must(live->chapters(libraryId(live, title), 0, CancelToken()));
+        REQUIRE_FALSE(chapters.nodes.empty());
+        const auto pages = must(live->pages(chapters.nodes.back().id, PageFormat::AsStored, CancelToken()));
+        REQUIRE(static_cast<int>(pages.pages.size()) > index);
+        return live->absoluteUrl(pages.pages[static_cast<std::size_t>(index)]);
+    };
+    const auto load = [&](const std::string& url, snx::core::ImageSize box) {
+        auto done = std::make_shared<std::promise<snx::image::ImageResult>>();
+        auto answer = done->get_future();
+        loader.load(snx::image::LoadRequest{url, box, snx::net::Priority::Interactive, snx::image::ImageKind::Page},
+                    CancelToken(), [done](const snx::image::ImageResult& result) { done->set_value(result); });
+        REQUIRE(answer.wait_for(60s) == std::future_status::ready);
+        return answer.get();
+    };
+
+    const auto alpha = load(firstPage("Alpha", 0), {1280, 720});
+    REQUIRE_MESSAGE(alpha.ok(), (alpha.ok() ? "" : alpha.error().message));
+    CHECK(alpha.value()->size() == snx::core::ImageSize{500, 750});  // JPEG at 1/2, within the 15 % slack
+    CHECK(alpha.value()->sourceSize() == snx::core::ImageSize{1000, 1500});
+    const auto beta = load(firstPage("Beta RTL", 0), {1280, 720});
+    REQUIRE(beta.ok());
+    CHECK(beta.value()->format() == snx::image::ImageFormat::Png);
+    const auto strip = load(firstPage("Gamma Webtoon", 0), {1280, 0});
+    REQUIRE(strip.ok());
+    CHECK(strip.value()->size() == snx::core::ImageSize{800, 12000});
+    CHECK(strip.value()->tiles().size() == 6);
+
+    // Broken: page 1 corrupt, page 2 empty, page 3 a 1x1 image, page 4 fine.
+    const auto corrupt = load(firstPage("Broken", 0), {1280, 720});
+    REQUIRE_FALSE(corrupt.ok());
+    CHECK(corrupt.error().kind == snx::image::ImageErrorKind::Corrupt);
+    CHECK_FALSE(load(firstPage("Broken", 1), {1280, 720}).ok());
+    const auto tiny = load(firstPage("Broken", 2), {1280, 720});
+    REQUIRE(tiny.ok());
+    CHECK(tiny.value()->size() == snx::core::ImageSize{1, 1});
+    CHECK(load(firstPage("Broken", 3), {1280, 720}).ok());
 }
 
 TEST_CASE("progress round trip: page 5 reads back as 5; beyond the end the server caps it at the page count") {

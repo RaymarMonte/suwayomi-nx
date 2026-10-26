@@ -17,8 +17,10 @@ add_custom_command(
 add_library(snx_core STATIC
     AppConfig.cpp
     CrashRecord.cpp
+    ImageGeometry.cpp
     Json.cpp
     LaunchOptions.cpp
+    MemoryPressure.cpp
     RuntimeInfo.cpp
     RetryPolicy.cpp
     RuntimeProfile.cpp

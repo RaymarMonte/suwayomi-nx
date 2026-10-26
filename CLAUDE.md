@@ -50,6 +50,7 @@ tests/fixtures/     generated manga, recorded GraphQL responses, schema.graphql
 tools/         scripts: build, deploy, test-server, fixtures, schema dump
 tools/sys-autopilot-nx/  our slim sys-autopilot fork with touch (C, MIT, own Makefile, D19). It's a sysmodule: crash = system fatal
 library/borealis/   git submodule, pinned commit (D1)
+library/libwebp/    git submodule, pinned tag v1.6.0 (D39): the WebP decoder, built from source on both platforms
 third_party/   vendored single headers: doctest, nlohmann/json
 docs/          plan, architecture, testing, research, decisions, status, work packages
 ```

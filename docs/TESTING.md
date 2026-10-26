@@ -47,6 +47,10 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
 - WP-03b added `app_start.safeMode` / `lastCrash` (the last run crashed: `src/app/crash/README.md`), the `drill` event
   (`{"ev":"drill","name":"null-write","phase":"start"}`, or `"phase":"writing"` for the cache-write drill), and the test config's
   `"drill"` key: that crash drill starts the first time the app is idle (test builds only).
+- WP-07 added `image` (one per finished load: `url`, `source` memory/disk/net, `error`, `format`, `w`/`h`, `srcW`/`srcH`,
+  `tiles`, `fetchMs`, `decodeMs`, `bytes`, `fileBytes`, `memUsed` at the decode's peak), `mem_pressure` (`usedPct`, `action`
+  `shrink_caches` / `recovered`), and the test config's `"imageBench": {"paths": [...], "repeat": n}`, which makes the Hello
+  screen run the image benchmark and write one `image_bench` summary (`loads`, `ok`, `failed`, `ms`, `memUsedBefore/After`).
 - `idle` is emitted when there are no pending net/decode jobs and no running animations (borealis's running tickings) for 3 frames in a row,
   once per quiet spell: again only after something was busy or a new `screen` came. **Tests wait for `idle`, never `sleep`.**
 - The app empties the file at start and appends each event with open → write → close, never keeping it open: on the Switch a file that one
