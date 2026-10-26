@@ -1,0 +1,55 @@
+{
+  "data": {
+    "chapters": {
+      "nodes": [
+        {
+          "id": 10,
+          "mangaId": 4,
+          "name": "Chapter 4",
+          "chapterNumber": 4,
+          "sourceOrder": 4,
+          "uploadDate": "1767571440000",
+          "scanlator": null,
+          "isRead": false,
+          "isBookmarked": false,
+          "isDownloaded": false,
+          "lastPageRead": 0,
+          "pageCount": -1
+        },
+        {
+          "id": 11,
+          "mangaId": 4,
+          "name": "Chapter 5",
+          "chapterNumber": 5,
+          "sourceOrder": 5,
+          "uploadDate": "1767571500000",
+          "scanlator": null,
+          "isRead": false,
+          "isBookmarked": false,
+          "isDownloaded": false,
+          "lastPageRead": 0,
+          "pageCount": -1
+        },
+        {
+          "id": 12,
+          "mangaId": 4,
+          "name": "Chapter 6",
+          "chapterNumber": 6,
+          "sourceOrder": 6,
+          "uploadDate": "1767571560000",
+          "scanlator": null,
+          "isRead": false,
+          "isBookmarked": false,
+          "isDownloaded": false,
+          "lastPageRead": 0,
+          "pageCount": -1
+        }
+      ],
+      "totalCount": 300,
+      "pageInfo": {
+        "hasNextPage": true,
+        "endCursor": "12-6"
+      }
+    }
+  }
+}

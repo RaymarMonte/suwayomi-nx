@@ -1,0 +1,3 @@
+# document: FetchChapterPages
+# vars: {"chapterId": "$chapter:Alpha:1", "format": "image/jpeg"}
+# The same with server-side conversion (D6): the page URLs carry ?format=.

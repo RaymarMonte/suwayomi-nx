@@ -1,0 +1,8 @@
+# Every category, in the user's order. The Default category (id 0) is always there: in the library it holds the manga that are
+# in no other category.
+query Categories {
+  categories(order: [{ by: ORDER }]) {
+    nodes { id name order default }
+    totalCount
+  }
+}

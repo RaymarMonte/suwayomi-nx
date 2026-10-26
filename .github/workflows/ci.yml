@@ -1,7 +1,8 @@
 # CI (docs/TESTING.md "CI", WP-01): unit tests + coverage, desktop build + smoke test, Node tooling tests (WP-02), Switch build (.nro + .elf).
 # WP-03b: the write-jail grep gate runs in the unit-test job (tools/build.sh tests), the .elf safety gate inside the Switch build,
 # plus its self-test.
-# Later WPs add contract, integration and desktop E2E jobs. Device tests run on the owner's PC only.
+# WP-04: the GraphQL contract test runs in the Node job; the fuzz job runs each libFuzzer target for 60 s (SAFETY.md S6).
+# Later WPs add integration and desktop E2E jobs. Device tests run on the owner's PC only.
 name: CI
 
 on:
@@ -21,10 +22,15 @@ jobs:
       - uses: actions/checkout@v7   # no submodules needed: the unit tests don't use borealis
       - name: Install tools
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build gcovr
+      # The contract test needs the Node packages; the node job runs it.
       - name: Unit tests
         run: tools/build.sh tests
+        env:
+          SNX_SKIP_CONTRACT: '1'
       - name: Unit tests, test-hooks build
         run: tools/build.sh tests --test-hooks
+        env:
+          SNX_SKIP_CONTRACT: '1'
       - name: Coverage
         run: tools/build.sh coverage
       - uses: actions/upload-artifact@v7
@@ -71,10 +77,28 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Type check
         run: npm run typecheck
+      - name: GraphQL contract test (src/core/graphql against tests/fixtures/schema.graphql)
+        run: npm run contract
       - name: Unit tests, including the whole fixture set generated twice (D31)
         run: npm test
         env:
           SNX_FULL_FIXTURES: '1'
+
+  fuzz:
+    name: Fuzz (libFuzzer + ASan/UBSan)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      # clang 18 is Ubuntu 24.04's default; libclang-rt-18-dev holds libFuzzer and the sanitizer runtimes.
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build clang libclang-rt-18-dev
+      - name: Fuzz every target for 60 s, starting from the recorded answers
+        run: tools/build.sh fuzz 60
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: fuzz-crashes
+          path: tests/out/fuzz/
 
   switch:
     name: Switch build (.nro + .elf)

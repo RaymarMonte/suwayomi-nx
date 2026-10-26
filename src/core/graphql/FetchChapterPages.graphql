@@ -1,0 +1,10 @@
+# Open a chapter: its page URLs (relative to the server). $format is a MIME type ("image/jpeg") when the server should convert
+# the pages (D6, off by default); leave it out to get them as stored. Send it as its own request: the fields of one request
+# don't wait for each other (SUWAYOMI-API.md).
+mutation FetchChapterPages($chapterId: Int!, $format: String) {
+  fetchChapterPages(input: { chapterId: $chapterId, format: $format }) {
+    pages
+    chapter { id mangaId sourceOrder isRead lastPageRead pageCount }
+    syncConflict { deviceName remotePage }
+  }
+}

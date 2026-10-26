@@ -1,7 +1,7 @@
 {
   "name": "suwayomi-nx-tools",
   "private": true,
-  "description": "Node tooling for suwayomi-nx: fixture generator, test-server seeding, schema dump, recorded responses, E2E harness (D20, D30)",
+  "description": "Node tooling for suwayomi-nx: fixture generator, test-server seeding, schema dump, recorded responses, E2E harness, GraphQL contract test (D20, D30)",
   "license": "Apache-2.0",
   "type": "module",
   "engines": {
@@ -14,6 +14,7 @@
     "seed": "node tools/test-server/seed.ts",
     "dump-schema": "node tools/dump-schema/dump-schema.ts",
     "record-fixtures": "node tools/record-fixtures/record-fixtures.ts",
+    "contract": "node tests/contract/graphql-contract.ts",
     "e2e": "vitest run -c vitest.e2e.config.ts"
   },
   "devDependencies": {

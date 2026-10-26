@@ -1,0 +1,7 @@
+# Save reading progress. $patch is {"lastPageRead": n} plus "isRead": true once the chapter is finished.
+# The server caps lastPageRead to [0, pageCount] (0 while pageCount is -1).
+mutation UpdateChapterProgress($id: Int!, $patch: UpdateChapterPatchInput!) {
+  updateChapter(input: { id: $id, patch: $patch }) {
+    chapter { id lastPageRead isRead pageCount }
+  }
+}

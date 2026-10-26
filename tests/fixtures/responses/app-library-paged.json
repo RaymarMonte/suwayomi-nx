@@ -1,0 +1,21 @@
+{
+  "data": {
+    "mangas": {
+      "nodes": [
+        {
+          "id": 4,
+          "title": "Delta Big",
+          "thumbnailUrl": "/api/v1/manga/4/thumbnail",
+          "status": "UNKNOWN",
+          "unreadCount": 300,
+          "downloadCount": 0
+        }
+      ],
+      "totalCount": 2,
+      "pageInfo": {
+        "hasNextPage": true,
+        "endCursor": "4-Delta Big"
+      }
+    }
+  }
+}

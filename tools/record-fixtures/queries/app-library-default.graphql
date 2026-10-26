@@ -1,0 +1,3 @@
+# document: LibraryByCategory
+# vars: {"filter": {"categoryId": {"isNull": true}}, "first": 60, "offset": 0}
+# The Default category's tab: the manga in no category (Broken and the Unicode one).

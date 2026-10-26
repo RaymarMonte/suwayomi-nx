@@ -1,0 +1,29 @@
+{
+  "data": {
+    "mangas": {
+      "nodes": [
+        {
+          "id": 1,
+          "title": "Alpha",
+          "thumbnailUrl": "/api/v1/manga/1/thumbnail",
+          "status": "ONGOING",
+          "unreadCount": 3,
+          "downloadCount": 0
+        },
+        {
+          "id": 2,
+          "title": "Beta RTL",
+          "thumbnailUrl": "/api/v1/manga/2/thumbnail",
+          "status": "UNKNOWN",
+          "unreadCount": 2,
+          "downloadCount": 0
+        }
+      ],
+      "totalCount": 2,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "2-Beta RTL"
+      }
+    }
+  }
+}

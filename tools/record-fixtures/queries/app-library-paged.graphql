@@ -1,0 +1,3 @@
+# document: LibraryByCategory
+# vars: {"filter": {"categoryId": {"equalTo": "$category:Long series"}}, "first": 1, "offset": 0}
+# Paging: the first of the two Long series manga, with hasNextPage.

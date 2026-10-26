@@ -1,0 +1,4 @@
+# ui_login: get tokens. Send it without an old token (the server refuses a login while logged in).
+mutation Login($username: String!, $password: String!) {
+  login(input: { username: $username, password: $password }) { accessToken refreshToken }
+}

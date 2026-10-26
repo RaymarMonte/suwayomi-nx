@@ -78,7 +78,8 @@ The repo is public (D23), so docs write `JohnDoe` for the real Windows user name
 (it's in `tests/e2e/device/.env`). Use the session's real working directory. Commits: repo-local noreply identity (D23);
 push from WSL, where `gh` is logged in (SETUP.md C). `<repo>` below = the repo path in WSL.
 
-- Unit tests: `<repo>/tools/build.sh tests` (ctest, one entry per module). Test-hooks variant: add `--test-hooks`.
+- Unit tests: `<repo>/tools/build.sh tests` (ctest, one entry per module, then the GraphQL contract test). Test-hooks variant: add `--test-hooks`.
+- Fuzz (WP-04, S6): `<repo>/tools/build.sh fuzz [seconds]` (libFuzzer with clang; without clang it only replays the seeds under GCC ASan/UBSan).
 - Coverage: `<repo>/tools/build.sh coverage` → `tests/out/coverage/index.html` (git-ignored)
 - Desktop build/run: `<repo>/tools/build.sh desktop` → `~/build/suwayomi-nx/desktop/suwayomi-nx` (run from that folder).
   `tools/build.sh run [-- -d --log-file]` builds and opens it in WSLg. Headless check: `<repo>/tools/desktop-smoke.sh` (Xvfb).
@@ -92,7 +93,7 @@ push from WSL, where `gh` is logged in (SETUP.md C). `<repo>` below = the repo p
 - Device check (console on, Spelunky 2 first on HOME): `<repo>/tools/spike/wp01-hello.sh` (build → app mode → nxlink → screenshot → PLUS → log)
 - App flags: `-d` debug log, `--log-file` → `<data>/logs/app.log` (Switch: `sdmc:/switch/suwayomi-nx/logs/app.log`). Desktop test flags:
   `--simulate-applet-mode`, `--mem-limit=<MB>`. Desktop quits cleanly on SIGTERM/Ctrl+C. Test builds write `<data>/test/events.jsonl`.
-- Node tooling (D30, run from `<repo>`): `npm ci` once (pinned packages), `npm test` (vitest), `npm run typecheck` (tsc).
+- Node tooling (D30, run from `<repo>`): `npm ci` once (pinned packages), `npm test` (vitest), `npm run typecheck` (tsc), `npm run contract` (our `.graphql` files vs the schema).
   Node runs the `.ts` tools directly. Full fixture-determinism test: `SNX_FULL_FIXTURES=1 npm test`.
 - Test server (D29, Windows Java, port 4568, `tools/test-server/README.md`): `<repo>/tools/test-server/test-server.sh reset`, then
   `... start [--auth none|basic|ui_login]` (~10 s), `... stop`, `... status`. Other tools get its address with

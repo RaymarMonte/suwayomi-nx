@@ -1,0 +1,4 @@
+# ui_login: a new access token from the refresh token.
+mutation RefreshToken($refreshToken: String!) {
+  refreshToken(input: { refreshToken: $refreshToken }) { accessToken }
+}

@@ -210,7 +210,7 @@ and repeatable. Each MCP screenshot is an image in context, so use them sparingl
 
 ## CI (GitHub Actions, once a repo exists)
 1. `host`: build + unit tests + coverage (ubuntu)
-2. `contract`: graphql validate (node)
+2. `contract`: graphql validate, runs in the `node` job (`npm run contract`, WP-04). Plus `fuzz`: libFuzzer + ASan/UBSan, 60 s per target (WP-04, SAFETY.md S6)
 3. `integration`: Suwayomi container (`ghcr.io/suwayomi/suwayomi-server:<pinned>`) + fixtures + integration tests
 4. `desktop-e2e`: Xvfb + scenarios (goldens: desktop)
 5. `switch-build`: `devkitpro/devkita64` container builds release + test .nro, uploads artifacts

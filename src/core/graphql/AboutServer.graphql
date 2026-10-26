@@ -1,0 +1,4 @@
+# Which server answers, and its version (D9: the app warns below v2.4.2366).
+query AboutServer {
+  aboutServer { name version buildType buildTime }
+}

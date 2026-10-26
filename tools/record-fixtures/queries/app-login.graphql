@@ -1,0 +1,5 @@
+# document: Login
+# auth: ui_login
+# anonymous
+# vars: {"username": "$username", "password": "$password"}
+# ui_login with the app's own Login document (tokens replaced with placeholders).

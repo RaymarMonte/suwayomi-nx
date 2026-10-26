@@ -1,0 +1,12 @@
+{
+  "data": {
+    "updateChapter": {
+      "chapter": {
+        "id": 7,
+        "lastPageRead": 2,
+        "isRead": false,
+        "pageCount": 2
+      }
+    }
+  }
+}

@@ -1,0 +1,3 @@
+# document: Chapters
+# vars: {"mangaId": "$manga:Alpha", "order": "DESC", "first": 100, "offset": 0}
+# Alpha's chapters, newest first: every field the chapter list uses.

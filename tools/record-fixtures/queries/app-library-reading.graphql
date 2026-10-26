@@ -1,0 +1,3 @@
+# document: LibraryByCategory
+# vars: {"filter": {"categoryId": {"equalTo": "$category:Reading"}}, "first": 60, "offset": 0}
+# The library tab of the Reading category: Alpha and Beta RTL.

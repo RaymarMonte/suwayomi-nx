@@ -1,0 +1,27 @@
+{
+  "data": {
+    "fetchChapterPages": {
+      "pages": [
+        "/api/v1/manga/1/chapter/1/page/0?format=image%2Fjpeg",
+        "/api/v1/manga/1/chapter/1/page/1?format=image%2Fjpeg",
+        "/api/v1/manga/1/chapter/1/page/2?format=image%2Fjpeg",
+        "/api/v1/manga/1/chapter/1/page/3?format=image%2Fjpeg",
+        "/api/v1/manga/1/chapter/1/page/4?format=image%2Fjpeg",
+        "/api/v1/manga/1/chapter/1/page/5?format=image%2Fjpeg",
+        "/api/v1/manga/1/chapter/1/page/6?format=image%2Fjpeg",
+        "/api/v1/manga/1/chapter/1/page/7?format=image%2Fjpeg",
+        "/api/v1/manga/1/chapter/1/page/8?format=image%2Fjpeg",
+        "/api/v1/manga/1/chapter/1/page/9?format=image%2Fjpeg"
+      ],
+      "chapter": {
+        "id": 1,
+        "mangaId": 1,
+        "sourceOrder": 1,
+        "isRead": false,
+        "lastPageRead": 0,
+        "pageCount": 10
+      },
+      "syncConflict": null
+    }
+  }
+}

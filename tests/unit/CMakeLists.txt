@@ -5,12 +5,14 @@ set(SNX_TEST_SOURCES main.cpp)
 foreach (module ${SNX_TEST_MODULES})
     list(APPEND SNX_TEST_SOURCES test_${module}.cpp)
 endforeach ()
-# More files for a module's suite: the safety layer's tests (WP-03b).
-list(APPEND SNX_TEST_SOURCES test_core_safety.cpp test_platform_safefs.cpp)
+# More files for a module's suite: the safety layer's tests (WP-03b), models/GraphQL/config/profile (WP-04).
+list(APPEND SNX_TEST_SOURCES test_core_safety.cpp test_platform_safefs.cpp
+    test_core_json.cpp test_core_models.cpp test_core_graphql.cpp test_core_config.cpp test_core_profile.cpp)
 
 add_executable(snx_unit_tests ${SNX_TEST_SOURCES})
 target_link_libraries(snx_unit_tests PRIVATE snx_core snx_net snx_api snx_image snx_platform third_party_doctest)
-target_compile_definitions(snx_unit_tests PRIVATE SNX_TEST_EXPECTED_VERSION="${PROJECT_VERSION}")
+target_compile_definitions(snx_unit_tests PRIVATE SNX_TEST_EXPECTED_VERSION="${PROJECT_VERSION}"
+    SNX_FIXTURES_DIR="${PROJECT_SOURCE_DIR}/tests/fixtures")
 snx_target_defaults(snx_unit_tests)
 
 foreach (module ${SNX_TEST_MODULES})
@@ -18,3 +20,7 @@ foreach (module ${SNX_TEST_MODULES})
     # A suite name that matches nothing would "pass" with 0 tests. Count that as a failure.
     set_tests_properties(unit.${module} PROPERTIES FAIL_REGULAR_EXPRESSION "test cases: +0 [|]")
 endforeach ()
+
+# core must stay free of curl/borealis/libnx/platform headers (WP-04).
+add_test(NAME unit.core-includes COMMAND ${CMAKE_COMMAND} -DCORE_DIR=${PROJECT_SOURCE_DIR}/src/core
+    -P ${PROJECT_SOURCE_DIR}/src/core/CheckIncludes.cmake)

@@ -44,7 +44,7 @@ Checked in WP-02 (2026-10-25) against the real server v2.4.2366: its schema is `
    - `pages[i]` = `/api/v1/manga/{mangaId}/chapter/{sourceOrder}/page/{i}` (+ `?format=…` if given). Note: the chapter part is the
      chapter's `sourceOrder` (its index in the manga), not its id: Broken's chapter id 6 gives `/api/v1/manga/3/chapter/1/page/0`.
    - Broken images are still listed: a corrupt page, a 0-byte page and a 1×1 page each get a URL. The client finds out when decoding.
-   - `format` is a MIME type, e.g. `image/jpeg`. The server converts with Java ImageIO before serving. Per-user
+   - `format` is a MIME type, e.g. `image/jpeg`; the URLs then end in `?format=image%2Fjpeg`. The server converts with Java ImageIO before serving. Per-user
      `serveConversions` can also force conversion.
    - `syncConflict { deviceName remotePage }` may be set when KOReader-sync has newer remote progress. Show a prompt or ignore it at first.
 3. Progress: `updateChapter(input:{id, patch:{lastPageRead, isRead, isBookmarked}})` → `{chapter}`; bulk: `updateChapters(input:{ids, patch})`.
@@ -65,7 +65,9 @@ Checked in WP-02 (2026-10-25) against the real server v2.4.2366: its schema is `
   `pageInfo { hasNextPage hasPreviousPage endCursor }`. Pagination works with `first/offset` and with cursors (`after/before`).
   Sort: `MangaOrderBy` = `ID | TITLE | IN_LIBRARY_AT | LAST_FETCHED_AT`, `byType` = `ASC | DESC | …NULLS_FIRST/LAST`.
 - Per category: `category(id) { mangas { nodes totalCount } }`. **`category(id: 0)` lists the manga that are in no category**;
-  `mangas(condition: {categoryIds: [0]})` returns none, so use `category(id)`.
+  `mangas(condition: {categoryIds: [0]})` returns none. But `category(id).mangas` takes no paging arguments, so the app uses
+  `mangas(condition: {inLibrary: true}, filter: {categoryId: {equalTo: id}}, first, offset)`, and `filter: {categoryId: {isNull: true}}`
+  for the Default category (both checked on the test server, WP-04; `filter: {categoryId: {equalTo: 0}}` returns none).
 - Manga: `manga(id)` → `title`, `thumbnailUrl` (relative, `/api/v1/manga/{id}/thumbnail`), `author`, `artist`, `description`
   (nullable), `genre: [String!]!`, `status: MangaStatus` (`UNKNOWN ONGOING COMPLETED LICENSED PUBLISHING_FINISHED CANCELLED ON_HIATUS`),
   `unreadCount`, `downloadCount`, `inLibrary`, `categories`, `chapters`, `source { id name displayName }`, and helpers such as

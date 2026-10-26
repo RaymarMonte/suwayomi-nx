@@ -362,3 +362,36 @@ system's note for a process that ends without telling the applet manager; no cra
 "closed unexpectedly" note. The exit steps and the 3 s exit deadline are now desktop-only.
 Rejected: running borealis's graphics shutdown after a crash, then `exit()` (runs code of the program that just crashed: it could
 hang or crash again); ending at once only after a thread crash (two rules, and the state behind a caught exception may be broken too).
+
+**D36 How core's models, GraphQL and config are built** (WP-04, 2026-10-26). Carries out D4, D9, D12/D21 and SAFETY.md S6. Usage: `src/core/README.md`.
+- **Errors are values:** every parser returns `Result<T>` (a value or `Error{Parse|Server|Unauthorized, message}`) and never throws.
+  JSON from outside goes through `parseJson()`: size limit (8 MiB) and nesting limit (64, counted before parsing) from `JsonLimits`,
+  which `RuntimeProfile::json` carries.
+- **Tolerant models:** plain structs without JSON in their headers; `fromJson<T>()` in `models/FromJson.hpp`. A missing, null or
+  wrong-typed field keeps the default; a model fails only when it isn't an object or has no valid id. List entries that fail are
+  skipped and counted (`NodeList::skipped`). Page URLs keep their index even when odd (the index is what `lastPageRead` means).
+  `LongString` ids stay text (`Source::id`), times become `int64`.
+- **Operations:** `graphql/Operations.hpp` pairs each document with its variables and its answer reader. Partial data is used; with
+  no data the first error comes back (an unauthorized one first). Server messages are cut to their first line, without the
+  "Exception while fetching data (/x) : " prefix, ≤ 300 bytes.
+- **Library tabs:** `mangas(condition: {inLibrary: true}, filter: {categoryId: {equalTo: id}})`, and `{isNull: true}` for the Default
+  category (id 0), sorted by title then id. `category(id) { mangas }` has no paging arguments (checked on the test server).
+- **Embedding:** `EmbedGraphql.cmake` turns `src/core/graphql/<Name>.graphql` into `constexpr` strings at build time (whole-line comments
+  dropped). File name = operation name; the contract test (`tests/contract/`, Node `graphql`) checks that, the schema, and that app
+  documents use no deprecated field. `tools/build.sh tests` runs it; CI runs it in the Node job.
+- **Our own documents are recorded:** a recorder query file can hold just `# document: <Name>` (+ vars), and the recorder sends the
+  app's document. Their answers (`tests/fixtures/responses/app-*.json`) are what the C++ tests parse, so documents and parsers are
+  tested together offline. Such recordings must not change state that later recordings show.
+- **Config:** `config.json` = `{schemaVersion, server{url, auth: none|basic|ui_login, username, password, accessToken, refreshToken},
+  reader{direction: ltr|rtl|vertical, fit: screen|width|height|original, serverConvertsToJpeg}}`. Loading never fails: defaults plus
+  `problems`. Migration = a list of steps (version N → N+1), empty while the version is 1. Password and tokens are plain text on the SD
+  card, like every homebrew app (basic auth needs the password on every request); WP-08's setup screen says so.
+- **RuntimeProfile:** budgets are shares of the free memory with floors and caps (image cache 40 % ≤ 512 MiB, covers 5 % ≤ 64 MiB,
+  textures 15 % ≤ 256 MiB, one decode 10 % ≤ 128 MiB); on the console (3,184 MiB heap) all sit at their caps. Safe mode halves them
+  (not below the floors) and turns prefetch off. Applet mode returns a small "applet" profile that the D21 guard never uses.
+- **Fuzzing:** two libFuzzer targets (`fuzz_gql_response`: every reader and every `fromJson` on every object; `fuzz_app_config`: load,
+  and the save/load round trip must not change anything), ASan + UBSan. `tools/build.sh fuzz [s]` uses clang when it is there; without
+  it (WSL today) GCC builds the same targets with a main() that only replays the seeds. CI's `fuzz` job installs clang and fuzzes 60 s each.
+Rejected: `category(id) { mangas }` for the library (no paging), exceptions from parsers (one bad answer must not unwind a screen),
+failing a whole list on one bad entry, a GCC-only "fuzzer" of our own (libFuzzer's coverage guidance finds far more), recording our
+documents by hand-copying them into the recorder's folder (two copies drift apart).

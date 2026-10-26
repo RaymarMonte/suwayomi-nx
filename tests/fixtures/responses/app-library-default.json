@@ -1,0 +1,29 @@
+{
+  "data": {
+    "mangas": {
+      "nodes": [
+        {
+          "id": 3,
+          "title": "Broken",
+          "thumbnailUrl": "/api/v1/manga/3/thumbnail",
+          "status": "UNKNOWN",
+          "unreadCount": 1,
+          "downloadCount": 0
+        },
+        {
+          "id": 6,
+          "title": "日本語タイトル テスト",
+          "thumbnailUrl": "/api/v1/manga/6/thumbnail",
+          "status": "UNKNOWN",
+          "unreadCount": 1,
+          "downloadCount": 0
+        }
+      ],
+      "totalCount": 2,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "6-日本語タイトル テスト"
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+# document: RefreshToken
+# auth: ui_login
+# anonymous
+# vars: {"refreshToken": "$refreshToken"}
+# ui_login: a new access token with the app's own RefreshToken document.

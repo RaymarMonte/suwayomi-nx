@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "server": {
+    "url": "http://192.168.1.10:4567/sub",
+    "auth": "ui_login",
+    "username": "snx",
+    "password": "päss \"x\"",
+    "accessToken": "a.b.c",
+    "refreshToken": "r.s.t"
+  },
+  "reader": {
+    "direction": "vertical",
+    "fit": "width",
+    "serverConvertsToJpeg": true
+  }
+}

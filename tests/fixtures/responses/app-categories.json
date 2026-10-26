@@ -1,0 +1,27 @@
+{
+  "data": {
+    "categories": {
+      "nodes": [
+        {
+          "id": 0,
+          "name": "Default",
+          "order": 0,
+          "default": true
+        },
+        {
+          "id": 1,
+          "name": "Reading",
+          "order": 1,
+          "default": false
+        },
+        {
+          "id": 2,
+          "name": "Long series",
+          "order": 2,
+          "default": false
+        }
+      ],
+      "totalCount": 3
+    }
+  }
+}

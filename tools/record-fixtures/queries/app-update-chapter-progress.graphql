@@ -1,0 +1,5 @@
+# document: UpdateChapterProgress
+# vars: {"id": "$chapter:Delta Big:1", "patch": {"lastPageRead": 2}}
+# prepare: mutation P($id: Int!) { fetchChapterPages(input: { chapterId: $id }) { pages } }
+# Save progress on Delta Big's oldest chapter: no other recording shows its pages or progress. (Marking a chapter read would
+# change the unread counts that library.json shows, so isRead: true is left to the C++ tests of the request builder.)

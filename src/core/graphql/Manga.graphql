@@ -1,0 +1,9 @@
+# The details screen: one manga, its categories, and where "Continue reading" starts.
+query Manga($id: Int!) {
+  manga(id: $id) {
+    id title thumbnailUrl author artist description genre status inLibrary unreadCount downloadCount
+    source { id name displayName }
+    categories { nodes { id name } }
+    firstUnreadChapter { id name chapterNumber sourceOrder lastPageRead pageCount }
+  }
+}

@@ -11,6 +11,9 @@
 //   # auth: ui_login                 record it only while the server runs with this auth mode (default: none)
 //   # anonymous                      send it without any credentials
 //   # prepare: <one-line GraphQL>    run this first, as its own request, with the same variables (its answer isn't saved)
+//   # document: <Name>               send the app's own src/core/graphql/<Name>.graphql (WP-04); the file holds only comments.
+//                                     Its answer is what the C++ unit tests parse, so the app's documents and parsers are
+//                                     tested together. Mutations here must not change what later recordings show.
 // Values that change on every run (tokens) are replaced with fixed ones, so re-recording gives the same files.
 // Some queries change server state (reading progress), so record on a fresh server: test-server.sh reset, then start.
 //
@@ -23,6 +26,7 @@ import { fail, isMain } from '../../tests/e2e/lib/cli.ts';
 import { optionsFromEnv, SuwayomiClient, waitForServer } from '../../tests/e2e/lib/suwayomi.ts';
 
 const QUERIES = fileURLToPath(new URL('./queries/', import.meta.url));
+const APP_DOCUMENTS = fileURLToPath(new URL('../../src/core/graphql/', import.meta.url));
 const RESPONSES = fileURLToPath(new URL('../../tests/fixtures/responses/', import.meta.url));
 
 // Keys whose values differ between runs, and the fixed value written instead.
@@ -46,13 +50,15 @@ async function loadQueries(only: string[]): Promise<QueryFile[]> {
     for (const file of files) {
         const name = basename(file, '.graphql');
         if (only.length > 0 && !only.includes(name)) continue;
-        const text = await readFile(QUERIES + file, 'utf8');
-        const vars = /^#\s*vars:\s*(.+)$/m.exec(text)?.[1];
-        const auth = /^#\s*auth:\s*(\S+)/m.exec(text)?.[1] ?? 'none';
+        const header = await readFile(QUERIES + file, 'utf8');
+        const document = /^#\s*document:\s*(\S+)/m.exec(header)?.[1];
+        const text = document ? await readFile(`${APP_DOCUMENTS}${document}.graphql`, 'utf8') : header;
+        const vars = /^#\s*vars:\s*(.+)$/m.exec(header)?.[1];
+        const auth = /^#\s*auth:\s*(\S+)/m.exec(header)?.[1] ?? 'none';
         out.push({
             name, text, vars: vars ? JSON.parse(vars) : undefined, auth,
-            anonymous: /^#\s*anonymous\s*$/m.test(text),
-            prepare: /^#\s*prepare:\s*(.+)$/m.exec(text)?.[1],
+            anonymous: /^#\s*anonymous\s*$/m.test(header),
+            prepare: /^#\s*prepare:\s*(.+)$/m.exec(header)?.[1],
         });
     }
     return out;
