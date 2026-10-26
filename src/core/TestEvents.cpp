@@ -48,6 +48,16 @@ std::string drill(std::int64_t tMs, std::string_view name, std::string_view phas
     return line(tMs, "drill", fields);
 }
 
+std::string net(std::int64_t tMs, const NetEvent& event) {
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["method"] = event.method;
+    fields["url"] = event.url;
+    fields["status"] = event.status;
+    fields["attempts"] = event.attempts;
+    fields["error"] = event.error;
+    return line(tMs, "net", fields);
+}
+
 bool IdleTracker::onFrame(bool busy) {
     if (busy) {
         quietFrames_ = 0;

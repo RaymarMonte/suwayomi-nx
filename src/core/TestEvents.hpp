@@ -33,6 +33,17 @@ std::string idle(std::int64_t tMs);
 // writing (phase "writing").
 std::string drill(std::int64_t tMs, std::string_view name, std::string_view phase);
 
+// How one HTTP request ended (WP-05). Owns its text, so the network thread can hand it to the main thread.
+struct NetEvent {
+    std::string method;    // "GET" or "POST"
+    std::string url;
+    int status = 0;        // the HTTP status, 0 when there was no answer
+    int attempts = 0;      // 2 or more after retries
+    std::string error;     // "" or an error kind name ("timeout", "cancelled", ...: errorKindName)
+};
+// {"ev":"net","method":"POST","url":"http://.../api/graphql","status":200,"attempts":1,"error":""}
+std::string net(std::int64_t tMs, const NetEvent& event);
+
 // Decides when to write an "idle" event: after kQuietFrames frames in a row with nothing running (no animation; later also no
 // network or decode job). One idle event per quiet spell: it comes again only after something was busy, or after markBusy().
 class IdleTracker {

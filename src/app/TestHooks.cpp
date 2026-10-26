@@ -25,6 +25,7 @@ std::chrono::steady_clock::time_point gStart;
 core::testevents::IdleTracker gIdle;
 std::string gPending;  // lines not written yet
 core::testconfig::Drill gDrill = core::testconfig::Drill::None;
+std::string gServerUrl;
 bool gDrillStarted = false;
 bool gCacheWritingReported = false;
 
@@ -74,6 +75,7 @@ void start(const platform::SafeFs& fs) {
             brls::Logger::warning("{}", problem);
         }
         gDrill = config.drill;
+        gServerUrl = config.serverUrl;
     }
 }
 
@@ -87,6 +89,26 @@ void appStart(const core::RuntimeInfo& runtime, std::string_view profile, bool s
     info.safeMode = safeMode;
     info.lastCrash = lastCrash;
     append(core::testevents::appStart(nowMs(), info));
+}
+
+std::string serverUrl() {
+    return gServerUrl;
+}
+
+void watchNet(net::HttpClient& http) {
+    http.addResponseObserver([](const net::Request& request, const net::HttpResult& result) {
+        core::testevents::NetEvent event;
+        event.method = request.method == net::Method::Post ? "POST" : "GET";
+        event.url = request.url;
+        if (result.ok()) {
+            event.status = result.value().status;
+            event.attempts = result.value().attempts;
+        } else {
+            event.error = core::errorKindName(result.error().kind);
+        }
+        // Network thread here; the events file belongs to the main thread.
+        brls::sync([event] { append(core::testevents::net(nowMs(), event)); });
+    });
 }
 
 void screen(std::string_view name) {
@@ -127,6 +149,10 @@ void finish() {
 namespace snx::app::testhooks {
 
 void start(const platform::SafeFs&) {}
+std::string serverUrl() {
+    return {};
+}
+void watchNet(net::HttpClient&) {}
 void appStart(const core::RuntimeInfo&, std::string_view, bool, std::string_view) {}
 void screen(std::string_view) {}
 void onFrame() {}

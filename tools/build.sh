@@ -6,6 +6,7 @@
 #   tests     host unit tests, then runs them (ctest), then the GraphQL contract test (npm run contract; needs npm ci once,
 #             SNX_SKIP_CONTRACT=1 skips it)                     -> ~/build/suwayomi-nx/tests/
 #   coverage  unit tests with gcov, then a gcovr HTML report    -> tests/out/coverage/index.html (in the repo, git-ignored)
+#   tsan      unit tests with ThreadSanitizer (data races, WP-05) -> ~/build/suwayomi-nx/tsan/
 #   fuzz [s]  fuzz targets with ASan/UBSan (SAFETY.md S6), s seconds each (default 60). Needs clang for libFuzzer
 #             (sudo apt install clang libclang-rt-18-dev); without clang it only replays the seeds under GCC's sanitizers.
 #             New corpus -> ~/build/suwayomi-nx/fuzz*/corpus/, crash files -> tests/out/fuzz/ (git-ignored)
@@ -128,6 +129,16 @@ build_fuzz() {
     done
 }
 
+
+# The unit tests under ThreadSanitizer (WP-05): finds data races between threads; any report fails the run.
+# setarch -R turns off address randomisation for the run: newer kernels randomise more address bits than TSan can handle.
+build_tsan() {
+    local dir="$BUILD_ROOT/tsan$SUFFIX"
+    log "unit tests with ThreadSanitizer -> $dir"
+    configure "$dir" -DSNX_BUILD_TESTS=ON -DSNX_TSAN=ON
+    cmake --build "$dir" -j "$JOBS"
+    TSAN_OPTIONS="halt_on_error=1 second_deadlock_stack=1" setarch "$(uname -m)" -R ctest --test-dir "$dir" --output-on-failure
+}
 build_coverage() {
     local dir="$BUILD_ROOT/coverage$SUFFIX" out="$REPO/tests/out/coverage"
     log "coverage -> $out/index.html"
@@ -196,6 +207,7 @@ archive_switch() {
 case "$WHAT" in
     tests) build_tests ;;
     coverage) build_coverage ;;
+    tsan) build_tsan ;;
     fuzz) build_fuzz ;;
     desktop) build_desktop ;;
     run) run_desktop ;;

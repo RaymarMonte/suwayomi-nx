@@ -35,7 +35,7 @@ That README plus the public headers *is* the contract other sessions read.
 - **Config**: `AppConfig` (server URL, auth mode, credentials/tokens, reader prefs), plus JSON load/save with schema version + migration.
 
 ## net
-- `HttpClient` interface: `submit(Request, Priority, CancelToken) -> Future<Response>`.
+- `HttpClient` interface: `submit(Request, Priority, CancelToken) -> Future<HttpResult>` (D37: `then()` on the net thread, api wraps with `brls::sync`).
 - `CurlHttpClient`: one network thread driving a curl *multi* handle, so many transfers share one thread and socket sessions stay low.
   Max concurrent transfers come from `RuntimeProfile` (6 in `Full`). Keep-alive, timeouts, max body size, gzip.
 - Auth injection hook (`RequestDecorator`) so `api` can add Basic or Bearer headers and react to 401.

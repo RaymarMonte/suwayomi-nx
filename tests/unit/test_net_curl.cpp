@@ -281,7 +281,7 @@ TEST_CASE("curl: queued requests start most urgent first") {
     CHECK(order == std::vector<std::string>{"interactive1", "interactive2", "reader", "prefetch", "background"});
 }
 
-TEST_CASE("curl: GETs retry on 503, POSTs don't") {
+TEST_CASE("curl: GETs retry on 503, POSTs only when marked idempotent") {
     LocalServer s;
     std::atomic<int> getCalls{0};
     std::atomic<int> postCalls{0};
@@ -310,6 +310,12 @@ TEST_CASE("curl: GETs retry on 503, POSTs don't") {
     CHECK(once.value().status == 503);
     CHECK(once.value().attempts == 1);
     CHECK(postCalls.load() == 1);
+
+    post.idempotent = true;  // e.g. a GraphQL query: safe to repeat
+    const HttpResult& repeated = waitResult(client.submit(post, Priority::Interactive, {}));
+    CHECK(repeated.value().status == 503);
+    CHECK(repeated.value().attempts == 3);
+    CHECK(postCalls.load() == 4);
 
     const HttpResult& gaveUp = waitResult(client.submit(get(s.url("/down")), Priority::Interactive, {}));
     CHECK(gaveUp.value().status == 502);

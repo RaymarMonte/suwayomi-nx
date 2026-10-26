@@ -192,6 +192,9 @@ Initial list, grown per UI WP:
     with zero system fatals. One test per drill (`crash-drill-<name>`); the drills and what each should end in: `src/app/crash/README.md`.
     Desktop green since WP-03b; the console twice in a row since WP-03c (every crash there ends with the HOME menu's
     "software was closed" note, D35)
+14. `net-hello` (device and desktop, WP-05) – the Hello screen asks the test server for its version through the curl client, then sends 20
+    requests at once; all 21 `net` events must be HTTP 200 (the 20 queue behind 6 transfers, none fails). Saves a screenshot to look at.
+    Needs the test server; the Switch reaches it at the PC's LAN address (`lib/suwayomi.ts` `appServerUrl`). WP-08 folds it into Setup.
 
 ## Golden screenshots
 - Stored per driver: `tests/e2e/goldens/{desktop,switch}/<scenario>/<step>.png`.

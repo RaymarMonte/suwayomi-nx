@@ -1,4 +1,4 @@
-<!-- WP-01 Hello screen (src/ui/hello/HelloActivity). The header title and icon are attributes of the content view (the box),
+<!-- WP-01 Hello screen (src/ui/hello/HelloActivity; WP-05 added the server check lines). The header title and icon are attributes of the content view (the box),
      not of the AppletFrame. The box is focusable (with the highlight hidden) because borealis only handles buttons,
      PLUS-to-quit included, when some view has the focus. -->
 <brls:AppletFrame
@@ -30,6 +30,20 @@
             text=""
             fontSize="24"
             marginTop="24"
+            horizontalAlign="center" />
+
+        <brls:Label
+            id="hello/server"
+            text=""
+            fontSize="20"
+            marginTop="16"
+            horizontalAlign="center" />
+
+        <brls:Label
+            id="hello/burst"
+            text=""
+            fontSize="20"
+            marginTop="8"
             horizontalAlign="center" />
 
     </brls:Box>

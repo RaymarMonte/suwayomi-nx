@@ -395,3 +395,38 @@ hang or crash again); ending at once only after a thread crash (two rules, and t
 Rejected: `category(id) { mangas }` for the library (no paging), exceptions from parsers (one bad answer must not unwind a screen),
 failing a whole list on one bad entry, a GCC-only "fuzzer" of our own (libFuzzer's coverage guidance finds far more), recording our
 documents by hand-copying them into the recorder's folder (two copies drift apart).
+
+**D37 How net works: our own Future, errors as values, every limit in the profile** (WP-05, 2026-10-26). Carries out D5 and
+ARCHITECTURE.md "net"; `src/net/README.md` has the details.
+- **`submit()` returns `net::Future<HttpResult>`, our own small type** (the WP let us pick a future or a main-thread callback).
+  `then(fn)` runs fn once, on the network thread, when the answer is in (at once if it already is); `wait()` is for tests. net never
+  includes borealis, so it stays testable on the PC; the api layer (WP-06) passes results to the UI with `then` → `brls::sync`.
+- **Errors are values:** `HttpResult = core::Result<Response>`. Any HTTP answer (404, 401, 500 included) is a `Response`; only "no
+  answer" is an `Error`, with four new `core::ErrorKind`s: `Network`, `Timeout`, `Cancelled`, `TooLarge`. The future always
+  completes exactly once, also on cancel and shutdown.
+- **One network thread, one curl multi handle** (D5). At most `httpConcurrency` transfers (6); the rest wait in our queue, by
+  `Priority` and then submit order. curl's connection pool is capped at the same number, so the app holds few sockets.
+- **Cancellation:** `CancelToken` is a shared atomic flag. Queued jobs are dropped before they start; running ones stop within
+  ~50 ms (the thread checks at least that often).
+- **Limits come from `RuntimeProfile` (new fields):** connect 5 s, request 30 s (images 60 s: the image module passes it), 3 redirects
+  (http/https only), headers 64 KiB, net thread stack 512 KiB (a pthread, since `std::thread` can't set a stack size). The body limit
+  (`json.maxBytes`; the image module passes `maxImageBytes`) is checked against Content-Length and again on every piece received,
+  after un-gzip, so an oversized or gzip-bomb answer stops early instead of being buffered first (S6).
+- **Retries (`core::RetryPolicy`):** GETs, plus POSTs the caller marks `idempotent` (a GraphQL query; never a mutation, which could
+  apply twice). Only transient failures: refused/reset connection, empty reply, HTTP 408/429/502/503/504. 2 retries, 250 ms then
+  500 ms apart. Timeouts aren't retried (they already waited the full time).
+- **Sleep/resume:** `resetConnections()` drops running transfers (they retry) and swaps in a new multi handle, so no stale kept-alive
+  socket is reused. Whoever handles the resume event (WP-08/WP-12) calls it.
+- **Tests:** cpp-httplib 0.60.1 (MIT, single header, host only) serves real HTTP on 127.0.0.1. `tools/build.sh tsan` runs every unit
+  test under ThreadSanitizer (also a CI step), with address randomisation off (`setarch -R`): newer kernels randomise more address
+  bits than TSan supports.
+- **Switch:** devkitPro's `switch-curl` 7.69 (TLS via libnx), linked as `curl` + `z`; the code guards the options newer than 7.69. Its
+  resolver is the blocking one (threaded resolver compiled out), so a slow DNS lookup stalls the network thread: use an IP address.
+- **Switch sockets: we keep borealis's setup**, no override in `platform/switch`. In application mode its `userAppInit` asks for
+  12 BSD sessions and `sb_efficiency` 8 (applet mode: 2 and 1, unused, D21). BSD sessions limit parallel *blocking calls*, and
+  curl's multi handle makes one at a time; we hold at most 6 sockets. Checked on the console: `aboutServer`, then 20 requests at
+  once, all HTTP 200 on the first try (`tests/e2e/scenarios/net-hello.test.ts`).
+- **Test hooks:** the test config's `"server": {"url"}` gives the Hello screen its server (WP-08 takes it over), and every finished
+  request writes a `net` event (method, url, status, attempts, error kind) through a ResponseObserver.
+Rejected: `std::future` (no continuation, the UI would have to poll); calling back on the main thread from net (net would need
+borealis); a thread per request (more sockets and stacks); retrying POSTs by default; buffering a whole body before checking its size.

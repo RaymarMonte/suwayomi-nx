@@ -475,7 +475,7 @@ void CurlHttpClient::Impl::conclude(std::unique_ptr<Transfer> t, CURLcode code, 
 }
 
 void CurlHttpClient::Impl::retryOrFinish(Job job, const Request& sent, HttpResult result, bool transient) {
-    const bool idempotent = job.request.method == Method::Get;
+    const bool idempotent = job.request.method == Method::Get || job.request.idempotent;
     if (core::shouldRetry(options.retry, job.attempts - 1, idempotent, transient)) {
         job.notBefore = Clock::now() + std::chrono::milliseconds(core::retryDelayMs(options.retry, job.attempts));
         std::lock_guard<std::mutex> lock(mutex);

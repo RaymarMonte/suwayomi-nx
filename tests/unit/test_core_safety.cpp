@@ -9,6 +9,7 @@
 #include <doctest/doctest.h>
 
 #include "core/CrashRecord.hpp"
+#include "core/Result.hpp"
 #include "core/SafePath.hpp"
 #include "core/TestConfig.hpp"
 #include "core/TestEvents.hpp"
@@ -313,6 +314,33 @@ TEST_CASE("test config: bad input never throws") {
     CHECK(unknown.drill == tc::Drill::None);
     REQUIRE(unknown.problems.size() == 1);
     CHECK(unknown.problems[0].find("format-the-sd-card") != std::string::npos);
+}
+
+TEST_CASE("test config: the server URL (WP-05)") {
+    namespace tc = snx::core::testconfig;
+    CHECK(tc::parse(R"({"server":{"url":"http://192.168.1.5:4568/"}})").serverUrl == "http://192.168.1.5:4568");
+    CHECK(tc::parse(R"({"server":{"url":"https://example.org"}})").serverUrl == "https://example.org");
+    CHECK(tc::parse(R"({"server":{}})").serverUrl.empty());
+    CHECK(tc::parse(R"({"server":{}})").problems.empty());
+    for (const char* bad : {R"({"server":{"url":"ftp://x"}})", R"({"server":{"url":"http://a b"}})", R"({"server":{"url":7}})",
+                            R"({"server":"http://x"})"}) {
+        const auto config = tc::parse(bad);
+        CHECK(config.serverUrl.empty());
+        CHECK(config.problems.size() == 1);
+    }
+    CHECK(tc::parse(R"({"server":{"url":"http://)" + std::string(3000, 'a') + R"("}})").serverUrl.empty());
+}
+
+TEST_CASE("net event line, error kind names") {
+    snx::core::testevents::NetEvent event;
+    event.method = "POST";
+    event.url = "http://x/api/graphql";
+    event.status = 200;
+    event.attempts = 2;
+    CHECK(snx::core::testevents::net(5, event) ==
+          R"({"t":5,"ev":"net","method":"POST","url":"http://x/api/graphql","status":200,"attempts":2,"error":""})" "\n");
+    CHECK(std::string(snx::core::errorKindName(snx::core::ErrorKind::TooLarge)) == "too-large");
+    CHECK(std::string(snx::core::errorKindName(snx::core::ErrorKind::Cancelled)) == "cancelled");
 }
 
 TEST_CASE("app_start reports safe mode and the crash behind it") {

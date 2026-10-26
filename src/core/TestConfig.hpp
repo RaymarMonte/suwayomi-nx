@@ -32,6 +32,9 @@ Drill drillFromName(std::string_view name);
 
 struct TestConfig {
     Drill drill = Drill::None;
+    // "server": {"url": "http://<ip>:4568"}: the Suwayomi test server. WP-05's Hello screen asks it for its version; WP-08 adds
+    // auth. Empty when missing or not a plain http(s) URL (then `problems` says why). A trailing "/" is removed.
+    std::string serverUrl;
     std::vector<std::string> problems;  // what couldn't be understood, in plain words (logged, otherwise ignored)
 };
 

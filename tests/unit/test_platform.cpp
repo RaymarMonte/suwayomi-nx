@@ -21,7 +21,9 @@ TEST_CASE("desktop runtime info: application mode with the PC's memory by defaul
     const auto info = snx::platform::runtimeInfo();
     CHECK(info.mode == snx::core::LaunchMode::Application);
     CHECK(info.totalMem > 64ULL * 1024 * 1024);  // any PC that builds this has more than 64 MiB
+#ifndef __SANITIZE_THREAD__  // ThreadSanitizer's own allocator replaces glibc's, so mallinfo2() reads 0 there (tools/build.sh tsan)
     CHECK(info.usedMem > 0);                      // doctest itself has allocated by now
+#endif
     CHECK(info.usedMem < info.totalMem);
 }
 

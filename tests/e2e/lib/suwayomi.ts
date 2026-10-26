@@ -1,6 +1,7 @@
 // A small GraphQL client for the Suwayomi test server, used by the test-server tools (seed, dump-schema, record-fixtures)
 // and later by the E2E harness to check what the app did (docs/TESTING.md). Handles the three auth modes we test.
 
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -29,20 +30,28 @@ export class GraphQLError extends Error {
 
 const CONFIG_PATH = fileURLToPath(new URL('../../../tools/test-server/server.json', import.meta.url));
 
+/**
+ * The default gateway from /proc/net/route text, or null. The kernel writes it as little-endian hex: "01401BAC" is 172.27.64.1
+ * (bytes read last to first; WP-05 fixed a second reversal that turned it into 1.64.27.172).
+ */
+export function gatewayFromRoute(routeText: string): string | null {
+    for (const line of routeText.split('\n').slice(1)) {
+        const f = line.trim().split(/\s+/);
+        if (f[1] === '00000000' && f[2] && /^[0-9A-Fa-f]{8}$/.test(f[2])) {
+            const hex = f[2];
+            return [3, 2, 1, 0].map((i) => parseInt(hex.slice(i * 2, i * 2 + 2), 16)).join('.');
+        }
+    }
+    return null;
+}
+
 /** Windows' address as seen from WSL: the default gateway (WSL 2 on Windows 10 is behind NAT). */
 function windowsHost(): string {
     try {
-        for (const line of readFileSync('/proc/net/route', 'utf8').split('\n').slice(1)) {
-            const f = line.trim().split(/\s+/);
-            if (f[1] === '00000000' && f[2]) {
-                const hex = f[2];
-                return [3, 2, 1, 0].map((i) => parseInt(hex.slice(i * 2, i * 2 + 2), 16)).reverse().join('.');
-            }
-        }
+        return gatewayFromRoute(readFileSync('/proc/net/route', 'utf8')) ?? '127.0.0.1';
     } catch {
-        // not Linux: fall through
+        return '127.0.0.1'; // not Linux
     }
-    return '127.0.0.1';
 }
 
 /** Server settings from the environment (SNX_SERVER_URL, SNX_AUTH, SNX_USER, SNX_PASS), else from server.json. */
@@ -149,4 +158,20 @@ export async function waitForServer(client: SuwayomiClient, timeoutMs = 90_000):
         }
     }
     throw new Error(`server at ${client.options.url} didn't answer within ${timeoutMs / 1000} s: ${String(last)}`);
+}
+
+/**
+ * The server URL the app under test should use (WP-05). SNX_APP_SERVER_URL wins. Otherwise the desktop app uses the same URL as
+ * the harness (Windows host as seen from WSL), and the Switch the PC's first LAN address from `test-server.sh status`, so a
+ * changed DHCP address needs no edit.
+ */
+export function appServerUrl(driver: 'desktop' | 'switch', env: NodeJS.ProcessEnv = process.env): string {
+    if (env.SNX_APP_SERVER_URL) return env.SNX_APP_SERVER_URL.replace(/\/+$/, '');
+    if (driver === 'desktop') return optionsFromEnv(env).url;
+    const script = fileURLToPath(new URL('../../../tools/test-server/test-server.sh', import.meta.url));
+    const status = JSON.parse(execFileSync(script, ['status'], { encoding: 'utf8' })) as { lan?: string[] | string; port?: number };
+    const lan = Array.isArray(status.lan) ? status.lan : status.lan ? [status.lan] : [];
+    const cfg = JSON.parse(readFileSync(CONFIG_PATH, 'utf8')) as { port: number };
+    if (lan.length === 0) throw new Error('test-server.sh status lists no LAN address: set SNX_APP_SERVER_URL=http://<pc-ip>:4568');
+    return `http://${lan[0]}:${status.port ?? cfg.port}`;
 }

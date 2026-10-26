@@ -20,7 +20,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-03b](wp/WP-03b-safety-layer-and-crash-drills.md) | **Safety layer**: crash containment, write jail, banned-API gate, crash drills (PC side; device runs moved to WP-03c) | 03 | Opus | M | – | done |
 | [WP-03c](wp/WP-03c-crash-drills-on-the-console.md) | Crash drills on the console (WP-03b's device half), optional control case | 03b | Opus | S/M | **Yes**: console; boost-mode OK (D34); control-case OK; D35 | done |
 | [WP-04](wp/WP-04-core-models-graphql.md) | core: models, JSON, GraphQL docs, contract tests | 02 | Opus | M | – | done |
-| [WP-05](wp/WP-05-net-http-client.md) | net: HttpClient, worker pool, cancellation | 01 ∥04 | Opus | M | – | todo |
+| [WP-05](wp/WP-05-net-http-client.md) | net: HttpClient, worker pool, cancellation | 01 ∥04 | Opus | M | – | done |
 | [WP-06](wp/WP-06-api-suwayomi-client.md) | api: SuwayomiClient + auth modes | 04, 05 | Opus | M | – | todo |
 | [WP-07](wp/WP-07-image-pipeline-and-cache.md) | image: decode, downscale, tile, caches, memory budget | 05 | Opus | L | – | todo |
 | [WP-08](wp/WP-08-app-shell-and-setup.md) | App shell, settings, logging, test hooks, server setup/login | 03b, 06 (its applet-guard device drill: 03c) | Opus | L | – | todo |

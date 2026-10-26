@@ -35,6 +35,9 @@ struct Request {
     std::string url;
     std::vector<Header> headers;  // e.g. {"Content-Type", "application/json"}
     std::string body;             // POST only
+    // Safe to send twice, so the retry policy may repeat it. GETs always are. Set it on a POST only when repeating can't change
+    // anything twice: a GraphQL query, never a mutation (api, WP-06).
+    bool idempotent = false;
     // Limits for this one request. 0 = the client's default, which comes from the RuntimeProfile (json.maxBytes for the body,
     // httpTimeoutMs, httpConnectTimeoutMs). The image module passes maxImageBytes and httpImageTimeoutMs here.
     std::uint64_t maxBodyBytes = 0;

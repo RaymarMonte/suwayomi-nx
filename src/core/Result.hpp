@@ -19,6 +19,20 @@ enum class ErrorKind {
     TooLarge,   // the answer was bigger than the request's limit; the download stopped early (SAFETY.md S6)
 };
 
+// "parse", "server", "unauthorized", "network", "timeout", "cancelled", "too-large": for logs and test events.
+inline const char* errorKindName(ErrorKind kind) {
+    switch (kind) {
+        case ErrorKind::Parse: return "parse";
+        case ErrorKind::Server: return "server";
+        case ErrorKind::Unauthorized: return "unauthorized";
+        case ErrorKind::Network: return "network";
+        case ErrorKind::Timeout: return "timeout";
+        case ErrorKind::Cancelled: return "cancelled";
+        case ErrorKind::TooLarge: return "too-large";
+    }
+    return "unknown";
+}
+
 struct Error {
     ErrorKind kind = ErrorKind::Parse;
     std::string message;  // plain words, one line, safe to log and to show

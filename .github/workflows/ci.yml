@@ -2,6 +2,7 @@
 # WP-03b: the write-jail grep gate runs in the unit-test job (tools/build.sh tests), the .elf safety gate inside the Switch build,
 # plus its self-test.
 # WP-04: the GraphQL contract test runs in the Node job; the fuzz job runs each libFuzzer target for 60 s (SAFETY.md S6).
+# WP-05: net links libcurl (libcurl4-openssl-dev on the PC jobs); the unit tests also run under ThreadSanitizer.
 # Later WPs add integration and desktop E2E jobs. Device tests run on the owner's PC only.
 name: CI
 
@@ -21,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7   # no submodules needed: the unit tests don't use borealis
       - name: Install tools
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build gcovr
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build gcovr libcurl4-openssl-dev
       # The contract test needs the Node packages; the node job runs it.
       - name: Unit tests
         run: tools/build.sh tests
@@ -31,6 +32,8 @@ jobs:
         run: tools/build.sh tests --test-hooks
         env:
           SNX_SKIP_CONTRACT: '1'
+      - name: Unit tests under ThreadSanitizer (data races, WP-05)
+        run: tools/build.sh tsan
       - name: Coverage
         run: tools/build.sh coverage
       - uses: actions/upload-artifact@v7
@@ -52,7 +55,7 @@ jobs:
       - name: Install build deps (docs/SETUP.md A.2) + Xvfb
         run: >
           sudo apt-get update && sudo apt-get install -y --no-install-recommends
-          build-essential cmake ninja-build pkg-config
+          build-essential cmake ninja-build pkg-config libcurl4-openssl-dev
           xorg-dev libdbus-1-dev libxkbcommon-dev libwayland-dev wayland-protocols libgl1-mesa-dev libgl1-mesa-dri
           xvfb imagemagick dbus-x11
       - name: Build
@@ -91,7 +94,7 @@ jobs:
       - uses: actions/checkout@v7
       # clang 18 is Ubuntu 24.04's default; libclang-rt-18-dev holds libFuzzer and the sanitizer runtimes.
       - name: Install tools
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build clang libclang-rt-18-dev
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build clang libclang-rt-18-dev libcurl4-openssl-dev
       - name: Fuzz every target for 60 s, starting from the recorded answers
         run: tools/build.sh fuzz 60
       - uses: actions/upload-artifact@v7

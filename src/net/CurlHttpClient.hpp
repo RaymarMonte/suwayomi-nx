@@ -29,7 +29,8 @@ CurlOptions curlOptionsFrom(const core::RuntimeProfile& profile);
 // sockets. At most maxConcurrent transfers run; the rest wait in priority order. Kept-alive connections are reused, answers
 // are un-gzipped, redirects are followed (http/https only, limited), and the body limit is checked while the answer streams
 // in: an answer that grows past it stops right there (TooLarge), it is never buffered whole first (SAFETY.md S6).
-// Failed GETs are retried by core::RetryPolicy. Needs the socket service up (on the Switch borealis does that at start-up).
+// Failed GETs (and POSTs marked idempotent) are retried by core::RetryPolicy. Needs the socket service up (borealis starts it
+// on the Switch).
 class CurlHttpClient final : public HttpClient {
   public:
     explicit CurlHttpClient(CurlOptions options);

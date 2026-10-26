@@ -4,6 +4,10 @@
 
 namespace snx::core::testconfig {
 
+namespace {
+constexpr std::size_t kMaxServerUrlLength = 2048;  // a server address, not a document (S6)
+}  // namespace
+
 const std::vector<std::pair<Drill, std::string_view>>& drills() {
     static const std::vector<std::pair<Drill, std::string_view>> kDrills = {
         {Drill::NullWrite, "null-write"},
@@ -53,6 +57,25 @@ TestConfig parse(std::string_view json) {
             config.drill = drillFromName(name);
             if (config.drill == Drill::None) {
                 config.problems.push_back("test config: unknown drill \"" + name + "\"");
+            }
+        }
+    }
+    if (const auto server = root.find("server"); server != root.end()) {
+        const auto url = server->is_object() ? server->find("url") : server->end();
+        if (!server->is_object()) {
+            config.problems.push_back("test config: \"server\" must be an object");
+        } else if (url != server->end()) {
+            std::string text = url->is_string() ? url->get<std::string>() : std::string();
+            const bool http = text.rfind("http://", 0) == 0 || text.rfind("https://", 0) == 0;
+            const bool clean = text.size() <= kMaxServerUrlLength &&
+                               text.find_first_of(" \t\r\n") == std::string::npos;
+            if (!http || !clean) {
+                config.problems.push_back("test config: \"server.url\" must be an http:// or https:// URL");
+            } else {
+                while (!text.empty() && text.back() == '/') {
+                    text.pop_back();
+                }
+                config.serverUrl = text;
             }
         }
     }

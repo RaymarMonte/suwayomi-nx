@@ -1,6 +1,6 @@
 // suwayomi-nx entry point. WP-01: starts borealis and shows the Hello screen. WP-03: launch flags, runtime info and test events.
 // WP-03b: crash containment and the write jail. The order matters (SAFETY.md S1, S12): the crash handler is set up first, then
-// the logger, then everything else. WP-08 puts the applet-mode guard right after the logger (D21).
+// the logger, then everything else. WP-08 puts the applet-mode guard right after the logger (D21). WP-05: the HTTP client.
 
 #include <borealis.hpp>
 #include <cstdint>
@@ -12,7 +12,9 @@
 #include "app/TestHooks.hpp"
 #include "app/crash/Crash.hpp"
 #include "core/LaunchOptions.hpp"
+#include "core/RuntimeProfile.hpp"
 #include "core/Version.hpp"
+#include "net/CurlHttpClient.hpp"
 #include "platform/Platform.hpp"
 #include "platform/SafeFs.hpp"
 #include "ui/crash/CrashActivity.hpp"
@@ -127,7 +129,15 @@ int main(int argc, char* argv[]) {
     // PLUS quits from every screen. The device scripts rely on it to get back to hbmenu.
     brls::Application::setGlobalQuit(true);
 
-    brls::Application::pushActivity(new snx::ui::HelloActivity());
+    // The HTTP client (WP-05, D37): one network thread, every limit from the runtime profile. It lives until main() ends.
+    // Created after borealis, because on the Switch borealis starts the socket service.
+    const snx::core::RuntimeProfile runtimeProfile =
+        snx::core::makeRuntimeProfile(runtime.mode, runtime.totalMem, runtime.usedMem, lastRun.crashed);
+    snx::net::CurlHttpClient http(snx::net::curlOptionsFrom(runtimeProfile));
+    snx::app::testhooks::watchNet(http);
+
+    brls::Application::pushActivity(
+        new snx::ui::HelloActivity(&http, snx::app::testhooks::serverUrl(), runtimeProfile.json));
     // WP-08 moves this into the screens themselves, once there is more than one.
     snx::app::testhooks::screen("Hello");
     if (lastRun.crashed) {
@@ -164,6 +174,7 @@ int main(int argc, char* argv[]) {
     // borealis stopped its own threads while quitting, so the crash exit steps must not run again.
     crash::clearExitSteps();
     brls::Logger::info("suwayomi-nx: main loop ended, exiting");
+    http.shutdown();  // ends what is still queued or running, and the network thread
     snx::app::testhooks::finish();
     crash::finish();
     if (crashScreenShown) {

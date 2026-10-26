@@ -1,4 +1,7 @@
 {
     "text": "Hello Suwayomi",
-    "version": "Version"
+    "version": "Version",
+    "server": "Server",
+    "burst": "20 requests at once",
+    "asking": "asking..."
 }
