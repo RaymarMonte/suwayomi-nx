@@ -13,10 +13,9 @@
 - **Green:** unit 6/6 ctest entries (new `unit.core-includes` allowlist check), core coverage 94%, contract 26/26 (`npm run contract`,
   also at the end of `tools/build.sh tests`), npm test 103, typecheck, fuzz seed replay (GCC ASan/UBSan), Switch build (gate PASS).
   CI green on `f993b65` (5 jobs); its fuzz job: 1.16 M runs `fuzz_gql_response`, 0.43 M runs `fuzz_app_config`, no crash.
-- **Not run here:** real libFuzzer runs. WSL has no clang (sudo needs the owner's password). CI's new `fuzz` job installs clang and
-  fuzzes 60 s per target. Locally `tools/build.sh fuzz` only replays the seeds until clang is installed (see Open questions).
+- **Fuzzing on the PC too:** the owner installed clang 18 + `libclang-rt-18-dev` in WSL; `tools/build.sh fuzz 30` ran 0.85 M / 0.29 M
+  inputs, no crash. (Without clang the command falls back to replaying the seeds under GCC ASan/UBSan.)
 ## Open questions for the owner
-- Optional: `sudo apt install clang libclang-rt-18-dev` in WSL, so `tools/build.sh fuzz` really fuzzes on the PC too (CI already does).
 - A DHCP reservation for the PC (like the Switch has) would keep the test-server URL stable for device tests (WP-05). Owner's choice.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
