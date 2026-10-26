@@ -503,7 +503,7 @@ ARCHITECTURE.md "image" and SAFETY.md S5–S8; `src/image/README.md` has the det
 - **The desktop counts mmap'd memory:** glibc hands out big blocks (any decoded page) with mmap, which `mallinfo2().uordblks`
   leaves out; `runtimeInfo()` on the PC now adds `hblkhd`, so the memory-pressure guard and `--mem-limit` see images. The
   Switch's allocator has no mmap.
-- **Safety-gate fix (`tools/safety/check-elf.sh`):** the only-from rule's data search compared hex words in awk as numbers, so a
+- **Safety-gate fix (`tools/safety/check-elf.sh`, owner OK 2026-10-26):** the only-from rule's data search compared hex words in awk as numbers, so a
   word like `903e2100` (the new address of `appletSetCpuBoostMode`, read as 903×10^2100 = infinity) "matched" every other such
   word: 236 false stored pointers. Now compared as text (also the adrp page check). Equally strict: `gate-selftest.sh` still
   fails all four planted calls, the stored pointer at its exact address.
