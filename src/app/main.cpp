@@ -166,5 +166,8 @@ int main(int argc, char* argv[]) {
     brls::Logger::info("suwayomi-nx: main loop ended, exiting");
     snx::app::testhooks::finish();
     crash::finish();
+    if (crashScreenShown) {
+        crash::endAfterCrashScreen();  // the Switch ends the process here (D13 as amended in WP-03c)
+    }
     return crashScreenShown ? EXIT_FAILURE : EXIT_SUCCESS;
 }

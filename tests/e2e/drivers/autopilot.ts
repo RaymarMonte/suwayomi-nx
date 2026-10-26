@@ -160,8 +160,9 @@ export class Autopilot {
         const repeatable = !/^\/(input|controller)\//.test(url);
         const attempt = async (): Promise<Response> => {
             // WP-03: after bursts of connections (~50 within a second) the console reset every new one for ~10 s, curl's too.
-            // So connections start at least MIN_GAP_MS apart, and repeatable requests back off and try again.
-            for (const backoffMs of [500, 1_000, 2_000, 4_000, 8_000, -1]) {
+            // So connections start at least MIN_GAP_MS apart, and repeatable requests back off and try again. WP-03c: during
+            // long device runs a spell sometimes lasts over 30 s, so the tries cover about a minute.
+            for (const backoffMs of [500, 1_000, 2_000, 4_000, 8_000, 15_000, 30_000, -1]) {
                 await sleep(Math.max(0, this.lastStart + MIN_GAP_MS - Date.now()));
                 this.lastStart = Date.now();
                 try {

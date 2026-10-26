@@ -135,10 +135,11 @@ interface Driver {
     (ImageMagick RMSE < 0.08). Regions and references: `tests/e2e/device/profile.json`, crops in git-ignored `tests/e2e/device/local/`.
     Text-free, cheap, and no model looks at the image
   - events: `GET /files?path=…/test/events.jsonl&offset=<bytes read so far>`, polled every 500 ms. Whether the app is still there is
-    checked every 3 s with a screenshot (hbmenu or the HOME menu on screen = it's gone)
+    checked every 3 s with a screenshot (hbmenu, the HOME menu, or its "The software was closed because an error occurred." note
+    on screen = it's gone; the driver dismisses that note with A after the screen check, WP-03c)
   - **requests (WP-03, D32):** one at a time, at least 150 ms apart, a fresh connection each that the PC closes once the answer is complete.
     Bursts of connections (~50 in a second) made the console reset every new one, curl's too, for ~10 s. Reads, uploads and deletes that hit a
-    reset back off (0.5 → 8 s) and try again; `/input` and `/controller` calls never do (a repeated A could start a game)
+    reset back off (0.5 → 30 s, about a minute in all since WP-03c) and try again; `/input` and `/controller` calls never do (a repeated A could start a game)
   - crash check: list `atmosphere/crash_reports/`, `atmosphere/fatal_errors/` and `atmosphere/fatal_reports/` at launch and after quit/cleanup
   - status: `GET /status` (version, firmware, controller attached, uptime, battery, `screenshots` available, `heap` size/peak/used)
   - the virtual Pro Controller is released before sleep and comes back on the next button call (`controllerAttached` goes false after a wake)
@@ -189,7 +190,8 @@ Initial list, grown per UI WP:
 12. `low-memory` (desktop) – a `--mem-limit` run triggers `mem_pressure` without a crash, and About shows the mode and memory
 13. `crash-drills` (device and desktop, application mode) – every drill in SAFETY.md ends in a clean exit + crash log + safe mode next launch,
     with zero system fatals. One test per drill (`crash-drill-<name>`); the drills and what each should end in: `src/app/crash/README.md`.
-    Desktop green since WP-03b; the device runs are WP-03c
+    Desktop green since WP-03b; the console twice in a row since WP-03c (every crash there ends with the HOME menu's
+    "software was closed" note, D35)
 
 ## Golden screenshots
 - Stored per driver: `tests/e2e/goldens/{desktop,switch}/<scenario>/<step>.png`.

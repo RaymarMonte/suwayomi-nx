@@ -2,12 +2,14 @@
 // clean exit, and the next launch runs in safe mode. What each drill should end in: src/app/crash/README.md "Drills".
 // Pass rules per drill (application mode, D21): the app exits, logs/crash-*.txt exists and parses, the next launch says
 // safeMode with that record (now filed in logs/crashes/). On the Switch the driver also checks that no new fatal file and no
-// Atmosphère crash report appeared (a crash report would mean creport saw the crash, not our handler), and the screen is
-// back at hbmenu/HOME. One scenario per drill, so a failure names it.
+// Atmosphère crash report appeared, not even a moment later (a crash report would mean creport saw a crash, ours or hbmenu's
+// after us), and the HOME menu shows "The software was closed because an error occurred." (D35, WP-03c). One scenario per
+// drill, so a failure names it.
 
 import { expect } from 'vitest';
 
 import type { DriverName } from '../drivers/Driver.ts';
+import { ENDED_SOFTWARE_CLOSED } from '../drivers/SwitchDriver.ts';
 import { isCrashFileName, parseCrashRecord, type CrashRecord } from '../lib/crashrecord.ts';
 import { scenario, type Scenario } from '../lib/scenario.ts';
 
@@ -88,8 +90,8 @@ for (const drill of DRILLS) {
             expect(start.safeMode).toBe(false);
             if (drill.ends === 'crash-screen') {
                 const shown = await s.events.waitForEvent('screen', { name: 'Crash' }, { timeoutMs: 30_000 });
-                if (drill.name === 'main-loop-exception' && s.driver.name === 'desktop') {
-                    // One golden of the crash screen (desktop only for now: the Switch one is made on the first device run).
+                if (drill.name === 'main-loop-exception') {
+                    // One golden of the crash screen.
                     await s.events.waitForEvent('idle', {}, { from: s.events.events.indexOf(shown) });
                     await s.expectGolden('crash-screen', { masks: [CLOCK, RECORD_NAME] });
                 }
@@ -97,6 +99,8 @@ for (const drill of DRILLS) {
             }
             const ended = await s.driver.waitForExit(drill.exitMs ?? 15_000);
             if (s.driver.name === 'desktop') expect(ended, 'how the app ended').toBe('exited with code 1');
+            // Switch: every crash ends the process at once (D13 as amended in WP-03c), never back to hbmenu.
+            else expect(ended, 'how the app ended').toBe(ENDED_SOFTWARE_CLOSED);
             const { file } = await newRecord(s, drill);
             await expectSafeModeNext(s, file);
         },

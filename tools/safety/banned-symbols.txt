@@ -1,5 +1,6 @@
 # Functions the Switch .elf must not contain (docs/SAFETY.md S2, S3; D13, D14, D17).
-# One per line: <rule> <shell glob matched against the symbol name>. Read by tools/safety/check-elf.sh.
+# One per line: <rule> <shell glob matched against the symbol name> [only-from=<the one function allowed to refer to it>].
+# Read by tools/safety/check-elf.sh.
 # Changing this list, or adding exceptions (tools/safety/allowed-symbols.txt, WP-03b), needs the owner's OK plus an Opus review.
 
 # S2: no fatal calls, ever (they show the "press POWER to reboot" screen)
@@ -35,7 +36,7 @@ S3 pcvSet*
 S3 clkrstSet*
 S3 apmSetPerformanceConfiguration
 S3 lblSet*
-# WAITING FOR THE OWNER (WP-03b): D17 also bans appletSetCpuBoostMode, but libnx's own exit code (_appletCleanup) references it,
-# only to undo a CPU boost nobody set, so the rule fails every build. Switching it on needs a D28 stand-in
-# (tools/safety/stand-ins.txt), and every new stand-in needs the owner's OK (D28). docs/STATUS.md "Open questions".
-# S3 appletSetCpuBoostMode
+# D17 bans the CPU boost too. libnx's own exit code (_appletCleanup, same file as the function) calls it only to switch a
+# boost back off, and only if something boosted first, so a D28 stand-in can't reach that call. "only-from=" (D34, owner OK
+# 2026-10-26): the function may be in the .elf, but nothing except that one caller may refer to it.
+S3 appletSetCpuBoostMode only-from=_appletCleanup

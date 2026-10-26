@@ -42,7 +42,8 @@ bool quitRequested() {
 
 void exitProcessNow(int) {
     // Horizon has no exit code here. The process (hbloader with our .nro in it) simply ends, and the console goes back to the
-    // HOME menu. That's an ordinary exit, so Atmosphère's crash reporter is never involved (SAFETY.md).
+    // HOME menu, which says "The software was closed because an error occurred." (seen on the console in WP-03c). Atmosphère's
+    // crash reporter is never involved and nothing is written (SAFETY.md).
     svcExitProcess();
 }
 

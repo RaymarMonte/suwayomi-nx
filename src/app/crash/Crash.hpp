@@ -8,7 +8,8 @@
 
 // Crash containment (docs/SAFETY.md S1, S8; D13). How it works, what each kind of crash ends in, and the record format:
 // src/app/crash/README.md. In short: a crash anywhere in the app writes a crash record to logs/crash-<time>-<n>.txt and the
-// app closes normally, so Atmosphère's crash reporter (and its "press POWER to reboot" screen) never gets involved.
+// app closes (on the Switch: the process ends at once), so Atmosphère's crash reporter (and its "press POWER to reboot"
+// screen) never gets involved.
 namespace snx::app::crash {
 
 // What the last run left behind (S1 "next launch").
@@ -30,8 +31,9 @@ void pushLogLine(char level, std::string_view message) noexcept;
 // Every thread we start calls this first (desktop: gives the thread its own stack for the crash handler; Switch: nothing).
 void prepareThread();
 
-// Shut-down steps for a crash on the main thread: they stop other threads (borealis's task thread now, our worker pools later),
-// so that exit() leaves no thread running in an app that's gone. Each must end within a second or so. At most 8.
+// Shut-down steps for a crash on the main thread (desktop: the Switch ends the process at once instead): they stop other
+// threads (borealis's task thread now, our worker pools later), so that exit() leaves no thread running in an app that's
+// gone. Each must end within a second or so. At most 8.
 void addExitStep(void (*step)());
 // The normal end of the main loop: borealis has stopped its threads itself, so the steps must not run any more.
 void clearExitSteps();
@@ -57,5 +59,10 @@ void stopWatchdog();
 
 // The normal end of a run: stops the watchdog and deletes the unused crash file. After this, a crash is no longer recorded.
 void finish();
+
+// After the crash screen was closed and finish() ran. Switch: ends the process at once (D13 as amended in WP-03c: a parked
+// crashed thread, or the broken state behind a caught exception, must not be handed on to hbmenu). Desktop: returns, and
+// main() returns with exit code 1.
+void endAfterCrashScreen();
 
 }  // namespace snx::app::crash

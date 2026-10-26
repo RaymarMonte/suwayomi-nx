@@ -294,8 +294,11 @@ void fatal(Kind kind, std::string_view what, const Registers* regs, const std::u
     if (fromSignal) {
         platform::exitProcessNow(EXIT_FAILURE);  // desktop signal handler: only _exit() is safe there
     }
-    // The main thread, in ordinary code (the Switch's exception handler runs on its own stack, not in an interrupt):
-    // stop the other threads, then exit() like D13 says. The deadline ends the process if any of that hangs.
+    if (endProcessAfterCrash()) {
+        platform::exitProcessNow(EXIT_FAILURE);  // Switch: the system cleans up (D13 as amended, CrashSwitch.cpp says why)
+    }
+    // The main thread on the desktop, in ordinary code: stop the other threads, then exit() like D13 says. The deadline
+    // ends the process if any of that hangs.
     armExitDeadline(kCrashExitDeadlineMs);
     runExitSteps();
     stopWatchdogQuietly();
@@ -410,6 +413,12 @@ void finish() {
     stopWatchdog();
     gActive.store(false);
     gFile.discard();
+}
+
+void endAfterCrashScreen() {
+    if (detail::endProcessAfterCrash()) {
+        platform::exitProcessNow(EXIT_FAILURE);
+    }
 }
 
 }  // namespace snx::app::crash

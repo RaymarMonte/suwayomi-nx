@@ -39,6 +39,12 @@ const APPLET_MODE_READY = false;
 /** A new fatal error file appeared on the console. Nothing may carry on until the owner has checked it. */
 export class FatalConsoleError extends Error {}
 
+/** How the app ended, as waitForExit() reports it on the Switch (the crash drills check these). */
+export const ENDED_IN_HBMENU = 'the console is back in hbmenu'; // a normal quit (exit() back to hbloader)
+export const ENDED_AT_HOME = 'the console shows the HOME menu';
+/** svcExitProcess (every crash on the Switch, D35): the HOME menu shows this dialog. Harmless: no crash report, no fatal. */
+export const ENDED_SOFTWARE_CLOSED = 'the HOME menu says "The software was closed because an error occurred."';
+
 interface Profile {
     screenCheck: { threshold: number };
     references: Record<string, { region: string; screen: string } | string>;
@@ -47,6 +53,12 @@ interface Profile {
 interface Reference {
     region: Region;
     png: Buffer;
+}
+
+/** File names in the crash folders, with their folder: "atmosphere/fatal_reports/0001_0100....log". */
+interface CrashLists {
+    crash: string[];
+    fatal: string[];
 }
 
 export interface SwitchDriverOptions {
@@ -63,7 +75,8 @@ export class SwitchDriver implements Driver {
     private nroPath = '';
     private nroHash = '';
     private stream: EventStream | null = null;
-    private crashBefore: { crash: string[]; fatal: string[] } | null = null; // set at launch, cleared once checked
+    private crashBefore: CrashLists | null = null; // set at launch, cleared once checked
+    private firstCrashBefore: CrashLists | null = null; // from the first launch: dispose() compares once more (late reports)
     private launched = false; // the app was started and hasn't quit yet
     private touched = false; // the console was moved away from the HOME menu by this driver
 
@@ -95,6 +108,7 @@ export class SwitchDriver implements Driver {
         if (this.launched) throw new Error('the app is already running: quit() first');
         await this.checkReachable();
         this.crashBefore = await this.crashLists();
+        this.firstCrashBefore ??= this.crashBefore;
 
         this.touched = true;
         if (applet) await this.toHbmenuAppletMode();
@@ -171,8 +185,8 @@ export class SwitchDriver implements Driver {
     }
 
     /**
-     * WP-03b, not yet run on the console (STATUS "Waiting for the console"): polls the screen until hbmenu or the HOME menu
-     * shows, then compares the crash folders like quit() does.
+     * Polls the screen until hbmenu, the HOME menu or the "software was closed" dialog shows (ENDED_* says which; the dialog
+     * gets its OK), then compares the crash folders like quit() does.
      */
     async waitForExit(timeoutMs: number): Promise<string> {
         if (!this.launched) throw new Error('the app is not running');
@@ -181,6 +195,7 @@ export class SwitchDriver implements Driver {
             const gone = await this.appGone();
             if (gone) {
                 this.launched = false;
+                if (gone === ENDED_SOFTWARE_CLOSED) await this.dismissSoftwareClosed();
                 await this.checkCrashes();
                 return gone;
             }
@@ -206,7 +221,11 @@ export class SwitchDriver implements Driver {
         return this.stream;
     }
 
-    /** Back to the start state: nothing running, HOME menu on the first tile. Then the crash check, if quit() didn't do it. */
+    /**
+     * Back to the start state: nothing running, HOME menu on the first tile. Then the crash check, if quit() didn't do it,
+     * and once more against the lists from the first launch: a crash report that came a moment after an end the driver had
+     * already checked (D33: a thread of ours left running into unloaded code would cause one).
+     */
     async dispose(): Promise<void> {
         if (!this.touched) return;
         try {
@@ -215,12 +234,16 @@ export class SwitchDriver implements Driver {
             this.launched = false;
         } finally {
             if (this.crashBefore) await this.checkCrashes();
+            const first = this.firstCrashBefore;
+            this.firstCrashBefore = null;
+            if (first) await this.compareCrashLists(first);
         }
     }
 
     /** HOME, then close whatever runs (hbmenu or the app), until the HOME menu shows the first tile with nothing running. */
     async recover(): Promise<void> {
         await this.autopilot.clearInput();
+        if (await this.dismissSoftwareClosed()) return;
         await this.autopilot.tap(['HOME']);
         await sleep(1_500);
         if (await this.screenIs('home-first-tile')) return;
@@ -237,6 +260,7 @@ export class SwitchDriver implements Driver {
         // Between scenarios the console usually still sits in hbmenu in application mode: then there's nothing to do.
         const shot = await this.autopilot.screenshot();
         if ((await this.screenIs('hbmenu-header', shot)) && !(await this.screenIs('hbmenu-applet-badge', shot))) return;
+        await this.dismissSoftwareClosed(shot);
 
         await this.autopilot.tap(['HOME']);
         await sleep(1_500);
@@ -301,13 +325,31 @@ export class SwitchDriver implements Driver {
         await sleep(2_500);
     }
 
+    /**
+     * profile.json softwareClosedDialog: if that dialog shows, A (its only button, OK) until the HOME menu is back. True if it
+     * was there. An A while the dialog is still fading in gets lost (seen in WP-03c), so it waits a moment first and tries up
+     * to 3 times, each time only after checking that the dialog is still there.
+     */
+    private async dismissSoftwareClosed(shot?: Buffer): Promise<boolean> {
+        if (!(await this.screenIs('software-closed', shot))) return false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            await sleep(1_000);
+            if (!(await this.screenIs('software-closed'))) break;
+            await this.autopilot.tap(['A']);
+            if (await this.waitForScreen('home-first-tile', 4_000)) return true;
+        }
+        if (await this.screenIs('home-first-tile')) return true;
+        throw new Error('the HOME menu did not come back after OK on "The software was closed because an error occurred."');
+    }
+
     // --- state checks ------------------------------------------------------------------------------------------------------
 
-    /** For the event stream: is the app still on screen? Back in hbmenu or on the HOME menu means it ended. */
+    /** For the event stream: is the app still on screen? Back in hbmenu, on the HOME menu or its "closed" dialog means it ended. */
     private async appGone(): Promise<string | null> {
         const shot = await this.autopilot.screenshot();
-        if (await this.screenIs('hbmenu-header', shot)) return 'the console is back in hbmenu';
-        if (await this.screenIs('home-first-tile', shot)) return 'the console shows the HOME menu';
+        if (await this.screenIs('hbmenu-header', shot)) return ENDED_IN_HBMENU;
+        if (await this.screenIs('home-first-tile', shot)) return ENDED_AT_HOME;
+        if (await this.screenIs('software-closed', shot)) return ENDED_SOFTWARE_CLOSED;
         return null;
     }
 
@@ -320,18 +362,22 @@ export class SwitchDriver implements Driver {
         }
     }
 
-    /** File names in the crash folders, with their folder: "atmosphere/fatal_reports/0001_0100....log". */
-    private async crashLists(): Promise<{ crash: string[]; fatal: string[] }> {
+    private async crashLists(): Promise<CrashLists> {
         const names = async (dirs: readonly string[]) =>
             (await Promise.all(dirs.map(async (d) => (await this.autopilot.listDir(d)).map((e) => `${d.slice(1)}/${e.name}`)))).flat();
         return { crash: await names([CRASH_REPORTS_DIR]), fatal: await names(FATAL_DIRS) };
     }
 
-    /** Compares the crash folders with the lists taken at launch. New fatal file → hard stop. New crash report → failure. */
+    /** Compares the crash folders with the lists taken at launch, once per launch. */
     private async checkCrashes(): Promise<void> {
         const before = this.crashBefore;
         if (!before) return;
         this.crashBefore = null;
+        await this.compareCrashLists(before);
+    }
+
+    /** New fatal file since `before` → hard stop. New crash report → failure. */
+    private async compareCrashLists(before: CrashLists): Promise<void> {
         const after = await this.crashLists();
         const newFatal = after.fatal.filter((n) => !before.fatal.includes(n));
         if (newFatal.length) {

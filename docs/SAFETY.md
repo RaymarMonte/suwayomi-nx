@@ -49,10 +49,10 @@ but it should exit cleanly and leave a log behind.
 - Override `diagAbortWithResult`, call `std::set_terminate`, and catch `...` at the main loop and at every worker task boundary.
 - The handler has a re-entrancy guard (second entry → `svcExitProcess()` immediately). It writes a small crash record (type, PC/LR/SP/FAR
   relative to module base, ~32-frame stack trace, build id, mode, last 64 log lines from an in-memory ring buffer) to `logs/crash-<time>.txt`
-  using a file descriptor opened at start-up (no allocation in the handler). Then it exits cleanly with `exit(EXIT_FAILURE)`.
-  (D33: that `exit()` runs on the main thread after the other threads are stopped. A crash on another thread parks that thread and
-  the main thread shows the crash screen and quits; a stuck main loop, a second crash or a hanging exit end the process with
-  `svcExitProcess()`, an ordinary process exit. None of them reaches creport.)
+  using a file descriptor opened at start-up (no allocation in the handler). Then the process ends with `svcExitProcess()`
+  (D35, amends D13's `exit()`; the desktop keeps `exit(EXIT_FAILURE)`). A crash on another thread parks that thread and the main
+  thread shows the crash screen first. None of them reaches creport; the HOME menu then says "The software was closed because an
+  error occurred." (WP-03c found on the console that `exit()` back to hbmenu let hbmenu crash over what the crash left behind.)
 - borealis crash screen (`brls::Application::crash(msg)`): only for non-GPU aborts, and only if the UI is healthy. A GPU-origin abort
   (result module 359) skips straight to exit.
 - Next launch: a crash file present → short "the app closed unexpectedly last time" note + **safe mode** for that session
@@ -62,7 +62,8 @@ but it should exit cleanly and leave a log behind.
 `fatalThrow`, `fatalThrowWithPolicy` or `fatalThrowWithContext`. It also fails if our `__libnx_exception_handler` / `diagAbortWithResult`
 aren't the ones linked (libnx's weak defaults would be a regression), or `__nx_exception_stack` isn't ours and ≥ 32 KB.
 Since WP-03b it runs inside the Switch build before `elf2nro`, so a failing `.elf` never becomes a `.nro` (locally and in CI);
-`tools/safety/gate-selftest.sh` proves it fails on a deliberately linked `fatalThrow` and `setsysSet*` call.
+`tools/safety/gate-selftest.sh` proves it fails on a deliberately linked `fatalThrow` and `setsysSet*` call, and on a call to
+or a stored pointer to `appletSetCpuBoostMode` (D34).
 
 **S3 Brick guard: banned system APIs.** The same gate fails on references to anything that writes the system:
 `fsOpenBisFileSystem`, `fsOpenBisStorage`, `fsOpenSaveDataFileSystemBySystemSaveDataId`, `fsCreate*SaveData*`, `fsDelete*SaveData*`, `fsFormat*`,
@@ -71,8 +72,9 @@ Since WP-03b it runs inside the Switch build before `elf2nro`, so a failing `.el
 `apmSetPerformanceConfiguration`, `lblSet*`. Exceptions go in `tools/safety/allowed-symbols.txt`, which needs the owner's OK plus an Opus review.
 (WP-01 ran the scan on the plain Hello app: `docs/safety-baseline.txt`, list in `tools/safety/banned-symbols.txt`. Two hits, both pulled in
 by libraries and never called. They get do-nothing stand-ins through `ld --wrap` instead of allowlist entries, D28, built in WP-03b:
-`tools/safety/stand-ins.txt`, `src/app/SwitchStandIns.cpp`. D17's `appletSetCpuBoostMode` is written into the list but switched off
-until the owner OKs a third stand-in: libnx's exit code references it, only to undo a boost nobody set.)
+`tools/safety/stand-ins.txt`, `src/app/SwitchStandIns.cpp`. D17's `appletSetCpuBoostMode` is banned too, with D34's `only-from`
+rule: libnx's exit code calls it from inside the same file (only to undo a boost nobody set), which a stand-in can't reach, so the
+gate fails on any reference to it except that one call.)
 
 **S4 Filesystem jail.** All writes go through `platform::SafeFs`, which refuses any path outside `sdmc:/switch/suwayomi-nx/`
 (desktop: `./data/`). It normalises `..`, `//`, case and the `sdmc:` prefix, and is unit-tested against traversal tricks and `sdmc:/atmosphere`,
@@ -141,7 +143,9 @@ would be a system fatal. So that path stays tiny:
 **Crash drills** (test builds only, triggered through the test config): null-pointer write, misaligned access, stack overflow on a
 worker thread, `std::terminate`, `diagAbortWithResult` (simulated GPU error), 2 GB allocation, and an exit request in the middle of a cache write.
 For each one, in application mode (D21), the drill passes only if: the app exits, `logs/crash-*.txt` exists and can be parsed,
-**no new `atmosphere/fatal_errors` or `fatal_reports` file appears**, the console is back at hbmenu/HOME (screenshot check), sys-autopilot still answers,
+**no new `atmosphere/fatal_errors` or `fatal_reports` file appears**, no new `atmosphere/crash_reports` file appears (not even a moment
+later: the driver compares once more at the end of the scenario), the HOME menu shows "The software was closed because an error
+occurred." (screenshot check, D35), sys-autopilot still answers,
 and the next launch enters safe mode. The null-pointer drill also runs once inside the applet-mode guard screen (S12, WP-08), because that's
 the one place where a crash would still be a system fatal. Same pass rules (the safe-mode check uses the next launch in application mode).
 **Optional control case**, only with the owner's explicit OK and the owner watching: the same null-pointer drill with our handler

@@ -24,23 +24,25 @@ object files, or libnx's defaults win silently. `tools/safety/check-elf.sh` chec
 
 | Where it happens | What catches it | How it ends |
 |---|---|---|
-| CPU crash (null pointer, misaligned access, stack overflow, ...) on the **main thread** | Switch: libnx's exception handler (on its own 32 KB stack). Desktop: a signal | record, then the **D13 exit**: arm the 3 s exit deadline, run the exit steps (stop borealis's task thread), stop the watchdog, `exit(EXIT_FAILURE)`. Back to hbmenu. Desktop signals: record, `_exit(1)` |
-| `std::terminate()` (an exception nobody caught, a `noexcept` broken) on the main thread | our terminate handler | same as above (D13 exit) |
-| `diagAbortWithResult` on the main thread | our override | GPU result (module 359, deko3d): `gpu_abort`, D13 exit, no crash screen. Other results: `abort`, D13 exit |
-| any of the above on **another thread** | the same handlers | record, then that thread **parks** (sleeps forever) and the main thread, which is fine, shows the **crash screen**; any button, a tap or 60 s closes the app normally (exit code 1). GPU aborts there end the process at once |
-| a C++ exception escapes one **main-loop iteration** (caught in `main()`) or a **worker task** (caught at its task boundary) | `recordMainLoopException()` / `recordWorkerException()` | record, crash screen, normal close (exit code 1) |
+| CPU crash (null pointer, misaligned access, stack overflow, ...) on the **main thread** | Switch: libnx's exception handler (on its own 32 KB stack). Desktop: a signal | record, then **Switch: the process ends at once** (D35). Desktop: the D13 exit: arm the 3 s exit deadline, run the exit steps (stop borealis's task thread), stop the watchdog, `exit(EXIT_FAILURE)`; desktop signals: `_exit(1)` |
+| `std::terminate()` (an exception nobody caught, a `noexcept` broken) on the main thread | our terminate handler | same as above |
+| `diagAbortWithResult` on the main thread | our override | GPU result (module 359, deko3d): `gpu_abort`, no crash screen. Other results: `abort`. Then as above |
+| any of the above on **another thread** | the same handlers | record, then that thread **parks** (sleeps forever) and the main thread, which is fine, shows the **crash screen**; any button, a tap or 60 s closes it. Switch: then the process ends at once (D35: the parked thread must not outlive us into hbmenu). Desktop: normal close, exit code 1. GPU aborts there end the process at once |
+| a C++ exception escapes one **main-loop iteration** (caught in `main()`) or a **worker task** (caught at its task boundary) | `recordMainLoopException()` / `recordWorkerException()` | record, crash screen, then like the row above |
 | the **main loop stops for 10 s** while the app has the focus | the watchdog thread (S8) | record (`watchdog`), then the process ends at once (`exitProcessNow`): the stuck main thread can't do anything else |
 | a **second crash** while one is being handled | the re-entrancy guard | the process ends at once, no second record |
 | an exit after a crash that **hangs** for 3 s | the watchdog's exit deadline | the process ends at once |
 | a crash **before `install()`** or after `finish()` | the hooks | Switch exception: the process ends at once. `diagAbortWithResult`: libnx's own behaviour, `svcBreak` (a "user break", never a system fatal; Atmosphère keeps a crash report with the result) |
 
-"Ends at once" = `platform::exitProcessNow()`: `svcExitProcess()` on the Switch (an ordinary process exit, like closing a game:
-back to the HOME menu, no crash reporter), `_exit()` on the PC.
+"Ends at once" = `platform::exitProcessNow()`: `svcExitProcess()` on the Switch, `_exit()` on the PC. On the Switch the
+console goes to the HOME menu, which says "The software was closed because an error occurred." (the system's note for a
+process that ends without telling the applet manager). No crash reporter, nothing written, no fatal (seen on the console, WP-03c).
 
-Why not always `exit()`: `exit()` runs our and borealis's shutdown code, and on the Switch it hands the CPU back to hbloader,
-which then unloads our code. Every thread of ours must be stopped by then, or it would run into unloaded memory (Atmosphère
-would then report an application crash after all). From the main thread that works (the exit steps stop the other threads).
-From another thread, or with a stuck main thread, it can't, so those paths park the thread or end the process at once (D33).
+Why not `exit()` on the Switch (D35, found on the console in WP-03c): `exit()` hands the CPU back to hbloader, which starts
+hbmenu in the same process and with the same heap. Whatever a crash leaves behind is then hbmenu's problem: after a main-thread
+crash borealis's graphics were still set up (a crash skips their shutdown), after a worker crash the parked thread's stack was
+still mapped out of the heap. Both times hbmenu crashed under Atmosphère's crash reporter. `svcExitProcess` lets the system
+clean up everything. The desktop has no hbloader, so it keeps D13's `exit()` (D33).
 
 Rules for code that runs after a crash (`fatal()`, the record writer, the platform hooks): no memory allocation, no borealis,
 no locks the crashed code might hold. Everything uses fixed buffers and a file descriptor opened at start-up.
@@ -48,10 +50,11 @@ no locks the crashed code might hold. Everything uses fixed buffers and a file d
 ## Exit steps and threads (for later WPs)
 
 Every thread we start calls `crash::prepareThread()` first and has an explicit stack size (S8). A worker pool registers a
-stop function with `crash::addExitStep()` (at most 8, each must finish within about a second) and catches exceptions at its
-task boundary with `crash::recordWorkerException()`. `main()` registers `brls::Threading::stop` and calls `clearExitSteps()`
-when the main loop ends normally (borealis has stopped its thread itself by then). A pool must not wait for a thread that
-crashed: it is parked forever (check `crash::crashScreenWanted()` before joining at shutdown).
+stop function with `crash::addExitStep()` (at most 8, each must finish within about a second; only the desktop's crash exit
+runs them now, D35) and catches exceptions at its task boundary with `crash::recordWorkerException()`. `main()` registers
+`brls::Threading::stop`, calls `clearExitSteps()` when the main loop ends normally (borealis has stopped its thread itself by
+then), and `endAfterCrashScreen()` after a crash screen. A pool must not wait for a thread that crashed: it is parked forever
+(check `crash::crashScreenWanted()` before joining at shutdown).
 
 ## The crash record
 
@@ -101,9 +104,12 @@ WP-08's `makeRuntimeProfile()` takes the flag too (memory budgets halved, prefet
 The test config (`test/config.json`) names one, e.g. `{"drill": "null-write"}`. It starts the first time the app is idle, after
 a `drill` event (`phase: "start"`). Scenario: `tests/e2e/scenarios/crash-drills.test.ts`, one test per drill.
 
+On the Switch every drill except `cache-write-exit` ends with the HOME menu's "software was closed" note (D35); the desktop
+ends with exit code 1.
+
 | Drill | What it does | Expected end | Record |
 |---|---|---|---|
-| `null-write` | main thread writes through a null pointer | app closes by itself (desktop exit code 1) | `cpu_exception`, main |
+| `null-write` | main thread writes through a null pointer | app closes by itself | `cpu_exception`, main |
 | `misaligned` | Switch: an exclusive load from an odd address (always faults on ARMv8). Desktop: raises SIGBUS (x86 has no alignment faults) | closes by itself | `cpu_exception`, main |
 | `terminate` | `std::terminate()` on the main thread | closes by itself | `terminate`, main |
 | `gpu-abort` | `diagAbortWithResult(MAKERESULT(359, 4))`, what deko3d does on a GPU error. Desktop: the same handling, called directly | closes by itself, no crash screen | `gpu_abort`, main |

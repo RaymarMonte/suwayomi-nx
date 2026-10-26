@@ -138,6 +138,10 @@ bool isMainThread() noexcept {
     return pthread_equal(pthread_self(), gMainThread) != 0;
 }
 
+bool endProcessAfterCrash() noexcept {
+    return false;  // D13's exit(): nothing runs after the process on the PC
+}
+
 void parkThisThread() noexcept {
     for (;;) {
         pause();

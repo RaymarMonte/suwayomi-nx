@@ -24,8 +24,10 @@ else ()
     list(APPEND SNX_APP_SOURCES crash/CrashDesktop.cpp)
 endif ()
 
-# tools/safety/gate-selftest.sh only: S2 or S3 links one banned call on purpose, so the safety gate must fail the build.
-set(SNX_SAFETY_GATE_PROBE "" CACHE STRING "Safety gate self-test only: S2 or S3 links a banned call, the build must then fail")
+# tools/safety/gate-selftest.sh only: S2, S3, BOOST or BOOSTPTR links one banned call on purpose, so the safety gate must
+# fail the build (src/app/SafetyGateProbe.cpp).
+set(SNX_SAFETY_GATE_PROBE "" CACHE STRING
+    "Safety gate self-test only: S2, S3, BOOST or BOOSTPTR links a banned call, the build must then fail")
 if (PLATFORM_SWITCH AND SNX_SAFETY_GATE_PROBE)
     list(APPEND SNX_APP_SOURCES SafetyGateProbe.cpp)
 endif ()

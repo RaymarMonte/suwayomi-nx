@@ -13,6 +13,7 @@
     "hbmenu-header":        { "region": "260x100+30+20",  "screen": "hbmenu, any mode ('hbmenu v3.6.1 / nx-hbloader v2.4.5')" },
     "hbmenu-applet-badge":  { "region": "340x60+700+18",  "screen": "hbmenu opened from the Album: red 'Applet Mode' badge. Must NOT match in application mode" },
     "close-dialog":         { "region": "420x60+530+285", "screen": "HOME menu after X: 'Close the software you are currently using?' (Close preselected)" },
+    "software-closed":      { "region": "660x50+310+305", "screen": "after the app ended with svcExitProcess (watchdog, a crash before the handler is set up): 'The software was closed because an error occurred.' with one OK button (WP-03c)" },
     "demo-header":          { "region": "520x90+40+0",    "screen": "borealis demo running ('Borealis Demo App')" },
     "demo-pokedex":         { "region": "600x150+460+100","screen": "borealis demo, Pokedex tab open (Bulbasaur, Charmander rows)" },
     "files": "tests/e2e/device/local/<name>.png (git-ignored). To recreate: take a screenshot of the described screen and crop the region."
@@ -46,6 +47,10 @@
     { "press": "A", "thenWaitMs": 2500 },
     { "expect": "home-first-tile" }
   ],
+  "softwareClosedDialog": {
+    "found": "WP-03c, 2026-10-26: an application process that ends with svcExitProcess (no proper exit through libnx's appletExit) gets this dialog from the HOME menu. No crash report, no fatal: harmless",
+    "steps": [ { "expect": "software-closed", "thenWaitMs": 1000, "note": "an A while it fades in gets lost" }, { "press": "A", "note": "its only button is OK" }, { "waitFor": "home-first-tile", "timeoutMs": 4000, "ifNot": "expect software-closed again, then A again (3 tries)" } ]
+  },
   "toHbmenuAppletMode": {
     "use": "only the applet-guard scenario (D21)",
     "steps": [ { "touch": [550, 544], "note": "selects the Album icon (first tap selects)" }, { "press": "A" }, { "waitFor": "hbmenu-header", "timeoutMs": 10000 }, { "expect": "hbmenu-applet-badge" } ],

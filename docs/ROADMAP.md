@@ -18,7 +18,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-02](wp/WP-02-test-server-and-fixtures.md) | Suwayomi test server + fixture manga + schema dump | 01 | Opus | M | Firewall prompt | done |
 | [WP-03](wp/WP-03-e2e-harness.md) | E2E harness: drivers + smoke scenario | 01, 02 | Opus | L | Console on + reachable | done |
 | [WP-03b](wp/WP-03b-safety-layer-and-crash-drills.md) | **Safety layer**: crash containment, write jail, banned-API gate, crash drills (PC side; device runs moved to WP-03c) | 03 | Opus | M | – | done |
-| [WP-03c](wp/WP-03c-crash-drills-on-the-console.md) | Crash drills on the console (WP-03b's device half), optional control case | 03b | Opus | S/M | **Yes**: console; boost-mode stand-in OK; control-case OK | todo |
+| [WP-03c](wp/WP-03c-crash-drills-on-the-console.md) | Crash drills on the console (WP-03b's device half), optional control case | 03b | Opus | S/M | **Yes**: console; boost-mode OK (D34); control-case OK; D35 | done |
 | [WP-04](wp/WP-04-core-models-graphql.md) | core: models, JSON, GraphQL docs, contract tests | 02 | Opus | M | – | todo |
 | [WP-05](wp/WP-05-net-http-client.md) | net: HttpClient, worker pool, cancellation | 01 ∥04 | Opus | M | – | todo |
 | [WP-06](wp/WP-06-api-suwayomi-client.md) | api: SuwayomiClient + auth modes | 04, 05 | Opus | M | – | todo |

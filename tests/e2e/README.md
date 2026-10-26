@@ -75,7 +75,7 @@ Switch: closes the software and goes back to the HOME menu), and the logs land i
    `logs/app.log`). Desktop limits: buttons A (Enter), B (Escape), X (middle mouse) and the D-pad only (`press('Y')` throws
    NotSupportedError there); no sticks. Touch works on both (desktop: the mouse is one finger).
 5. **An app that ends by itself** (crash drills, `scenarios/crash-drills.test.ts`): `waitForExit(ms)` instead of `quit()`; it
-   says how it ended (desktop "exited with code 1"). `requestExit()` is the system's exit request (desktop SIGTERM, Switch HOME →
+   says how it ended (desktop "exited with code 1", Switch one of `SwitchDriver`'s `ENDED_*`). `requestExit()` is the system's exit request (desktop SIGTERM, Switch HOME →
    Close software). `listFiles('logs')` lists a folder of the data folder; `lib/crashrecord.ts` reads crash records.
 6. **Low memory and applet mode:** `launch({ memLimitMb })` is desktop only. `launch({ mode: 'applet' })` is only for the
    applet-guard scenario (WP-08); on the Switch it stays switched off (`APPLET_MODE_READY` in SwitchDriver) until the crash handler exists.
@@ -92,9 +92,12 @@ A mismatch writes `out/<scenario>/<step>.actual.png` and `<step>.diff.png` (red 
 
 - It only calls the sys-autopilot endpoints on the SAFETY.md S10 allowlist (`drivers/autopilot.ts`, unit-tested). Anything else throws.
 - Before every press that could start something outside the app (HOME menu, hbmenu) it checks the screen against a reference crop.
-- It lists `atmosphere/crash_reports`, `fatal_errors` and `fatal_reports` before and after. A new crash report fails the scenario. A new
+- It lists `atmosphere/crash_reports`, `fatal_errors` and `fatal_reports` before and after every launch, and once more at the end of the
+  scenario against the first launch (a report that comes a moment late). A new crash report fails the scenario. A new
   fatal file stops everything and writes `out/STOP-console-fatal.txt`: the driver refuses to run until the owner has looked at the console
   and deleted that file.
+- After a crash the HOME menu says "The software was closed because an error occurred." (D35). `waitForExit()` reports that
+  (`ENDED_SOFTWARE_CLOSED`) and dismisses it with A, only after the screen check (reference crop `software-closed`).
 - It sends one request at a time, at least 150 ms apart: bursts of connections make the console reset new ones for ~10 s.
 - If the console stops answering, the error asks the owner to look at it (it might show the "press POWER" fatal screen).
 - Missing reference crops (`device/local/*.png`): `device/profile.json` says which screen and region to crop.

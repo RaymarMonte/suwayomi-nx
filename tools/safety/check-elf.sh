@@ -2,6 +2,8 @@
 # The safety gate on the Switch .elf (docs/SAFETY.md S2/S3, D13, D28). Since WP-03b it FAILS the build (exit 1) when:
 #   - the .elf contains a function from tools/safety/banned-symbols.txt: an S2 one ever (fatalThrow*), an S3 one unless
 #     tools/safety/allowed-symbols.txt lists it (owner's OK for each entry; it is empty, D28 uses stand-ins instead);
+#   - an S3 rule with "only-from=<function>" (D34): the function is referred to from anywhere but that one caller
+#     (a call or jump, its address built in code, or its address stored in data);
 #   - our crash hooks aren't the ones linked: __libnx_exception_handler and diagAbortWithResult must come from our code, not
 #     libnx's weak default (or be missing), and __nx_exception_stack must be ours and at least 32 KB (S1).
 # The Switch build runs it before elf2nro (src/app/CMakeLists.txt), so a failing .elf never becomes a .nro.
@@ -46,14 +48,16 @@ FAILS="$TMP/failures.txt"
 fail() { echo "FAIL: $*" >> "$FAILS"; }
 
 # All function symbols in the binary (T/t = text, W/w = weak), names only, not demangled (libnx is C).
-"$NM" --defined-only "$ELF" | awk '$2 ~ /^[TtWw]$/ { print $3 }' | sort -u > "$TMP/functions.txt"
+"$NM" --defined-only "$ELF" > "$TMP/nm.txt"
+awk '$2 ~ /^[TtWw]$/ { print $3 }' "$TMP/nm.txt" | sort -u > "$TMP/functions.txt"
 # Data symbols with their sizes: "name size" (nm -S prints value, size, type, name).
 "$NM" -S --defined-only "$ELF" | awk 'NF == 4 { print $4, $2 }' | sort -u > "$TMP/sized.txt"
 # Who calls what: "caller<TAB>callee" for every bl/b to a named function.
-"$OBJDUMP" -d --no-show-raw-insn "$ELF" | awk '
+"$OBJDUMP" -d --no-show-raw-insn "$ELF" > "$TMP/disasm.txt"
+awk '
     /^[0-9a-f]+ <.*>:$/ { fn = $0; sub(/^[0-9a-f]+ </, "", fn); sub(/>:$/, "", fn); next }
     $2 == "bl" || $2 == "b" { if (match($0, /<[^>+]+>/)) print fn "\t" substr($0, RSTART + 1, RLENGTH - 2) }
-' | sort -u > "$TMP/calls.txt"
+' "$TMP/disasm.txt" | sort -u > "$TMP/calls.txt"
 # Names in a list file: comments and empty lines dropped, first word only.
 names_in() { [ -f "$1" ] && grep -v '^\s*#' "$1" | awk 'NF { print $1 }' || true; }
 names_in "$ALLOWED" > "$TMP/allowed.txt"
@@ -81,6 +85,37 @@ pulled_in_by() {
 }
 demangle() { "$BIN/aarch64-none-elf-c++filt" 2> /dev/null || cat; }
 
+# le32 VALUE: the 32-bit value as objdump -s prints its 4 bytes in memory (little endian), e.g. 0x149cb0 -> b09c1400.
+le32() { printf '%08x' "$1" | sed 's/\(..\)\(..\)\(..\)\(..\)/\4\3\2\1/'; }
+# references SYMBOL: every place in the .elf that refers to the function SYMBOL from outside it, one per line:
+#   "code<TAB><function>"            a call, jump or address with SYMBOL's name in that function (bl, b, adr, ...)
+#   "address<TAB><function>"         SYMBOL's address put together with adrp + add in that function
+#   "data<TAB><section> 0x<address>" SYMBOL's address stored in data (a function pointer, a GOT entry)
+# For the only-from rule (banned-symbols.txt). The data search compares 8-byte-aligned words: pointers always are.
+references() {
+    local sym="$1" hex value page off sections
+    hex=$(awk -v s="$sym" '$3 == s { print $1; exit }' "$TMP/nm.txt")
+    [ -n "$hex" ] || return 0
+    value=$((16#$hex))
+    page=$(printf '%x' $((value & ~0xfff)))
+    off=$(printf '#0x%x' $((value & 0xfff)))
+    awk -v sym="$sym" -v page="$page" -v off="$off" '
+        /^[0-9a-f]+ <.*>:$/ { fn = $0; sub(/^[0-9a-f]+ </, "", fn); sub(/>:$/, "", fn); delete reg; next }
+        fn == sym { next }
+        index($0, "<" sym ">") { print "code\t" fn }
+        $2 == "adrp" { reg[$3] = $4 }
+        $2 == "add" && $5 == off && reg[$4] == page { print "address\t" fn }
+    ' "$TMP/disasm.txt" | sort -u
+    # Sections that are loaded but not code (flag A without X): .rodata, .data, .data.rel.ro, .got, .init_array, ...
+    sections=$("$READELF" -SW "$ELF" | sed -n 's/^ *\[ *[0-9]*\] //p' | awk '$7 ~ /A/ && $7 !~ /X/ { printf " -j %s", $1 }')
+    [ -n "$sections" ] || return 0
+    # shellcheck disable=SC2086  # $sections is a list of -j flags on purpose
+    "$OBJDUMP" -s $sections "$ELF" | awk -v lo="$(le32 $((value & 0xffffffff)))" -v hi="$(le32 $((value >> 32)))" '
+        /^Contents of section / { sec = $4; sub(/:$/, "", sec); next }
+        ($2 == lo && $3 == hi) || ($4 == lo && $5 == hi) { print "data\t" sec " 0x" $1 }
+    '
+}
+
 BUILD_ID=$("$READELF" -n "$ELF" | sed -n 's/.*Build ID: *\([0-9a-f]*\).*/\1/p')
 {
 echo "suwayomi-nx safety gate report (docs/SAFETY.md S2/S3, D28)."
@@ -88,11 +123,11 @@ echo "elf: $(basename "$ELF")  build id: ${BUILD_ID:-?}  functions: $(wc -l < "$
 echo "rules: tools/safety/banned-symbols.txt, exceptions: tools/safety/allowed-symbols.txt ($(wc -l < "$TMP/allowed.txt") entries)"
 echo
 
-found=0; s2=0; allowed=0
+found=0; s2=0; allowed=0; checked=0
 for rule in S2 S3; do
     echo "== $rule matches =="
     any=0
-    while read -r r pattern; do
+    while read -r r pattern only; do
         [ "$r" = "$rule" ] || continue
         while read -r sym; do
             # shellcheck disable=SC2053  # the pattern is a glob on purpose
@@ -101,14 +136,27 @@ for rule in S2 S3; do
             verdict="BANNED"
             if [ "$rule" = S2 ]; then
                 s2=$((s2 + 1)); fail "$sym is in the .elf (S2: fatal calls are never allowed)"
+            elif [[ "$only" == only-from=* ]]; then
+                # The rule's one allowed caller (owner's OK per rule, banned-symbols.txt): any other reference fails.
+                ok_from="${only#only-from=}"
+                refs=$(references "$sym")
+                others=$(printf '%s\n' "$refs" | awk -F'\t' -v ok="$ok_from" 'NF && !($1 == "code" && $2 == ok)')
+                if [ -z "$others" ]; then
+                    verdict="allowed only from $ok_from: no other reference"; checked=$((checked + 1))
+                else
+                    fail "$sym is referenced outside $ok_from (S3 rule $pattern, only-from): $(printf '%s' "$others" | tr '\t\n' ' ;')"
+                fi
             elif grep -qx "$sym" "$TMP/allowed.txt"; then
                 verdict="allowed (allowed-symbols.txt)"; allowed=$((allowed + 1))
             else
                 fail "$sym is in the .elf (S3 rule $pattern). See the report for who pulls it in"
             fi
-            echo "$sym   (rule: $pattern)   $verdict"
+            echo "$sym   (rule: $pattern${only:+ $only})   $verdict"
             echo "    defined in:  $(defined_in "$sym")"
             pulled_in_by "$sym" | sed 's/^/    pulled in by: /'
+            if [[ "$only" == only-from=* ]]; then
+                printf '%s\n' "$refs" | awk -F'\t' 'NF { print "    referenced: " $1 " in " $2 }' | demangle
+            fi
             callers=$(awk -F'\t' -v s="$sym" '$2 == s { print $1 }' "$TMP/calls.txt" | demangle)
             if [ -n "$callers" ]; then
                 echo "$callers" | sed 's/^/    called from: /'
@@ -161,8 +209,8 @@ done < <(names_in "$STAND_INS")
 echo
 
 nfail=$(wc -l < "$FAILS")
-echo "SUMMARY: banned matches=$found (S2 fatal=$s2, S3=$((found - s2)), allowed=$allowed), crash hooks ours=$hooks_ours/2," \
-     "failures=$nfail. $([ "$nfail" = 0 ] && echo PASS || echo FAIL)"
+echo "SUMMARY: banned matches=$found (S2 fatal=$s2, S3=$((found - s2)), allowed=$allowed, only-from ok=$checked)," \
+     "crash hooks ours=$hooks_ours/2, failures=$nfail. $([ "$nfail" = 0 ] && echo PASS || echo FAIL)"
 if [ "$nfail" != 0 ]; then echo; cat "$FAILS"; fi
 } > "$OUT"
 

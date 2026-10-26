@@ -1,40 +1,40 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
 
 **Current phase:** 0 – Foundations
-**Next WP:** WP-04 (core models + GraphQL, needs only WP-02, no console). WP-03c needs the console and the owner. Done: WP-00a … WP-03b.
+**Next WP:** WP-04 (core models + GraphQL, needs only WP-02, no console). Done: WP-00a … WP-03c.
 
-## Last session (2026-10-25, WP-03b, Opus, owner away: PC side only) — done
-- **Built** (design D33, `src/app/crash/README.md`): crash containment (libnx exception handler on a 32 KB stack, `diagAbortWithResult`,
-  terminate handler, re-entrancy guard, pre-opened crash file, 64-line log ring, crash screen, safe mode next launch, watchdog),
-  `platform::SafeFs` + `core::jailPath` (every write in the app now goes through it, test events and `app.log` included),
-  `tools/safety/check-writes.sh` (grep gate), `check-elf.sh` now **enforcing** inside the Switch build (no `.nro` unless it passes),
-  D28 stand-ins via `--wrap` (`tools/safety/stand-ins.txt`), `gate-selftest.sh`, `tools/symbolize-crash`, 10 crash drills.
-- **Green:** unit tests (both builds), desktop E2E 14/14 (+`oom` skipped: Switch only), npm test 99, typecheck, Switch release and
-  test builds (gate PASS: 0 banned, hooks ours 2/2, both stand-ins in use), gate self-test (S2 + S3 probes fail, no `.nro`).
-  CI green on `4ec29c6` (all 4 jobs; the Switch job now runs the gate self-test too, ~3m45s).
-- **For WP-08:** `makeRuntimeProfile()` must take `LastRun.crashed` (safe mode: budgets halved, prefetch off, no screen restore).
-  New threads: `crash::prepareThread()`, explicit stack size, `addExitStep()` for pools, `recordWorkerException()` at task boundaries.
-## Waiting for the console: WP-03c (`docs/wp/WP-03c-crash-drills-on-the-console.md`)
-- `tools/e2e.sh switch crash-drills` twice in a row (never run on the device; the SwitchDriver's `requestExit/waitForExit/listFiles`
-  are untested there). Check hbmenu (not HOME) after main-thread drills and no new `crash_reports` file (stray-thread risk, D33).
-- Device record: build id = archive folder, symbolizes. `oom` drill. Switch golden of the crash screen. Watchdog pauses on HOME.
-- Optional control case (handler off) only with the owner's yes and the owner watching.
+## Last session (2026-10-26, WP-03c, Opus, owner present) — done
+- **The console found 4 bugs, all fixed:** (1) every start crashed: libnx's `__start__` is a fixed 0 (now `_start` + a kernel
+  query for the size). (2) `exit()` after a crash let hbmenu crash under creport (graphics left set up; a parked thread's
+  stack still mapped out of the heap) → **D35** (owner OK): on the Switch every crash ends with `svcExitProcess`, after the
+  crash screen if one shows; HOME then says "The software was closed because an error occurred." (no report, no fatal).
+  (3) libnx's "MisalignedSP" (0x103) is any unaligned data access: record text fixed. (4) Driver: knows that note (crop
+  `software-closed`), dismisses it after a screen check, compares the crash folders once more at scenario end.
+- **D34** (owner OK): `appletSetCpuBoostMode` banned with `only-from=_appletCleanup` (a D28 stand-in can't reach a call inside
+  libnx's own object file). `gate-selftest.sh` has 4 probes (call + stored pointer for the new rule).
+- **Green:** `crash-drills` on the console twice in a row (10/10 each, 0 new fatal or crash-report files), Switch `smoke`,
+  desktop E2E 14/14, unit tests, npm test 99, typecheck, release + test Switch builds (gate PASS), gate self-test 4/4.
+  Records: `build_id` = archive folder, `symbolize-crash` → `Drills.cpp:39`. Watchdog 10.2 s; 22 s on HOME: no watchdog.
+- Control case (owner watched): handler-less one-off build (the gate refused it; packed by hand, deleted after) → creport
+  report for module `suwayomi-nx`, no record of ours, no fatal, back on HOME.
+- **Known harness issue:** the console sometimes resets new connections for 30 s+ around app start/exit. Repeatable requests
+  now retry ~60 s; a button press in a spell still fails the scenario (presses never repeat). Once in smoke, rerun passed.
+  Idea for later: sys-autopilot-nx keeps its own network request.
 ## Open questions for the owner
-- **D17/D28:** ban `appletSetCpuBoostMode` too? libnx's exit code (`_appletCleanup`) references it (only to undo a CPU boost nobody
-  sets), so the ban needs a third do-nothing stand-in like D28's two. Recommended: yes. Until then the rule is commented out.
-- Optional control case for the crash drills (SAFETY.md): yes or no, and when you can watch.
 - A DHCP reservation for the PC (like the Switch has) would keep the test-server URL stable for device tests (WP-05). Owner's choice.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
-  `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: write a script file and run `bash -l <file>`). Git Bash has no python.
+  `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
+  `MSYS_NO_PATHCONV=1`, or `/mnt/c/...` arguments get rewritten). Git Bash has no python.
 - Builds (from `/mnt/c`): unit tests ~10 s, desktop ~50 s, Switch ~55 s clean (+ gate ~5 s); `.nro` 2.7 MB. 0 warnings in our code.
   Backups (WP-00a): `C:\Users\JohnDoe\SwitchBackup\2026-10-22\`. sysMMC NAND: owner's external drive.
+- Device: `crash-drills` ~9 min, one drill ~50 s. A start-up crash leaves no log: use temporary breadcrumb writes (WP-03c).
 ## Console facts
 - **v1 Erista · FW 22.5.0 · AMS 1.11.2 · emuMMC** (`emuMMC/RAW1`), RCM payload, Hekate 6.5.3 (Launch → CFW (EMUMMC)). SD FAT32, ~88 GB free.
 - Sysmodules: sys-clk, emuiibo, MissionControl, sys-patch, nx-ovlloader, **sys-autopilot-nx `4200000000004150`** (`http://<switch-ip>:4150`).
-- Baseline: `fatal_errors` empty, `fatal_reports` only `dumps/`, `crash_reports` 17 files + 10 in `dumps/`. Clock is off: compare lists.
+- Baseline: `fatal_errors` empty, `fatal_reports` only `dumps/`, `crash_reports` 21 files + `dumps/` (4 from WP-03c). Clock is off.
 - **App mode:** Spelunky 2 = first HOME tile; hold R + A, A on the user picker, hbmenu ~3.7 s later. Heap ~3,181–3,184 MiB.
-- Console resets new connections for ~10 s after bursts (~50/s): one request at a time, ≥ 150 ms apart. A file open for writing
-  can't be read by another program (events use a pending queue; `app.log` readable after quit).
+- Console resets new connections after bursts (~50/s): one request at a time, ≥ 150 ms apart. A file open for writing can't be
+  read by another program (events use a pending queue; `app.log` readable after quit). HOME on the HOME menu resumes the app.
 ## Escalation
 (none)

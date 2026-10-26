@@ -37,6 +37,9 @@ std::string_view buildId() noexcept;
 // Return addresses of the calling thread (regs == nullptr) or of the crashed code (regs from the exception). Innermost first.
 std::size_t collectStack(const Registers* regs, std::uint64_t* out, std::size_t max) noexcept;
 bool isMainThread() noexcept;
+// How the app ends after a crash on the main thread, or after the crash screen. True: the process ends at once (Switch, D13
+// as amended in WP-03c). False: the exit steps and exit(), or main()'s return with exit code 1 (desktop).
+bool endProcessAfterCrash() noexcept;
 // Sleeps forever: a crashed worker thread waits here while the main thread shows the crash screen and quits.
 [[noreturn]] void parkThisThread() noexcept;
 // Per-thread set-up (desktop: alternate signal stack).

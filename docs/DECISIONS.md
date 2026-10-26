@@ -58,6 +58,7 @@ Rejected: refusing to run in applet mode (unfriendly), one-size-fits-all budgets
 `diagAbortWithResult` override and `std::set_terminate`, all ending in a logged, clean `exit()`. `fatalThrow*` is banned by a build gate.
 Why: Atmosphère's creport turns crashes of non-application processes (our app in applet mode) into a system fatal, and deko3d routes
 GPU failures through `diagAbortWithResult` even in release. Pattern follows nxdumptool/Goldleaf (GPL, so we reimplement, not copy).
+**Amended by D35** (owner OK 2026-10-26): on the Switch a crash ends with `svcExitProcess`, not `exit()`.
 
 **D14 The app never writes outside `sdmc:/switch/suwayomi-nx/`** and never calls system-writing APIs (SAFETY.md S3/S4 list), enforced
 by `SafeFs` plus an ELF symbol gate. Any exception needs the owner's OK. Why: that's the only realistic way a userland reader app could brick
@@ -229,6 +230,8 @@ virtual `SwitchPlatform::setBacklightBrightness` calls `lblSetCurrentBrightnessS
 `-Wl,--wrap=<function>` for each of them and defines `__wrap_<function>` as a tiny stand-in of ours that does nothing and returns success
 (0), so libnx's start-up never sees an error. The real functions then aren't linked at all, and the S3 gate stays strict with no
 exceptions in `allowed-symbols.txt`. A banned function that a library update pulls in later gets the same treatment, with the owner's OK.
+(D17's `appletSetCpuBoostMode` can't: libnx calls it from inside its own object file, which `--wrap` never reaches. It gets D34's
+`only-from` rule instead, owner OK 2026-10-26.)
 Rejected: allowlist entries with caller checks (more rules to keep right, and the functions stay in the binary), patching borealis (we'd
 maintain a fork, and libnx's call would still need one of the other options).
 
@@ -291,7 +294,7 @@ Rejected: SVG text via sharp/librsvg (depends on installed fonts), OCR of the pr
   `APPLET_MODE_READY = false` until WP-08 (applet mode needs WP-03b's crash handler first).
 - sys-autopilot client: its own HTTP/1.1 over a TCP socket, one request at a time, ≥ 150 ms apart, the PC closes each connection. Bursts
   (~50 connections in a second) made the console reset every new connection for ~10 s, curl's too; reads, uploads and deletes then back off
-  0.5 → 8 s, inputs are never repeated. Node's fetch and http modules had reported resets on `GET /files` where a plain socket didn't
+  0.5 → 30 s (WP-03c: was 8 s, a spell lasted over 30 s), inputs are never repeated. Node's fetch and http modules had reported resets on `GET /files` where a plain socket didn't
   (possibly the same burst effect; not proven). Events are polled every 500 ms, "is the app still there" every 3 s by screenshot.
 - Fatal gate: `atmosphere/fatal_reports/` joins `fatal_errors/` (owner OK 2026-10-25): Atmosphère's fatal screen writes `fatal_reports/`
   (except when creport caused it), `fatal_errors/` is only written at the next boot. A new file in either writes
@@ -303,7 +306,8 @@ a uinput virtual gamepad on desktop (needs root), keeping the events file open (
 
 **D33 How crash containment and the write jail are built** (WP-03b, 2026-10-25). Carries out D13, D14, D28 and SAFETY.md S1–S5, S8.
 Details: `src/app/crash/README.md`, `src/platform/README.md`.
-- **How a crash ends.** Main thread (CPU crash, `std::terminate`, `diagAbortWithResult`): record, then D13's `exit(EXIT_FAILURE)`
+- **How a crash ends** (on the Switch replaced by D35: the process always ends at once, after the crash screen if one shows).
+  Main thread (CPU crash, `std::terminate`, `diagAbortWithResult`): record, then D13's `exit(EXIT_FAILURE)`
   after the "exit steps" stopped the other threads (borealis's task thread now, worker pools later) and with a 3 s deadline.
   Another thread: record, the thread parks forever, the healthy main thread shows the crash screen and quits normally. The
   watchdog (main loop stuck 10 s), a second crash, or an exit that hangs: `platform::exitProcessNow()` (`svcExitProcess`, an
@@ -327,10 +331,34 @@ Details: `src/app/crash/README.md`, `src/platform/README.md`.
 - **Safety gate**: `check-elf.sh` runs inside the CMake `.nro` target before `elf2nro`, so no `.nro` exists unless the `.elf` passes
   (banned symbols, our hooks, `__nx_exception_stack` ≥ 32 KB). `tools/safety/stand-ins.txt` is the one list for the `--wrap`
   flags and the gate. `tools/safety/gate-selftest.sh` proves a deliberately linked `fatalThrow` / `setsysSet*` fails the build.
-  `allowed-symbols.txt` exists and is empty. `appletSetCpuBoostMode` (D17) is written down but switched off: libnx's
-  `_appletCleanup` references it, so it needs a D28 stand-in and therefore the owner's OK (STATUS "Open questions").
+  `allowed-symbols.txt` exists and is empty. `appletSetCpuBoostMode` (D17) was switched off here (libnx's `_appletCleanup`
+  references it); WP-03c switched it on with D34's `only-from` rule.
 - Drills start on the first `idle`; the desktop driver's `launch()` returns without a window if the app has already ended.
-Rejected: `svcExitProcess` for every crash (D13 says `exit()`; the device drills, WP-03c, show whether that's worth changing),
+Rejected: `svcExitProcess` for every crash (D13 says `exit()`; the device drills, WP-03c, show whether that's worth changing:
+they did, D35),
 a borealis loop inside the exception handler to show the crash screen for main-thread crashes (borealis isn't re-entrant),
 pre-opening the final `crash-<time>.txt` (an empty one after a kill would look like a crash), the gate only as a `tools/build.sh`
 step (a plain `cmake --build` would skip it), `std::thread` for the watchdog and drills (no way to set the stack size, S8).
+
+**D34 The `only-from` rule for a banned function a library calls from inside its own file** (WP-03c, owner OK 2026-10-26).
+Carries out D17 for `appletSetCpuBoostMode`. libnx defines it in `applet.o` next to `_appletCleanup` (its exit code), which calls it
+with "Normal" only if a boost was set, and only the function itself sets one. `-Wl,--wrap` redirects only references between object
+files, so a D28 stand-in can't reach that call. `banned-symbols.txt` says `S3 appletSetCpuBoostMode only-from=_appletCleanup`: the
+function may be in the `.elf`, but `check-elf.sh` fails the build on any other reference to it: a call or jump naming it, its address
+built with `adrp` + `add`, or its address stored in a loaded non-code section (a function pointer, a GOT entry). `gate-selftest.sh`
+proves that a call (probe `BOOST`) and a stored pointer (probe `BOOSTPTR`) both fail the build.
+Rejected: a D28 stand-in (can't reach a call inside the same object file), a source grep only (blind to other libraries), leaving
+D17's ban off. Limit: an address computed some other way (arithmetic on another function's address) isn't seen; nothing does that.
+
+**D35 On the Switch every crash ends the process at once** (WP-03c, owner OK 2026-10-26; amends D13 and D33's "How a crash ends").
+A crash on the main thread (CPU exception, `std::terminate`, `diagAbortWithResult`): record, then `svcExitProcess`. A crash on another
+thread or a caught exception: the crash screen as before, but closing it ends the process too (`crash::endAfterCrashScreen()`), not a
+return to hbmenu. The desktop keeps D13's `exit()` (exit code 1). Why, seen on the console with our record already written each time:
+`exit()` hands the CPU back to hbloader, which starts hbmenu in the same process with the same heap, and hbmenu then crashed under
+Atmosphère's crash reporter. After a main-thread crash borealis's graphics were still set up (a crash skips their shutdown: a data
+abort in hbmenu); after a worker crash the parked thread's stack was still mapped out of the heap (a deko3d abort in hbmenu, with the
+parked thread in the report). What the user sees now: the HOME menu says "The software was closed because an error occurred." (the
+system's note for a process that ends without telling the applet manager; no crash report, no fatal), then the next launch's
+"closed unexpectedly" note. The exit steps and the 3 s exit deadline are now desktop-only.
+Rejected: running borealis's graphics shutdown after a crash, then `exit()` (runs code of the program that just crashed: it could
+hang or crash again); ending at once only after a thread crash (two rules, and the state behind a caught exception may be broken too).

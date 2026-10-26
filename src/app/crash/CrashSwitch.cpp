@@ -23,9 +23,10 @@ extern "C" {
 alignas(16) u8 __nx_exception_stack[0x8000];
 u64 __nx_exception_stack_size = sizeof(__nx_exception_stack);
 
-// Start and end of our .nro in memory, from libnx's linker script (switch.ld).
-extern char __start__[];
-extern char __end__[];
+// libnx's crt0 entry point: the very first byte of our .nro in memory (the NRO header follows it, see installPlatformHandlers).
+// Not libnx's __start__: its linker script sets that to the fixed value 0, which the loader never moves, so it reads as 0
+// at run time (found on the console in WP-03c: reading the header through it crashed every start).
+extern char _start[];
 
 void __libnx_exception_handler(ThreadExceptionDump* ctx);
 
@@ -52,6 +53,26 @@ bool readable(std::uint64_t addr, std::uint64_t length) noexcept {
     return addr + length <= info.addr + info.size;
 }
 
+// How far the .nro reaches in memory from `base`: its code, read-only data, data and .bss lie next to each other, all
+// mapped as module memory by hbloader. Asks the kernel region by region and stops at the first one that isn't.
+std::uint64_t moduleSizeFrom(std::uint64_t base) noexcept {
+    std::uint64_t end = base;
+    for (int region = 0; region < 8; region++) {
+        MemoryInfo info{};
+        u32 pageInfo = 0;
+        if (R_FAILED(svcQueryMemory(&info, &pageInfo, end))) {
+            break;
+        }
+        const u32 type = info.type & MemState_Type;
+        if (type != MemType_ModuleCodeStatic && type != MemType_ModuleCodeMutable && type != MemType_CodeStatic &&
+            type != MemType_CodeMutable) {
+            break;
+        }
+        end = info.addr + info.size;
+    }
+    return end - base;
+}
+
 // One line in plain words from the exception's kind and the CPU's fault registers (ESR, FAR).
 std::string_view describe(const ThreadExceptionDump* ctx) noexcept {
     cr::FixedText t(gWhat, sizeof(gWhat) - 1);
@@ -65,7 +86,13 @@ std::string_view describe(const ThreadExceptionDump* ctx) noexcept {
             t.text("misaligned program counter");
             break;
         case ThreadExceptionDesc_MisalignedSP:
-            t.text("misaligned stack pointer");
+            // libnx's name for the kernel's "unaligned data" (0x103): any misaligned data access. Only the CPU's error
+            // class 0x26 means the stack pointer itself (seen on the console in WP-03c: the misaligned drill lands here).
+            if (errorClass == 0x26) {
+                t.text("misaligned stack pointer");
+            } else {
+                t.text("alignment fault at ").hex(far, 16);
+            }
             break;
         case ThreadExceptionDesc_SError:
             t.text("SError (bus error)");
@@ -126,11 +153,11 @@ void installPlatformHandlers() {
     // Nothing to switch on: the two hooks above are linked in and active from the first instruction (S12). This only
     // notes what the records need.
     gMainThread = threadGetCurHandle();
-    gBase = reinterpret_cast<std::uint64_t>(__start__);
-    gSize = reinterpret_cast<std::uint64_t>(__end__) - gBase;
+    gBase = reinterpret_cast<std::uint64_t>(_start);
+    gSize = moduleSizeFrom(gBase);
     // elf2nro copies the .elf's GNU build id into the NRO header, which hbloader loads along with the code.
-    const auto* header = reinterpret_cast<const NroHeader*>(__start__ + sizeof(NroStart));
-    if (header->magic == NROHEADER_MAGIC) {
+    const auto* header = reinterpret_cast<const NroHeader*>(_start + sizeof(NroStart));
+    if (readable(reinterpret_cast<std::uint64_t>(header), sizeof(NroHeader)) && header->magic == NROHEADER_MAGIC) {
         static constexpr char kDigits[] = "0123456789abcdef";
         for (int i = 0; i < 20; i++) {
             gBuildId[2 * i] = kDigits[header->build_id[i] >> 4];
@@ -183,6 +210,14 @@ std::size_t collectStack(const Registers* regs, std::uint64_t* out, std::size_t 
 
 bool isMainThread() noexcept {
     return threadGetCurHandle() == gMainThread;
+}
+
+bool endProcessAfterCrash() noexcept {
+    // exit() hands the CPU back to hbloader, which starts hbmenu in the same process with the same heap. Seen on the console
+    // in WP-03c, both times with Atmosphère's crash reporter catching hbmenu: after a main-thread crash borealis's graphics
+    // were still set up (a crash skips their shutdown), and after a worker crash the parked thread's stack was still mapped
+    // out of the heap. Ending the process lets the system clean up everything instead.
+    return true;
 }
 
 void parkThisThread() noexcept {
