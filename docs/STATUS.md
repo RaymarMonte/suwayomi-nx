@@ -13,7 +13,7 @@
 - **D34** (owner OK): `appletSetCpuBoostMode` banned with `only-from=_appletCleanup` (a D28 stand-in can't reach a call inside
   libnx's own object file). `gate-selftest.sh` has 4 probes (call + stored pointer for the new rule).
 - **Green:** `crash-drills` on the console twice in a row (10/10 each, 0 new fatal or crash-report files), Switch `smoke`,
-  desktop E2E 14/14, unit tests, npm test 99, typecheck, release + test Switch builds (gate PASS), gate self-test 4/4.
+  desktop E2E 14/14, unit, npm test 99, typecheck, Switch builds (gate PASS), gate self-test 4/4. CI green on `b4c3476`.
   Records: `build_id` = archive folder, `symbolize-crash` → `Drills.cpp:39`. Watchdog 10.2 s; 22 s on HOME: no watchdog.
 - Control case (owner watched): handler-less one-off build (the gate refused it; packed by hand, deleted after) → creport
   report for module `suwayomi-nx`, no record of ours, no fatal, back on HOME.
