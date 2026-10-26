@@ -16,7 +16,7 @@
   draw at once; idle check can add `activeJobs()`. Reader: box 2× screen, webtoon `{2× width, 0}` + `tileWindow()`.
 - **Green:** unit 6/6, test-hooks, TSan, one-off ASan/UBSan (170/171: `mallinfo2()` reads 0 under ASan; no memory errors),
   coverage (`src/image` 89.5 %), fuzz (3 targets), contract, integration ×3 (+ loader on real pages), desktop + smoke, e2e
-  `image-bench` desktop + Switch, Switch build (gate PASS, `.nro` 3.8 MB), `gate-selftest`, npm. CI: see the commit.
+  `image-bench` desktop + Switch, Switch build (gate PASS, `.nro` 3.8 MB), `gate-selftest`, npm. CI green on `f1366e5` (5 jobs).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
