@@ -11,7 +11,8 @@
   `{isNull: true}` for the Default category (SUWAYOMI-API.md). Our own documents are recorded too (`responses/app-*.json`, recorder
   `# document:` header); re-recording changed none of the WP-02 files.
 - **Green:** unit 6/6 ctest entries (new `unit.core-includes` allowlist check), core coverage 94%, contract 26/26 (`npm run contract`,
-  also at the end of `tools/build.sh tests`), npm test 103, typecheck, fuzz seed replay (GCC ASan/UBSan). CI: see the commit below.
+  also at the end of `tools/build.sh tests`), npm test 103, typecheck, fuzz seed replay (GCC ASan/UBSan), Switch build (gate PASS).
+  CI green on `f993b65` (5 jobs); its fuzz job: 1.16 M runs `fuzz_gql_response`, 0.43 M runs `fuzz_app_config`, no crash.
 - **Not run here:** real libFuzzer runs. WSL has no clang (sudo needs the owner's password). CI's new `fuzz` job installs clang and
   fuzzes 60 s per target. Locally `tools/build.sh fuzz` only replays the seeds until clang is installed (see Open questions).
 ## Open questions for the owner
