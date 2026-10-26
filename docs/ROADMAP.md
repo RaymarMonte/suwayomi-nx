@@ -23,7 +23,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-05](wp/WP-05-net-http-client.md) | net: HttpClient, worker pool, cancellation | 01 ∥04 | Opus | M | – | done |
 | [WP-06](wp/WP-06-api-suwayomi-client.md) | api: SuwayomiClient + auth modes | 04, 05 | Opus | M | – | done |
 | [WP-07](wp/WP-07-image-pipeline-and-cache.md) | image: decode, downscale, tile, caches, memory budget | 05 | Opus | L | – | done |
-| [WP-08](wp/WP-08-app-shell-and-setup.md) | App shell, settings, logging, test hooks, server setup/login | 03b, 06 (its applet-guard device drill: 03c) | Opus | L | **Yes**: watch the applet-guard drill on the console | in progress: device runs left |
+| [WP-08](wp/WP-08-app-shell-and-setup.md) | App shell, settings, logging, test hooks, server setup/login | 03b, 06 (its applet-guard device drill: 03c) | Opus | L | **Yes**: watched the applet-guard run on the console (D41) | done |
 | WP-08b | All controllers merged on the Switch: borealis's `getControllersConnectedCount` stops at the first empty slot, so a pad in slot 2 (sys-autopilot's after a real controller left slot 1) is ignored. Replace borealis's `switch_input.cpp` in our build with a fixed copy (Apache-2.0, CREDITS.md), D40 | 08 | Opus | S | **Yes**: a second controller to check it | todo |
 | [WP-09](wp/WP-09-library-screen.md) | Library screen (categories + cover grid) | 07, 08 | Opus | M | – | todo |
 | [WP-10](wp/WP-10-manga-details.md) | Manga details + chapter list | 09 | Opus | M | – | todo |
@@ -37,7 +37,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | WP-18 | Offline reading (chapters to SD) | 13, 17 | Opus | L | – | todo |
 | WP-19 | Settings polish, i18n, theming, optional HTTPS | 12 | Opus (string extraction: **H**) | M | – | todo |
 | WP-20 | Release packaging, user docs, (optional) hardware CI runner | 12 | **S** | S | Publish releases | todo |
-| WP-21 | Applet mode (Album) support, `Lite` profile. **Nice to have** (D21) | 12 | Opus | M | **Yes**: decide if wanted; console | todo |
+| WP-21 | Applet mode (Album) support, `Lite` profile, and a crash ending that doesn't take the system down from the Album (D41). **Nice to have** (D21) | 12 | Opus | M | **Yes**: decide if wanted; console | todo |
 
 **Touch first (D16):** every UI WP from WP-08 on ships touch for its own screens, tested on desktop with the mouse
 (plus a test hook for multi-finger gestures) and on the console with the touch-capable sys-autopilot (D19) or a manual checklist.

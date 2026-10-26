@@ -137,7 +137,8 @@ applet mode seems to make things complex. Let's leave it off for now and make it
   (Text approved by the owner 2026-10-25.) It closes on any button, a tap, or by itself after 60 s. Built in WP-08.
 - **The guard must be crash-safe**, because in applet mode any crash is a system fatal (SAFETY.md). It runs before borealis, the GPU, network,
   images and config. It draws with libnx's plain text console, writes its log line before showing anything, and if any step fails it just exits.
-  Our crash handler (D13) is active from the first instruction, so it covers the guard too. Rules: SAFETY.md S12.
+  Our crash handler (D13) is active from the first instruction. Rules: SAFETY.md S12. **Amended by D41:** in applet mode a
+  crash still ends as a system fatal (the HOME menu stops the system when the Album's process ends abnormally).
 - **`RuntimeProfile` stays.** Keep the struct, its `mode` field and `makeRuntimeProfile(mode, totalMem, usedMem)`, but build and use only `Full`.
   Every module still reads its limits from the profile, never from constants: budgets still depend on measured memory and on safe mode
   (after a crash: memory budgets halved, prefetch off; this replaces "Lite budgets" in SAFETY.md S1). So applet support can come back later
@@ -575,3 +576,22 @@ Rejected: setup as the first screen (see above), keeping the log file open (S5, 
 `aboutServer` alone as the check (public in ui_login), a spinner in `StatusView` (never idle), patching borealis's Switch input
 now for "all controllers merged" (WP-08b: its `getControllersConnectedCount` stops at the first empty slot, so a controller in
 slot 2 with slot 1 empty is ignored; the fix replaces one borealis file and needs a second real controller to check).
+
+**D41 A crash in applet mode is always a system fatal; the console checks only the refusal screen** (WP-08, owner OK
+2026-10-27; amends D21 and SAFETY.md S12). Found on the console with the owner watching (applet-guard, 2026-10-26):
+- The refusal screen works from the Album: the text shows, a button closes it, the app returns to hbmenu, only
+  `launch_refused` is written, no fatal. Its golden is `tests/e2e/goldens/switch/applet-guard/refused.png`.
+- The null-pointer drill inside it: our crash handler caught the crash and wrote its record (symbolized: the drill, called from
+  `showLaunchRefused`), then ended the process (D35, `svcExitProcess`). From the Album that process is a library applet that
+  the HOME menu (qlaunch) started. qlaunch stops itself when a library applet ends abnormally (`0x290` / 2144-0001 =
+  `la::ResultLibraryAppletExitedAbnormally`; Atmosphère's author on Atmosphère issue #2368: "just qlaunch crashing because
+  homebrew crashed"), and that is Atmosphère's "press POWER" fatal screen. No damage: our writes were all before the screen.
+- So D21's "our crash handler covers the guard too" and S12's "even a bug here ends as app closed + crash log" don't hold:
+  in applet mode **any** crash of ours is a system fatal, however the handler ends the process. The guard's protection is
+  that it is tiny (libnx text console, about 30 lines, no borealis/GPU/network/config) and that its normal path is verified.
+- Tests: applet-guard runs the drill on desktop only. On the console it is opt-in (`SNX_APPLET_CONSOLE=1`, owner watching)
+  and checks only the refusal screen, never a drill.
+- A safer ending for a crash in applet mode (for example handing control back to hbloader instead of ending the process) is
+  left to WP-21 (applet support, nice to have); each try there can cost a reboot.
+Rejected: keeping the drill in WP-08's acceptance (it can't pass by system design); trying other crash endings now (applet
+mode isn't supported, D21, and every try risks a fatal).

@@ -125,9 +125,12 @@ would be a system fatal. So that path stays tiny:
 - It draws with libnx's text console (a plain framebuffer, no GPU setup, no fonts to load), reads buttons and touch, closes on any button,
   a tap, or after 60 s, and then returns from `main()` normally.
 - If any step fails (console or input setup), it skips the screen and exits. Nothing in it may abort, throw or call `fatalThrow`.
-- S1's crash handler is linked in and active from the first instruction, so even a bug here ends as "app closed + crash log".
-- Tested by the `applet-guard` scenario: desktop (`--simulate-applet-mode`) and the console via the Album, including one null-pointer drill
-  inside the screen (WP-08). The release build is checked from the Album in WP-12.
+- S1's crash handler is linked in and active from the first instruction, but in applet mode it can't prevent the system fatal
+  (D41, seen on the console in WP-08): however it ends the process, the HOME menu (qlaunch) stops the system when the Album's
+  process ends abnormally (`0x290`, `la::ResultLibraryAppletExitedAbnormally`). So the guard's only protection is being tiny
+  and verified. A safer crash ending for applet mode is WP-21's.
+- Tested by the `applet-guard` scenario: desktop (`--simulate-applet-mode`, with a null-pointer drill inside the screen) and the console
+  via the Album (refusal screen only, opt-in, owner watching; verified in WP-08). The release build is checked from the Album in WP-12.
 
 ## How safety is tested
 
@@ -137,7 +140,7 @@ would be a system fatal. So that path stays tiny:
 | SafeFs + allowlist unit tests (S4/S10) | unit | can't write outside our folder; harness can't call dangerous endpoints |
 | Fuzz targets (S6) | host, 60 s each in CI, longer on demand | parsers/decoders survive garbage |
 | Atomic-write kill test (S5) | desktop | kill the app mid-save 100× → config always loads |
-| **Crash drills** | device, **application mode** (+ one drill inside the S12 guard in applet mode) | see below |
+| **Crash drills** | device, **application mode** (the drill inside the S12 guard: desktop only, D41) | see below |
 | fatal-errors gate | every device scenario | any new file in `atmosphere/fatal_errors/` or `atmosphere/fatal_reports/` = **hard failure, stop the run, tell the owner** (the harness writes `tests/e2e/out/STOP-console-fatal.txt` and won't run again until the owner deletes it) |
 
 **Crash drills** (test builds only, triggered through the test config): null-pointer write, misaligned access, stack overflow on a
@@ -146,8 +149,8 @@ For each one, in application mode (D21), the drill passes only if: the app exits
 **no new `atmosphere/fatal_errors` or `fatal_reports` file appears**, no new `atmosphere/crash_reports` file appears (not even a moment
 later: the driver compares once more at the end of the scenario), the HOME menu shows "The software was closed because an error
 occurred." (screenshot check, D35), sys-autopilot still answers,
-and the next launch enters safe mode. The null-pointer drill also runs once inside the applet-mode guard screen (S12, WP-08), because that's
-the one place where a crash would still be a system fatal. Same pass rules (the safe-mode check uses the next launch in application mode).
+and the next launch enters safe mode. The null-pointer drill inside the applet-mode guard screen (S12) runs on desktop only: on the console a
+crash in applet mode is a system fatal whatever the handler does (D41, seen in WP-08 with the owner watching).
 **Optional control case**, only with the owner's explicit OK and the owner watching: the same null-pointer drill with our handler
 disabled, in application mode. It's expected to leave a new `atmosphere/crash_reports` file and *no* `logs/crash-*.txt` of ours, and no reboot
 screen (creport doesn't fatal applications), which proves our handler is what catches the crash. It's run only once, with nothing else writing to the SD.

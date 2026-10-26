@@ -78,8 +78,8 @@ Switch: closes the software and goes back to the HOME menu), and the logs land i
    says how it ended (desktop "exited with code 1", Switch one of `SwitchDriver`'s `ENDED_*`). `requestExit()` is the system's exit request (desktop SIGTERM, Switch HOME →
    Close software). `listFiles('logs')` lists a folder of the data folder; `lib/crashrecord.ts` reads crash records.
 6. **Low memory and applet mode:** `launch({ memLimitMb })` is desktop only. `launch({ mode: 'applet' })` is only for the
-   applet-guard scenario (WP-08: it waits for `launch_refused`, the only event then); on the Switch it stays switched off
-   (`APPLET_MODE_READY` in SwitchDriver) until the owner watches the first run.
+   applet-guard scenario (WP-08: it waits for `launch_refused`, the only event then). On the Switch it is opt-in
+   (`SNX_APPLET_CONSOLE=1`, owner watching) and never runs a drill: from the Album any crash is a system fatal (D41).
 7. Fixture manga and the test server: `docs/TESTING.md` "Fixture manga", `tools/test-server/README.md`. Read the page on screen with
    `findPageCodes()` from `lib/pagecode.ts` (decode the screenshot with sharp first), not by looking at the picture.
 8. **WP-08:** every `launch()` removes `config.json` first (a first run) unless `keepConfig: true` (restart tests). Text fields:

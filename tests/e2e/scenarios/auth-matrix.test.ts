@@ -26,9 +26,17 @@ const CONFIG = JSON.parse(readFileSync(fileURLToPath(new URL('../../../tools/tes
 };
 const JWT_EXPIRY_MS = 20_000; // server.json: the test server's access token lives 20 s
 
+// The test server's stop is a hard stop (tools/test-server/README.md). Now and then the next start then dies with a broken
+// server config (seen in WP-08: "null cannot be cast to ... ServerConfig"); `reset` repairs that (fresh data, same fixtures).
 function serverMode(auth: 'none' | 'basic' | 'ui_login'): void {
     execFileSync(SCRIPT, ['stop'], { stdio: 'ignore' });
-    execFileSync(SCRIPT, ['start', '--auth', auth], { stdio: 'ignore', timeout: 120_000 });
+    try {
+        execFileSync(SCRIPT, ['start', '--auth', auth], { stdio: 'ignore', timeout: 120_000 });
+    } catch {
+        console.warn(`auth-matrix: the test server didn't start with auth ${auth}; resetting it and trying once more`);
+        execFileSync(SCRIPT, ['reset'], { stdio: 'ignore', timeout: 300_000 });
+        execFileSync(SCRIPT, ['start', '--auth', auth], { stdio: 'ignore', timeout: 120_000 });
+    }
 }
 
 async function connected(s: Scenario, from = 0): Promise<AppEvent> {

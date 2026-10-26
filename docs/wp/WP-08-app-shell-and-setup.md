@@ -27,7 +27,7 @@ and the first-run flow (server URL → auth → test connection → main screen)
       unknown values count as applet mode): log one line, emit `launch_refused` (test builds), then `platform::showLaunchRefused(text)` with the
       D21 text. Switch: libnx text console, closes on any button, a tap, or after 60 s. Desktop: prints the text. Then `main()` returns normally
       (back to hbmenu). If any step fails, skip the screen and exit. Test builds can run the null-pointer drill inside the screen
-- [ ] Scenario `applet-guard` (**desktop green**; the device run waits for the owner) (desktop `--simulate-applet-mode` + device via the Album, see TESTING.md): screen shown (golden on Switch),
+- [x] Scenario `applet-guard` (desktop with the drill; console: refusal screen verified with the owner watching, the drill there is impossible by system design and dropped, D41) (desktop `--simulate-applet-mode` + device via the Album, see TESTING.md): screen shown (golden on Switch),
       `launch_refused` only, back at hbmenu, no new crash report or fatal file. On the device also the null-pointer drill inside the screen,
       **owner watching the first time** (it's the one place a crash would still be a system fatal)
 - [x] Scenario `low-memory` (desktop `--mem-limit`): `mem_pressure` without a crash
@@ -39,7 +39,7 @@ and the first-run flow (server URL → auth → test connection → main screen)
 - [x] Login screen for `ui_login`. Tokens persisted, auto-refresh, logout in Settings
 - [x] Error/empty/loading view components reused by all screens
 - [x] Scenarios: `smoke` (extended), `setup-first-run` (desktop types the URL; Switch pre-seeded), `auth-matrix`
-- [ ] Device E2E run of all of them in application mode, plus `applet-guard` via the Album
+- [x] Device E2E run of all of them in application mode (smoke, setup-first-run, auth-matrix, net-hello, image-bench, crash-drills), plus `applet-guard` via the Album (refusal screen, D41)
 
 ## Acceptance
 Unit (models) + desktop E2E + device E2E green. Restarting the app skips setup and lands on the main screen.
@@ -48,3 +48,9 @@ Opened from the Album, the app shows the D21 message and goes back to hbmenu, tw
 ## Sonnet-safe chunks
 - Error/empty/loading components *after* Opus has defined their interface.
 - i18n string table entries for the screens.
+
+## Outcome (2026-10-27)
+Done except "all connected pads merged", split into WP-08b (D40). Acceptance changed with the owner's OK (D41): opened from
+the Album the app shows the D21 message and goes back to hbmenu (verified on the console), but the null-pointer drill inside
+that screen can't end safely there: the HOME menu stops the system when the Album's process ends abnormally, whatever our
+crash handler does. The drill runs on desktop only; a safer crash ending in applet mode is WP-21's.

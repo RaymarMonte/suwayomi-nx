@@ -31,10 +31,12 @@ const NXLINK_TARGET = 'suwayomi-nx/suwayomi-nx.nro'; // relative to sdmc:/switch
 const APP_ARGS = ['-d', '--log-file'];
 
 /**
- * Applet mode (from the Album) waits for WP-03b's crash handler and WP-08's guard: there, any crash of ours is a system fatal
- * (D21, SAFETY.md). WP-08 sets this to true for the applet-guard scenario.
+ * Applet mode (from the Album) is opt-in: SNX_APPLET_CONSOLE=1 (D41). Any crash of ours there is a system fatal, whatever the
+ * crash handler does: Horizon's HOME menu (qlaunch) stops the whole system when the Album's process ends abnormally
+ * (0x290 = la::ResultLibraryAppletExitedAbnormally, seen in WP-08 with the owner watching). Only the applet-guard scenario
+ * uses it, and on the console only for the refusal screen, never a drill. Run it only with the owner watching.
  */
-const APPLET_MODE_READY = false;
+const APPLET_MODE_READY = process.env.SNX_APPLET_CONSOLE === '1';
 
 /** A new fatal error file appeared on the console. Nothing may carry on until the owner has checked it. */
 export class FatalConsoleError extends Error {}

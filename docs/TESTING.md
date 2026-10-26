@@ -13,7 +13,7 @@ The real console is the final check, driven by **sys-autopilot**.
 | 4 | Desktop E2E | WSL (Xvfb headless, or WSLg visible) | Node harness + `DesktopDriver` (xdotool keys, screenshots) | ~2–5 min | every UI WP |
 | 5 | Device E2E | Real Switch | Node harness + `SwitchDriver` (sys-autopilot REST) | ~5–15 min | end of every UI WP, before releases |
 | 6 | Soak / exploratory | Real Switch | harness soak scenario; Claude via sys-autopilot MCP | 30+ min | WP-12, releases, hard bugs |
-| S | **Safety** | build + host + Switch | `check-elf.sh` gate, SafeFs/allowlist unit tests, fuzzing, crash drills (application mode, + one inside the applet-mode guard) | gate: seconds, drills ~10 min | gate every build. Drills after WP-03b, before releases, after any crash-layer change |
+| S | **Safety** | build + host + Switch | `check-elf.sh` gate, SafeFs/allowlist unit tests, fuzzing, crash drills (application mode; the one inside the applet-mode guard on desktop only, D41) | gate: seconds, drills ~10 min | gate every build. Drills after WP-03b, before releases, after any crash-layer change |
 
 Safety details are in `docs/SAFETY.md` ("How safety is tested"). One rule applies to **every** device run: a new file in
 `atmosphere/fatal_errors/` or `atmosphere/fatal_reports/` is a hard failure. The harness stops and asks the owner. It never retries or continues.
@@ -199,10 +199,10 @@ Initial list, grown per UI WP:
 9. `broken-images` – Broken fixture shows placeholders, no crash
 10. `soak` (device only, application mode) – read 500 pages across chapters, `mem` events stay within the profile's budget, no leaks/crashes
 11. `applet-guard` (desktop `--simulate-applet-mode`, device via the Album) – the "can't run from the Album yet" screen shows, `launch_refused`
-    is the only event, a button press or tap closes it and the app is back in hbmenu, no new crash report or fatal file. On the device it also runs
-    the null-pointer drill inside that screen (SAFETY.md S12)
-12. `low-memory` (desktop) – a `--mem-limit` run triggers `mem_pressure` without a crash, and About shows the mode and memory
-    Desktop green since WP-08 (also `applet-guard` incl. its drill). The console run of `applet-guard` via the Album waits for the owner to watch.
+    is the only event, a button press or tap closes it and the app is back in hbmenu, no new crash report or fatal file. Desktop also runs
+    the null-pointer drill inside that screen (SAFETY.md S12). The console: opt-in `SNX_APPLET_CONSOLE=1` with the owner watching, the
+    refusal screen only (golden `refused`), never the drill: from the Album any crash is a system fatal (D41). Green on both in WP-08.
+12. `low-memory` (desktop) – a `--mem-limit` run triggers `mem_pressure` without a crash, and About shows the mode and memory. Green since WP-08.
 13. `crash-drills` (device and desktop, application mode) – every drill in SAFETY.md ends in a clean exit + crash log + safe mode next launch,
     with zero system fatals. One test per drill (`crash-drill-<name>`); the drills and what each should end in: `src/app/crash/README.md`.
     Desktop green since WP-03b; the console twice in a row since WP-03c (every crash there ends with the HOME menu's
