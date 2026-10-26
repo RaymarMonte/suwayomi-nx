@@ -34,6 +34,8 @@ and the first-run flow (server URL → auth → test connection → main screen)
 - [ ] Screen pattern: `XxxActivity` (view) + `XxxModel` (state/logic, unit-tested) + XML layout. Documented in `src/ui/README.md`
 - [ ] `MainActivity` tab frame with placeholder tabs (Library, Updates, History, Browse, Settings)
 - [ ] Setup screen: URL (swkbd), auth mode picker, username/password, "Test connection" (shows server version or a clear error), http-with-auth warning
+  - When the URL is a Tailscale address (a `*.ts.net` name or an IP in `100.64.0.0/10`), say the Switch has no Tailscale and suggest the
+    server's home-network address. The owner's own server URL is one (D18 "Update"), so they'd hit this on first run
 - [ ] Login screen for `ui_login`. Tokens persisted, auto-refresh, logout in Settings
 - [ ] Error/empty/loading view components reused by all screens
 - [ ] Scenarios: `smoke` (extended), `setup-first-run` (desktop types the URL; Switch pre-seeded), `auth-matrix`

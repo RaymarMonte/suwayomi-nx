@@ -71,6 +71,8 @@ writes its full `docs/wp/WP-xx-*.md` using the same template, once the MVP has s
 - **WP-18 Offline.** Download chapter pages to SD, offline library view, progress queue that syncs when back online.
   Opus because of the sync/conflict rules.
 - **WP-19 Polish.** All settings screens, translations (Haiku extracts strings), light/dark, optional HTTPS via curl+mbedTLS.
+  Real target: the owner's server already speaks HTTPS through Tailscale Serve (D18 "Update": Let's Encrypt ECDSA certificate, chain
+  YE2 → Root YE → ISRG Root X2, TLS 1.2 works). The Switch would use it through a Tailscale travel router. Check that the Switch trusts that chain.
 - **WP-20 Release.** GitHub Releases with .nro + checksums, user README with screenshots, changelog (Haiku), optional self-hosted runner that runs device E2E.
 - **WP-21 Applet mode (nice to have, D21).** Only if the owner still wants it after the MVP. Make the app usable when opened from the Album:
   measure applet memory (alone and with a game suspended), build the `Lite` profile (ARCHITECTURE.md "Lite" column, D12), replace the

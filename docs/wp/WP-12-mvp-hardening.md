@@ -19,7 +19,8 @@ STATUS.md, `docs/TESTING.md` (scenarios 8–10), any open bug notes.
 - [ ] Crash-safety pass: long fuzz runs (≥ 10 min per target), full `crash-drills` in application mode plus `applet-guard`, `check-elf.sh` on the release build,
       zero `atmosphere/fatal_errors` files across all device runs of this WP
 - [ ] Release build keeps the crash handler (only test hooks/drills are compiled out). Archive the matching `.elf` with the release for symbolizing user crash logs
-- [ ] Owner dogfooding against the **real** server (read-only use; note issues in STATUS). Fix the blocking ones
+- [ ] Owner dogfooding against the **real** server (read-only use; note issues in STATUS). Fix the blocking ones.
+      On the Switch that's `http://<server-lan-ip>:4567` with basic auth, not the Tailscale address (D18 "Update"). The LAN port must be open first
 - [ ] App icon, name, version, author in NACP. Release build (no test hooks)
 - [ ] `README.md` user section: install, first run, controls, **safety notes** (open it by holding R while starting a game: the Album isn't supported yet, D21; FAT32 recommended,
       exit with + rather than HOME → Close while downloading, close games before opening the Album, where crash logs are). `CHANGELOG.md`

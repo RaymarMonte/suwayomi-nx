@@ -82,6 +82,8 @@ we find out on day one, not in week four.
 1. Console: **v1 (Erista), FW 22.5.0, Atmosphère 1.11.2, booting emuMMC** (the "E" in `22.5.0|AMS 1.11.2|E`).
    sys-autopilot isn't installed yet. Read D19 before installing it.
 2. Real server: latest stable Suwayomi on an always-on laptop, `basic_auth`, HTTP on the home LAN (Tailscale for other devices). See D18.
+   (2026-10-26: it now runs on an always-on Linux machine, v2.4.2366, reached at a Tailscale HTTPS address with no auth yet. The Switch
+   can't use that address, so it needs the LAN port opened, with basic auth, first. D18 "Update".)
 3. GitHub repo: yes, **public** (D23). Licence Apache-2.0 confirmed (D8).
 4. **Touch first, controller second** (D16).
 5. Application mode: hold R while launching **Spelunky 2**. `override_config.ini` and `[hbloader]` were never changed, so they're at the defaults.

@@ -3,6 +3,7 @@
 Researched 2026-10-21 against `Suwayomi/Suwayomi-Server` master and wiki. Stable: **v2.4.2366** (2026-09-30).
 Checked in WP-02 (2026-10-25) against the real server v2.4.2366: its schema is `tests/fixtures/schema.graphql`, real answers are in
 `tests/fixtures/responses/` (made by `tools/record-fixtures`, the query documents are in `tools/record-fixtures/queries/`).
+The owner's own server runs the same version (v2.4.2366 Stable, checked 2026-10-26, D18).
 ✅ = seen in the schema or in a real answer from the test server (or read in the server source, where it says so).
 
 ## Transport ✅

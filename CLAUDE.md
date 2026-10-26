@@ -75,7 +75,8 @@ Build and test commands run inside WSL Ubuntu: `wsl.exe -d Ubuntu --exec bash -l
 (`--exec`, not `--`: with `--` WSL runs the line through a shell first and `$VARS` get expanded too early. `-l` loads devkitPro's env and nvm).
 Repo path in WSL: `/mnt/c/Users/JohnDoe/Projects/suwayomi-nx`. Build dirs go in `~/build/suwayomi-nx/...` (it's faster).
 The repo is public (D23), so docs write `JohnDoe` for the real Windows user name and `<switch-ip>` for the Switch's LAN IP
-(it's in `tests/e2e/device/.env`). Use the session's real working directory. Commits: repo-local noreply identity (D23);
+(it's in `tests/e2e/device/.env`). The owner's real server (D18) is written `<server-tailnet-name>` and `<server-lan-ip>`
+(they're in the git-ignored `docs/local/real-server.md`; tests never use it, D11). Use the session's real working directory. Commits: repo-local noreply identity (D23);
 push from WSL, where `gh` is logged in (SETUP.md C). `<repo>` below = the repo path in WSL.
 
 - Unit tests: `<repo>/tools/build.sh tests` (ctest, one entry per module, then the GraphQL contract test). Test-hooks variant: add `--test-hooks`.

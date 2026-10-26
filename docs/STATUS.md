@@ -25,9 +25,9 @@
 - Builds (from `/mnt/c`): unit tests ~10 s, desktop ~50 s, Switch ~55 s clean (+ gate ~5 s); `.nro` 2.7 MB. 0 warnings in our code.
   Backups (WP-00a): `C:\Users\JohnDoe\SwitchBackup\2026-10-22\`. sysMMC NAND: owner's external drive.
 - Test server: `reset` + `start` ~10 s; `tools/record-fixtures/record-all.sh` ~1 min (it ends with the server running, auth none).
-- WSL can fail to start ("insufficient system resources") when Windows memory is nearly all committed (it reserves up to 12 GB):
-  ask the owner to close apps. Device e2e: `net-hello` ~35 s, `smoke` ~25 s.
-- Device: `crash-drills` ~9 min, one drill ~50 s. A start-up crash leaves no log: use temporary breadcrumb writes (WP-03c).
+- WSL can fail to start ("insufficient system resources") when Windows memory is nearly all committed (it reserves up to 12 GB): ask the owner to close apps.
+- Device: e2e `net-hello` ~35 s, `smoke` ~25 s, `crash-drills` ~9 min (one drill ~50 s). A start-up crash leaves no log: use breadcrumb writes (WP-03c).
+- Owner's real server (D18 "Update", never in tests): Tailscale HTTPS only, no auth, LAN port closed (Switch can't reach it). Addresses: `docs/local/`.
 ## Console facts
 - **v1 Erista · FW 22.5.0 · AMS 1.11.2 · emuMMC** (`emuMMC/RAW1`), RCM payload, Hekate 6.5.3 (Launch → CFW (EMUMMC)). SD FAT32, ~88 GB free.
 - Sysmodules: sys-clk, emuiibo, MissionControl, sys-patch, nx-ovlloader, **sys-autopilot-nx `4200000000004150`** (`http://<switch-ip>:4150`).

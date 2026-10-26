@@ -1,6 +1,9 @@
 # Secrets: the sys-autopilot-nx bearer token for the test Switch (WP-00b).
 tests/e2e/device/.env
 
+# The owner's real server addresses (D18, D23): kept on this PC only.
+docs/local/
+
 # Test output: screenshots, logs, copies of console crash reports (D23: never commit those).
 tests/e2e/out/
 tests/out/
