@@ -11,6 +11,7 @@
   `{url}/api/graphql`; read limits from the profile. The Hello server check is temporary (WP-08 replaces it).
 - **Green:** unit 6/6 (+ under ThreadSanitizer: new `tools/build.sh tsan`, also a CI step), contract 26/26, net coverage 95 %,
   npm test 105, typecheck, desktop + Switch builds (gate PASS with curl linked), e2e `smoke` + new `net-hello` on desktop and Switch.
+  CI green on `ba8807e` (5 jobs, tsan step included).
 - **Fixed:** `tests/e2e/lib/suwayomi.ts` `windowsHost()` reversed the IP (1.64.27.172); now `gatewayFromRoute()` with a test.
 - **Facts:** the Switch's curl is 7.69 with the blocking DNS resolver (use IPs); borealis's socket setup (12 BSD sessions) is kept.
   `appServerUrl()` finds the PC's LAN address from `test-server.sh status`, so no DHCP reservation is needed.
