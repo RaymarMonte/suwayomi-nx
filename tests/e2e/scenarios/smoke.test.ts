@@ -1,21 +1,31 @@
-// smoke (TESTING.md scenario 1): the app starts in application mode, shows its first screen, settles (idle), writes no error
-// events, matches the golden screenshot, and quits cleanly with no crash. WP-03: the first screen is still the Hello screen;
-// WP-08/WP-09 change it to Setup/Library.
+// smoke (TESTING.md scenario 1, extended in WP-08): with the test server set up (test config), the app starts in application
+// mode, opens the main screen on the Library tab, connects to the server (server_check), settles (idle), matches the golden
+// screenshot, opens the Settings tab by touch (About shows the launch mode and profile), writes no error events and quits
+// cleanly with no crash. Needs the test server (tools/test-server/test-server.sh start).
 
 import { expect } from 'vitest';
 
 import { scenario } from '../lib/scenario.ts';
-
-// The footer clock (bottom left) shows the time with seconds. On the Switch the same corner also has battery and Wi-Fi.
-const CLOCK = { x: 0, y: 650, w: 420, h: 70, why: 'clock, battery, Wi-Fi' };
+import { CLOCK_MASK, tab } from '../lib/screens.ts';
+import { appServerUrl } from '../lib/suwayomi.ts';
 
 scenario('smoke', async (s) => {
-    await s.launch();
-    const screen = await s.events.waitForEvent('screen', { name: 'Hello' });
-    const idle = await s.events.waitForEvent('idle', {}, { from: s.events.events.indexOf(screen) });
-    expect(idle.t).toBeGreaterThanOrEqual(screen.t);
+    const url = appServerUrl(s.driver.name);
+    const start = await s.launch({ testConfig: { server: { url } } });
+    expect(start.imageBudget, 'app_start.imageBudget').toBeGreaterThan(0);
+    await s.events.waitForEvent('screen', { name: 'Library' });
+    const check = await s.events.waitForEvent('server_check', { where: 'main' }, { timeoutMs: 30_000 });
+    expect(check.ok, JSON.stringify(check)).toBe(true);
+    await s.events.waitForEvent('idle', {}, { from: s.events.events.indexOf(check) });
+    await s.expectGolden('library', { masks: [CLOCK_MASK] });
 
-    await s.expectGolden('hello', { masks: [CLOCK] });
+    const mark = s.events.mark();
+    const settings = tab('Settings');
+    await s.driver.touch(settings.x, settings.y);
+    const screen = await s.events.waitForEvent('screen', { name: 'Settings' }, { from: mark });
+    expect(screen.params).toMatchObject({ mode: 'application', profile: 'full', safeMode: false });
+    await s.events.waitForEvent('idle', {}, { from: mark });
+
     s.expectNoErrorEvents();
     await s.driver.quit();
 });

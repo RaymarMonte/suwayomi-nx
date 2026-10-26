@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Desktop smoke test (WP-01; CI's desktop job still uses it, D32. The E2E harness's smoke scenario does more: tools/e2e.sh desktop smoke): starts the desktop build on a virtual X screen (Xvfb),
-# waits until the log says the Hello screen has the focus, saves a screenshot, checks the app is still running, stops it.
+# waits until the log says the setup screen (first run, WP-08) has the focus, saves a screenshot, checks the app is still running, stops it.
 # Runs inside WSL and in CI. Exit code 0 = pass.
 #
 # Usage:  tools/desktop-smoke.sh [build dir]   (default ~/build/suwayomi-nx/desktop)
@@ -14,7 +14,7 @@ set -euo pipefail
 BUILD="${1:-$HOME/build/suwayomi-nx/desktop}"
 OUT="$BUILD/smoke"
 DISPLAY_NUM="${SNX_XVFB_DISPLAY:-:97}"
-EXPECT='Giving focus to brls::Box (id="hello/box")'
+EXPECT='Giving focus to snx::ui::TextFieldCell (id="setup/url")'
 
 [ -x "$BUILD/suwayomi-nx" ] || { echo "no desktop build in $BUILD (run tools/build.sh desktop)"; exit 1; }
 rm -rf "$OUT" "$BUILD/data"
@@ -51,6 +51,6 @@ if ! kill -0 "$APP_PID" 2> /dev/null; then
     echo "FAIL: the app exited early. Log: $OUT/app.log, stdout: $OUT/stdout.txt"; exit 1
 fi
 if ! grep -qF "$EXPECT" "$OUT/app.log"; then
-    echo "FAIL: the Hello screen never got the focus. Log: $OUT/app.log"; exit 1
+    echo "FAIL: the setup screen never got the focus. Log: $OUT/app.log"; exit 1
 fi
-echo "PASS: Hello screen up ($(grep -m1 'suwayomi-nx ' "$OUT/app.log" | sed 's/.*\] //')). Screenshot: $OUT/screenshot.png"
+echo "PASS: setup screen up ($(grep -m1 'app: suwayomi-nx ' "$OUT/app.log" | sed 's/^[0-9]* [A-Z] app: //')). Screenshot: $OUT/screenshot.png"

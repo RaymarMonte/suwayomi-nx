@@ -1,6 +1,7 @@
 #include <unistd.h>
 
 #include <csignal>
+#include <cstdio>
 
 #include "platform/Platform.hpp"
 
@@ -73,6 +74,24 @@ void installQuitSignalHandlers() {
 
 bool quitRequested() {
     return gQuitRequested != 0;
+}
+
+bool networkConnected() {
+    return true;  // the PC's network isn't checked: an unreachable server is reported as such
+}
+
+void setResumeHandler(void (*)()) {
+    // A PC doesn't sleep under the app the way the Switch does.
+}
+
+bool showLaunchRefused(const char* text, int, void (*onShown)()) {
+    std::fputs(text, stdout);
+    std::fputs("\n", stdout);
+    std::fflush(stdout);
+    if (onShown != nullptr) {
+        onShown();
+    }
+    return true;
 }
 
 void exitProcessNow(int code) {

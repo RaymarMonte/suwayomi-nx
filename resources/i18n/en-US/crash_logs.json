@@ -1,0 +1,5 @@
+{
+    "title": "Crash logs",
+    "intro": "Saved in switch/suwayomi-nx/logs/crashes on the SD card, newest first. They help find what went wrong.",
+    "empty": "No crash logs."
+}

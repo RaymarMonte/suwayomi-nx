@@ -51,13 +51,22 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
   `tiles`, `fetchMs`, `decodeMs`, `bytes`, `fileBytes`, `memUsed` at the decode's peak), `mem_pressure` (`usedPct`, `action`
   `shrink_caches` / `recovered`), and the test config's `"imageBench": {"paths": [...], "repeat": n}`, which makes the Hello
   screen run the image benchmark and write one `image_bench` summary (`loads`, `ok`, `failed`, `ms`, `memUsedBefore/After`).
-- `idle` is emitted when there are no pending net/decode jobs and no running animations (borealis's running tickings) for 3 frames in a row,
+- WP-08 (D40) added `launch_refused` (the only event in applet mode), `mem` (`used`, `total`, `free`, every 10 s), `focus`
+  (`view`: the focused view's class and id), `error` (`where`, `kind`, `msg`: a screen shows an error), `server_check` (`where`
+  main/setup/diagnostics, `ok`, `version` or `kind`), `login` (the client's login changed: `auth`, `hasAccessToken`,
+  `hasRefreshToken`), `login_screen` (`ok`), `config_saved` (`bytes`, `server`, `auth`, `hasToken`), `net_burst` (`sent`, `ok`),
+  `screen.params` (Setup: `firstRun`, `url`; Settings: `mode`, `profile`, `memUsed`, `memTotal`, `safeMode`, `crashLogs`) and the
+  profile's budgets in `app_start` (`imageBudget`, `coverBudget`, `textureBudget`, `maxDecode`, `httpConcurrency`, `decodeThreads`).
+- `idle` is emitted when there are no pending net/decode jobs (`http.inFlight()`, `images.activeJobs()`, WP-08) and no running animations (borealis's running tickings) for 3 frames in a row,
   once per quiet spell: again only after something was busy or a new `screen` came. **Tests wait for `idle`, never `sleep`.**
 - The app empties the file at start and appends each event with open → write → close, never keeping it open: on the Switch a file that one
   program has open for writing can't be opened by another, so a line the app can't write right now (sys-autopilot is reading the file)
-  stays in a queue and goes out on the next frame. The same lock means `logs/app.log` (kept open by the logger) can only be read after the app quits.
-- Test config `<data>/test/config.json` (uploaded by the harness) can pre-set the server URL/auth, turn off animations,
-  fix the language, and skip the first-run screen. That's how we avoid driving the on-screen keyboard.
+  stays in a queue and goes out on the next frame. Since WP-08 the logger writes `logs/app.log` the same way (every 2 s), so it can be read while the app runs.
+- Test config `<data>/test/config.json` (uploaded by the harness, `core/TestConfig.hpp`): `"server": {"url", "auth":
+  "none|basic|ui_login", "username", "password"}` = the app starts with that server instead of config.json's (no setup screen);
+  `"showSetup": true` = the setup screen opens with those values filled in (the Switch can't type in a test; the login screen
+  fills in the password too); `"diagnostics": {"burst": n}` = the diagnostics screen; `"imageBench"`; `"drill"`. The harness
+  removes `config.json` before every launch unless `launch({ keepConfig: true })` (a restart test).
 - Events are text. Asserting on them costs almost no tokens, while screenshots are images and cost a lot.
 
 ## Fixture manga (deterministic content)
@@ -97,6 +106,7 @@ interface Driver {
   stick(side: 'left'|'right', x: number, y: number, ms: number): Promise<void>;
   touch(x: number, y: number, ms?: number): Promise<void>;   // one finger, screen pixels 0-1279 × 0-719, tap = default 100 ms
   swipe(x1: number, y1: number, x2: number, y2: number, ms: number, steps?: number): Promise<void>;
+  typeText(text: string): Promise<void>;           // WP-08: desktop types into the open text dialog; Switch: NotSupportedError
   screenshot(): Promise<Buffer>;                   // 1280×720: PNG on desktop (lossless), JPEG on the Switch
   requestExit(): Promise<void>;                    // WP-03b: desktop SIGTERM, Switch HOME → Close software (an exit request)
   waitForExit(timeoutMs: number): Promise<string>; // WP-03b: the app ended by itself (crash drills); Switch: crash folders checked
@@ -178,9 +188,9 @@ Every scenario runs in **application mode** with the `Full` profile. Applet mode
 
 `tests/e2e/scenarios/*.test.ts` using vitest. Each one: launch with test config → steps → assert events (+ optional golden diff) → quit.
 Initial list, grown per UI WP:
-1. `smoke` – app starts, reaches Library, `idle`, no `error` events, no crash reports
-2. `setup-first-run` – no config → Setup screen → (desktop only: type URL) → Library
-3. `auth-matrix` – none / basic_auth / ui_login (with refresh after a short JWT expiry) against three test-server configs
+1. `smoke` – app starts with the test server, reaches Library connected (`server_check`), `idle`, golden, Settings by touch, no `error` events, no crash reports (WP-08)
+2. `setup-first-run` – no config → Setup screen → (desktop: tap the field, type the URL; Switch: `showSetup`) → Continue → Library; a restart skips setup (WP-08)
+3. `auth-matrix` – none / basic (+ wrong password → Setup) / ui_login (login, renewal after the 20 s JWT, logout → login screen, restart on saved tokens), restarting the test server per mode (WP-08)
 4. `library-browse` – switch categories, scroll 300-chapter title, open details
 5. `reader-paged` – open Alpha ch1, flip 10 pages, colour-code confirms each page, progress saved on server (checked via GraphQL from the harness)
 6. `reader-rtl-spread` – Beta RTL, direction and spread handling
@@ -192,13 +202,14 @@ Initial list, grown per UI WP:
     is the only event, a button press or tap closes it and the app is back in hbmenu, no new crash report or fatal file. On the device it also runs
     the null-pointer drill inside that screen (SAFETY.md S12)
 12. `low-memory` (desktop) – a `--mem-limit` run triggers `mem_pressure` without a crash, and About shows the mode and memory
+    Desktop green since WP-08 (also `applet-guard` incl. its drill). The console run of `applet-guard` via the Album waits for the owner to watch.
 13. `crash-drills` (device and desktop, application mode) – every drill in SAFETY.md ends in a clean exit + crash log + safe mode next launch,
     with zero system fatals. One test per drill (`crash-drill-<name>`); the drills and what each should end in: `src/app/crash/README.md`.
     Desktop green since WP-03b; the console twice in a row since WP-03c (every crash there ends with the HOME menu's
     "software was closed" note, D35)
-14. `net-hello` (device and desktop, WP-05) – the Hello screen asks the test server for its version through the curl client, then sends 20
+14. `net-hello` (device and desktop, WP-05) – the diagnostics screen (WP-08; was the Hello screen) asks the test server for its version through the curl client, then sends 20
     requests at once; all 21 `net` events must be HTTP 200 (the 20 queue behind 6 transfers, none fails). Saves a screenshot to look at.
-    Needs the test server; the Switch reaches it at the PC's LAN address (`lib/suwayomi.ts` `appServerUrl`). WP-08 folds it into Setup.
+    Needs the test server; the Switch reaches it at the PC's LAN address (`lib/suwayomi.ts` `appServerUrl`). Setup's "Test connection" is the user-facing version check.
 
 ## Golden screenshots
 - Stored per driver: `tests/e2e/goldens/{desktop,switch}/<scenario>/<step>.png`.

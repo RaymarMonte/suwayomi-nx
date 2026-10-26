@@ -103,6 +103,7 @@ add_subdirectory(src/net)
 add_subdirectory(src/api)
 add_subdirectory(src/image)
 add_subdirectory(src/platform)
+add_subdirectory(src/ui)  # the screens' models only: the views are compiled into the app
 
 if (SNX_BUILD_APP)
     add_subdirectory(${BOREALIS_LIBRARY} borealis)

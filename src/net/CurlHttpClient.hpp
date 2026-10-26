@@ -42,6 +42,7 @@ class CurlHttpClient final : public HttpClient {
     Future<HttpResult> submit(Request request, Priority priority, CancelToken cancel) override;
     void resetConnections() override;
     void shutdown() override;
+    std::size_t inFlight() const override;
 
   private:
     struct Impl;

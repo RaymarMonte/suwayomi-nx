@@ -20,6 +20,7 @@
 - `RetryPolicy.hpp` (WP-05): `retryDelayMs` (doubling, capped), `shouldRetry` (idempotent + transient + retries left), `isTransientHttpStatus`.
 - `Version.hpp`, `LaunchOptions.hpp`, `RuntimeInfo.hpp`, `TestEvents.hpp` (WP-01/03): version, flags, launch mode, test events.
 - `SafePath.hpp`, `CrashRecord.hpp`, `TestConfig.hpp` (WP-03b): write-jail path rules, crash record format, test config.
+- `LogBuffer.hpp`, `SaveScheduler.hpp` (WP-08): the log file's line format, buffering and rotation; when to save config.json (debounce). WP-08 also added test config keys (server login, `showSetup`, `diagnostics`), test events (`launch_refused`, `mem`, screen params) and profile fields (`logFileBytes`, `logFlushMs`, `configSaveDelayMs`).
 
 **Depends on:** the C++17 standard library and nlohmann/json 3.12.0 (`third_party/`, include `<nlohmann/json.hpp>`).
 

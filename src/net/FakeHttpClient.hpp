@@ -33,6 +33,7 @@ class FakeHttpClient final : public HttpClient {
     Future<HttpResult> submit(Request request, Priority priority, CancelToken cancel) override;
     void resetConnections() override;
     void shutdown() override;
+    std::size_t inFlight() const override { return waitingCount(); }  // held requests; others complete at once
 
   private:
     struct Waiting {

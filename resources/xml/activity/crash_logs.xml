@@ -1,0 +1,32 @@
+<!-- Settings -> About -> Crash logs (src/ui/main/SettingsTab.hpp, CrashLogsActivity, WP-08). The rows are added in code. -->
+<brls:AppletFrame
+    iconInterpolation="linear"
+    footerHidden="false">
+
+    <brls:ScrollingFrame
+        title="@i18n/crash_logs/title"
+        icon="@res/icon/icon.png"
+        width="auto"
+        height="auto"
+        grow="1.0">
+
+        <brls:Box
+            id="crash_logs/list"
+            width="auto"
+            height="auto"
+            axis="column"
+            paddingLeft="80"
+            paddingRight="80"
+            paddingTop="24"
+            paddingBottom="40">
+
+            <brls:Label
+                text="@i18n/crash_logs/intro"
+                fontSize="18"
+                marginBottom="16" />
+
+        </brls:Box>
+
+    </brls:ScrollingFrame>
+
+</brls:AppletFrame>

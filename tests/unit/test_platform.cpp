@@ -44,4 +44,24 @@ TEST_CASE("desktop: SIGTERM asks for a clean quit instead of killing the process
     std::signal(SIGTERM, SIG_DFL);
 }
 
+namespace {
+int gShown = 0;
+void countShown() {
+    ++gShown;
+}
+}  // namespace
+
+TEST_CASE("desktop: the applet-mode guard's screen prints and returns at once, network counts as up (WP-08)") {
+    gShown = 0;
+    CHECK(snx::platform::showLaunchRefused("Suwayomi NX can't run from the Album yet.", 60000, countShown));
+    CHECK(gShown == 1);
+    CHECK(snx::platform::showLaunchRefused("again", 60000, nullptr));
+    CHECK(gShown == 1);
+    CHECK(snx::platform::networkConnected());
+    snx::platform::setResumeHandler(countShown);  // never called on the PC
+    snx::platform::setResumeHandler(nullptr);
+    CHECK(gShown == 1);
+    CHECK(snx::platform::runtimeInfo().appletType == -1);
+}
+
 }  // TEST_SUITE("platform")

@@ -22,6 +22,16 @@ export interface LaunchOptions {
     memLimitMb?: number;
     /** More app flags. */
     args?: string[];
+    /**
+     * WP-08: keep the app's config.json from the last launch (a restart test). By default every launch removes config.json
+     * and config.json.bak first, so each scenario starts like a first run unless its test config names a server.
+     */
+    keepConfig?: boolean;
+}
+
+/** WP-08: in applet mode the app writes only this event (D21), so launch() waits for it instead of app_start. */
+export function startEventFor(opts: LaunchOptions = {}): 'app_start' | 'launch_refused' {
+    return opts.mode === 'applet' ? 'launch_refused' : 'app_start';
 }
 
 export interface Driver {
@@ -49,6 +59,12 @@ export interface Driver {
     touch(x: number, y: number, ms?: number): Promise<void>;
     /** One finger drag from (x1, y1) to (x2, y2) over `ms`. */
     swipe(x1: number, y1: number, x2: number, y2: number, ms: number, steps?: number): Promise<void>;
+    /**
+     * WP-08: types text into the keyboard dialog that is open (desktop: borealis's text dialog reads the PC keyboard).
+     * The Switch can't (the system keyboard has no automation): NotSupportedError, so its scenarios fill fields from the
+     * test config instead.
+     */
+    typeText(text: string): Promise<void>;
 
     /** The screen at 1280×720: PNG on desktop (lossless), JPEG on the Switch. sharp and the golden compare read both. */
     screenshot(): Promise<Buffer>;

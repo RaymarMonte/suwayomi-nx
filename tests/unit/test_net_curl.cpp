@@ -65,6 +65,14 @@ HttpResult waitResult(const Future<HttpResult>& future) {  // a copy: the future
     return future.get();
 }
 
+// Spins until the client has nothing in flight, at most 2 s (the count drops just after a future completes).
+bool waitIdle(const CurlHttpClient& client) {
+    for (int i = 0; i < 200 && client.inFlight() != 0; ++i) {
+        std::this_thread::sleep_for(10ms);
+    }
+    return client.inFlight() == 0;
+}
+
 // Spins until `flag` is set, at most 10 s.
 bool waitFlag(const std::atomic<bool>& flag) {
     for (int i = 0; i < 1000 && !flag.load(); ++i) {
@@ -206,11 +214,13 @@ TEST_CASE("curl: cancel a slow body, and cancel before it starts") {
     auto queued = client.submit(get(s.url("/trickle")), Priority::Interactive, token);  // waits: only 1 at a time
     REQUIRE(waitFlag(started));
     std::this_thread::sleep_for(100ms);
+    CHECK(client.inFlight() == 2);  // one running, one queued
     const auto began = std::chrono::steady_clock::now();
     token.cancel();
     CHECK(waitResult(future).error().kind == ErrorKind::Cancelled);
     CHECK(waitResult(queued).error().kind == ErrorKind::Cancelled);
     CHECK(std::chrono::steady_clock::now() - began < 1000ms);
+    CHECK(waitIdle(client));
     stop = true;
 }
 
@@ -241,6 +251,7 @@ TEST_CASE("curl: many parallel requests never exceed maxConcurrent") {
     }
     CHECK(peak.load() <= 6);
     CHECK(peak.load() >= 2);
+    CHECK(waitIdle(client));
 }
 
 TEST_CASE("curl: queued requests start most urgent first") {

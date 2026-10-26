@@ -1,4 +1,4 @@
-// image-bench (WP-07): the image pipeline's benchmark. The Hello screen loads Alpha ch 1 p 1 (JPEG 1000x1500) and Gamma
+// image-bench (WP-07): the image pipeline's benchmark. The diagnostics screen (WP-08; was the Hello screen) loads Alpha ch 1 p 1 (JPEG 1000x1500) and Gamma
 // Webtoon ch 1 p 1 (WebP 800x12000) from the test server through the app's real ImageLoader, REPEAT rounds each, every round
 // as a page (box 2560x1440) and as a webtoon strip (box 2560x0), with the memory cache emptied before every load: each load
 // decodes, and after the first one the bytes come from the disk cache (the SD card on the Switch). The numbers come from the
@@ -72,7 +72,7 @@ scenario(
         const jpeg = images.filter((e) => e.url === `${url}${paths[0]}`);
         const webp = images.filter((e) => e.url === `${url}${paths[1]}`);
         for (const e of [...jpeg, ...webp]) expect(e.error, JSON.stringify(e)).toBe('');
-        // The Hello screen loads each image as a page (box 2560x1440), then as a strip (box 2560x0), REPEAT times in a row.
+        // The diagnostics screen loads each image as a page (box 2560x1440), then as a strip (box 2560x0), REPEAT times in a row.
         const pageBox = (list: AppEvent[]) => list.filter((_, i) => i % 2 === 0);
         const stripBox = (list: AppEvent[]) => list.filter((_, i) => i % 2 === 1);
         const result = {

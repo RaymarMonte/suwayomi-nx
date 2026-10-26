@@ -20,11 +20,13 @@ add_library(snx_core STATIC
     ImageGeometry.cpp
     Json.cpp
     LaunchOptions.cpp
+    LogBuffer.cpp
     MemoryPressure.cpp
     RuntimeInfo.cpp
     RetryPolicy.cpp
     RuntimeProfile.cpp
     SafePath.cpp
+    SaveScheduler.cpp
     TestConfig.cpp
     TestEvents.cpp
     Version.cpp

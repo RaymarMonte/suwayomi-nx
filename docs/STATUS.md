@@ -1,22 +1,20 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 1 – Core (WP-04 … WP-07) is done. Next WP:** WP-08 (app shell, settings, logging, server setup/login). Done: WP-00a … 07.
+**Phase 2 – App (WP-08 …). Now:** WP-08 (app shell, settings, logging, setup/login), **paused for the console**. Done: WP-00a … 07.
 
-## Last session (2026-10-26, WP-07, Opus) — done
-- **image now has (D39, `src/image/README.md`):** `ImageLoader::load(LoadRequest{url, box, priority, kind}, cancel, done)` →
-  `done(ImageResult)` on the main thread (`ImagePtr` = RGBA + tiles ≤ 2048 px, or `ImageError`); one download per URL; page and
-  cover memory caches; disk cache `cache/images/` (write-once, checksummed, budget, free-space guard); `TextureBudget` (S7).
-- **Decoders:** libjpeg-turbo (DCT scaling), libpng, libwebp 1.6.0 from the new submodule `library/libwebp` (devkitPro's 1.0.2
-  has CVE-2023-4863), our own GIF decoder. Header guard: sides ≤ 16384, one decode ≤ `maxDecodeBytes` (core `planDecode`).
-- **Switch benchmark** (`tools/e2e.sh switch image-bench`, v1, app mode, from the SD cache): JPEG 1000×1500 page 18 ms (was 134 ms
-  before the new `shrinkSlackPercent` 15: no 4 % CPU shrink), WebP strip 800×12000 176 ms, SD read 6–11 ms, peak +38.6 MB.
-- **Fixed on the way:** (1) **safety gate** `check-elf.sh` compared hex words as numbers (`903e2100` = infinity): 236 false
-  "stored pointers" once `appletSetCpuBoostMode` moved. Now text compares; self-test still fails all 4 planted calls. **Owner:
-  please OK this gate change** (CLAUDE.md). (2) Desktop `runtimeInfo()` counts glibc's mmap'd blocks (images were invisible).
-- **For WP-08+:** main() already has the `ImageLoader` (shutdown before http); screens `load()` with their token, `cached()` to
-  draw at once; idle check can add `activeJobs()`. Reader: box 2× screen, webtoon `{2× width, 0}` + `tileWindow()`.
-- **Green:** unit 6/6, test-hooks, TSan, one-off ASan/UBSan (170/171: `mallinfo2()` reads 0 under ASan; no memory errors),
-  coverage (`src/image` 89.5 %), fuzz (3 targets), contract, integration ×3 (+ loader on real pages), desktop + smoke, e2e
-  `image-bench` desktop + Switch, Switch build (gate PASS, `.nro` 3.8 MB), `gate-selftest`, npm. CI green on `f1366e5` (5 jobs).
+## Paused (2026-10-26, WP-08, Opus): the Switch runs are left (owner's rule: pause and sleep the PC when the console is needed)
+- **Done and committed (D40, `src/ui/README.md`, `src/app/README.md`):** `AppContext`; Activity + Model screens (`snx_ui_models`,
+  suite `ui`); Main (5 tabs, connection check = aboutServer + categories with a login), Setup (Tailscale/http/IP warnings),
+  Login, Settings (server, log out, About: mode, memory, safe mode, crash logs); logger (`logs/app.log`, 2 s buffer, rotation);
+  ConfigStore (debounced, `.bak`); applet-mode guard (libnx console); `net::inFlight()` in the idle rule; WP-08 test events.
+- **Green:** unit 7/7 (+ contract), test-hooks, TSan, coverage 93.7 %, integration ×3, desktop build + `desktop-smoke.sh` (now the
+  setup screen), all desktop e2e (smoke, setup-first-run, auth-matrix, applet-guard, low-memory, net-hello, image-bench, crash
+  drills, harness), npm test + typecheck, Switch release + test build (gate PASS, `.nro` 4.2 MB).
+- **Next (console on, HOME menu):** `tools/e2e.sh switch smoke --update-goldens` (no Switch golden yet: look at it), then
+  `setup-first-run`, `auth-matrix`, `net-hello`, `image-bench`, `crash-drills`. Then `applet-guard` on the console: set
+  `APPLET_MODE_READY = true` in SwitchDriver, drop its `drivers: ['desktop']`, **owner watching** the drill (S12). Then tick the
+  WP checklist, STATUS, commit `WP-08: …`, push, CI.
+- **Split off:** WP-08b (ROADMAP): all controllers merged (borealis stops at the first empty pad slot; needs a 2nd controller).
+- **Notes:** the desktop text dialog ignores Enter (IME on): tests tap its OK hint. Old Hello screen = test-only Diagnostics.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

@@ -9,11 +9,20 @@ set(SNX_BOREALIS_RESOURCES ${PROJECT_SOURCE_DIR}/library/borealis/resources)
 
 set(SNX_APP_SOURCES
     main.cpp
+    AppletGuard.cpp
+    ConfigStore.cpp
+    Logger.cpp
     TestHooks.cpp
     crash/Crash.cpp
     crash/Drills.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/crash/CrashActivity.cpp
-    ${PROJECT_SOURCE_DIR}/src/ui/hello/HelloActivity.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/components/ServerCheck.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/components/StatusView.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/diagnostics/DiagnosticsActivity.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/login/LoginActivity.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/main/MainActivity.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/main/SettingsTab.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/setup/SetupActivity.cpp
 )
 if (PLATFORM_SWITCH)
     # crash/CrashSwitch.cpp defines libnx's crash hooks and SwitchStandIns.cpp the D28 stand-ins. Both must be in the
@@ -35,7 +44,7 @@ endif ()
 find_package(Threads REQUIRED)
 program_target(${SNX_APP} "${SNX_APP_SOURCES}")
 set_target_properties(${SNX_APP} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-target_link_libraries(${SNX_APP} PRIVATE snx_api snx_image snx_platform borealis Threads::Threads)
+target_link_libraries(${SNX_APP} PRIVATE snx_ui_models snx_api snx_image snx_platform borealis Threads::Threads)
 snx_target_defaults(${SNX_APP})
 # Our nlohmann/json goes before borealis's older copy (D26).
 target_include_directories(${SNX_APP} BEFORE PRIVATE ${PROJECT_SOURCE_DIR}/third_party)

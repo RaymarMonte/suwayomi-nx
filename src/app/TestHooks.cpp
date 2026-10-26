@@ -5,6 +5,7 @@
 #include <borealis.hpp>
 #include <chrono>
 #include <thread>
+#include <utility>
 
 #include "app/crash/Drills.hpp"
 #include "core/TestConfig.hpp"
@@ -19,17 +20,17 @@ namespace {
 constexpr const char* kEventsPath = "test/events.jsonl";
 constexpr const char* kConfigPath = "test/config.json";
 constexpr std::size_t kMaxConfigBytes = 64 * 1024;
+constexpr std::int64_t kMemEventMs = 10000;  // TESTING.md: a "mem" event every 10 s in test builds
 
 const platform::SafeFs* gFs = nullptr;  // set by start() once the test folder exists
 std::chrono::steady_clock::time_point gStart;
 core::testevents::IdleTracker gIdle;
 std::string gPending;  // lines not written yet
-core::testconfig::Drill gDrill = core::testconfig::Drill::None;
-std::string gServerUrl;
-std::vector<std::string> gBenchPaths;
-int gBenchRepeat = 0;
+core::testconfig::TestConfig gConfig;
+std::function<bool()> gBusy;
 bool gDrillStarted = false;
 bool gCacheWritingReported = false;
+std::int64_t gLastMemMs = 0;
 
 std::int64_t nowMs() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - gStart).count();
@@ -58,6 +59,10 @@ void append(const std::string& line) {
     flush();
 }
 
+void runGuardDrill() {
+    drills::run(core::testconfig::Drill::NullWrite, *gFs);
+}
+
 }  // namespace
 
 void start(const platform::SafeFs& fs) {
@@ -72,54 +77,84 @@ void start(const platform::SafeFs& fs) {
     }
     gFs = &fs;
     if (const auto text = fs.readFile(kConfigPath, kMaxConfigBytes)) {
-        const core::testconfig::TestConfig config = core::testconfig::parse(*text);
-        for (const std::string& problem : config.problems) {
+        gConfig = core::testconfig::parse(*text);
+        for (const std::string& problem : gConfig.problems) {
             brls::Logger::warning("{}", problem);
         }
-        gDrill = config.drill;
-        gServerUrl = config.serverUrl;
-        gBenchPaths = config.benchPaths;
-        gBenchRepeat = config.benchRepeat;
     }
 }
 
-std::vector<std::string> imageBenchPaths() {
-    return gBenchPaths;
-}
-
-int imageBenchRepeat() {
-    return gBenchRepeat;
-}
-
-void watchImages(image::ImageLoader& loader) {
-    // Loader threads here; the events file belongs to the main thread.
-    loader.setEventObserver([](const core::testevents::ImageEvent& event) {
-        brls::sync([event] { append(core::testevents::image(nowMs(), event)); });
-    });
-    loader.setPressureObserver([](int usedPercent, const char* action) {
-        const std::string what = action;
-        brls::sync([usedPercent, what] { append(core::testevents::memPressure(nowMs(), usedPercent, what)); });
-    });
-}
-
-void write(std::string_view ev, const nlohmann::ordered_json& fields) {
-    append(core::testevents::line(nowMs(), ev, fields));
-}
-
-void appStart(const core::RuntimeInfo& runtime, std::string_view profile, bool safeMode, std::string_view lastCrash) {
+void appStart(const core::RuntimeInfo& runtime, const core::RuntimeProfile& profile, bool safeMode,
+              std::string_view lastCrash) {
     core::testevents::AppStart info;
     info.version = core::appVersion();
     info.build = core::buildFlavor();
     info.platform = platform::platformName();
     info.runtime = runtime;
-    info.profile = profile;
+    info.profile = profile.name;
     info.safeMode = safeMode;
     info.lastCrash = lastCrash;
+    info.imageBudget = profile.imageCacheBytes;
+    info.coverBudget = profile.coverCacheBytes;
+    info.textureBudget = profile.textureBudgetBytes;
+    info.maxDecode = profile.maxDecodeBytes;
+    info.httpConcurrency = profile.httpConcurrency;
+    info.decodeThreads = profile.decodeThreads;
     append(core::testevents::appStart(nowMs(), info));
 }
 
+void launchRefused(const core::RuntimeInfo& runtime) {
+    append(core::testevents::launchRefused(nowMs(), runtime));
+}
+
+void (*appletGuardDrill())() {
+    if (gFs == nullptr || gConfig.drill != core::testconfig::Drill::NullWrite) {
+        return nullptr;  // only the null-pointer drill runs inside the guard (SAFETY.md S12)
+    }
+    append(core::testevents::drill(nowMs(), core::testconfig::drillName(gConfig.drill), "start"));
+    return runGuardDrill;
+}
+
+void flushNow() {
+    for (int i = 0; i < 10 && !flush(); i++) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+}
+
 std::string serverUrl() {
-    return gServerUrl;
+    return gConfig.serverUrl;
+}
+
+std::optional<core::ServerSettings> testServer() {
+    if (gConfig.serverUrl.empty()) {
+        return std::nullopt;
+    }
+    core::ServerSettings server;
+    server.url = gConfig.serverUrl;
+    server.auth = gConfig.serverAuth.value_or(core::AuthMode::None);
+    server.username = gConfig.serverUsername;
+    server.password = gConfig.serverPassword;
+    return server;
+}
+
+bool showSetup() {
+    return gConfig.showSetup;
+}
+
+bool diagnostics() {
+    return gConfig.diagnostics;
+}
+
+int diagnosticsBurst() {
+    return gConfig.diagnosticsBurst;
+}
+
+std::vector<std::string> imageBenchPaths() {
+    return gConfig.benchPaths;
+}
+
+int imageBenchRepeat() {
+    return gConfig.benchRepeat;
 }
 
 void watchNet(net::HttpClient& http) {
@@ -138,24 +173,70 @@ void watchNet(net::HttpClient& http) {
     });
 }
 
+void watchImages(image::ImageLoader& loader) {
+    // Loader threads here; the events file belongs to the main thread.
+    loader.setEventObserver([](const core::testevents::ImageEvent& event) {
+        brls::sync([event] { append(core::testevents::image(nowMs(), event)); });
+    });
+    loader.setPressureObserver([](int usedPercent, const char* action) {
+        const std::string what = action;
+        brls::sync([usedPercent, what] { append(core::testevents::memPressure(nowMs(), usedPercent, what)); });
+    });
+}
+
+void watchApp(std::function<bool()> busy) {
+    gBusy = std::move(busy);
+    brls::Application::getGlobalFocusChangeEvent()->subscribe([](brls::View* view) {
+        if (view == nullptr) {
+            return;
+        }
+        nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+        fields["view"] = view->describe();
+        append(core::testevents::line(nowMs(), "focus", fields));
+    });
+}
+
+void write(std::string_view ev, const nlohmann::ordered_json& fields) {
+    append(core::testevents::line(nowMs(), ev, fields));
+}
+
 void screen(std::string_view name) {
     append(core::testevents::screen(nowMs(), name));
     gIdle.markBusy();
 }
 
+void screen(std::string_view name, const nlohmann::ordered_json& params) {
+    append(core::testevents::screen(nowMs(), name, params));
+    gIdle.markBusy();
+}
+
+void error(std::string_view where, std::string_view kind, std::string_view message) {
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["where"] = std::string(where);
+    fields["kind"] = std::string(kind);
+    fields["msg"] = std::string(message);
+    append(core::testevents::line(nowMs(), "error", fields));
+}
+
 void onFrame() {
-    // borealis keeps every running animation (and other per-frame task) in this list until it ends.
-    const bool busy = !brls::Ticking::runningTickings.empty();
+    const std::int64_t now = nowMs();
+    if (now - gLastMemMs >= kMemEventMs) {
+        gLastMemMs = now;
+        append(core::testevents::mem(now, platform::runtimeInfo()));
+    }
+    // borealis keeps every running animation (and other per-frame task) in this list until it ends. Pending network and
+    // decode jobs count as busy too (WP-08): a screen that waits for an answer isn't idle yet.
+    const bool busy = !brls::Ticking::runningTickings.empty() || (gBusy && gBusy());
     if (gIdle.onFrame(busy)) {
-        append(core::testevents::idle(nowMs()));
-        if (gDrill != core::testconfig::Drill::None && !gDrillStarted) {
+        append(core::testevents::idle(now));
+        if (gConfig.drill != core::testconfig::Drill::None && !gDrillStarted) {
             gDrillStarted = true;
-            append(core::testevents::drill(nowMs(), core::testconfig::drillName(gDrill), "start"));
-            drills::run(gDrill, *gFs);  // main-thread drills don't come back from here
+            append(core::testevents::drill(now, core::testconfig::drillName(gConfig.drill), "start"));
+            drills::run(gConfig.drill, *gFs);  // main-thread drills don't come back from here
         }
     } else if (drills::cacheWriteInProgress() && !gCacheWritingReported) {
         gCacheWritingReported = true;
-        append(core::testevents::drill(nowMs(), core::testconfig::drillName(gDrill), "writing"));
+        append(core::testevents::drill(now, core::testconfig::drillName(gConfig.drill), "writing"));
     } else {
         flush();  // retry lines that couldn't be written last time
     }
@@ -164,9 +245,7 @@ void onFrame() {
 void finish() {
     drills::stop();
     // Last chance for pending lines: a few tries over about 100 ms (the harness reads the file every 250 ms at most).
-    for (int i = 0; i < 10 && !flush(); i++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
+    flushNow();
 }
 
 }  // namespace snx::app::testhooks
@@ -176,20 +255,40 @@ void finish() {
 namespace snx::app::testhooks {
 
 void start(const platform::SafeFs&) {}
+void appStart(const core::RuntimeInfo&, const core::RuntimeProfile&, bool, std::string_view) {}
+void launchRefused(const core::RuntimeInfo&) {}
+void (*appletGuardDrill())() {
+    return nullptr;
+}
+void flushNow() {}
 std::string serverUrl() {
     return {};
 }
-void watchNet(net::HttpClient&) {}
-void watchImages(image::ImageLoader&) {}
+std::optional<core::ServerSettings> testServer() {
+    return std::nullopt;
+}
+bool showSetup() {
+    return false;
+}
+bool diagnostics() {
+    return false;
+}
+int diagnosticsBurst() {
+    return 0;
+}
 std::vector<std::string> imageBenchPaths() {
     return {};
 }
 int imageBenchRepeat() {
     return 0;
 }
+void watchNet(net::HttpClient&) {}
+void watchImages(image::ImageLoader&) {}
+void watchApp(std::function<bool()>) {}
 void write(std::string_view, const nlohmann::ordered_json&) {}
-void appStart(const core::RuntimeInfo&, std::string_view, bool, std::string_view) {}
 void screen(std::string_view) {}
+void screen(std::string_view, const nlohmann::ordered_json&) {}
+void error(std::string_view, std::string_view, std::string_view) {}
 void onFrame() {}
 void finish() {}
 

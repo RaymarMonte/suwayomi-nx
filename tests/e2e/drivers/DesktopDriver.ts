@@ -19,7 +19,7 @@ import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { EventStream, type EventSource } from '../lib/events.ts';
-import { NotSupportedError, type Button, type Driver, type LaunchOptions } from './Driver.ts';
+import { NotSupportedError, startEventFor, type Button, type Driver, type LaunchOptions } from './Driver.ts';
 
 const run = promisify(execFile);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -78,6 +78,10 @@ export class DesktopDriver implements Driver {
         await rm(join(this.dataDir, 'test', 'events.jsonl'), { force: true });
         if (opts.testConfig) await this.writeFile('test/config.json', JSON.stringify(opts.testConfig, null, 2));
         else await rm(join(this.dataDir, 'test', 'config.json'), { force: true });
+        if (!opts.keepConfig) {
+            await rm(join(this.dataDir, 'config.json'), { force: true });
+            await rm(join(this.dataDir, 'config.json.bak'), { force: true });
+        }
 
         const args = ['-d', '--log-file'];
         if (opts.mode === 'applet') args.push('--simulate-applet-mode');
@@ -108,7 +112,7 @@ export class DesktopDriver implements Driver {
             appGone: async () => this.appExit,
         };
         this.stream = new EventStream(source, { pollMs: 100, gonePollMs: 100 });
-        await this.stream.waitForEvent('app_start', {}, { timeoutMs: 20_000 });
+        await this.stream.waitForEvent(startEventFor(opts), {}, { timeoutMs: 20_000 });
 
         // The window: found by the app's process id, then given the focus (borealis ignores input without it).
         // A crash drill can end the app before its window turns up: then there's no window to find, and launch() is done
@@ -134,6 +138,11 @@ export class DesktopDriver implements Driver {
             }
         }
         if (this.appExit !== 'exited with code 0') throw new Error(`the app did not end cleanly: it ${this.appExit}`);
+    }
+
+    /** Types into borealis's text dialog (GLFW reads the characters), one key every 30 ms so no frame misses one. */
+    async typeText(text: string): Promise<void> {
+        await this.xdotool(['type', '--delay', '30', '--', text], 5_000 + text.length * 100);
     }
 
     async press(btn: Button, ms = 100): Promise<void> {

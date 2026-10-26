@@ -1,6 +1,5 @@
 // The harness checking itself (WP-03 acceptance), desktop only:
-// - launch({ mode: 'applet' }) reaches the app as applet mode (desktop --simulate-applet-mode). WP-08's applet-guard scenario
-//   takes this over once the guard exists; the Hello app has no guard, so it just reports "applet".
+// - launch({ mode: 'applet' }) is checked by WP-08's applet-guard scenario now (the app refuses applet mode).
 // - launch({ memLimitMb }) passes --mem-limit.
 // - an app that dies while a scenario waits gives a clear error at once, not a hang until the timeout.
 
@@ -9,16 +8,6 @@ import { expect } from 'vitest';
 import { DesktopDriver } from '../drivers/DesktopDriver.ts';
 import { AppGoneError } from '../lib/events.ts';
 import { scenario } from '../lib/scenario.ts';
-
-scenario(
-    'harness-applet-flag',
-    async (s) => {
-        const start = await s.launch({ mode: 'applet' });
-        expect(start.profile).toBe('none'); // D21: applet mode gets no profile
-        await s.driver.quit();
-    },
-    { drivers: ['desktop'] },
-);
 
 scenario(
     'harness-mem-limit',

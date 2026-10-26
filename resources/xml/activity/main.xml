@@ -1,0 +1,12 @@
+<!-- The main screen (src/ui/main/MainActivity, WP-08): a tab frame. The tabs are added in code, so each tab's view can get
+     the app's context. -->
+<brls:AppletFrame
+    iconInterpolation="linear"
+    footerHidden="false">
+
+    <brls:TabFrame
+        id="main/tabs"
+        title="@i18n/app/title"
+        icon="@res/icon/icon.png" />
+
+</brls:AppletFrame>

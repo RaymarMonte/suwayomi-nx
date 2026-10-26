@@ -17,6 +17,7 @@ struct RuntimeInfo {
     LaunchMode mode = LaunchMode::Application;
     std::uint64_t totalMem = 0;  // bytes the app may use: the heap libnx got (Switch), or the PC's RAM / --mem-limit (desktop)
     std::uint64_t usedMem = 0;   // bytes the allocator has handed out so far
+    int appletType = -1;         // Switch: appletGetAppletType() as a number (0 = application), for the log. Desktop: -1
 };
 
 }  // namespace snx::core

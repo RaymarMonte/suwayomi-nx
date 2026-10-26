@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <condition_variable>
@@ -182,6 +183,9 @@ struct CurlHttpClient::Impl {
     pthread_t thread{};
     std::mutex joinMutex;
     bool joined = false;
+
+    // Accepted requests that haven't finished yet (inFlight()): up at submit, down in finish().
+    std::atomic<std::size_t> inFlight{0};
 
     // The network thread's own.
     std::vector<std::unique_ptr<Transfer>> active;
@@ -491,6 +495,7 @@ void CurlHttpClient::Impl::retryOrFinish(Job job, const Request& sent, HttpResul
 void CurlHttpClient::Impl::finish(Job& job, const Request& sent, HttpResult result) {
     owner.notifyObservers(sent, result);
     job.promise.set(std::move(result));
+    inFlight.fetch_sub(1);  // after the callbacks ran, so "nothing in flight" means their results are on their way
 }
 
 // After sleep: running transfers are dropped (GETs retry), and a new multi handle means an empty connection cache.
@@ -554,6 +559,7 @@ Future<HttpResult> CurlHttpClient::submit(Request request, Priority priority, Ca
     {
         std::lock_guard<std::mutex> lock(impl_->mutex);
         if (!impl_->stopping) {
+            impl_->inFlight.fetch_add(1);
             impl_->queues[queueIndex(priority)].push_back(std::move(job));
             impl_->wakeLocked();
             return future;
@@ -582,6 +588,10 @@ void CurlHttpClient::shutdown() {
     }
     pthread_join(impl_->thread, nullptr);
     impl_->joined = true;
+}
+
+std::size_t CurlHttpClient::inFlight() const {
+    return impl_->inFlight.load();
 }
 
 }  // namespace snx::net

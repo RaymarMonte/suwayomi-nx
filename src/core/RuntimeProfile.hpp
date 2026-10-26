@@ -78,6 +78,9 @@ struct RuntimeProfile {
     // SD card (SAFETY.md S5).
     std::uint64_t diskCacheBytes = 1 * kGiB;  // the page and cover cache on the SD card
     std::uint64_t minSdFreeBytes = 1 * kGiB;  // never write to the cache if the SD card would drop below this
+    std::uint64_t logFileBytes = 1 * kMiB;    // logs/app.log moves to app.1.log before it grows past this (WP-08)
+    int logFlushMs = 2000;                    // the log reaches the SD card at most this often, and at exit (WP-08)
+    int configSaveDelayMs = 2000;             // config.json is saved once nothing changed for this long (S5, WP-08)
 
     bool heavyUiEffects = true;  // extra fonts, animations
 };

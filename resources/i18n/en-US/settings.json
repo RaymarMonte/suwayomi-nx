@@ -1,0 +1,21 @@
+{
+    "server": "Server",
+    "address": "Address",
+    "login": "Login",
+    "logout": "Log out",
+    "server_version": "Server version",
+    "checking": "checking...",
+    "unreachable": "not reachable (tap to try again)",
+    "about": "About",
+    "version": "App version",
+    "mode": "Launch mode",
+    "mode_application": "Application mode",
+    "mode_applet": "Applet mode",
+    "profile": "profile",
+    "memory": "Memory in use",
+    "safe_mode": "Safe mode",
+    "safe_on": "On: the app closed unexpectedly last time",
+    "safe_off": "Off",
+    "crash_logs": "Crash logs",
+    "crash_logs_none": "None"
+}

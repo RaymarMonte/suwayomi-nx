@@ -51,13 +51,15 @@ export class Scenario {
      */
     async launch(opts: LaunchOptions = {}): Promise<AppEvent> {
         await this.driver.launch(opts);
-        const start = await this.events.waitForEvent('app_start');
         if (opts.mode === 'applet') {
-            expect(start.mode, 'app_start.mode').toBe('applet');
-        } else {
-            expect(start.mode, 'app_start.mode').toBe('application');
-            expect(start.profile, 'app_start.profile').toBe('full');
+            // WP-08 (D21): applet mode writes only launch_refused, no app_start.
+            const refused = await this.events.waitForEvent('launch_refused');
+            expect(refused.mode, 'launch_refused.mode').toBe('applet');
+            return refused;
         }
+        const start = await this.events.waitForEvent('app_start');
+        expect(start.mode, 'app_start.mode').toBe('application');
+        expect(start.profile, 'app_start.profile').toBe('full');
         expect(start.build, 'app_start.build (a test build writes events)').toBe('test');
         expect(start.platform, 'app_start.platform').toBe(this.driver.name);
         return start;

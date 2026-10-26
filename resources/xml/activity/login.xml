@@ -1,0 +1,71 @@
+<!-- The login screen (src/ui/login/LoginActivity, WP-08, ui_login only). Targets at least 72 px high (D16). -->
+<brls:AppletFrame
+    iconInterpolation="linear"
+    footerHidden="false">
+
+    <brls:ScrollingFrame
+        title="@i18n/login/title"
+        icon="@res/icon/icon.png"
+        width="auto"
+        height="auto"
+        grow="1.0">
+
+        <brls:Box
+            id="login/box"
+            width="auto"
+            height="auto"
+            axis="column"
+            paddingLeft="80"
+            paddingRight="80"
+            paddingTop="24"
+            paddingBottom="40">
+
+            <brls:Label
+                text="@i18n/login/intro"
+                fontSize="20"
+                marginBottom="16" />
+
+            <TextFieldCell
+                id="login/username"
+                title="@i18n/login/username" />
+
+            <TextFieldCell
+                id="login/password"
+                title="@i18n/login/password" />
+
+            <brls:Box
+                width="auto"
+                height="auto"
+                axis="row"
+                marginTop="24">
+
+                <brls:Button
+                    id="login/login"
+                    width="auto"
+                    height="72"
+                    grow="1.0"
+                    style="primary"
+                    marginRight="24"
+                    text="@i18n/login/login" />
+
+                <brls:Button
+                    id="login/server"
+                    width="auto"
+                    height="72"
+                    grow="1.0"
+                    style="bordered"
+                    text="@i18n/login/change_server" />
+
+            </brls:Box>
+
+            <brls:Label
+                id="login/status"
+                text=""
+                fontSize="20"
+                marginTop="20" />
+
+        </brls:Box>
+
+    </brls:ScrollingFrame>
+
+</brls:AppletFrame>

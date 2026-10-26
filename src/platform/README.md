@@ -12,6 +12,9 @@
   - `installQuitSignalHandlers()` / `quitRequested()`: desktop SIGINT/SIGTERM become a normal quit (the E2E harness uses it). Switch: no-ops.
   - `exitProcessNow(code)`: ends the process at once, no more of our code runs (Switch `svcExitProcess()`, desktop `_exit()`).
     Only for the crash path (`src/app/crash/README.md`).
+  - `networkConnected()` (WP-08): Switch: nifm reports an IP address; desktop: true. Words an offline error.
+  - `setResumeHandler(fn)` (WP-08): Switch: runs after a wake from sleep (libnx OnResume hook, main thread); the app resets the HTTP connections. Desktop: never.
+  - `showLaunchRefused(text, timeoutMs, onShown)` (WP-08, D21, S12): the applet-mode guard's screen. Switch: libnx text console until a new button/tap, an exit request or the timeout. Desktop: prints the text.
 - `SafeFs.hpp` (WP-03b, SAFETY.md S4/S5, D14): the write jail. **Every** file create, write, rename, delete and mkdir in the app
   goes through a `SafeFs` rooted at `dataDir()`; `tools/safety/check-writes.sh` fails the build on raw calls anywhere else in
   `src/`. Each path is checked by `core::jailPath()` first (relative to the root or absolute inside it; `..`, `//`, case, the
@@ -34,4 +37,4 @@ Host unit tests use the desktop one. `SafeFs.cpp` is shared by both (and is the 
 implementation only. The Switch side is covered by device runs (`app_start` reports mode and memory).
 
 **Status:** WP-03 added `runtimeInfo()`, the desktop test flags and the quit signals. WP-03b added SafeFs and `exitProcessNow()`.
-The rest comes with WP-08.
+WP-08 added `networkConnected()`, `setResumeHandler()` and `showLaunchRefused()`. Battery and keep-awake come with the reader.

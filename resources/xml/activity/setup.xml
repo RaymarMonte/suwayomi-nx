@@ -1,0 +1,97 @@
+<!-- The setup screen (src/ui/setup/SetupActivity, WP-08). Cells and buttons are at least 72 px high (D16: thumb-sized).
+     TextFieldCell is our cell that opens the keyboard on a tap (src/ui/components/StatusView.hpp). -->
+<brls:AppletFrame
+    iconInterpolation="linear"
+    footerHidden="false">
+
+    <brls:ScrollingFrame
+        title="@i18n/setup/title"
+        icon="@res/icon/icon.png"
+        width="auto"
+        height="auto"
+        grow="1.0">
+
+        <brls:Box
+            id="setup/box"
+            width="auto"
+            height="auto"
+            axis="column"
+            paddingLeft="80"
+            paddingRight="80"
+            paddingTop="24"
+            paddingBottom="40">
+
+            <brls:Label
+                id="setup/intro"
+                text="@i18n/setup/intro"
+                fontSize="20"
+                marginBottom="16" />
+
+            <TextFieldCell
+                id="setup/url"
+                title="@i18n/setup/url" />
+
+            <brls:SelectorCell
+                minHeight="72"
+                id="setup/auth"
+                title="@i18n/setup/auth" />
+
+            <TextFieldCell
+                id="setup/username"
+                title="@i18n/setup/username" />
+
+            <TextFieldCell
+                id="setup/password"
+                title="@i18n/setup/password" />
+
+            <brls:Label
+                id="setup/warnings"
+                text=""
+                fontSize="18"
+                marginTop="16" />
+
+            <brls:Box
+                width="auto"
+                height="auto"
+                axis="row"
+                marginTop="24">
+
+                <brls:Button
+                    id="setup/test"
+                    width="auto"
+                    height="72"
+                    grow="1.0"
+                    style="bordered"
+                    marginRight="24"
+                    text="@i18n/setup/test" />
+
+                <brls:Button
+                    id="setup/continue"
+                    width="auto"
+                    height="72"
+                    grow="1.0"
+                    style="primary"
+                    text="@i18n/setup/continue" />
+
+                <brls:Button
+                    id="setup/cancel"
+                    width="auto"
+                    height="72"
+                    grow="0.6"
+                    style="borderless"
+                    marginLeft="24"
+                    text="@i18n/setup/cancel" />
+
+            </brls:Box>
+
+            <brls:Label
+                id="setup/status"
+                text=""
+                fontSize="20"
+                marginTop="20" />
+
+        </brls:Box>
+
+    </brls:ScrollingFrame>
+
+</brls:AppletFrame>

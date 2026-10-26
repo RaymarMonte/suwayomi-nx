@@ -83,6 +83,10 @@ class HttpClient {
     // Never call it from a then() callback or a hook (they run on the network thread, which shutdown waits for).
     virtual void shutdown() = 0;
 
+    // Requests submitted and not finished yet: queued, running or waiting for a retry (WP-08: the app is "idle" only when this
+    // is 0). It drops after the request's future has completed, so its then() callback has run by then. Any thread.
+    virtual std::size_t inFlight() const { return 0; }
+
     // Best set once, before the first submit (any thread may call them, though).
     void setRequestDecorator(RequestDecorator decorator);
     void addResponseObserver(ResponseObserver observer);

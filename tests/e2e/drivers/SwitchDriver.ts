@@ -17,7 +17,7 @@ import { promisify } from 'node:util';
 
 import { EventStream, type EventSource } from '../lib/events.ts';
 import { APP_DIR, Autopilot, ConsoleUnreachableError, CRASH_REPORTS_DIR, FATAL_DIRS, UNREACHABLE_HELP } from './autopilot.ts';
-import { NotSupportedError, type Button, type Driver, type LaunchOptions } from './Driver.ts';
+import { NotSupportedError, startEventFor, type Button, type Driver, type LaunchOptions } from './Driver.ts';
 import { parseRegion, regionRmse, type Region } from './screencheck.ts';
 
 const run = promisify(execFile);
@@ -116,6 +116,10 @@ export class SwitchDriver implements Driver {
 
         if (opts.testConfig) await this.writeFile('test/config.json', JSON.stringify(opts.testConfig, null, 2));
         else await this.autopilot.deleteFile(`${APP_DIR}/test/config.json`);
+        if (!opts.keepConfig) {
+            await this.autopilot.deleteFile(`${APP_DIR}/config.json`);
+            await this.autopilot.deleteFile(`${APP_DIR}/config.json.bak`);
+        }
         await this.autopilot.deleteFile(`${APP_DIR}/test/events.jsonl`);
 
         await this.startWithNxlink([...APP_ARGS, ...(opts.args ?? [])]);
@@ -126,7 +130,7 @@ export class SwitchDriver implements Driver {
             appGone: () => this.appGone(),
         };
         this.stream = new EventStream(source, { pollMs: 500, gonePollMs: 3_000 });
-        await this.stream.waitForEvent('app_start', {}, { timeoutMs: 20_000 });
+        await this.stream.waitForEvent(startEventFor(opts), {}, { timeoutMs: 20_000 });
 
         // hbmenu wrote the .nro it received to the card in place (not atomic): check it arrived whole.
         const onCard = await this.autopilot.sha256(NRO_SD);
@@ -169,6 +173,10 @@ export class SwitchDriver implements Driver {
 
     async swipe(x1: number, y1: number, x2: number, y2: number, ms: number, steps?: number): Promise<void> {
         await this.autopilot.swipe(x1, y1, x2, y2, ms, steps);
+    }
+
+    async typeText(): Promise<void> {
+        throw new NotSupportedError("the Switch's keyboard can't be typed into by the harness: fill the field from the test config");
     }
 
     screenshot(): Promise<Buffer> {

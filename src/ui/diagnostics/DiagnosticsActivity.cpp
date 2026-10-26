@@ -1,9 +1,10 @@
-#include "ui/hello/HelloActivity.hpp"
+#include "ui/diagnostics/DiagnosticsActivity.hpp"
 
 #include <atomic>
 #include <memory>
 #include <utility>
 
+#include "app/TestHooks.hpp"
 #include "core/Version.hpp"
 #include "core/graphql/Gql.hpp"
 #include "core/graphql/Operations.hpp"
@@ -15,8 +16,6 @@ namespace snx::ui {
 
 namespace {
 
-// WP-05's device check: this many requests at once must wait in the queue (6 run at a time), not fail.
-constexpr int kBurstSize = 20;
 
 net::Request aboutServerRequest(const std::string& serverUrl) {
     const core::GqlRequest gql = core::gql::aboutServer();
@@ -52,7 +51,7 @@ std::string describe(const net::HttpResult& result, const core::JsonLimits& limi
 
 }  // namespace
 
-struct HelloActivity::BenchRun {
+struct DiagnosticsActivity::BenchRun {
     int index = 0;  // loads done so far
     int ok = 0;
     int failed = 0;
@@ -60,23 +59,29 @@ struct HelloActivity::BenchRun {
     std::uint64_t memUsedBefore = 0;
 };
 
-HelloActivity::HelloActivity(net::HttpClient* http, std::string serverUrl, core::JsonLimits jsonLimits,
-                             image::ImageLoader* images, ImageBench bench)
-    : http_(http), serverUrl_(std::move(serverUrl)), jsonLimits_(jsonLimits), images_(images), bench_(std::move(bench)) {}
+DiagnosticsActivity::DiagnosticsActivity(net::HttpClient* http, std::string serverUrl, core::JsonLimits jsonLimits,
+                                         image::ImageLoader* images, ImageBench bench, int burstSize)
+    : http_(http),
+      serverUrl_(std::move(serverUrl)),
+      jsonLimits_(jsonLimits),
+      images_(images),
+      bench_(std::move(bench)),
+      burstSize_(burstSize) {}
 
-HelloActivity::~HelloActivity() {
+DiagnosticsActivity::~DiagnosticsActivity() {
     cancel_.cancel();
 }
 
-void HelloActivity::onContentAvailable() {
-    version->setText("hello/version"_i18n + " " + core::versionLabel());
+void DiagnosticsActivity::onContentAvailable() {
+    app::testhooks::screen("Diagnostics");
+    version->setText("diagnostics/version"_i18n + " " + core::versionLabel());
     burst->setVisibility(brls::Visibility::GONE);
     if (http_ == nullptr || serverUrl_.empty()) {
         server->setVisibility(brls::Visibility::GONE);
         return;
     }
-    server->setText("hello/server"_i18n + ": " + "hello/asking"_i18n);
-    brls::Logger::info("hello: asking {} for its version", serverUrl_);
+    server->setText("diagnostics/server"_i18n + ": " + "diagnostics/asking"_i18n);
+    brls::Logger::info("diagnostics: asking {} for its version", serverUrl_);
     const net::CancelToken cancel = cancel_;
     const core::JsonLimits limits = jsonLimits_;
     http_->submit(aboutServerRequest(serverUrl_), net::Priority::Interactive, cancel)
@@ -88,15 +93,20 @@ void HelloActivity::onContentAvailable() {
                 if (cancel.cancelled()) {
                     return;
                 }
-                brls::Logger::info("hello: server check: {}", text);
-                server->setText("hello/server"_i18n + ": " + text);
+                brls::Logger::info("diagnostics: server check: {}", text);
+                server->setText("diagnostics/server"_i18n + ": " + text);
+                nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+                fields["where"] = "diagnostics";
+                fields["ok"] = ok;
+                fields["version"] = text;
+                app::testhooks::write("server_check", fields);
                 if (ok) {
                     startBurst();
                     if (images_ != nullptr && bench_.repeat > 0 && !bench_.urls.empty()) {
                         auto run = std::make_shared<BenchRun>();
                         run->startMs = image::steadyMs();
                         run->memUsedBefore = platform::runtimeInfo().usedMem;
-                        brls::Logger::info("hello: image benchmark, {} images x {}", bench_.urls.size(), bench_.repeat);
+                        brls::Logger::info("diagnostics: image benchmark, {} images x {}", bench_.urls.size(), bench_.repeat);
                         benchNext(run);
                     }
                 }
@@ -104,37 +114,45 @@ void HelloActivity::onContentAvailable() {
         });
 }
 
-void HelloActivity::startBurst() {
+void DiagnosticsActivity::startBurst() {
+    if (burstSize_ <= 0) {
+        return;
+    }
     burst->setVisibility(brls::Visibility::VISIBLE);
-    burst->setText("hello/burst"_i18n + ": " + "hello/asking"_i18n);
+    burst->setText("diagnostics/burst"_i18n + ": " + "diagnostics/asking"_i18n);
     auto answered = std::make_shared<std::atomic<int>>(0);
     auto finished = std::make_shared<std::atomic<int>>(0);
     const net::CancelToken cancel = cancel_;
     const core::JsonLimits limits = jsonLimits_;
-    for (int i = 0; i < kBurstSize; ++i) {
+    const int size = burstSize_;  // the callbacks run on the network thread: they must not read `this`
+    for (int i = 0; i < size; ++i) {
         http_->submit(aboutServerRequest(serverUrl_), net::Priority::Background, cancel)
-            .then([this, cancel, limits, answered, finished](const net::HttpResult& result) {
+            .then([this, cancel, limits, answered, finished, size](const net::HttpResult& result) {
                 bool ok = false;
                 describe(result, limits, ok);
                 if (ok) {
                     ++*answered;
                 }
-                if (++*finished < kBurstSize) {
+                if (++*finished < size) {
                     return;
                 }
                 const int count = answered->load();
-                brls::sync([this, cancel, count] {
+                brls::sync([this, cancel, count, size] {
                     if (cancel.cancelled()) {
                         return;
                     }
-                    brls::Logger::info("hello: {} requests at once, {} answered", kBurstSize, count);
-                    burst->setText("hello/burst"_i18n + ": " + std::to_string(count) + "/" + std::to_string(kBurstSize));
+                    brls::Logger::info("diagnostics: {} requests at once, {} answered", size, count);
+                    burst->setText("diagnostics/burst"_i18n + ": " + std::to_string(count) + "/" + std::to_string(size));
+                    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+                    fields["sent"] = size;
+                    fields["ok"] = count;
+                    app::testhooks::write("net_burst", fields);
                 });
             });
     }
 }
 
-void HelloActivity::benchNext(const std::shared_ptr<BenchRun>& run) {
+void DiagnosticsActivity::benchNext(const std::shared_ptr<BenchRun>& run) {
     // Two loads per round: even = a page at 2x the screen, odd = a webtoon strip at 2x the screen's width.
     const int perUrl = bench_.repeat * 2;
     const int total = static_cast<int>(bench_.urls.size()) * perUrl;
@@ -146,7 +164,7 @@ void HelloActivity::benchNext(const std::shared_ptr<BenchRun>& run) {
         summary["ms"] = image::steadyMs() - run->startMs;
         summary["memUsedBefore"] = run->memUsedBefore;
         summary["memUsedAfter"] = platform::runtimeInfo().usedMem;
-        brls::Logger::info("hello: image benchmark done: {} of {} loaded", run->ok, total);
+        brls::Logger::info("diagnostics: image benchmark done: {} of {} loaded", run->ok, total);
         if (bench_.report) {
             bench_.report(summary);
         }
@@ -163,7 +181,7 @@ void HelloActivity::benchNext(const std::shared_ptr<BenchRun>& run) {
                       }
                       ++(result.ok() ? run->ok : run->failed);
                       if (!result.ok()) {
-                          brls::Logger::warning("hello: image benchmark: {}", result.error().message);
+                          brls::Logger::warning("diagnostics: image benchmark: {}", result.error().message);
                       }
                       ++run->index;
                       benchNext(run);

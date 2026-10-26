@@ -24,11 +24,24 @@ struct AppStart {
     std::string_view profile;   // "full" in application mode. "none" in applet mode, which gets no profile (D21)
     bool safeMode = false;      // the last run crashed, so this one runs in safe mode (SAFETY.md S1)
     std::string_view lastCrash; // the crash record behind it ("logs/crashes/crash-....txt"), empty if none
+    // WP-08: the profile's main budgets (0 when there is none).
+    std::uint64_t imageBudget = 0;    // imageCacheBytes
+    std::uint64_t coverBudget = 0;    // coverCacheBytes
+    std::uint64_t textureBudget = 0;  // textureBudgetBytes
+    std::uint64_t maxDecode = 0;      // maxDecodeBytes
+    int httpConcurrency = 0;
+    int decodeThreads = 0;
 };
 
 std::string appStart(std::int64_t tMs, const AppStart& info);
 std::string screen(std::int64_t tMs, std::string_view name);
+// {"ev":"screen","name":"Settings","params":{...}}: with what the screen shows that a test checks (WP-08).
+std::string screen(std::int64_t tMs, std::string_view name, const nlohmann::ordered_json& params);
 std::string idle(std::int64_t tMs);
+// {"ev":"launch_refused","mode":"applet","appletType":2}: the only event a run in applet mode writes (D21, WP-08).
+std::string launchRefused(std::int64_t tMs, const RuntimeInfo& runtime);
+// {"ev":"mem","used":...,"total":...,"free":...}: the allocator's in-use bytes, every 10 s in test builds (WP-08).
+std::string mem(std::int64_t tMs, const RuntimeInfo& runtime);
 // {"ev":"drill","name":"null-write","phase":"start"}: a crash drill starts (phase "start"), or the cache-write drill is
 // writing (phase "writing").
 std::string drill(std::int64_t tMs, std::string_view name, std::string_view phase);

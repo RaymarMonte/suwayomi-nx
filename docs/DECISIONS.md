@@ -536,3 +536,42 @@ ARCHITECTURE.md "image" and SAFETY.md S5–S8; `src/image/README.md` has the det
 Rejected: stb_image for PNG/GIF (open security reports; libpng is better tested); devkitPro's libwebp 1.0.2 (CVE-2023-4863);
 checking only the source's w×h×4 (would refuse big pages that DCT scaling decodes cheaply, and miss progressive coefficients);
 partial images for corrupt JPEGs; one cache for pages and covers; textures inside the image module (it can't include borealis).
+
+**D40 How the app shell works: one context, Activity + Model screens, the log and config files, the guard** (WP-08, 2026-10-26).
+Carries out ARCHITECTURE.md "ui"/"platform", SAFETY.md S5/S12, D16, D21, D38. Usage: `src/ui/README.md`, `src/app/README.md`.
+- **One `AppContext`** (`src/app/AppContext.hpp`), made once in `main()`: fs, runtime info, the profile (built once, halved in
+  safe mode), last run, `ConfigStore`, HttpClient, SuwayomiClient, ImageLoader. Every screen gets `AppContext&`; no globals.
+- **Screens = `XxxActivity` (view, XML layout) + `XxxModel` (state and rules, no borealis)**; the models are the library
+  `snx_ui_models`, unit-tested in suite `ui`. Reused components: `StatusView` (loading / error + Retry / message, no spinner:
+  a running animation would keep a test from ever seeing `idle`), `TextFieldCell` (a tap opens the keyboard), `checkServer`.
+- **The main screen is always the first screen** and never closes; setup and login open on top of it (borealis never pops
+  its first activity, so a setup screen as the root would come back with B). The first run opens setup over it.
+- **Connection check = `aboutServer`, plus `categories` when a login is configured:** Suwayomi answers `aboutServer` without a
+  login even in ui_login mode, so only the second call proves the login (and makes the client renew or log in, D38). A
+  refused login opens the login screen (ui_login) or setup (basic).
+- **Log:** always written to `logs/app.log` (`--log-file` is no longer needed), buffered and written at most every
+  `logFlushMs` (2 s), at HOME/sleep and at exit, each time open -> append -> close (S5: no file open between frames; the
+  harness can read it while the app runs). Before it passes `logFileBytes` (1 MiB) it becomes `app.1.log`; at start the last
+  run's log becomes `app.1.log`. Line = `<ms> <level> <tag>: <message>`, the same as the crash record's log.
+- **Config:** `ConfigStore` saves `config.json` with `writeAtomic` + `.bak` once nothing changed for `configSaveDelayMs`
+  (2 s, at most 8 s after the first change), at once on HOME/sleep and at exit; a missing or unreadable file falls back to
+  the `.bak`. The test config's server is used in memory only. The harness removes `config.json` before each launch
+  (`keepConfig: true` for restart tests).
+- **Applet-mode guard (S12):** after the crash handler and the logger, before borealis and config. libnx's text console,
+  any new button/tap/60 s, exit request honoured; all writes (one log line, `launch_refused`, the drill's event) before the
+  screen, none after (not even `crash::finish()`: the next start deletes the empty pending crash file). Desktop prints the
+  text. Note: borealis's `userAppInit` (sockets, romfs and system services) still runs before `main()` in applet mode, as since
+  WP-01; it's libnx start-up, standard for every homebrew.
+- **Idle rule:** no borealis ticking, `http.inFlight() == 0` (new in net: counts a request until its callbacks ran) and
+  `images.activeJobs() == 0`, for 3 frames.
+- **Platform:** `networkConnected()` (nifm has an IP: a home network without internet counts), `setResumeHandler()` (OnResume ->
+  `resetConnections()`, D37), `showLaunchRefused()`. HOME/sleep come as borealis's focus event (flush config and log).
+- **Touch (D16):** cells `minHeight` 72, buttons 72 high, borealis's sidebar items 72 (style metric). Desktop tests type with
+  `xdotool type` and tap the text dialog's OK hint: Enter doesn't reach borealis while GLFW's input method is on.
+- **Test hooks:** `launch_refused`, `mem` (every 10 s), `focus`, `error`, `server_check`, `login`, `login_screen`,
+  `config_saved`, `net_burst`, `screen.params`, budgets in `app_start`; test config `server.auth/username/password`,
+  `showSetup`, `diagnostics`. WP-05/07's Hello screen became the test-only diagnostics screen.
+Rejected: setup as the first screen (see above), keeping the log file open (S5, and unreadable on the Switch while open),
+`aboutServer` alone as the check (public in ui_login), a spinner in `StatusView` (never idle), patching borealis's Switch input
+now for "all controllers merged" (WP-08b: its `getControllersConnectedCount` stops at the first empty slot, so a controller in
+slot 2 with slot 1 empty is ignored; the fix replaces one borealis file and needs a second real controller to check).

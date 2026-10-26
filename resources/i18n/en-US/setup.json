@@ -1,0 +1,29 @@
+{
+    "title": "Connect to your server",
+    "intro": "Enter the address of your Suwayomi server, the same one you open in a browser at home.",
+    "url": "Server address",
+    "url_hint": "For example http://192.168.1.10:4567",
+    "auth": "Login",
+    "auth_none": "No login",
+    "auth_basic": "Basic login",
+    "auth_ui_login": "Login page (UI login)",
+    "username": "Username",
+    "password": "Password",
+    "test": "Test connection",
+    "continue": "Continue",
+    "cancel": "Cancel",
+    "testing": "Connecting...",
+    "connected": "Connected:",
+    "problem": {
+        "url_missing": "Enter the server address first.",
+        "url_not_http": "The address must start with http:// or https://.",
+        "username_missing": "Enter your username.",
+        "password_missing": "Enter your password."
+    },
+    "warning": {
+        "tailscale": "This is a Tailscale address. The Switch has no Tailscale app, so it can't reach it. Use the server's address on your home network instead, for example http://192.168.1.10:4567.",
+        "password_http": "The password goes over plain http://, so anyone on the same Wi-Fi could read it. Use a password you don't use anywhere else.",
+        "password_sd": "The password is saved on the SD card as plain text.",
+        "use_ip": "Tip: use the server's IP address (like 192.168.1.10). Looking up a name is slow on the Switch."
+    }
+}

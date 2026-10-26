@@ -1,0 +1,11 @@
+{
+    "title": "Log in",
+    "intro": "Your server asks for a login. Enter your Suwayomi username and password.",
+    "username": "Username",
+    "password": "Password",
+    "login": "Log in",
+    "change_server": "Change server",
+    "logging_in": "Logging in...",
+    "username_missing": "Enter your username.",
+    "password_missing": "Enter your password."
+}

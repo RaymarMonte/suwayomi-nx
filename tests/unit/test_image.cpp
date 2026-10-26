@@ -404,7 +404,7 @@ TEST_SUITE("image") {
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
         }
         REQUIRE(delayed.load());
-        CHECK(delayedAfterMs.load() >= 30);
+        CHECK(delayedAfterMs.load() >= 29);  // the pool counts whole milliseconds (steadyMs), so up to 1 ms early (WP-08 flake)
         {
             std::lock_guard<std::mutex> lock(mutex);
             CHECK(order == std::vector<int>{1, 11, 3});

@@ -28,6 +28,7 @@ network thread driving a curl multi handle, request priorities, cancellation, re
   reply, HTTP 408/429/502/503/504): 2 retries, 250 ms then 500 ms apart, first in line when due. Timeouts are not retried.
 - `resetConnections()` (call it after sleep/resume): running transfers are dropped and retried on a fresh connection pool.
 - `shutdown()` (the destructor calls it): every queued and running request ends `Cancelled`; later submits fail at once.
+- `inFlight()` (WP-08): requests submitted and not finished (queued, running, waiting to retry). It drops after the future completed, so callbacks have run; the app's idle check uses it.
   Never call it from a `then()` callback or a hook: they run on the network thread.
 - DNS: the PC's curl resolves in a helper thread; the Switch's curl 7.69 resolves on the network thread itself, so a slow name lookup
   stalls all transfers. Use the server's IP address (the setup screen says so, WP-08).
@@ -44,4 +45,4 @@ there; the api layer hands results to the UI with `brls::sync`.
 cpp-httplib server on 127.0.0.1: success, 404, 401, POST, timeout, refused, redirects, body limits, cancel, 40 parallel requests,
 priority order, retries, reset, shutdown in flight), doctest suite `net`. `tools/build.sh tsan` runs them under ThreadSanitizer.
 
-**Status:** WP-05.
+**Status:** WP-05. WP-08 added `inFlight()`.

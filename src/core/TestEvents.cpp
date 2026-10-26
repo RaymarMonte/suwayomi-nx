@@ -28,6 +28,12 @@ std::string appStart(std::int64_t tMs, const AppStart& info) {
     fields["memUsed"] = info.runtime.usedMem;
     fields["safeMode"] = info.safeMode;
     fields["lastCrash"] = std::string(info.lastCrash);
+    fields["imageBudget"] = info.imageBudget;
+    fields["coverBudget"] = info.coverBudget;
+    fields["textureBudget"] = info.textureBudget;
+    fields["maxDecode"] = info.maxDecode;
+    fields["httpConcurrency"] = info.httpConcurrency;
+    fields["decodeThreads"] = info.decodeThreads;
     return line(tMs, "app_start", fields);
 }
 
@@ -37,8 +43,30 @@ std::string screen(std::int64_t tMs, std::string_view name) {
     return line(tMs, "screen", fields);
 }
 
+std::string screen(std::int64_t tMs, std::string_view name, const nlohmann::ordered_json& params) {
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["name"] = std::string(name);
+    fields["params"] = params;
+    return line(tMs, "screen", fields);
+}
+
 std::string idle(std::int64_t tMs) {
     return line(tMs, "idle");
+}
+
+std::string launchRefused(std::int64_t tMs, const RuntimeInfo& runtime) {
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["mode"] = std::string(launchModeName(runtime.mode));
+    fields["appletType"] = runtime.appletType;
+    return line(tMs, "launch_refused", fields);
+}
+
+std::string mem(std::int64_t tMs, const RuntimeInfo& runtime) {
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["used"] = runtime.usedMem;
+    fields["total"] = runtime.totalMem;
+    fields["free"] = runtime.totalMem > runtime.usedMem ? runtime.totalMem - runtime.usedMem : 0;
+    return line(tMs, "mem", fields);
 }
 
 std::string drill(std::int64_t tMs, std::string_view name, std::string_view phase) {
