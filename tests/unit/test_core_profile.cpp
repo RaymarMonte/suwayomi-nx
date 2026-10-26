@@ -114,3 +114,24 @@ TEST_SUITE("core") {
         CHECK(a.maxDecodeBytes == b.maxDecodeBytes);
     }
 }
+
+TEST_SUITE("core") {
+    TEST_CASE("RetryPolicy: doubling waits with a cap, only idempotent + transient + retries left") {
+        RetryPolicy policy;  // 2 retries, 250 ms, cap 2 s
+        CHECK(retryDelayMs(policy, 0) == 0);
+        CHECK(retryDelayMs(policy, 1) == 250);
+        CHECK(retryDelayMs(policy, 2) == 500);
+        CHECK(retryDelayMs(policy, 4) == 2000);
+        CHECK(retryDelayMs(policy, 60) == 2000);
+        CHECK(shouldRetry(policy, 0, true, true));
+        CHECK(shouldRetry(policy, 1, true, true));
+        CHECK_FALSE(shouldRetry(policy, 2, true, true));
+        CHECK_FALSE(shouldRetry(policy, 0, false, true));
+        CHECK_FALSE(shouldRetry(policy, 0, true, false));
+        CHECK(isTransientHttpStatus(503));
+        CHECK(isTransientHttpStatus(429));
+        CHECK_FALSE(isTransientHttpStatus(500));
+        CHECK_FALSE(isTransientHttpStatus(404));
+        CHECK(makeRuntimeProfile(LaunchMode::Application, 4 * kGiB, 0).httpRetry.maxRetries == 2);
+    }
+}

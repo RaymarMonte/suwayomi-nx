@@ -20,6 +20,7 @@ add_library(snx_core STATIC
     Json.cpp
     LaunchOptions.cpp
     RuntimeInfo.cpp
+    RetryPolicy.cpp
     RuntimeProfile.cpp
     SafePath.cpp
     TestConfig.cpp

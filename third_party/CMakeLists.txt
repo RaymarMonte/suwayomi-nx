@@ -8,3 +8,7 @@ target_include_directories(third_party_json INTERFACE ${CMAKE_CURRENT_SOURCE_DIR
 # #include <doctest/doctest.h>
 add_library(third_party_doctest INTERFACE)
 target_include_directories(third_party_doctest SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+
+# #include <httplib/httplib.h> — host tests only: a real local HTTP server for the curl client's tests (WP-05).
+add_library(third_party_httplib INTERFACE)
+target_include_directories(third_party_httplib SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

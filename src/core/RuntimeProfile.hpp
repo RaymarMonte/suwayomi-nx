@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "core/Json.hpp"
+#include "core/RetryPolicy.hpp"
 #include "core/RuntimeInfo.hpp"
 
 // Every memory budget, prefetch count, concurrency and input limit the app uses (D12 amended by D21, ARCHITECTURE.md
@@ -42,6 +43,15 @@ struct RuntimeProfile {
     int decodeThreads = 2;
     int libraryPageSize = 60;   // manga per LibraryByCategory request
     int chapterPageSize = 100;  // chapters per Chapters request
+
+    // Network (net, WP-05). Timeouts are per request. Retries are for GETs only (core/RetryPolicy.hpp).
+    int httpConnectTimeoutMs = 5000;                   // a LAN server answers a connect in milliseconds
+    int httpTimeoutMs = 30000;                         // one whole JSON request
+    int httpImageTimeoutMs = 60000;                    // one whole image download (the image module passes it)
+    int httpMaxRedirects = 3;                          // followed redirects per request
+    std::uint64_t httpMaxHeaderBytes = 64 * 1024;      // all response headers of one request together (S6)
+    RetryPolicy httpRetry;                             // 2 retries, 250 ms then 500 ms apart
+    std::uint64_t netThreadStackBytes = 512 * 1024;    // the network thread's stack (curl, TLS handshakes)
 
     // Untrusted input (SAFETY.md S6).
     JsonLimits json;                           // server answers and config.json

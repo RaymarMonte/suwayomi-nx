@@ -12,6 +12,11 @@ enum class ErrorKind {
     Parse,         // the answer isn't usable: not JSON, too big, too deeply nested, or the wrong shape
     Server,        // the server answered with a GraphQL error (errors[] and no usable data)
     Unauthorized,  // a GraphQL error that says the login is missing or has expired (ui_login answers HTTP 200 with it)
+    // No usable HTTP answer at all (net, WP-05). An HTTP error status (404, 401, 500) is still an answer, not one of these.
+    Network,    // couldn't connect, connection dropped, too many redirects, bad URL
+    Timeout,    // connecting or the whole request took longer than its limit
+    Cancelled,  // the caller's CancelToken fired, or the HTTP client shut down
+    TooLarge,   // the answer was bigger than the request's limit; the download stopped early (SAFETY.md S6)
 };
 
 struct Error {

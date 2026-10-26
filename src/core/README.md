@@ -5,7 +5,7 @@
 100% testable on the PC. ctest `unit.core-includes` (`CheckIncludes.cmake`) enforces that with an allowlist.
 
 **Public headers** (include as `"core/<Name>.hpp"`):
-- `Result.hpp` (WP-04): `Result<T>` = a value or an `Error{kind: Parse|Server|Unauthorized, message}`. Parsers never throw.
+- `Result.hpp` (WP-04): `Result<T>` = a value or an `Error{kind, message}`; kinds Parse|Server|Unauthorized, and Network|Timeout|Cancelled|TooLarge for net (WP-05). Parsers never throw.
 - `Json.hpp` (WP-04): `parseJson(text, JsonLimits)` with S6 size (8 MiB) and depth (64) limits, `dumpJson` (never throws), and
   `json::string/int32/int64/number/boolean/strings/object/array` field readers (missing, null, wrong type → nothing).
 - `models/*.hpp` (WP-04): plain structs `ServerInfo` (+ D9 version check), `Category`, `Source`, `Manga`, `Chapter`, `PageList`,
@@ -16,6 +16,7 @@
   `gql::readManga(response)`). Documents: `graphql/*.graphql`, embedded at build time (`EmbedGraphql.cmake`), list in `Documents.hpp`.
 - `AppConfig.hpp` (WP-04): settings ↔ config.json text, `schemaVersion` + migration steps; loading never fails (defaults + `problems`).
 - `RuntimeProfile.hpp` (WP-04): `makeRuntimeProfile(mode, totalMem, usedMem, safeMode)` → every budget and limit (D12/D21).
+- `RetryPolicy.hpp` (WP-05): `retryDelayMs` (doubling, capped), `shouldRetry` (idempotent + transient + retries left), `isTransientHttpStatus`.
 - `Version.hpp`, `LaunchOptions.hpp`, `RuntimeInfo.hpp`, `TestEvents.hpp` (WP-01/03): version, flags, launch mode, test events.
 - `SafePath.hpp`, `CrashRecord.hpp`, `TestConfig.hpp` (WP-03b): write-jail path rules, crash record format, test config.
 
