@@ -96,10 +96,11 @@ Consequences: the MVP is HTTP + basic auth on the LAN. HTTPS stays optional (WP-
 always-on **Linux machine** at home (not the laptop). The owner's address for it is `https://<server-tailnet-name>:4567` (web UI under `/library`):
 Tailscale Serve in front of Suwayomi, a Let's Encrypt certificate (ECDSA, chain YE2 → Root YE → ISRG Root X2, renewed by Tailscale every
 ~90 days), TLS 1.2 works. Auth mode right now: **none** (only the owner's tailnet devices reach that address).
-- **The Switch can't use that address** (no Tailscale client, see above). On the home LAN the machine is `<server-lan-ip>`, but port 4567
-  doesn't answer there yet (the connection times out, so most likely a firewall). Until the owner opens a LAN path, the Switch can't reach the server.
-- Plan unchanged: on the Switch the app uses `http://<server-lan-ip>:4567` with `basic_auth`. Open the LAN port only together with turning
-  auth on, or anyone on the home Wi-Fi gets full control of the server. Auth on also means the owner's other devices need the password.
+- **The Switch can't use that address** (no Tailscale client, see above). Later that day the owner opened a home-LAN path:
+  **`http://<server-lan-ip>:4568`** (plain HTTP; checked from the PC: v2.4.2366, library and web UI answer). That's the Switch's address.
+  Port 4567 stays closed on the LAN. The test server's 4568 is on the PC, another machine, so they don't clash; tests only use the PC (D11).
+- Auth is still **none** on both addresses, so anyone on the home Wi-Fi can use the server fully. `basic_auth` stays the recommendation;
+  turning it on is the owner's call. Until then the app's setup uses "no login" for this server.
 - The real name and LAN IP stay out of the public repo (D23): they're in the git-ignored `docs/local/real-server.md` on the owner's PC.
 
 **D19 sys-autopilot: use our own slim fork that can inject touch** (owner OK 2026-10-21, after comparing it with "try stock 1.5.0 first").

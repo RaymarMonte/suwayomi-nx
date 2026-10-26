@@ -29,6 +29,7 @@ edit you are in the middle of, and let a running command end (stop it if it woul
 `docs/STATUS.md`: what's done, what's half-done, the exact next step, and when the limit resets. Commit
 (`WP-xx: WIP, paused at usage limit`) only if your last test run was green; don't start a new run just for that.
 Then stop, tell the owner, and resume only when they say so. Side sessions check for themselves.
+The pause is for WP work only. The owner keeps the last 8 % for their own quick requests (a question, a small docs chore), so those go ahead above 92 %.
 If the tool is missing or says "unavailable", say so once and check again at the next point; don't stop for that alone.
 
 ## Layout (target, created in WP-01)

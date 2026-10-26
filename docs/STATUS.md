@@ -27,7 +27,7 @@
 - Test server: `reset` + `start` ~10 s; `tools/record-fixtures/record-all.sh` ~1 min (it ends with the server running, auth none).
 - WSL can fail to start ("insufficient system resources") when Windows memory is nearly all committed (it reserves up to 12 GB): ask the owner to close apps.
 - Device: e2e `net-hello` ~35 s, `smoke` ~25 s, `crash-drills` ~9 min (one drill ~50 s). A start-up crash leaves no log: use breadcrumb writes (WP-03c).
-- Owner's real server (D18 "Update", never in tests): Tailscale HTTPS only, no auth, LAN port closed (Switch can't reach it). Addresses: `docs/local/`.
+- Owner's real server (D18 "Update", never in tests): the Switch uses `http://<server-lan-ip>:4568`, no auth. Addresses: `docs/local/`.
 ## Console facts
 - **v1 Erista · FW 22.5.0 · AMS 1.11.2 · emuMMC** (`emuMMC/RAW1`), RCM payload, Hekate 6.5.3 (Launch → CFW (EMUMMC)). SD FAT32, ~88 GB free.
 - Sysmodules: sys-clk, emuiibo, MissionControl, sys-patch, nx-ovlloader, **sys-autopilot-nx `4200000000004150`** (`http://<switch-ip>:4150`).
