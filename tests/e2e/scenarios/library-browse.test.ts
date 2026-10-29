@@ -11,6 +11,7 @@
 
 import { expect } from 'vitest';
 
+import { ConsoleUnreachableError } from '../drivers/autopilot.ts';
 import type { AppEvent } from '../lib/events.ts';
 import { scenario, type Scenario } from '../lib/scenario.ts';
 import { CLOCK_MASK, LIBRARY } from '../lib/screens.ts';
@@ -46,8 +47,44 @@ async function memNow(s: Scenario): Promise<number> {
     return Number(mem.used);
 }
 
-async function press(s: Scenario, button: 'UP' | 'DOWN', times: number): Promise<void> {
-    for (let i = 0; i < times; i++) await s.driver.press(button);
+/**
+ * One input inside a loop that checks the app's state before every step (walkTo, flickUntil), so an input that got lost or
+ * went through twice doesn't matter. On the Switch, sys-autopilot sometimes resets the connection of an input request; the
+ * driver never repeats those (a press could happen twice), but here that is safe: wait a moment and look again. Returns
+ * false when the input may not have happened.
+ */
+async function inputInLoop(s: Scenario, input: () => Promise<void>): Promise<boolean> {
+    try {
+        await input();
+        return true;
+    } catch (e) {
+        if (!(e instanceof ConsoleUnreachableError)) throw e;
+        console.warn(`[library-browse] ${e.message}: looking again in 2 s`);
+        await new Promise((r) => setTimeout(r, 2_000));
+        return false;
+    }
+}
+
+/** The cover that has the focus now, from the latest "focus" event (cells have the id "library/cover-<index>"). */
+function focusedCover(s: Scenario): number | undefined {
+    const focus = s.events.events.filter((e) => e.ev === 'focus').at(-1);
+    const m = /library\/cover-(\d+)/.exec(String(focus?.view ?? ''));
+    return m ? Number(m[1]) : undefined;
+}
+
+/**
+ * Presses `button` until the focused cover satisfies `done`, one press at a time: after each, the focus moves (a "focus"
+ * event), or, at the end of what is loaded, the next page arrives first (a "library" event) and the next press moves on.
+ */
+async function walkTo(s: Scenario, button: 'UP' | 'DOWN', done: (index: number) => boolean, what: string): Promise<void> {
+    for (let i = 0; i < 3 * ROWS; i++) {
+        const index = focusedCover(s);
+        if (index !== undefined && done(index)) return;
+        const mark = s.events.mark();
+        if (!(await inputInLoop(s, () => s.driver.press(button)))) continue;
+        await s.events.waitFor(`${button}: the focus moves or a page arrives`, (e) => e.ev === 'focus' || e.ev === 'library', { from: mark });
+    }
+    throw new Error(`${3 * ROWS} presses of ${button} didn't reach ${what} (focus on cover ${focusedCover(s)})`);
 }
 
 /** Flicks over the grid (up to scroll down, or the other way) until the latest "grid" event says `done`. */
@@ -57,7 +94,7 @@ async function flickUntil(s: Scenario, direction: 'down' | 'up', done: (grid: Ap
         const grid = s.events.events.filter((e) => e.ev === 'grid').at(-1);
         if (grid && done(grid)) return;
         const mark = s.events.mark();
-        await s.driver.swipe(from.x, from.y, to.x, to.y, 120);
+        if (!(await inputInLoop(s, () => s.driver.swipe(from.x, from.y, to.x, to.y, 120)))) continue;
         await s.events.waitForEvent('idle', {}, { from: mark }); // the flick's glide has ended
     }
     throw new Error(`${LIBRARY.maxFlicks} flicks ${direction} didn't reach ${what}`);
@@ -100,12 +137,14 @@ scenario('library-browse', async (s) => {
 
     // Pass 1, D-pad: down to the last row (the pages load on the way), then back to the top.
     mark = s.events.mark();
-    await press(s, 'DOWN', ROWS + 1); // the first press may land on the cover row the focus came back to
+    expect(focusedCover(s), 'the focus is on the cover that was opened').toBe(1);
+    await walkTo(s, 'DOWN', (i) => i >= 144, 'the last row');
     const all = await s.events.waitForEvent('library', { state: 'ready', category: info.shelf, items: 150 }, { from: mark });
     expect(all.total).toBe(150);
     await s.events.waitForEvent('idle', {}, { from: mark });
-    await press(s, 'UP', ROWS);
-    await s.events.waitForEvent('idle', {}, { from: mark });
+    const up = s.events.mark();
+    await walkTo(s, 'UP', (i) => i < 6, 'the first row');
+    await s.events.waitForEvent('idle', {}, { from: up });
     const afterOne = await memNow(s);
 
     // Passes 2 and 3, touch: flick down to the end and back up.
@@ -114,6 +153,7 @@ scenario('library-browse', async (s) => {
         await flickUntil(s, 'up', (g) => Number(g.first) === 0, `pass ${pass}: the top`);
     }
     const afterThree = await memNow(s);
+    console.log(`[library-browse] memory in use after pass 1: ${(afterOne / MiB).toFixed(1)} MiB, after pass 3: ${(afterThree / MiB).toFixed(1)} MiB`);
     expect(afterThree - afterOne, `heap after pass 3 vs pass 1 (${afterOne} -> ${afterThree})`).toBeLessThan(16 * MiB);
     checkCoverLoads(s.events.events, info);
 
@@ -161,6 +201,8 @@ async function buttons(s: Scenario, info: ShelfInfo): Promise<void> {
     let mark = s.events.mark();
     await s.driver.press('R');
     await s.events.waitForEvent('library', { state: 'empty', category: info.empty }, { from: mark });
+    // The covers are hidden now, so the focus moves to the message (it used to stay on a hidden cover).
+    await s.events.waitFor('R: the focus moves to the message', (e) => e.ev === 'focus' && String(e.view).includes('StatusView'), { from: mark });
     await s.events.waitForEvent('idle', {}, { from: mark });
     mark = s.events.mark();
     await s.driver.press('L');

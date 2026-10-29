@@ -57,6 +57,10 @@ void watchNet(net::HttpClient& http);
 // Same hand-over as watchNet. Release builds: nothing.
 void watchImages(image::ImageLoader& loader);
 
+// Test builds: the focus frame without its moving glow, so golden screenshots don't depend on the moment they are taken
+// (WP-09). Call after the window and theme are set up. Release builds: nothing (the glow stays).
+void steadyScreenshots();
+
 // The idle rule (WP-08): `busy` says whether net or decode work is still pending (http.inFlight(), images.activeJobs()).
 // The app counts as idle only when it is false and no animation runs. Also writes {"ev":"focus","view":...} on every focus change.
 void watchApp(std::function<bool()> busy);

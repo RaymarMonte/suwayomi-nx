@@ -184,6 +184,15 @@ void watchImages(image::ImageLoader& loader) {
     });
 }
 
+void steadyScreenshots() {
+    // borealis draws a glow in color2 that moves around the focus frame (color1), and freezes it wherever it was when the
+    // input stopped, so two screenshots of the same screen differed (WP-09, the Switch smoke golden). With color2 = color1
+    // the glow vanishes into the frame.
+    for (brls::Theme* theme : {&brls::Theme::getLightTheme(), &brls::Theme::getDarkTheme()}) {
+        theme->addColor("brls/highlight/color2", theme->getColor("brls/highlight/color1"));
+    }
+}
+
 void watchApp(std::function<bool()> busy) {
     gBusy = std::move(busy);
     brls::Application::getGlobalFocusChangeEvent()->subscribe([](brls::View* view) {
@@ -284,6 +293,7 @@ int imageBenchRepeat() {
 }
 void watchNet(net::HttpClient&) {}
 void watchImages(image::ImageLoader&) {}
+void steadyScreenshots() {}
 void watchApp(std::function<bool()>) {}
 void write(std::string_view, const nlohmann::ordered_json&) {}
 void screen(std::string_view) {}

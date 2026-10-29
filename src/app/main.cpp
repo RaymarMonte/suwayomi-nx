@@ -144,6 +144,7 @@ int main(int argc, char* argv[]) {
     brls::Application::getStyle().addMetric("brls/sidebar/item_height", 72.0f);
     brls::Application::createWindow("app/title"_i18n);
     brls::Application::getPlatform()->setThemeVariant(brls::ThemeVariant::DARK);
+    testhooks::steadyScreenshots();
 
     // PLUS quits from every screen. The device scripts rely on it to get back to hbmenu.
     brls::Application::setGlobalQuit(true);

@@ -226,6 +226,14 @@ Initial list, grown per UI WP:
 - Compared with `pixelmatch` (per-pixel threshold 0.1, allowed diff 0.1 % of the pixels by default), with masks for clock/battery/animated
   regions. Masks are painted magenta into both pictures, and into the stored golden, so the PNG shows what is ignored.
 - Update with `tools/e2e.sh <driver> <scenario> --update-goldens` only when a UI change is intended (and say so in the commit).
+- Test builds draw the focus frame without borealis's moving glow (`testhooks::steadyScreenshots`, WP-09): the glow freezes
+  wherever it was when the input stopped, so on the Switch two shots of the same screen differed by ~0.15 %. Release builds
+  keep the glow.
+- One drill's golden alone: `SNX_E2E_DRIVER=switch SNX_E2E_BUILD=~/build/suwayomi-nx/switch-test/suwayomi-nx.nro npx vitest run
+  -c vitest.e2e.config.ts tests/e2e/scenarios/crash-drills.test.ts -t main-loop-exception` (add `SNX_UPDATE_GOLDENS=1` to update).
+- On the Switch, sys-autopilot sometimes resets the connection of an input request, and the driver never repeats those (a
+  press could happen twice). A loop that checks the app's state before every input may catch that and look again
+  (`inputInLoop` in `library-browse`); a fixed sequence of presses must not.
 - On failure, the harness writes `<step>.actual.png`, `<step>.diff.png`, the events and the app log to `tests/e2e/out/<scenario>/`.
   Claude opens the diff image only then.
 

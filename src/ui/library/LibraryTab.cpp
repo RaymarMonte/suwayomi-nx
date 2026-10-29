@@ -285,12 +285,13 @@ void LibraryTab::showGrid(bool visible) {
             brls::Application::giveFocus(grid_);
         }
     } else {
-        // A hidden cell keeps no focus: the status (focusable) takes it.
+        grid_->setVisibility(brls::Visibility::GONE);
+        status_->setVisibility(brls::Visibility::VISIBLE);
+        // A hidden cell keeps no focus: the status takes it. Only now, once it is visible: a hidden view refuses the focus,
+        // and the highlight would stay on the hidden cell (found on the console: R to an empty category).
         if (hadFocus) {
             brls::Application::giveFocus(status_);
         }
-        grid_->setVisibility(brls::Visibility::GONE);
-        status_->setVisibility(brls::Visibility::VISIBLE);
     }
 }
 
@@ -439,6 +440,7 @@ GridCell* LibraryTab::makeCell() {
 
 void LibraryTab::bind(GridCell& cell, std::size_t index) {
     const core::Manga& manga = model_->items()[index];
+    cell.setId("library/cover-" + std::to_string(index));  // the "focus" test event then says which cover has the focus
     const std::string url = manga.thumbnailUrl.empty() ? std::string() : context_.client.absoluteUrl(manga.thumbnailUrl);
     static_cast<CoverCell&>(cell).show(manga, url, context_);
 }

@@ -17,7 +17,7 @@ lazy cover loading, pagination, and pull-to-refresh equivalent. This is the refe
 - [x] Touch (D16): tap a cover opens the manga, drag/flick scrolls the grid, tap category tabs, sort and refresh reachable by tap (not only Y/X)
 - [x] Empty library / empty category / error states
 - [x] Remembers last category and scroll position
-- [ ] Scenario `library-browse` (desktop + device), goldens for grid and empty state (desktop done; device run needs the console)
+- [x] Scenario `library-browse` (desktop + device), goldens for grid and empty state (both green 2026-10-29)
 - [x] `src/ui/README.md` updated with "how to make a list screen" (the recipe WP-14/15 will follow)
 
 ## Acceptance

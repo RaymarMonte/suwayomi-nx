@@ -615,5 +615,9 @@ mode isn't supported, D21, and every try risks a fatal).
 - config.json gets a `library` section (`categoryId`, `sort`), no migration (an old file simply lacks it).
 - Test server: the seed adds the 150-manga "Big shelf" and an "Empty" category, so the grid can be scrolled, paged and
   recycled, and the empty state has a golden.
+- Hiding a view that holds the focus: first switch the visibility, then give the focus to the view now shown (a hidden view
+  refuses it, and the highlight stayed on a hidden cover: found on the console with R to an empty category).
+- Test builds draw the focus frame without its moving glow (`testhooks::steadyScreenshots`): borealis freezes the glow
+  wherever it was when the input stopped, which made the Switch smoke golden differ by 0.15 % between runs. Release keeps it.
 Rejected: wiliwili's RecyclingGrid (GPL), borealis's RecyclerFrame as is (a list: rows of cells would lose the column on
 up/down), sorting on the server (it can't), loading every category at start (one category at a time is enough).
