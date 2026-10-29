@@ -135,6 +135,9 @@ Result<Manga> fromJson<Manga>(const nlohmann::json& node) {
             manga.firstUnreadChapter = std::move(parsed).value();
         }
     }
+    if (const nlohmann::json* chapter = json::object(node, "lastReadChapter")) {
+        manga.lastReadAt = json::int64(*chapter, "lastReadAt").value_or(0);
+    }
     return manga;
 }
 

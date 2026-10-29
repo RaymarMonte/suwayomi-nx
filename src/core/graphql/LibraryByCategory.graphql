@@ -1,9 +1,10 @@
 # One page of the library manga in one category, by title (then id, so pages never overlap).
 # $filter is {"categoryId": {"equalTo": <id>}}, or {"categoryId": {"isNull": true}} for the Default category (id 0), which has
 # no entries of its own on the server. gql::libraryByCategory() builds it. (category(id) { mangas } can't be paged.)
+# lastReadChapter.lastReadAt: for the "last read" sort (WP-09); the server can only order by title, id and dates it keeps.
 query LibraryByCategory($filter: MangaFilterInput!, $first: Int!, $offset: Int!) {
   mangas(condition: { inLibrary: true }, filter: $filter, order: [{ by: TITLE }, { by: ID }], first: $first, offset: $offset) {
-    nodes { id title thumbnailUrl status unreadCount downloadCount }
+    nodes { id title thumbnailUrl status unreadCount downloadCount lastReadChapter { lastReadAt } }
     totalCount
     pageInfo { hasNextPage endCursor }
   }

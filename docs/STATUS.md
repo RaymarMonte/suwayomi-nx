@@ -1,20 +1,22 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 2 – App (WP-08 …). Next WP:** WP-09 (Library screen). WP-08b (all controllers merged) can go any time. Done: WP-00a … 08.
+**Phase 2 – App (WP-08 …). Now:** WP-09 (Library screen), paused. WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 08.
 
-## Last session (2026-10-26/27, WP-08, Opus) — done
-- **App shell (D40, `src/ui/README.md`, `src/app/README.md`):** `AppContext`; screens = Activity + Model (`snx_ui_models`,
-  suite `ui`); Main (5 tabs, never closes; check = aboutServer + categories with a login: aboutServer is public in ui_login),
-  Setup, Login, Settings (About, crash logs); `StatusView`/`TextFieldCell`/`checkServer`; logger, ConfigStore, applet guard.
-- **For WP-09+:** copy the screen pattern; a tab's view comes from `MainActivity::makeTab`; `checkServer` for connection;
-  idle counts `http.inFlight()` + `images.activeJobs()`; touch coordinates go in `tests/e2e/lib/screens.ts`.
-- **Applet mode (D41, owner OK):** the refusal screen is verified on the console. A crash in applet mode is always a system
-  fatal (qlaunch stops when the Album's process ends abnormally, `0x290`), so the drill there runs on desktop only; console
-  applet runs are opt-in (`SNX_APPLET_CONSOLE=1`, owner watching). Safer crash ending: WP-21.
-- **Green:** unit 7/7 + contract, test-hooks, TSan, coverage 93.7 %, integration ×3, desktop smoke, all desktop e2e, npm,
-  Switch build (gate PASS, `.nro` 4.2 MB). **Console:** smoke (new golden), setup-first-run, auth-matrix, net-hello,
-  image-bench, crash-drills 10/10, applet-guard refusal screen.
-- **Test server:** after its hard stop it sometimes won't start ("null cannot be cast to ... ServerConfig"): `reset` fixes
-  it; auth-matrix does that by itself now.
+## Paused (2026-10-29, WP-09, Opus): 5-hour usage limit at 89 %, resets 08:30 UTC
+- **Done, green (unit 7/7 + contract):** `ui/library/LibraryModel` (categories; Default is a tab only with manga; title order
+  pages in near the end; unread / last-read sorts load the whole category, then sort; shelves kept per category; focus per
+  category; errors) and `ui/components/GridLayout` (columns, positions, visible rows, focus moves), both in `snx_ui_models`,
+  tests `tests/unit/test_ui_library.cpp`. config.json `library {categoryId, sort}`. `Manga::lastReadAt` from
+  `lastReadChapter { lastReadAt }` (LibraryByCategory.graphql).
+- **Next step:** `src/ui/components/CoverGrid.{hpp,cpp}` (recycling grid on ScrollingFrame, structure from borealis's
+  RecyclerFrame, Apache-2.0 → CREDITS.md; the focused cell is never recycled), cover cells (TextureBudget in AppContext),
+  `LibraryTab` (category bar, sort, refresh), MainActivity owns the model, manga stub screen. Then re-record fixtures (the query
+  changed), e2e `library-browse` + new desktop smoke golden (the Switch golden needs the console), README recipe, D42.
+- **For the owner:** PLUS stays "quit" (device scripts rely on it), so the library menu goes on MINUS instead of PLUS.
+
+## Before that (WP-08, done 2026-10-27, D40/D41)
+- Screens = Activity + Model (`src/ui/README.md`); a tab's view comes from `MainActivity::makeTab`; idle counts
+  `http.inFlight()` + `images.activeJobs()`; touch coordinates in `tests/e2e/lib/screens.ts`. Any crash in applet mode is a
+  system fatal (D41): that drill is desktop-only. Test server won't start after a hard stop ("null cannot be cast"): `reset`.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

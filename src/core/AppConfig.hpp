@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "core/Json.hpp"
+#include "core/models/Category.hpp"
 
 // The app's settings (config.json in the app's folder, D10): server, login, reader preferences. Core only turns them into text
 // and back; platform::SafeFs writes the file atomically and keeps a .bak (SAFETY.md S5), WP-08 debounces the saves.
@@ -29,6 +30,12 @@ enum class PageFit { Screen, Width, Height, Original };
 std::string_view pageFitName(PageFit fit);  // "screen", "width", "height", "original"
 std::optional<PageFit> pageFitFromName(std::string_view name);
 
+// The library grid's order (WP-09). Title: A to Z, as the server sends it. Unread: most unread chapters first. LastRead: the
+// manga read most recently first, never-read ones last.
+enum class LibrarySort { Title, Unread, LastRead };
+std::string_view librarySortName(LibrarySort sort);  // "title", "unread", "last_read"
+std::optional<LibrarySort> librarySortFromName(std::string_view name);
+
 struct ServerSettings {
     std::string url;  // as the user typed it, e.g. "http://192.168.1.10:4567" (may include a sub-path)
     AuthMode auth = AuthMode::None;
@@ -44,10 +51,17 @@ struct ReaderSettings {
     bool serverConvertsToJpeg = false;  // ask the server for image/jpeg pages (D6, off by default)
 };
 
+// The library screen, as the user left it (WP-09). A new section, so old files simply don't have it (no migration).
+struct LibrarySettings {
+    int categoryId = kDefaultCategoryId;  // the category shown last; one that no longer exists means the first tab
+    LibrarySort sort = LibrarySort::Title;
+};
+
 struct AppConfig {
     int schemaVersion = kAppConfigVersion;
     ServerSettings server;
     ReaderSettings reader;
+    LibrarySettings library;
 };
 
 struct ConfigLoad {

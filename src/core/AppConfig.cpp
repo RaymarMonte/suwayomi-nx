@@ -23,6 +23,11 @@ constexpr std::array<std::pair<PageFit, std::string_view>, 4> kFitNames = {{
     {PageFit::Height, "height"},
     {PageFit::Original, "original"},
 }};
+constexpr std::array<std::pair<LibrarySort, std::string_view>, 3> kSortNames = {{
+    {LibrarySort::Title, "title"},
+    {LibrarySort::Unread, "unread"},
+    {LibrarySort::LastRead, "last_read"},
+}};
 
 template <typename E, std::size_t N>
 std::string_view nameOf(const std::array<std::pair<E, std::string_view>, N>& names, E value) {
@@ -78,6 +83,16 @@ class SectionReader {
         }
     }
 
+    void number(std::string_view key, int& out) {
+        if (const nlohmann::json* value = present(key)) {
+            if (const auto parsed = json::asInt32(*value)) {
+                out = *parsed;
+            } else {
+                wrongType(key, "a whole number");
+            }
+        }
+    }
+
     template <typename E, std::size_t N>
     void choice(std::string_view key, const std::array<std::pair<E, std::string_view>, N>& names, E& out) {
         const nlohmann::json* value = present(key);
@@ -129,6 +144,13 @@ std::string_view pageFitName(PageFit fit) {
 }
 std::optional<PageFit> pageFitFromName(std::string_view name) {
     return valueOf(kFitNames, name);
+}
+
+std::string_view librarySortName(LibrarySort sort) {
+    return nameOf(kSortNames, sort);
+}
+std::optional<LibrarySort> librarySortFromName(std::string_view name) {
+    return valueOf(kSortNames, name);
 }
 
 const std::vector<ConfigMigration>& configMigrations() {
@@ -194,6 +216,11 @@ ConfigLoad loadAppConfig(std::string_view text, const JsonLimits& limits, const 
     r.choice("direction", kDirectionNames, reader.direction);
     r.choice("fit", kFitNames, reader.fit);
     r.flag("serverConvertsToJpeg", reader.serverConvertsToJpeg);
+
+    LibrarySettings& library = load.config.library;
+    SectionReader l(root, "library", problems);
+    l.number("categoryId", library.categoryId);
+    l.choice("sort", kSortNames, library.sort);
     return load;
 }
 
@@ -212,6 +239,10 @@ std::string saveAppConfig(const AppConfig& config) {
         {"direction", readingDirectionName(config.reader.direction)},
         {"fit", pageFitName(config.reader.fit)},
         {"serverConvertsToJpeg", config.reader.serverConvertsToJpeg},
+    };
+    root["library"] = {
+        {"categoryId", config.library.categoryId},
+        {"sort", librarySortName(config.library.sort)},
     };
     return root.dump(2, ' ', false, nlohmann::ordered_json::error_handler_t::replace) + "\n";
 }

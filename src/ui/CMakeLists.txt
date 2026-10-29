@@ -2,6 +2,8 @@
 # borealis, so the host unit tests build them too. The views (*Activity, *Tab, components) need borealis and are compiled
 # into the app itself (src/app/CMakeLists.txt).
 add_library(snx_ui_models STATIC
+    components/GridLayout.cpp
+    library/LibraryModel.cpp
     login/LoginModel.cpp
     main/MainModel.cpp
     setup/SetupModel.cpp

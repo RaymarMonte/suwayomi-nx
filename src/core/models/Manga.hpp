@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -33,6 +34,9 @@ struct Manga {
     std::optional<Source> source;
     std::vector<Category> categories;  // the library query asks only for ids (names stay empty)
     std::optional<Chapter> firstUnreadChapter;  // where "Continue reading" starts; none if everything is read
+    // When the chapter read most recently was read (lastReadChapter.lastReadAt, the server's time stamp: bigger = later).
+    // 0 = never read, or the query didn't ask. The library sorts by it (LibrarySort::LastRead).
+    std::int64_t lastReadAt = 0;
 };
 
 }  // namespace snx::core
