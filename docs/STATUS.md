@@ -1,20 +1,21 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 2 – App (WP-08 …). Next WP:** WP-11 (Paged reader + progress sync). WP-08b is nice to have for now (owner,
-2026-10-29). Done: WP-00a … 10.
+**Phase 2 – App (WP-08 …). Next:** WP-11's **console run** (owner + Switch), then WP-12. WP-08b is nice to have for now
+(owner, 2026-10-29). Done: WP-00a … 10; WP-11 on the PC.
 
-## Last session (2026-10-29, WP-10, Opus) — done
-- **Manga details (D43):** `MangaModel` (details + all chapter pages, sort, filter, `continueReading`, actions, reload,
-  refresh from source), `MangaActivity` (details left, one-column `CoverGrid` right, "..." row menu, X/Y/MINUS), and a
-  `ReaderActivity` stand-in: **WP-11 replaces it** and calls `MangaModel::reloadChapters()` when the reader closes. New:
-  `CoverImage`, `fitLines()`, `CoverGrid::rebind()`, `LibraryModel::updateManga`. API: `updateChapters`, `refreshManga`,
-  `Chapter::lastReadAt`, `RuntimeProfile::maxChapters`. The server stamps `lastReadAt` whenever a patch sends `lastPageRead`
-  (also 0), never for `isRead` alone, so "Continue" ignores stamps on unread page-0 chapters.
-- Alpha's fixture description is long now ("Show more"); answers re-recorded. Events `manga`, `chapter_action`,
-  `chapter_list`, `busy`, screen `Reader`; any screen event now starts a new quiet spell (`idle` follows it) (TESTING.md).
-- **Green:** unit 7/7 + contract 28/28, integration ×3 (ui_login needed a second server start: "null cannot be cast"),
-  npm + typecheck, desktop e2e 21/21 (one rerun: Xvfb's `import` failed once), Switch build (gate PASS). **Console:**
-  `manga-details` (new goldens, then green against them), `smoke`, `library-browse` (46.8 → 46.9 MiB).
-- Follow-ups: sort/filter aren't saved in config.json; a long opened description can't be scrolled with the stick.
+## Last session (2026-10-30, WP-11, Opus) — PC side done, console run left
+- **Paged reader (D44):** core `ReaderMath` (turn by side/direction, tap zones, swipes, fits, decode boxes, page position,
+  prefetch window) + `ProgressSync` (lastPageRead ≤ every 5 s, isRead at the last page at once, all on leave/HOME/close);
+  `ReaderModel` (page list, window −1/+3 with cancel outside, next chapter's list + 2 pages fetched near the end, chapter
+  changes, a progress "saver" whose saves are never cancelled); `ReaderView` (page tiles as textures, tap/drag/swipe) and
+  `ReaderActivity` (full screen, menu on A / middle tap, settings on MINUS: direction, fit, background, page number;
+  direction + fit per manga in config.json). `platform::keepScreenOn` (Switch: `appletSetMediaPlaybackState`). The details
+  screen reloads its chapters once the reader's last save ended. Events `reader`, `progress`, reader `error` (TESTING.md).
+- **Green:** unit 7/7 + contract 28/28, typecheck, desktop e2e 25/25 incl. new `reader-paged`, `reader-rtl-spread`,
+  `resume-progress`, `broken-images` (goldens looked at), Switch build (gate PASS, 0 warnings). Desktop: 100 turns, median 2 ms.
+- **Next (console, owner present):** test server reset + start; `tools/e2e.sh switch` `smoke`, `manga-details`, then each new
+  reader scenario once with `--update-goldens` (look at the new Switch goldens) and once without. `reader-paged` prints the
+  turn times (p90 must be < 150 ms) and memory growth. Then tick WP-11's last box, ROADMAP "done", commit.
+- Follow-ups: no download % under the spinner; the stick doesn't pan; a config.json save blocks a frame (D44).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

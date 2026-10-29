@@ -1,28 +1,89 @@
 #pragma once
 
 #include <borealis.hpp>
+#include <cstdint>
+#include <functional>
+#include <string>
+#include <vector>
 
 #include "app/AppContext.hpp"
 #include "core/models/Chapter.hpp"
 #include "core/models/Manga.hpp"
+#include "ui/reader/ReaderModel.hpp"
+#include "ui/reader/ReaderView.hpp"
 
-// The reader. For now (WP-10) a stand-in: which chapter it would open, at which page. WP-11 turns it into the paged
-// reader (and then tells the details screen to reload its chapters: MangaModel::reloadChapters). B goes back.
+// The paged reader (WP-11). Full screen: the page (ReaderView), a message where there is no page (loading, an error with
+// Retry, the "previous chapter" / "next chapter" screens), the page number at the bottom, and a menu (top and bottom bars:
+// title, Close, Settings) that A or a tap in the middle shows and hides.
+// Controller: L/R and the D-pad's left/right turn pages (mirrored for right to left), up/down move a tall page, A the menu,
+// X retries, B closes (progress is saved), MINUS opens the reader settings. Touch (D16): tap the left/right edge to turn
+// (mirrored for right to left), the middle for the menu, swipe sideways to turn, drag to move a page bigger than the screen.
+// The screen stays on while the reader is open. The state lives in ReaderModel; direction and fit are saved per manga.
 namespace snx::ui {
 
 class ReaderActivity : public brls::Activity {
   public:
-    // page: the page index to open at (0 = the first page).
-    ReaderActivity(app::AppContext& context, core::Manga manga, core::Chapter chapter, int page);
+    // chapters: the manga's chapters known so far (for the next / previous chapter). page: the page index to open at.
+    // onClosed: runs once the reader has closed and its progress went to the server (saved or not); the details screen
+    // reloads its chapter list then. May be empty; it may run after this screen is gone.
+    ReaderActivity(app::AppContext& context, core::Manga manga, std::vector<core::Chapter> chapters, int chapterId,
+                   int page, std::function<void()> onClosed);
+    ~ReaderActivity() override;
 
     brls::View* createContentView() override;
     void onContentAvailable() override;
+    void onResume() override;  // back from the settings menu
 
   private:
+    void build();
+    void modelChanged();
+    void updateMessage();
+    void updateBars();
+    void applyLook();
+    void turn(core::Side side);
+    void step(int delta);
+    void startTurn();
+    void toggleMenu();
+    void retry();
+    void close();
+    void openSettings();
+    void chooseDirection();
+    void chooseFit();
+    void chooseBackground();
+    void report();
+    void reportScreen();
+
     app::AppContext& context_;
-    core::Manga manga_;
-    core::Chapter chapter_;
-    int page_;
+    ReaderModel model_;
+    int startChapter_;
+    int startPage_;
+    std::function<void()> onClosed_;
+
+    ReaderView* view_ = nullptr;
+    brls::Box* message_ = nullptr;
+    brls::Label* messageTitle_ = nullptr;
+    brls::Label* messageText_ = nullptr;
+    brls::Button* retryButton_ = nullptr;
+    brls::Box* pageNumberBox_ = nullptr;
+    brls::Label* pageNumber_ = nullptr;
+    brls::Box* topBar_ = nullptr;
+    brls::Label* barTitle_ = nullptr;
+    brls::Box* bottomBar_ = nullptr;
+    brls::Label* barPage_ = nullptr;
+
+    bool menuShown_ = false;
+    bool closing_ = false;
+    core::ReaderBackground background_;
+    bool showPageNumber_;
+    brls::Event<bool>::Subscription focusSubscription_;
+    bool subscribed_ = false;
+
+    // The page turn being measured (D17, WP-11 acceptance: < 150 ms when prefetched): when it started, and whether the page
+    // was decoded already then. -1: no turn under way.
+    std::int64_t turnStartMs_ = -1;
+    bool turnReady_ = false;
+    int retries_ = 0;       // Retry presses, so a retry that fails again is a new "reader" event
+    std::string reported_;  // what the last "reader" event described
 };
 
 }  // namespace snx::ui

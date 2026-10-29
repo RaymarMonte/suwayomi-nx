@@ -653,3 +653,56 @@ actions** (WP-10, 2026-10-29).
 Rejected: loading chapters only near the end of the list like the library (sort, filter, Continue and "all before" need
 every chapter); guessing the new state before the server answers (two quick presses could send the wrong toggle);
 Suwayomi's `firstUnreadChapter` for Continue (it goes back to any gap).
+
+**D44 The paged reader: one model for pages, window and progress; only the page on screen is a texture; progress saves are
+throttled and never cancelled** (WP-11, 2026-10-30). Carries out ARCHITECTURE.md "core" reader math, D16, D17. Usage:
+`src/ui/README.md`, `src/core/README.md`.
+- `ReaderModel` (no borealis; unit-tested with `FakeHttpClient` and a real `ImageLoader`) holds the chapter's page list
+  (`fetchChapterPages`), the position from -1 (the "previous chapter" screen) to `pageCount` (the "next chapter" screen), and
+  one slot per page. The window comes from the profile (`core::prefetchOrder`: the page on screen at `Reader` priority, then
+  `prefetchAhead` pages after it nearest first, then `prefetchBehind` before it, at `Prefetch`; Full = -1/+3). Pages that
+  leave the window are cancelled and let go (the loader's memory cache keeps decoded pages within its budget). A prefetch
+  refused because memory is low (Paused) or the queue is full (Busy) waits until it is the page on screen.
+- When the window reaches past the last page, the next chapter's page list and its first `nextChapterPrefetchPages` pages
+  load at `Prefetch` priority (only with `backgroundPrefetch`), so the next chapter opens without waiting. The next chapter
+  opens where it was left (`lastPageRead`) unless it is read (then at the start), like Mihon; the previous one at its last
+  page. Chapters go by `sourceOrder`; the list comes from the details screen.
+- Progress (`core::ProgressSync`, one per opened chapter): `lastPageRead` at most every `progressSyncMs` (5 s, counted from
+  opening), `isRead: true` at once when the last page shows (never `false`: re-reading never un-reads), and everything left
+  at once when leaving a chapter, at HOME/sleep (borealis's focus event) and on close. One update per chapter at a time; a
+  failed one is tried again after the interval (not after closing). Saves are never cancelled (a mutation cut off half way
+  may or may not have reached the server): they belong to a small shared "saver" that outlives the reader. The details screen
+  reloads its chapter list once the last save has ended (`ReaderActivity`'s `onClosed`), so Continue follows at once.
+- Fits: Screen; Width (a tall page scrolls with the D-pad's up/down or a drag); Height (a page wider than the screen can be
+  dragged sideways). Original is understood in config.json but not offered (WP-13 brings zoom). Pages decode at the fit's box in
+  real pixels (`core::decodeBoxFor`; the loader caps it at `maxDecodeScale` x the screen) and are drawn from their source size.
+  A sideways swipe turns only when the page was already at its edge that way (it moves the page first). Spreads (wider than
+  1.2 x tall) are shown whole and reported; splitting or rotating them is left for later.
+- Controls (D16): L/R and the D-pad's left/right (and the sticks: borealis's NAV buttons) turn pages, mirrored for right to
+  left; up/down scroll; A the menu; X retry; B close; MINUS reader settings (PLUS stays quit, D42). Touch: the outer 30 % on
+  each side turn (mirrored), the middle opens and closes the menu (with it open, any tap on the page closes it), a sideways
+  swipe turns, a drag moves a page bigger than the screen; the menu has Close and Reader settings. Settings: direction (left to
+  right / right to left), fit, background (black / gray / white), page number. Direction and fit are per manga in config.json
+  (`reader.manga`, the one changed last at the end, at most `readerMangaSettingsMax` = 500, by the server's manga id);
+  background and page number are for every manga. No migration: new keys, old files lack them.
+- Drawing: `ReaderView` makes one texture per tile of the page on screen only (each reserved in `TextureBudget`, S7) and frees
+  them on the next page; on desktop a turn to a decoded page takes 1-4 ms to the frame that shows it. The loading spinner is
+  drawn from the clock (no borealis animation, so `idle` still comes). The reader's labels never auto-scroll: borealis scrolls
+  any label under the focused view whose text is a hair wider than its box, forever, and the app never got `idle`. borealis
+  sends touches only to focusable views (`hitTest`), so the menu's and Retry's buttons are focusable and give the focus back to
+  the page afterwards.
+- Keep the screen on: `platform::keepScreenOn(bool)` = `appletSetMediaPlaybackState` on the Switch (what video players use: no
+  dimming and no auto-sleep for this application while set; it ends with the app, nothing on the system changes), on while
+  the reader is open. Desktop: nothing.
+- Test events: `reader` (what the screen shows once it has settled: `shown` page / page_error / chapter_error / start / end,
+  `page`, `of`, direction, fit, menu, pageNumber, background, read, spread and sizes, `turnMs` + `ready` from the key or tap to
+  the frame that shows the result, `retries`, `memUsed`), `progress` (every save, also the ones after the reader closed),
+  `error` (`where` reader) for a page or chapter that couldn't be loaded.
+- Not done: no download percentage under the spinner (the image loader has no download progress; it would need a progress
+  callback through net); the stick doesn't pan (it turns, as borealis's NAV buttons); per-manga settings aren't kept apart per
+  server; a `config.json` save blocks one frame (SafeFs's fsync on the main thread), and a key press shorter than that frame can
+  be missed (seen once on desktop; the scenario waits for `config_saved` before its 100 turns).
+Rejected: keeping textures of the neighbouring pages (measure the console first: a turn from a decoded page needs one texture
+upload); cancelling a progress save when the reader closes; sending `lastPageRead` on every turn; borealis's `ProgressSpinner`
+(a running animation, never idle); deciding the page in the next chapter by the details screen's (possibly old) copy instead of
+the server's answer.

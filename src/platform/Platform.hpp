@@ -40,6 +40,11 @@ bool networkConnected();
 // nullptr removes it (main() does that before it returns). Main thread only.
 void setResumeHandler(void (*handler)());
 
+// Keep the screen on (WP-11): while the reader is open, the console neither dims the screen nor goes to sleep by itself. The
+// reader turns it on and off again when it closes. Switch: appletSetMediaPlaybackState (the setting ends with the app; it
+// changes nothing on the system). Desktop: nothing. Main thread only.
+void keepScreenOn(bool on);
+
 // The applet-mode guard's screen (D21, SAFETY.md S12): shows `text` until any button, a new tap, an exit request or
 // `timeoutMs`, then returns. Switch: libnx's text console (a plain framebuffer: no GPU set-up, no fonts to load). Desktop:
 // prints the text and returns at once. `onShown`, if not nullptr, runs once right after the text is first on screen (test

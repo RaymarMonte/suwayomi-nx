@@ -1,0 +1,163 @@
+#include "ui/reader/ReaderView.hpp"
+
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <utility>
+
+namespace snx::ui {
+
+namespace {
+
+constexpr float kSwipeMinDistance = 80;  // a shorter sideways move is a tap or a nudge, not a page turn
+constexpr float kSpinnerRadius = 24;
+constexpr double kPi = 3.14159265358979323846;
+
+}  // namespace
+
+ReaderView::ReaderView(image::TextureBudget& textures) : budget_(textures) {
+    setFocusable(true);
+    setHideHighlight(true);
+    addGestureRecognizer(new brls::TapGestureRecognizer([this](brls::TapGestureStatus status, brls::Sound*) {
+        if (status.state == brls::GestureState::END && onTap) {
+            onTap(core::tapArea(status.position.x - getX(), getWidth()));
+        }
+    }));
+    addGestureRecognizer(new brls::PanGestureRecognizer(
+        [this](brls::PanGestureStatus status, brls::Sound*) { onPan(status); }, brls::PanAxis::ANY));
+}
+
+ReaderView::~ReaderView() {
+    freeTextures();
+}
+
+void ReaderView::freeTextures() {
+    NVGcontext* vg = brls::Application::getNVGContext();
+    for (const int texture : textures_) {
+        if (texture != 0 && vg != nullptr) {
+            nvgDeleteImage(vg, texture);
+        }
+    }
+    textures_.clear();
+    leases_.clear();
+}
+
+void ReaderView::showPage(const image::ImagePtr& image, core::PageFit fit, core::ReadingDirection direction) {
+    if (image == image_ && fit == fit_ && direction == direction_) {
+        return;
+    }
+    const bool newImage = image != image_;
+    fit_ = fit;
+    direction_ = direction;
+    placed_ = false;
+    if (!newImage) {
+        return;
+    }
+    freeTextures();
+    image_ = image;
+    refused_ = false;
+    drawn_ = {};
+    ++revision_;
+    if (!image_) {
+        return;
+    }
+    // One texture per tile (each side <= maxTextureSide), each one reserved in the GPU budget first (S7).
+    NVGcontext* vg = brls::Application::getNVGContext();
+    std::vector<std::uint8_t> scratch;
+    const auto& tiles = image_->tiles();
+    for (std::size_t i = 0; i < tiles.size(); ++i) {
+        image::TextureLease lease(budget_, image::TextureBudget::bytesFor(tiles[i]));
+        const std::uint8_t* pixels = lease.ok() ? image_->tilePixels(i, scratch) : nullptr;
+        const int texture = pixels ? nvgCreateImageRGBA(vg, tiles[i].width, tiles[i].height, 0, pixels) : 0;
+        if (texture == 0) {
+            freeTextures();
+            refused_ = true;
+            return;
+        }
+        textures_.push_back(texture);
+        leases_.push_back(std::move(lease));
+    }
+}
+
+void ReaderView::layout(core::SizeF screen) {
+    screen_ = screen;
+    drawn_ = image_ ? core::fitPage(image_->sourceSize(), screen, fit_) : core::SizeF{};
+    position_ = core::startPosition(drawn_, screen, direction_);
+    placed_ = true;
+}
+
+void ReaderView::scrollBy(float dy) {
+    if (placed_) {
+        position_ = core::clampPosition({position_.x, position_.y - dy}, drawn_, screen_);
+    }
+}
+
+void ReaderView::onPan(const brls::PanGestureStatus& status) {
+    if (status.state == brls::GestureState::START) {
+        dragFrom_ = position_;
+        couldMoveLeft_ = placed_ && core::canMoveToward(position_, drawn_, screen_, core::Side::Left);
+        couldMoveRight_ = placed_ && core::canMoveToward(position_, drawn_, screen_, core::Side::Right);
+    }
+    const float dx = status.position.x - status.startPosition.x;
+    const float dy = status.position.y - status.startPosition.y;
+    if (placed_ && (status.state == brls::GestureState::START || status.state == brls::GestureState::STAY ||
+                    status.state == brls::GestureState::END)) {
+        position_ = core::clampPosition({dragFrom_.x + dx, dragFrom_.y + dy}, drawn_, screen_);
+    }
+    if (status.state == brls::GestureState::END) {
+        const std::optional<core::Side> side = core::swipeSide(dx, dy, kSwipeMinDistance);
+        // A page that could still move that way when the swipe began moved instead of turning.
+        if (side && onSwipe && !(*side == core::Side::Left ? couldMoveLeft_ : couldMoveRight_)) {
+            onSwipe(*side);
+        }
+    }
+}
+
+void ReaderView::drawSpinner(NVGcontext* vg, float cx, float cy) {
+    // Turns with the clock, so it needs no borealis animation (one would keep the app from ever being "idle").
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now().time_since_epoch())
+                        .count();
+    const float start = static_cast<float>(std::fmod(static_cast<double>(ms) / 1000.0 * 2 * kPi, 2 * kPi));
+    nvgBeginPath(vg);
+    nvgArc(vg, cx, cy, kSpinnerRadius, start, start + static_cast<float>(kPi * 1.5), NVG_CW);
+    nvgStrokeColor(vg, nvgRGB(150, 150, 150));
+    nvgStrokeWidth(vg, 4);
+    nvgStroke(vg);
+}
+
+void ReaderView::draw(NVGcontext* vg, float x, float y, float width, float height, brls::Style style,
+                      brls::FrameContext* ctx) {
+    if (!textures_.empty()) {
+        if (!placed_ || screen_.width != width || screen_.height != height) {
+            layout({width, height});
+        }
+        const core::ImageSize decoded = image_->size();
+        const float sx = decoded.width > 0 ? drawn_.width / static_cast<float>(decoded.width) : 1;
+        const float sy = decoded.height > 0 ? drawn_.height / static_cast<float>(decoded.height) : 1;
+        const auto& tiles = image_->tiles();
+        for (std::size_t i = 0; i < tiles.size() && i < textures_.size(); ++i) {
+            const float tx = x + position_.x + static_cast<float>(tiles[i].x) * sx;
+            const float ty = y + position_.y + static_cast<float>(tiles[i].y) * sy;
+            const float tw = static_cast<float>(tiles[i].width) * sx;
+            const float th = static_cast<float>(tiles[i].height) * sy;
+            if (tx > x + width || ty > y + height || tx + tw < x || ty + th < y) {
+                continue;  // off screen
+            }
+            nvgBeginPath(vg);
+            nvgRect(vg, tx, ty, tw, th);
+            nvgFillPaint(vg, nvgImagePattern(vg, tx, ty, tw, th, 0, textures_[i], 1.0f));
+            nvgFill(vg);
+        }
+    }
+    if (spinner_) {
+        drawSpinner(vg, x + width / 2, y + height / 2);
+    }
+    brls::Box::draw(vg, x, y, width, height, style, ctx);
+    if (onDrawn) {
+        onDrawn();
+    }
+}
+
+}  // namespace snx::ui

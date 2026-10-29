@@ -20,6 +20,11 @@
 - `RetryPolicy.hpp` (WP-05): `retryDelayMs` (doubling, capped), `shouldRetry` (idempotent + transient + retries left), `isTransientHttpStatus`.
 - `Version.hpp`, `LaunchOptions.hpp`, `RuntimeInfo.hpp`, `TestEvents.hpp` (WP-01/03): version, flags, launch mode, test events.
 - `SafePath.hpp`, `CrashRecord.hpp`, `TestConfig.hpp` (WP-03b): write-jail path rules, crash record format, test config.
+- `ReaderMath.hpp` (WP-11): the paged reader's rules: `pageStep` (a side to +1/-1 by direction), `tapArea`, `swipeSide`,
+  `fitPage` (drawn size per fit), `decodeBoxFor`, `isSpread`, `clampPosition` / `startPosition` / `canMoveToward` (where a
+  page sits and how far it moves), `prefetchOrder` and `nearChapterEnd`. `ProgressSync.hpp` (WP-11): when to send
+  `lastPageRead` / `isRead` (at most every `progressSyncMs`, the last page at once, everything when leaving). `AppConfig`
+  got the reader's background, page number and per-manga direction and fit (`readerSettingsFor`, `rememberReaderSettings`).
 - `LogBuffer.hpp`, `SaveScheduler.hpp` (WP-08): the log file's line format, buffering and rotation; when to save config.json (debounce). WP-08 also added test config keys (server login, `showSetup`, `diagnostics`), test events (`launch_refused`, `mem`, screen params) and profile fields (`logFileBytes`, `logFlushMs`, `configSaveDelayMs`).
 
 **Depends on:** the C++17 standard library and nlohmann/json 3.12.0 (`third_party/`, include `<nlohmann/json.hpp>`).
@@ -31,4 +36,4 @@ are our own documents' answers, `tools/record-fixtures`). Contract: `npm run con
 (`tests/fuzz/`). Coverage ≥ 80% lines (94% after WP-04).
 
 **Status:** WP-04 added models, JSON, GraphQL, config and the runtime profile. WP-10: `Chapter::lastReadAt`, `ChapterPatch`,
-the `UpdateChapters` and `FetchMangaAndChapters` documents, `RuntimeProfile::maxChapters`. Reader math and policies come with WP-07/WP-11.
+the `UpdateChapters` and `FetchMangaAndChapters` documents, `RuntimeProfile::maxChapters`. WP-11: `ReaderMath`, `ProgressSync`, the reader settings in `AppConfig`, `RuntimeProfile::progressSyncMs` and `readerMangaSettingsMax`.

@@ -28,6 +28,7 @@ set(SNX_APP_SOURCES
     ${PROJECT_SOURCE_DIR}/src/ui/main/SettingsTab.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/manga/MangaActivity.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/reader/ReaderActivity.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/reader/ReaderView.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/setup/SetupActivity.cpp
 )
 if (PLATFORM_SWITCH)

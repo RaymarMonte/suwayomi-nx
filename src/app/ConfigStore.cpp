@@ -1,5 +1,6 @@
 #include "app/ConfigStore.hpp"
 
+#include <algorithm>
 #include <borealis.hpp>
 #include <chrono>
 #include <nlohmann/json.hpp>
@@ -22,7 +23,10 @@ std::int64_t appClockMs() {
 }
 
 ConfigStore::ConfigStore(const platform::SafeFs& fs, const core::RuntimeProfile& profile)
-    : fs_(fs), limits_(profile.json), scheduler_(profile.configSaveDelayMs) {}
+    : fs_(fs),
+      limits_(profile.json),
+      mangaReaderMax_(static_cast<std::size_t>(std::max(profile.readerMangaSettingsMax, 1))),
+      scheduler_(profile.configSaveDelayMs) {}
 
 void ConfigStore::load() {
     const auto text = fs_.readFile(kConfigPath, limits_.maxBytes);
@@ -56,6 +60,26 @@ void ConfigStore::setLibrary(const core::LibrarySettings& library) {
         return;
     }
     config_.library = library;
+    scheduler_.changed(appClockMs());
+}
+
+void ConfigStore::setMangaReader(const core::MangaReaderSettings& settings) {
+    const core::MangaReaderSettings now = core::readerSettingsFor(config_.reader, settings.mangaId);
+    const bool own = std::any_of(config_.reader.manga.begin(), config_.reader.manga.end(),
+                                 [&](const core::MangaReaderSettings& m) { return m.mangaId == settings.mangaId; });
+    if (own && now.direction == settings.direction && now.fit == settings.fit) {
+        return;
+    }
+    core::rememberReaderSettings(config_.reader, settings, mangaReaderMax_);
+    scheduler_.changed(appClockMs());
+}
+
+void ConfigStore::setReaderLook(core::ReaderBackground background, bool showPageNumber) {
+    if (background == config_.reader.background && showPageNumber == config_.reader.showPageNumber) {
+        return;
+    }
+    config_.reader.background = background;
+    config_.reader.showPageNumber = showPageNumber;
     scheduler_.changed(appClockMs());
 }
 

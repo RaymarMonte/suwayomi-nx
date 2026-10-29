@@ -27,9 +27,9 @@ That README plus the public headers *is* the contract other sessions read.
 - **Models**: `Manga`, `Chapter`, `Category`, `Source`, `Extension`, `ServerInfo`, `PageList`, `ReadProgress`. Plain structs, `fromJson()`.
 - **GraphQL**: `.graphql` documents in `src/core/graphql/*.graphql`, embedded as strings at build time. A `GqlRequest{doc, variables}` builder and a `GqlResponse` parser
   (data vs `errors[]`, partial data).
-- **Reader math**: fit modes (width/height/screen/original), page order (LTR/RTL/vertical), spread detection (aspect > 1.2),
+- **Reader math** (`core/ReaderMath`, WP-11): fit modes (width/height/screen/original), page order (LTR/RTL/vertical), spread detection (aspect > 1.2),
   tile slicing plan for tall images, prefetch window selection.
-- **Policies**: LRU with byte budget (generic), retry/backoff policy, progress-sync debouncer (send `lastPageRead` at most every N s and on exit).
+- **Policies**: LRU with byte budget (generic), retry/backoff policy, progress sync (`core/ProgressSync`, WP-11: send `lastPageRead` at most every N s, `isRead` at the last page, everything on exit).
 - **RuntimeProfile**: `makeRuntimeProfile(mode, totalMem, usedMem)` → all budgets and limits (see below). Only `Full` is built and used for now (D21).
   Pure and table-tested.
 - **Config**: `AppConfig` (server URL, auth mode, credentials/tokens, reader prefs), plus JSON load/save with schema version + migration.

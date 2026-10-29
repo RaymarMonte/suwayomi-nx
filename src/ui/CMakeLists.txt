@@ -5,9 +5,10 @@ add_library(snx_ui_models STATIC
     components/GridLayout.cpp
     library/LibraryModel.cpp
     manga/MangaModel.cpp
+    reader/ReaderModel.cpp
     login/LoginModel.cpp
     main/MainModel.cpp
     setup/SetupModel.cpp
 )
-target_link_libraries(snx_ui_models PUBLIC snx_api)
+target_link_libraries(snx_ui_models PUBLIC snx_api snx_image)
 snx_target_defaults(snx_ui_models)

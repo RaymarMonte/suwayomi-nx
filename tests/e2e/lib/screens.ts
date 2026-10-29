@@ -82,3 +82,21 @@ export const MANGA = {
         return { x: 640, y: 588 - 72 * (count - 1 - index) };
     },
 };
+
+/**
+ * The reader (WP-11), full screen. Taps: the outer 30 % on each side turn pages (mirrored for right to left), the middle
+ * opens and closes the menu (the middle tap is high up, clear of the Retry button). With the menu open: Close and Settings
+ * in the bottom bar. Swipes: "toLeft" = the finger moves to the left (next page when reading left to right).
+ */
+export const READER = {
+    left: { x: 120, y: 360 },
+    middle: { x: 640, y: 200 },
+    right: { x: 1160, y: 360 },
+    close: { x: 132, y: 672 },
+    settings: { x: 1148, y: 672 },
+    retry: { x: 640, y: 409 },
+    swipeToLeft: { x1: 900, y1: 380, x2: 300, y2: 380 },
+    swipeToRight: { x1: 300, y1: 380, x2: 900, y2: 380 },
+    /** The settings menu's entries (a borealis dropdown, MANGA.menuEntry places them): direction, fit, background, number. */
+    settingsCount: 4,
+};

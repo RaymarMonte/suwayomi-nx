@@ -18,6 +18,7 @@
 #include <doctest/doctest.h>
 
 #include "Fixtures.hpp"
+#include "MainQueue.hpp"
 #include "core/RuntimeProfile.hpp"
 #include "image/DiskCache.hpp"
 #include "image/ImageLoader.hpp"
@@ -47,41 +48,6 @@ struct TempRoot {
     }
 };
 
-class MainQueue {
-  public:
-    std::function<void(std::function<void()>)> deliver() {
-        return [this](std::function<void()> task) {
-            {
-                std::lock_guard<std::mutex> lock(mutex_);
-                tasks_.push_back(std::move(task));
-            }
-            wake_.notify_all();
-        };
-    }
-    // Runs what the loader delivers until `done()`; false after 10 s without it.
-    bool runUntil(const std::function<bool()>& done) {
-        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-        while (!done()) {
-            std::vector<std::function<void()>> batch;
-            {
-                std::unique_lock<std::mutex> lock(mutex_);
-                if (!wake_.wait_until(lock, deadline, [this] { return !tasks_.empty(); })) {
-                    return done();
-                }
-                batch.swap(tasks_);
-            }
-            for (auto& task : batch) {
-                task();
-            }
-        }
-        return true;
-    }
-
-  private:
-    std::mutex mutex_;
-    std::condition_variable wake_;
-    std::vector<std::function<void()>> tasks_;
-};
 
 // The fake server: URL -> fixture file. Anything else is a 404.
 std::map<std::string, std::string> fixtureServer() {

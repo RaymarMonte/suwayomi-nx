@@ -30,6 +30,9 @@ AppConfig customConfig() {
     c.reader.direction = ReadingDirection::Vertical;
     c.reader.fit = PageFit::Width;
     c.reader.serverConvertsToJpeg = true;
+    c.reader.background = ReaderBackground::White;
+    c.reader.showPageNumber = false;
+    c.reader.manga = {{12, ReadingDirection::LeftToRight, PageFit::Width}, {7, ReadingDirection::RightToLeft, PageFit::Height}};
     return c;
 }
 
@@ -44,6 +47,14 @@ void checkSame(const AppConfig& a, const AppConfig& b) {
     CHECK(a.reader.direction == b.reader.direction);
     CHECK(a.reader.fit == b.reader.fit);
     CHECK(a.reader.serverConvertsToJpeg == b.reader.serverConvertsToJpeg);
+    CHECK(a.reader.background == b.reader.background);
+    CHECK(a.reader.showPageNumber == b.reader.showPageNumber);
+    REQUIRE(a.reader.manga.size() == b.reader.manga.size());
+    for (std::size_t i = 0; i < a.reader.manga.size(); ++i) {
+        CHECK(a.reader.manga[i].mangaId == b.reader.manga[i].mangaId);
+        CHECK(a.reader.manga[i].direction == b.reader.manga[i].direction);
+        CHECK(a.reader.manga[i].fit == b.reader.manga[i].fit);
+    }
 }
 
 // A test migration: version 1 kept the URL at the top level, version 2 moved it into "server".

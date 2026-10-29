@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
@@ -30,6 +31,11 @@ enum class PageFit { Screen, Width, Height, Original };
 std::string_view pageFitName(PageFit fit);  // "screen", "width", "height", "original"
 std::optional<PageFit> pageFitFromName(std::string_view name);
 
+// What the reader shows around and behind the page (WP-11).
+enum class ReaderBackground { Black, Gray, White };
+std::string_view readerBackgroundName(ReaderBackground background);  // "black", "gray", "white"
+std::optional<ReaderBackground> readerBackgroundFromName(std::string_view name);
+
 // The library grid's order (WP-09). Title: A to Z, as the server sends it. Unread: most unread chapters first. LastRead: the
 // manga read most recently first, never-read ones last.
 enum class LibrarySort { Title, Unread, LastRead };
@@ -45,11 +51,29 @@ struct ServerSettings {
     std::string refreshToken;  // ui_login
 };
 
-struct ReaderSettings {
-    ReadingDirection direction = ReadingDirection::RightToLeft;  // like Mihon's default; per-manga choices come later
+// One manga's own reading direction and fit, chosen in the reader (WP-11). The id is the server's manga id.
+struct MangaReaderSettings {
+    int mangaId = 0;
+    ReadingDirection direction = ReadingDirection::RightToLeft;
     PageFit fit = PageFit::Screen;
-    bool serverConvertsToJpeg = false;  // ask the server for image/jpeg pages (D6, off by default)
 };
+
+struct ReaderSettings {
+    ReadingDirection direction = ReadingDirection::RightToLeft;  // like Mihon's default, for manga without their own choice
+    PageFit fit = PageFit::Screen;                               // the same
+    bool serverConvertsToJpeg = false;  // ask the server for image/jpeg pages (D6, off by default)
+    ReaderBackground background = ReaderBackground::Black;  // WP-11
+    bool showPageNumber = true;                              // WP-11: "3 / 20" at the bottom of the page
+    // WP-11: the manga with their own direction and fit, the one changed last at the end. A new list in the "reader"
+    // section, so old files simply don't have it (no migration).
+    std::vector<MangaReaderSettings> manga;
+};
+
+// The direction and fit to read manga `mangaId` with: its own choice, else the defaults above.
+MangaReaderSettings readerSettingsFor(const ReaderSettings& reader, int mangaId);
+// Remembers a manga's own choice (it moves to the end of the list). Keeps at most `max` manga (RuntimeProfile::
+// readerMangaSettingsMax): the ones changed longest ago are dropped first.
+void rememberReaderSettings(ReaderSettings& reader, const MangaReaderSettings& choice, std::size_t max);
 
 // The library screen, as the user left it (WP-09). A new section, so old files simply don't have it (no migration).
 struct LibrarySettings {

@@ -22,6 +22,8 @@ add_library(snx_core STATIC
     LaunchOptions.cpp
     LogBuffer.cpp
     MemoryPressure.cpp
+    ProgressSync.cpp
+    ReaderMath.cpp
     RuntimeInfo.cpp
     RetryPolicy.cpp
     RuntimeProfile.cpp

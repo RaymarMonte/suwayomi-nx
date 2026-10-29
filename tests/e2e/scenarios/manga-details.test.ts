@@ -1,7 +1,7 @@
 // manga-details (WP-10, TESTING.md): the details screen and its chapter list on the test server (seed.ts: Alpha in
 // Reading, Delta Big with 300 chapters in Long series). Checks, on desktop and on the Switch:
 // - Alpha: details, the long description opens and closes by touch (goldens "alpha", "alpha-open");
-// - a tap on a chapter opens the reader (a stand-in until WP-11) at the right chapter and page; B comes back to it;
+// - a tap on a chapter opens the reader (WP-11; the reader itself: reader-paged) at the right chapter and page; B comes back;
 // - X marks the focused chapter read, X again unread; a row's "..." menu marks read / unread and bookmarks; Show
 //   bookmarked; every change is checked on the server with GraphQL from the harness;
 // - Delta Big: all 300 chapters load (pages of 100); Sort oldest first; "Mark all before as read" on chapter 4 marks
@@ -11,39 +11,10 @@
 
 import { expect } from 'vitest';
 
+import { chaptersOf, mangaIds, resetChapters } from '../lib/chapters.ts';
 import { scenario, type Scenario } from '../lib/scenario.ts';
 import { CLOCK_MASK, LIBRARY, LIBRARY_MORE, MANGA } from '../lib/screens.ts';
 import { appServerUrl, optionsFromEnv, SuwayomiClient } from '../lib/suwayomi.ts';
-
-interface Row {
-    id: number;
-    sourceOrder: number;
-    isRead: boolean;
-    isBookmarked: boolean;
-    lastPageRead: number;
-}
-
-/** A manga's chapters on the server, oldest first. */
-async function chaptersOf(client: SuwayomiClient, mangaId: number): Promise<Row[]> {
-    const data = await client.query<{ chapters: { nodes: Row[] } }>(
-        `query C($m: Int!) { chapters(condition: { mangaId: $m }, order: [{ by: SOURCE_ORDER }]) {
-            nodes { id sourceOrder isRead isBookmarked lastPageRead } } }`, { m: mangaId });
-    return data.chapters.nodes;
-}
-
-/** Every chapter unread, without bookmark, at page 0. */
-async function resetChapters(client: SuwayomiClient, mangaId: number): Promise<Row[]> {
-    const ids = (await chaptersOf(client, mangaId)).map((c) => c.id);
-    await client.query(`mutation U($ids: [Int!]!) { updateChapters(input: { ids: $ids,
-        patch: { isRead: false, isBookmarked: false, lastPageRead: 0 } }) { chapters { id } } }`, { ids });
-    return chaptersOf(client, mangaId);
-}
-
-async function mangaIds(client: SuwayomiClient): Promise<Map<string, number>> {
-    const data = await client.query<{ mangas: { nodes: { id: number; title: string }[] } }>(
-        '{ mangas(condition: { inLibrary: true }) { nodes { id title } } }');
-    return new Map(data.mangas.nodes.map((m) => [m.title, m.id]));
-}
 
 /** Taps, then waits for the chapter action's event and for the app to settle. */
 async function tapAction(s: Scenario, tap: { x: number; y: number }, action: string, chapter: number): Promise<void> {

@@ -227,6 +227,7 @@ MangaActivity::MangaActivity(app::AppContext& context, core::Manga manga,
       reportedUnread_(model_.manga().unreadCount) {}
 
 MangaActivity::~MangaActivity() {
+    alive_.cancel();  // a reader closing later doesn't call back into this screen
     if (list_ != nullptr) {
         list_->setSource(nullptr);  // unbinds the rows while this screen still exists
     }
@@ -569,7 +570,15 @@ void MangaActivity::continueReading() {
 }
 
 void MangaActivity::openChapter(const core::Chapter& chapter, int page) {
-    brls::Application::pushActivity(new ReaderActivity(context_, model_.manga(), chapter, page));
+    // Once the reader is closed and its progress saved, the list shows the new progress (and Continue follows it).
+    const net::CancelToken alive = alive_;
+    auto onClosed = [this, alive] {
+        if (!alive.cancelled()) {
+            model_.reloadChapters();
+        }
+    };
+    brls::Application::pushActivity(
+        new ReaderActivity(context_, model_.manga(), model_.chapters(), chapter.id, page, std::move(onClosed)));
 }
 
 void MangaActivity::openChapterMenu(std::size_t index) {

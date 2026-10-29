@@ -1,6 +1,8 @@
 #include "core/AppConfig.hpp"
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
 #include <utility>
 
 namespace snx::core {
@@ -22,6 +24,11 @@ constexpr std::array<std::pair<PageFit, std::string_view>, 4> kFitNames = {{
     {PageFit::Width, "width"},
     {PageFit::Height, "height"},
     {PageFit::Original, "original"},
+}};
+constexpr std::array<std::pair<ReaderBackground, std::string_view>, 3> kBackgroundNames = {{
+    {ReaderBackground::Black, "black"},
+    {ReaderBackground::Gray, "gray"},
+    {ReaderBackground::White, "white"},
 }};
 constexpr std::array<std::pair<LibrarySort, std::string_view>, 3> kSortNames = {{
     {LibrarySort::Title, "title"},
@@ -125,6 +132,36 @@ class SectionReader {
     const nlohmann::json* node_ = nullptr;
 };
 
+// reader.manga (WP-11): [{"id": 12, "direction": "ltr", "fit": "width"}, ...]. An entry without a valid id is skipped; an
+// unknown direction or fit keeps the reader's default; a manga listed twice keeps its last entry.
+void readMangaReaderSettings(const nlohmann::json& root, ReaderSettings& reader, std::vector<std::string>& problems) {
+    const nlohmann::json* section = json::field(root, "reader");
+    const nlohmann::json* list = section && section->is_object() ? json::field(*section, "manga") : nullptr;
+    if (!list || list->is_null()) {
+        return;
+    }
+    if (!list->is_array()) {
+        problems.push_back("config: reader.manga must be a list, ignored");
+        return;
+    }
+    int skipped = 0;
+    for (const nlohmann::json& entry : *list) {
+        const std::optional<int> id = entry.is_object() ? json::int32(entry, "id") : std::nullopt;
+        if (!id) {
+            ++skipped;
+            continue;
+        }
+        MangaReaderSettings own;
+        own.mangaId = *id;
+        own.direction = readingDirectionFromName(json::string(entry, "direction").value_or("")).value_or(reader.direction);
+        own.fit = pageFitFromName(json::string(entry, "fit").value_or("")).value_or(reader.fit);
+        rememberReaderSettings(reader, own, list->size());
+    }
+    if (skipped > 0) {
+        problems.push_back("config: " + std::to_string(skipped) + " entries of reader.manga have no manga id, ignored");
+    }
+}
+
 }  // namespace
 
 std::string_view authModeName(AuthMode mode) {
@@ -144,6 +181,37 @@ std::string_view pageFitName(PageFit fit) {
 }
 std::optional<PageFit> pageFitFromName(std::string_view name) {
     return valueOf(kFitNames, name);
+}
+
+std::string_view readerBackgroundName(ReaderBackground background) {
+    return nameOf(kBackgroundNames, background);
+}
+std::optional<ReaderBackground> readerBackgroundFromName(std::string_view name) {
+    return valueOf(kBackgroundNames, name);
+}
+
+MangaReaderSettings readerSettingsFor(const ReaderSettings& reader, int mangaId) {
+    for (const MangaReaderSettings& own : reader.manga) {
+        if (own.mangaId == mangaId) {
+            return own;
+        }
+    }
+    MangaReaderSettings defaults;
+    defaults.mangaId = mangaId;
+    defaults.direction = reader.direction;
+    defaults.fit = reader.fit;
+    return defaults;
+}
+
+void rememberReaderSettings(ReaderSettings& reader, const MangaReaderSettings& choice, std::size_t max) {
+    auto& list = reader.manga;
+    list.erase(std::remove_if(list.begin(), list.end(),
+                              [&](const MangaReaderSettings& own) { return own.mangaId == choice.mangaId; }),
+               list.end());
+    list.push_back(choice);
+    if (list.size() > max) {
+        list.erase(list.begin(), list.begin() + static_cast<std::ptrdiff_t>(list.size() - max));
+    }
 }
 
 std::string_view librarySortName(LibrarySort sort) {
@@ -216,6 +284,9 @@ ConfigLoad loadAppConfig(std::string_view text, const JsonLimits& limits, const 
     r.choice("direction", kDirectionNames, reader.direction);
     r.choice("fit", kFitNames, reader.fit);
     r.flag("serverConvertsToJpeg", reader.serverConvertsToJpeg);
+    r.choice("background", kBackgroundNames, reader.background);
+    r.flag("pageNumber", reader.showPageNumber);
+    readMangaReaderSettings(root, reader, problems);
 
     LibrarySettings& library = load.config.library;
     SectionReader l(root, "library", problems);
@@ -235,10 +306,21 @@ std::string saveAppConfig(const AppConfig& config) {
         {"accessToken", config.server.accessToken},
         {"refreshToken", config.server.refreshToken},
     };
+    nlohmann::ordered_json manga = nlohmann::ordered_json::array();
+    for (const MangaReaderSettings& own : config.reader.manga) {
+        manga.push_back({
+            {"id", own.mangaId},
+            {"direction", readingDirectionName(own.direction)},
+            {"fit", pageFitName(own.fit)},
+        });
+    }
     root["reader"] = {
         {"direction", readingDirectionName(config.reader.direction)},
         {"fit", pageFitName(config.reader.fit)},
         {"serverConvertsToJpeg", config.reader.serverConvertsToJpeg},
+        {"background", readerBackgroundName(config.reader.background)},
+        {"pageNumber", config.reader.showPageNumber},
+        {"manga", std::move(manga)},
     };
     root["library"] = {
         {"categoryId", config.library.categoryId},

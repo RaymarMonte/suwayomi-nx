@@ -34,7 +34,10 @@
 
 **Screens:** `main/MainActivity` (tab frame, always the first screen, the connection check, owns the library model; `SettingsTab`,
 `CrashLogsActivity`), `library/LibraryTab` (categories, sort, refresh, the cover grid), `manga/MangaActivity` (details + chapter list, WP-10,
-D43: `MangaModel` holds the list, sort, filter, Continue and the actions), `reader/ReaderActivity` (a stand-in until WP-11), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
+D43: `MangaModel` holds the list, sort, filter, Continue and the actions), `reader/ReaderActivity` (the paged reader, WP-11,
+D44: `ReaderModel` holds the pages, the prefetch window, chapter changes and the progress saves; `ReaderView` draws the page
+from its tiles and turns touch into taps, drags and swipes; full screen, the menu on A or a tap in the middle, settings on
+MINUS; `onClosed` runs once the progress is saved, and the details screen reloads its chapters then), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
 `crash/CrashActivity` (the crash screen, S1), `diagnostics/DiagnosticsActivity` (test builds only: WP-05's server check + request
 burst, WP-07's image benchmark).
 
@@ -47,8 +50,13 @@ WP-10), `fitLines()` (`TextFit.hpp`: text cut to N lines with "…").
 
 **Threading:** main thread only. Results arrive through `brls::sync` (the client's and loader's `deliver`).
 
-**Tests:** models in `tests/unit/test_ui.cpp`, `test_ui_library.cpp` and `test_ui_manga.cpp` (suite `ui`); screens by E2E
-scenarios (`smoke`, `setup-first-run`, `auth-matrix`, `low-memory`, `library-browse`, `manga-details`). Touch coordinates for the scenarios: `tests/e2e/lib/screens.ts`.
+**Borealis traps** (found the hard way): touches only reach focusable views (`hitTest`), so a button meant for touch must be
+focusable; a `Label` under the focused view scrolls forever when its text is a hair wider than its box (a running animation:
+the app is never `idle`), so turn `setAutoAnimate(false)` on for labels that sit under a focusable full-screen view.
 
-**Status:** WP-10. Updates, History and Browse are placeholder tabs until their WPs; the reader comes with WP-11 (it then
-calls `MangaModel::reloadChapters()` on the way back, so the list shows the new progress).
+**Tests:** models in `tests/unit/test_ui.cpp`, `test_ui_library.cpp`, `test_ui_manga.cpp` and `test_ui_reader.cpp` (suite
+`ui`; the reader's with a real `ImageLoader`, `tests/unit/MainQueue.hpp` plays the main thread); screens by E2E scenarios
+(`smoke`, `setup-first-run`, `auth-matrix`, `low-memory`, `library-browse`, `manga-details`, `reader-paged`,
+`reader-rtl-spread`, `resume-progress`, `broken-images`). Touch coordinates for the scenarios: `tests/e2e/lib/screens.ts`.
+
+**Status:** WP-11. Updates, History and Browse are placeholder tabs until their WPs.

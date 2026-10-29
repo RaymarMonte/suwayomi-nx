@@ -18,8 +18,8 @@
 // recycling CoverGrid with one column) or a status (loading, error + Retry, no chapters).
 // Controller: A on a chapter opens it, X marks it read / unread, Y opens its menu, MINUS the screen menu, B goes back.
 // Touch: tap a chapter to open it, its "..." for its menu, and the buttons for everything else (D16).
-// The state lives in MangaModel. Opening a chapter starts the reader (a stand-in until WP-11). Layout:
-// resources/xml/activity/manga.xml.
+// The state lives in MangaModel. Opening a chapter starts the reader (WP-11); when it closes, the chapter list loads again
+// (after the reader's progress is saved). Layout: resources/xml/activity/manga.xml.
 namespace snx::ui {
 
 class MangaActivity : public brls::Activity, private GridSource {
@@ -93,6 +93,7 @@ class MangaActivity : public brls::Activity, private GridSource {
     std::size_t shownCount_ = 0;
     bool moreFailedShown_ = false;
     int reportedUnread_;
+    net::CancelToken alive_;      // cancelled when this screen goes (the reader's onClosed checks it)
     std::string pendingAction_;  // the action under way, for its "chapter_action" test event
     int pendingChapter_ = 0;
     std::string reported_;

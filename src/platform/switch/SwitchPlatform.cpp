@@ -76,6 +76,11 @@ void setResumeHandler(void (*handler)()) {
     }
 }
 
+void keepScreenOn(bool on) {
+    // "Media playback": no dimming and no auto-sleep for this application while it is set (what video players use).
+    appletSetMediaPlaybackState(on);
+}
+
 bool showLaunchRefused(const char* text, int timeoutMs, void (*onShown)()) {
     // S12: this runs in applet mode, where any crash is a system fatal. So: libnx's plain text console (a framebuffer, no
     // GPU set-up, no fonts), nothing that can abort, and if a step fails we skip the screen.

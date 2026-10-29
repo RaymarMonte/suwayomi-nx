@@ -84,6 +84,10 @@ void setResumeHandler(void (*)()) {
     // A PC doesn't sleep under the app the way the Switch does.
 }
 
+void keepScreenOn(bool) {
+    // The PC's screen saver is the PC owner's business.
+}
+
 bool showLaunchRefused(const char* text, int, void (*onShown)()) {
     std::fputs(text, stdout);
     std::fputs("\n", stdout);

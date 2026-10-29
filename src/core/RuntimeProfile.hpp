@@ -38,6 +38,10 @@ struct RuntimeProfile {
     int webtoonTilesAround = 4;        // decoded tiles kept above and below the screen in the vertical reader
     bool coverRowPrefetch = true;      // library grid: fetch the next row of covers
 
+    // Reader (WP-11).
+    int progressSyncMs = 5000;           // reading progress goes to the server at most this often (and when leaving a chapter)
+    int readerMangaSettingsMax = 500;    // manga whose own direction and fit config.json remembers (S6: the file stays small)
+
     // Work in parallel, and how much to ask for at once.
     int httpConcurrency = 6;  // transfers at once (D5)
     int decodeThreads = 2;

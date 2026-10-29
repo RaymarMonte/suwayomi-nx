@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "core/AppConfig.hpp"
@@ -27,6 +28,10 @@ class ConfigStore {
     void setServer(const core::ServerSettings& server);
     // The library's category and sort as the user left them (WP-09). Saved a moment later, if they changed.
     void setLibrary(const core::LibrarySettings& library);
+    // WP-11: a manga's own reading direction and fit (at most RuntimeProfile::readerMangaSettingsMax manga are remembered),
+    // and the reader's background and page number (for every manga). Saved a moment later, if they changed.
+    void setMangaReader(const core::MangaReaderSettings& settings);
+    void setReaderLook(core::ReaderBackground background, bool showPageNumber);
     // The test config's server (test builds): used as if it had been saved, but not written unless something changes it.
     void useServer(const core::ServerSettings& server);
 
@@ -40,6 +45,7 @@ class ConfigStore {
 
     const platform::SafeFs& fs_;
     core::JsonLimits limits_;
+    std::size_t mangaReaderMax_;
     core::AppConfig config_;
     core::SaveScheduler scheduler_;
 };

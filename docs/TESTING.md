@@ -68,6 +68,15 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
   `chapter` id, `ok`; `changed: false` when there was nothing to change), `chapter_list` (rows [`first`, `last`) have
   cells), `screen` `Manga` again whenever it is back on top, and `screen` `Reader` with `mangaId`, `chapterId`, `page`
   (the stand-in until WP-11). Chapter rows have the ids `manga/chapter-<index>`.
+- WP-11 (D44) added `reader` (what the reader shows, once it has settled; nothing while the page or chapter is loading:
+  `chapterId`, `chapter` = sourceOrder, `page` = index, -1 for the "previous chapter" screen and `of` for the "next chapter"
+  screen, `of`, `shown` page/page_error/chapter_error/start/end, `direction` ltr/rtl, `fit` screen/width/height, `menu`,
+  `pageNumber`, `background`, `read`; a page: `spread`, `w`/`h` drawn, `srcW`/`srcH`; an error: `error` kind; `retries`;
+  after a key, tap or swipe: `turnMs` = from the input to the frame that shows the result, `ready` = the page was decoded
+  already then; `memUsed`), `progress` (every progress save: `chapterId`, `page`, `read`, `ok`; also the ones that end after
+  the reader closed), `error` with `where` reader (a page or chapter that couldn't be loaded), and `screen` `Reader` again
+  when it is back on top (`params`: `mangaId`, `chapterId`, `page`). Reader touch coordinates: `READER` in `lib/screens.ts`;
+  shared steps (open a chapter, wait for a `reader` event, read the colour code, change a setting): `lib/reader.ts`.
 - `idle` is emitted when there are no pending net/decode jobs (`http.inFlight()`, `images.activeJobs()`, WP-08) and no running animations (borealis's running tickings) for 3 frames in a row,
   once per quiet spell: again only after something was busy, a new `screen` came, or (WP-10) any other event a screen
   writes (`library`, `manga`, `chapter_action`, ...: on the console an answer can arrive within one frame, so the app never
@@ -214,12 +223,12 @@ Initial list, grown per UI WP:
 2. `setup-first-run` – no config → Setup screen → (desktop: tap the field, type the URL; Switch: `showSetup`) → Continue → Library; a restart skips setup (WP-08)
 3. `auth-matrix` – none / basic (+ wrong password → Setup) / ui_login (login, renewal after the 20 s JWT, logout → login screen, restart on saved tokens), restarting the test server per mode (WP-08)
 4. `library-browse` – Default's covers (golden), tap the Big shelf tab (golden), tap a cover → Manga → B back, D-pad to the last row (pages load 60 → 120 → 150) and back, two more passes by flicking; memory flat over the 3 passes (`mem`), no cover downloaded twice, no cover loaded for an item that never had a cell (`image` vs `grid`); X refresh; Sort → Unread by touch; the Empty tab (golden); a restart keeps category and sort (WP-09). The 300-chapter list is WP-10's.
-4b. `manga-details` – Alpha: details + the long description open/closed (goldens), tap a chapter → reader stand-in at the right chapter/page, X read/unread, a row's "..." menu read/unread/bookmark, Show bookmarked, each checked on the server via GraphQL; Delta Big: 300 chapters load, Sort oldest, "Mark all before as read" on ch 4 = exactly 1–3 on the server, Show unread (golden), Continue → ch 4, progress saved on the server shows after Refresh and Continue opens that page; Switch: Y and MINUS menus (WP-10)
-5. `reader-paged` – open Alpha ch1, flip 10 pages, colour-code confirms each page, progress saved on server (checked via GraphQL from the harness)
-6. `reader-rtl-spread` – Beta RTL, direction and spread handling
-7. `resume-progress` – reopen chapter, lands on last page
+4b. `manga-details` – Alpha: details + the long description open/closed (goldens), tap a chapter → the reader at the right chapter/page (a stand-in until WP-11), X read/unread, a row's "..." menu read/unread/bookmark, Show bookmarked, each checked on the server via GraphQL; Delta Big: 300 chapters load, Sort oldest, "Mark all before as read" on ch 4 = exactly 1–3 on the server, Show unread (golden), Continue → ch 4, progress saved on the server shows after Refresh and Continue opens that page; Switch: Y and MINUS menus (WP-10)
+5. `reader-paged` – Alpha ch1 (goldens page, menu, end): left to right through the settings menu, pages 2–10 by D-pad, taps on the right edge and swipes, the colour code confirms each page; the last page marks ch1 read on the server (GraphQL); the "next chapter" screen, ch2 at once (prefetched), back to ch1's last page; fit width (1280 × 1920); 100 page turns with memory flat (growth < 16 MiB after turn 20) and the prefetched turn time (console: 90th percentile < 150 ms, D17); B → the details screen shows the progress; a restart keeps Alpha's direction and fit (WP-11)
+6. `reader-rtl-spread` – Beta RTL ch1, right to left (the default): LEFT, a tap on the left edge and a swipe to the right go forward, RIGHT and the right edge back; page 4 is reported as a spread and shown whole at 960 × 720 (golden); the "next chapter" screen (WP-11)
+7. `resume-progress` – Alpha ch3 to page 5, B: the server has lastPageRead 4, Continue opens page 5 (colour code), and again after a restart (WP-11)
 8. `offline-errors` – stop test server mid-session → error UI + retry works after restart
-9. `broken-images` – Broken fixture shows placeholders, no crash
+9. `broken-images` – Broken ch1: pages 1–2 show an error with Retry (golden) and an `error` event, page 3 (1 × 1) and 4–5 show, turns never blocked, Retry by touch and by X fails again visibly (`retries`), B back (WP-11)
 10. `soak` (device only, application mode) – read 500 pages across chapters, `mem` events stay within the profile's budget, no leaks/crashes
 11. `applet-guard` (desktop `--simulate-applet-mode`, device via the Album) – the "can't run from the Album yet" screen shows, `launch_refused`
     is the only event, a button press or tap closes it and the app is back in hbmenu, no new crash report or fatal file. Desktop also runs
