@@ -29,7 +29,8 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-10](wp/WP-10-manga-details.md) | Manga details + chapter list | 09 | Opus | M | – | done |
 | [WP-11](wp/WP-11-paged-reader.md) | Paged reader + progress sync | 10 | Opus | L | – | done |
 | [WP-12](wp/WP-12-mvp-hardening.md) | MVP hardening, soak test, **v0.1 release** | 11 | Opus | M | Try it for real | in progress (PC side done) |
-| WP-13 | Webtoon / continuous reader + zoom & pan | 12 | Opus | L | – | todo |
+| [WP-22](wp/WP-22-portrait-reader.md) | **Portrait reader**: hold the Switch sideways, pages fill the tall screen (owner's top priority, 2026-10-30). **Runs next, after WP-12** | 12 | Opus | M | **Yes**: try it in your hands; console | todo |
+| WP-13 | Webtoon / continuous reader + zoom & pan, in both orientations | 12, 22 | Opus | L | – | todo |
 | WP-14 | Browse sources, search, add to library | 12 ∥13 | Opus | M | – | todo |
 | WP-15 | Updates feed + reading history | 12 ∥13 | **S** | M | – | todo |
 | WP-16 | Extensions: list, install, update, uninstall | 14 | Opus | M | – | todo |
@@ -44,6 +45,8 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 **Stock clocks (D17):** performance is judged at stock clocks only.
 **Application mode only (D21):** every WP builds, tunes and tests for application mode (hold R on a game). Applet mode only gets the
 "can't run from the Album yet" screen (WP-08) until WP-21.
+**Order after WP-12:** WP-22 (portrait reader) comes first: reading with the console held sideways is one of the main reasons
+for the app (owner, 2026-10-30). It got the next free number, so the table isn't in number order there; WP-13 builds on it.
 
 ### Sonnet / Haiku work outside the WPs
 
@@ -62,7 +65,8 @@ writes its full `docs/wp/WP-xx-*.md` using the same template, once the MVP has s
 
 ## Phase 3 stubs
 
-- **WP-13 Webtoon reader + zoom.** Continuous vertical scroll built from image tiles, smooth stick scrolling and touch flick scrolling, pinch/double-tap zoom and drag-to-pan (D16) plus stick zoom/pan,
+- **WP-13 Webtoon reader + zoom.** Works in landscape and in WP-22's portrait (the rotation math and touch mapping are
+  WP-22's; a webtoon strip in portrait is probably the best way to read one on the Switch). Continuous vertical scroll built from image tiles, smooth stick scrolling and touch flick scrolling, pinch/double-tap zoom and drag-to-pan (D16) plus stick zoom/pan,
   double-page spread detection/splitting. Tile window and zoom resolution come from the runtime profile. Always Opus (GPU/memory/perf).
 - **WP-14 Browse.** Sources list (by language), popular/latest/search per source, filters (basic), manga preview, add to library + category.
   Copies the Library screen pattern.

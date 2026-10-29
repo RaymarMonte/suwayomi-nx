@@ -27,7 +27,7 @@ sources, manage extensions, and read offline.
 | 0. Foundations | WP-00 … WP-03b | Tools installed, a "hello" .nro deployed and screenshotted by a script, repo + CI, test server with fixture manga, E2E harness, **safety layer + crash drills** |
 | 1. Core (no UI) | WP-04 … WP-07 | Models, GraphQL, HTTP, Suwayomi client with auth, image pipeline + caches, all unit/integration-tested on PC |
 | 2. MVP UI | WP-08 … WP-12 | Server setup/login, library, manga details, paged reader with progress sync, hardening. **Release v0.1** |
-| 3. Features | WP-13 … WP-21 | Webtoon mode + zoom, browse/search, updates/history, extensions, downloads, offline reading, polish, releases, applet mode (nice to have) |
+| 3. Features | WP-22, WP-13 … WP-21 | **Portrait reader first** (WP-22, console held sideways), webtoon mode + zoom, browse/search, updates/history, extensions, downloads, offline reading, polish, releases, applet mode (nice to have) |
 
 Phase 0 matters most. WP-00 proves the whole loop (build → deploy → launch → screenshot → read log) on *your* console
 before any real app code exists. If something in the chain doesn't work (controller order, memory mode, network),
