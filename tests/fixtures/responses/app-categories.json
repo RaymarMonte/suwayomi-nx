@@ -19,9 +19,21 @@
           "name": "Long series",
           "order": 2,
           "default": false
+        },
+        {
+          "id": 3,
+          "name": "Big shelf",
+          "order": 3,
+          "default": false
+        },
+        {
+          "id": 4,
+          "name": "Empty",
+          "order": 4,
+          "default": false
         }
       ],
-      "totalCount": 3
+      "totalCount": 5
     }
   }
 }

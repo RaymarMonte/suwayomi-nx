@@ -1,22 +1,22 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 2 – App (WP-08 …). Now:** WP-09 (Library screen), paused. WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 08.
+**Phase 2 – App (WP-08 …). Now:** WP-09 (Library screen): PC side done, the console run is left. WP-08b is nice to have for
+now (owner, 2026-10-29). Done: WP-00a … 08.
 
-## Paused (2026-10-29, WP-09, Opus): 5-hour usage limit at 89 %, resets 08:30 UTC
-- **Done, green (unit 7/7 + contract):** `ui/library/LibraryModel` (categories; Default is a tab only with manga; title order
-  pages in near the end; unread / last-read sorts load the whole category, then sort; shelves kept per category; focus per
-  category; errors) and `ui/components/GridLayout` (columns, positions, visible rows, focus moves), both in `snx_ui_models`,
-  tests `tests/unit/test_ui_library.cpp`. config.json `library {categoryId, sort}`. `Manga::lastReadAt` from
-  `lastReadChapter { lastReadAt }` (LibraryByCategory.graphql).
-- **Next step:** `src/ui/components/CoverGrid.{hpp,cpp}` (recycling grid on ScrollingFrame, structure from borealis's
-  RecyclerFrame, Apache-2.0 → CREDITS.md; the focused cell is never recycled), cover cells (TextureBudget in AppContext),
-  `LibraryTab` (category bar, sort, refresh), MainActivity owns the model, manga stub screen. Then re-record fixtures (the query
-  changed), e2e `library-browse` + new desktop smoke golden (the Switch golden needs the console), README recipe, D42.
-- **For the owner:** PLUS stays "quit" (device scripts rely on it), so the library menu goes on MINUS instead of PLUS.
-
-## Before that (WP-08, done 2026-10-27, D40/D41)
-- Screens = Activity + Model (`src/ui/README.md`); a tab's view comes from `MainActivity::makeTab`; idle counts
-  `http.inFlight()` + `images.activeJobs()`; touch coordinates in `tests/e2e/lib/screens.ts`. Any crash in applet mode is a
-  system fatal (D41): that drill is desktop-only. Test server won't start after a hard stop ("null cannot be cast"): `reset`.
+## Last session (2026-10-29, WP-09, Opus): PC side done, waiting for the console
+- **Library tab (D42; recipe in `src/ui/README.md` "How to make a list screen"):** `LibraryModel` (MainActivity owns it),
+  `CoverGrid` + `GridLayout` (recycling grid), `LibraryTab` (category bar, Sort, Refresh, covers + unread badge + 2-line
+  title), `MangaActivity` stand-in (WP-10). L/R, Y, X, MINUS menu (PLUS stays quit, owner OK), all by touch too. config.json
+  `library {categoryId, sort}`; `AppContext::textures` (S7). Events `library`, `grid`, screen `Manga`.
+- **Test server:** the seed adds the 150-manga "Big shelf" (`SHELF` in fixtures.ts) and an "Empty" category; 日本語 is now id 156.
+  Fixtures re-recorded. Found by the scenario and fixed: a focused Box cell crashed borealis's focus search (null index).
+- **Green:** unit 7/7 + contract, integration ×3, all 20 desktop e2e (incl. `library-browse`, new smoke golden), npm 106 +
+  typecheck, Switch build (gate PASS). Desktop memory over 3 passes of the shelf: 76 → 78 → 76 MB.
+- **Next (console, owner present):** console on, airplane mode off, Spelunky 2 first on HOME. `tools/test-server/test-server.sh
+  reset` + `start`, then `tools/e2e.sh switch smoke --update-goldens` (Library tab changed) and `tools/e2e.sh switch
+  library-browse --update-goldens` (its Switch-only part presses R/L/Y/MINUS); look at the new goldens; both again without the
+  flag. Then tick WP-09's last box, ROADMAP "done", commit `WP-09: ...`, push.
+- Screens = Activity + Model; idle counts `http.inFlight()` + `images.activeJobs()`; any crash in applet mode is a system
+  fatal (D41). Test server won't start after a hard stop ("null cannot be cast"): `reset`.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

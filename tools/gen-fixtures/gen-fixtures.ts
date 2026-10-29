@@ -14,7 +14,7 @@ import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { isMain } from '../../tests/e2e/lib/cli.ts';
-import { chapterFolder, chapterTime, EPOCH_MS, pageFile, SERIES, seriesTime } from './fixtures.ts';
+import { ALL_SERIES, chapterFolder, chapterTime, EPOCH_MS, pageFile, seriesTime } from './fixtures.ts';
 import { coverBytes, pageBytes } from './render.ts';
 
 const MARKER = '.snx-fixtures';
@@ -61,7 +61,7 @@ export async function generate(out: string): Promise<GenerateResult> {
     };
 
     await put(MARKER, MARKER_TEXT, new Date(EPOCH_MS));
-    for (const s of SERIES) {
+    for (const s of ALL_SERIES) {
         await mkdir(join(out, s.title));
         if (s.details) await put(`${s.title}/details.json`, JSON.stringify(s.details, null, 2) + '\n', seriesTime(s));
         if (s.cover) await put(`${s.title}/cover.jpg`, await coverBytes(s), seriesTime(s));

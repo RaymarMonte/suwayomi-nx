@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { chapterFolder, chapterTime, pageFile, SERIES } from './fixtures.ts';
+import { ALL_SERIES, chapterFolder, chapterTime, pageFile, SERIES, SHELF, SHELF_CODE, SHELF_COUNT } from './fixtures.ts';
 import { generate } from './gen-fixtures.ts';
 import { encode, pageBytes, renderPage } from './render.ts';
 
@@ -15,6 +15,14 @@ describe('fixture set', () => {
         expect(new Set(codes).size).toBe(codes.length);
         for (const c of codes) expect(c >= 1 && c <= 31).toBe(true);
         expect(new Set(SERIES.map((s) => s.title)).size).toBe(SERIES.length);
+    });
+
+    it('adds the Big shelf: its own code, unique titles, one small page each', async () => {
+        expect(SHELF).toHaveLength(SHELF_COUNT);
+        expect(SERIES.some((s) => s.code === SHELF_CODE)).toBe(false);
+        expect(new Set(ALL_SERIES.map((s) => s.title)).size).toBe(ALL_SERIES.length);
+        expect(SHELF[0].title).toBe('Shelf 001');
+        expect(await sharp(await pageBytes(SHELF[41], 1, 1)).metadata()).toMatchObject({ format: 'jpeg', width: 400, height: 600 });
     });
 
     it('names chapters and pages so that name order is reading order', () => {

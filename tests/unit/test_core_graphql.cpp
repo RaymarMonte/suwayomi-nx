@@ -115,11 +115,11 @@ TEST_SUITE("core") {
 
         auto categories = gql::readCategories(recorded("categories"));
         REQUIRE(categories.ok());
-        CHECK(categories.value().size() == 3);
+        CHECK(categories.value().size() == 5);  // Default, Reading, Long series, Big shelf, Empty (seed.ts)
 
         auto library = gql::readLibraryByCategory(recorded("library"));
         REQUIRE(library.ok());
-        CHECK(library.value().nodes.size() == 6);
+        CHECK(library.value().nodes.size() == 156);  // 6 fixture series + the 150 of the Big shelf
 
         auto manga = gql::readManga(recorded("manga-details"));
         REQUIRE(manga.ok());
@@ -153,7 +153,7 @@ TEST_SUITE("core") {
 
         auto categories = gql::readCategories(recorded("app-categories"));
         REQUIRE(categories.ok());
-        REQUIRE(categories.value().size() == 3);
+        REQUIRE(categories.value().size() == 5);
         CHECK(categories.value()[0].isDefault);
 
         auto reading = gql::readLibraryByCategory(recorded("app-library-reading"));

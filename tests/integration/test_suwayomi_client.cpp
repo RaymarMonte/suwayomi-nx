@@ -95,6 +95,9 @@ ApiError mustFail(ApiFuture<T> future) {
     return result.error();
 }
 
+// The test server's categories (tools/test-server/seed.ts): Default, Reading, Long series, Big shelf, Empty.
+constexpr std::size_t kCategories = 5;
+
 int libraryId(Live& live, const std::string& title) {
     for (const int category : {0, 1, 2}) {
         for (const snx::core::Manga& manga : must(live->library(category, 0, CancelToken())).nodes) {
@@ -132,11 +135,31 @@ TEST_CASE("serverInfo: the pinned test server, no version warning") {
 TEST_CASE("categories and the three library tabs") {
     Live live;
     const std::vector<snx::core::Category> categories = must(live->categories(CancelToken()));
-    REQUIRE(categories.size() == 3);
+    REQUIRE(categories.size() == kCategories);
     CHECK(categories[0].id == 0);
     CHECK(categories[0].isDefault);
     CHECK(categories[1].name == "Reading");
     CHECK(categories[2].name == "Long series");
+    CHECK(categories[3].name == "Big shelf");
+    CHECK(categories[4].name == "Empty");
+
+    // WP-09: the Big shelf in pages of 60 (60, 60, 30), never overlapping; Empty has none.
+    std::vector<std::string> shelf;
+    for (int page = 0; page < 3; ++page) {
+        const auto part = must(live->library(categories[3].id, page, CancelToken()));
+        CHECK(part.totalCount == 150);
+        CHECK(part.hasNextPage == (page < 2));
+        for (const std::string& title : titles(part)) {
+            shelf.push_back(title);
+        }
+    }
+    REQUIRE(shelf.size() == 150);
+    CHECK(shelf.front() == "Shelf 001");
+    CHECK(shelf.back() == "Shelf 150");
+    CHECK(std::is_sorted(shelf.begin(), shelf.end()));
+    const auto empty = must(live->library(categories[4].id, 0, CancelToken()));
+    CHECK(empty.nodes.empty());
+    CHECK(empty.totalCount == 0);
 
     const auto reading = must(live->library(categories[1].id, 0, CancelToken()));
     CHECK(titles(reading) == std::vector<std::string>{"Alpha", "Beta RTL"});
@@ -315,7 +338,7 @@ TEST_SUITE("ui_login") {
 
 TEST_CASE("ui_login: no token yet, so the first call logs in with the saved password by itself") {
     Live live;
-    CHECK(must(live->categories(CancelToken())).size() == 3);
+    CHECK(must(live->categories(CancelToken())).size() == kCategories);
     CHECK(live.logins.load() == 1);
     CHECK_FALSE(live->settings().accessToken.empty());
     CHECK_FALSE(live->settings().refreshToken.empty());
@@ -359,7 +382,7 @@ TEST_CASE("ui_login: after the access token expired (20 s), calls and images sti
     Live images;
     for (Live* live : {&single, &burst, &images}) {
         must((*live)->login(env("SNX_USER"), env("SNX_PASS"), CancelToken()));
-        CHECK(must((*live)->categories(CancelToken())).size() == 3);
+        CHECK(must((*live)->categories(CancelToken())).size() == kCategories);
     }
     const std::string thumbnail = must(images->manga(libraryId(images, "Alpha"), CancelToken())).thumbnailUrl;
     CHECK(images.get(thumbnail).value().status == 200);
@@ -367,7 +390,7 @@ TEST_CASE("ui_login: after the access token expired (20 s), calls and images sti
     std::this_thread::sleep_for(22s);
 
     // One call: refused, refreshed, repeated.
-    CHECK(must(single->categories(CancelToken())).size() == 3);
+    CHECK(must(single->categories(CancelToken())).size() == kCategories);
     CHECK(single.refreshes.load() == 1);
 
     // Five calls at once from five threads: one refresh between them.

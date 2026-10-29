@@ -95,6 +95,9 @@ void StatusView::showMessage(const std::string& title, const std::string& text) 
 }
 
 brls::View* StatusView::getDefaultFocus() {
+    if (getVisibility() != brls::Visibility::VISIBLE) {
+        return nullptr;  // hidden (the library's grid shows instead): never take the focus
+    }
     if (retry_->getVisibility() == brls::Visibility::VISIBLE) {
         return retry_;
     }

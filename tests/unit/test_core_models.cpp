@@ -82,8 +82,8 @@ TEST_SUITE("core") {
         auto list = nodeListFromJson<Category>(recordedData("categories")["categories"]);
         REQUIRE(list.ok());
         const auto& c = list.value().nodes;
-        REQUIRE(c.size() == 3);
-        CHECK(list.value().totalCount == 3);
+        REQUIRE(c.size() == 5);  // Default, Reading, Long series, Big shelf, Empty (seed.ts)
+        CHECK(list.value().totalCount == 5);
         CHECK(list.value().skipped == 0);
         CHECK(c[0].id == kDefaultCategoryId);
         CHECK(c[0].name == "Default");
@@ -138,10 +138,10 @@ TEST_SUITE("core") {
         auto list = nodeListFromJson<Manga>(recordedData("library")["mangas"]);
         REQUIRE(list.ok());
         const auto& l = list.value();
-        REQUIRE(l.nodes.size() == 6);
-        CHECK(l.totalCount == 6);
+        REQUIRE(l.nodes.size() == 156);  // 6 fixture series + the 150 of the Big shelf
+        CHECK(l.totalCount == 156);
         CHECK_FALSE(l.hasNextPage);
-        CHECK(l.endCursor.find("6-") == 0);
+        CHECK(l.endCursor.find("156-") == 0);
         CHECK(l.nodes[0].title == "Alpha");
         REQUIRE(l.nodes[0].categories.size() == 1);
         CHECK(l.nodes[0].categories[0].id == 1);
@@ -153,7 +153,7 @@ TEST_SUITE("core") {
         auto page = nodeListFromJson<Manga>(recordedData("library-page")["mangas"]);
         REQUIRE(page.ok());
         CHECK(page.value().nodes.size() == 2);
-        CHECK(page.value().totalCount == 6);
+        CHECK(page.value().totalCount == 156);
         CHECK(page.value().hasNextPage);
         CHECK(page.value().endCursor == "4-Delta Big");
     }

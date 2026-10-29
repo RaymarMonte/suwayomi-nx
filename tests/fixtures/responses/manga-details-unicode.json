@@ -1,13 +1,13 @@
 {
   "data": {
     "manga": {
-      "id": 6,
+      "id": 156,
       "title": "日本語タイトル テスト",
       "author": null,
       "description": null,
       "genre": [],
       "status": "UNKNOWN",
-      "thumbnailUrl": "/api/v1/manga/6/thumbnail",
+      "thumbnailUrl": "/api/v1/manga/156/thumbnail",
       "categories": {
         "nodes": []
       }

@@ -595,3 +595,25 @@ slot 2 with slot 1 empty is ignored; the fix replaces one borealis file and need
   left to WP-21 (applet support, nice to have); each try there can cost a reboot.
 Rejected: keeping the drill in WP-08's acceptance (it can't pass by system design); trying other crash endings now (applet
 mode isn't supported, D21, and every try risks a fatal).
+
+**D42 The library screen: a model per screen kept by the main screen, our own recycling grid, sorting on the console**
+(WP-09, 2026-10-29; MINUS for the menu: owner OK the same day).
+- `LibraryModel` (no borealis, unit-tested) lives in `MainActivity`, not in the tab: borealis's tab frame deletes a tab's view
+  when another tab opens, and the library must come back at the same category, sort and cover. The tab's view only shows it.
+- The server can only order manga by title, id and two dates, so title order comes from the server and loads a page at a
+  time (`libraryPageSize`, the next page when the grid shows the last half page); "unread" and "last read" load the whole
+  category, then sort on the console (stable, ties stay in title order). "Last read" uses `lastReadChapter { lastReadAt }`
+  (added to LibraryByCategory; the server sends `"0"` for never read). A manga seen twice across pages shows once.
+- The Default category is a tab only when it has manga (or is the only category), like Suwayomi's web UI.
+- The grid is our own `CoverGrid` (structure adapted from borealis's RecyclerFrame, Apache-2.0, CREDITS.md; the math in
+  `GridLayout`, unit-tested): only the rows on screen have cells, the focused cell is never reused, and a cell passes every
+  focus move to the grid (Box's own answer dereferences a missing child index: a null-pointer crash found by the scenario).
+  Covers load at Interactive priority per visible cell, are cancelled when the cell goes, and the row below loads at Prefetch
+  priority when `coverRowPrefetch` is on. Textures are reserved in `AppContext::textures` (S7) and freed with the cell.
+- PLUS stays "quit" on every screen (the device scripts rely on it), so the library's menu is on MINUS instead of PLUS as
+  WP-09 first said. L/R category, Y sort, X refresh, A open; all of them also by touch (tabs, Sort, Refresh, covers).
+- config.json gets a `library` section (`categoryId`, `sort`), no migration (an old file simply lacks it).
+- Test server: the seed adds the 150-manga "Big shelf" and an "Empty" category, so the grid can be scrolled, paged and
+  recycled, and the empty state has a golden.
+Rejected: wiliwili's RecyclingGrid (GPL), borealis's RecyclerFrame as is (a list: rows of cells would lose the column on
+up/down), sorting on the server (it can't), loading every category at start (one category at a time is enough).

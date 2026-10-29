@@ -9,13 +9,15 @@
 
 import { fail, isMain } from '../../tests/e2e/lib/cli.ts';
 import { optionsFromEnv, SuwayomiClient, waitForServer } from '../../tests/e2e/lib/suwayomi.ts';
-import { SERIES } from '../gen-fixtures/fixtures.ts';
+import { ALL_SERIES, SHELF } from '../gen-fixtures/fixtures.ts';
 
 const LOCAL_SOURCE_ID = '0';
 
 export const CATEGORIES: { name: string; manga: string[] }[] = [
     { name: 'Reading', manga: ['Alpha', 'Beta RTL'] },
     { name: 'Long series', manga: ['Gamma Webtoon', 'Delta Big'] },
+    { name: 'Big shelf', manga: SHELF.map((s) => s.title) }, // WP-09: the library grid's scrolling and paging
+    { name: 'Empty', manga: [] }, // WP-09: the library's "nothing in this category" screen
 ];
 
 interface MangaRef {
@@ -44,7 +46,7 @@ async function main(): Promise<void> {
 
     const mangas = await browseLocalSource(client);
     const byTitle = new Map(mangas.map((m) => [m.title, m]));
-    const missing = SERIES.map((s) => s.title).filter((t) => !byTitle.has(t));
+    const missing = ALL_SERIES.map((s) => s.title).filter((t) => !byTitle.has(t));
     if (missing.length > 0) fail(`Local Source doesn't list: ${missing.join(', ')} (did reset copy the fixtures?)`);
 
     const toAdd = mangas.filter((m) => !m.inLibrary);
@@ -67,6 +69,7 @@ async function main(): Promise<void> {
             id = created.createCategory.category.id;
         }
         const ids = cat.manga.map((t) => byTitle.get(t)!.id);
+        if (ids.length === 0) continue;
         await client.query(
             'mutation A($ids: [Int!]!, $cat: Int!) { updateMangasCategories(input: { ids: $ids, patch: { addToCategories: [$cat] } }) { mangas { id } } }',
             { ids, cat: id });

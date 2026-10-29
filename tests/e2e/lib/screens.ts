@@ -27,3 +27,28 @@ export const CLOCK_MASK = { x: 0, y: 650, w: 420, h: 70, why: 'clock, battery, W
  * there: while the dialog is open, GLFW hands keys to the input method, which swallows Return.
  */
 export const KEYBOARD_OK = { x: 937, y: 218 };
+
+/**
+ * The Library tab (WP-09): the category bar (y 123: the test server's categories, then Sort and Refresh) and the cover grid
+ * (6 columns of 120 x 232 px cells, 16 px apart; with the grid at the top the first cover's top-left corner is 445,184).
+ */
+export const LIBRARY = {
+    categories: {
+        default: { x: 481, y: 123 },
+        bigShelf: { x: 834, y: 123 },
+        empty: { x: 936, y: 123 },
+    },
+    sort: { x: 1090, y: 123 },
+    refresh: { x: 1211, y: 123 },
+    /** The sort menu (borealis dropdown): Title, Unread, Last read. */
+    sortMenu: { unread: { x: 640, y: 516 } },
+    /** The centre of cover `index`'s image, while the grid is scrolled to the top (first two rows). */
+    cover(index: number): { x: number; y: number } {
+        return { x: 445 + 60 + 136 * (index % 6), y: 184 + 90 + 248 * Math.floor(index / 6) };
+    },
+    /** A flick up over the grid scrolls down (and the other way). How far one goes depends on its speed, so scenarios
+     * flick until the grid says it got there, up to maxFlicks times. */
+    flickFrom: { x: 845, y: 600 },
+    flickTo: { x: 845, y: 220 },
+    maxFlicks: 40,
+};

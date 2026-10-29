@@ -35,7 +35,7 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
 {"t":1700,"ev":"image","url":"/api/v1/manga/12/thumbnail","decodeMs":31,"w":300,"h":450}
 {"t":2100,"ev":"reader","chapterId":45,"page":3,"of":20}
 {"t":2101,"ev":"idle"}
-{"t":9000,"ev":"mem","heapUsed":81234567,"heapFree":20000000}
+{"t":9000,"ev":"mem","used":81234567,"total":3335000000,"free":3253765433}
 {"t":9500,"ev":"error","kind":"Network","msg":"timeout"}
 {"t":9600,"ev":"mem_pressure","usedPct":87,"action":"shrink_caches"}
 {"t":40,"ev":"launch_refused","mode":"applet","appletType":2}
@@ -57,6 +57,10 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
   `hasRefreshToken`), `login_screen` (`ok`), `config_saved` (`bytes`, `server`, `auth`, `hasToken`), `net_burst` (`sent`, `ok`),
   `screen.params` (Setup: `firstRun`, `url`; Settings: `mode`, `profile`, `memUsed`, `memTotal`, `safeMode`, `crashLogs`) and the
   profile's budgets in `app_start` (`imageBudget`, `coverBudget`, `textureBudget`, `maxDecode`, `httpConcurrency`, `decodeThreads`).
+- WP-09 added `library` (the Library tab shows something new: `state` ready/empty/failed, `category` id, `categories` count,
+  `sort` title/unread/last_read, `items` loaded, `total` on the server; written again after a refresh), `grid` (the cover grid's
+  cells are now items [`first`, `last`), with `columns`; to check that no cover loads for an item that never had a cell) and
+  `screen` `Manga` with `params` `id`, `title` (the stand-in manga screen until WP-10).
 - `idle` is emitted when there are no pending net/decode jobs (`http.inFlight()`, `images.activeJobs()`, WP-08) and no running animations (borealis's running tickings) for 3 frames in a row,
   once per quiet spell: again only after something was busy or a new `screen` came. **Tests wait for `idle`, never `sleep`.**
 - The app empties the file at start and appends each event with open → write → close, never keeping it open: on the Switch a file that one
@@ -89,8 +93,14 @@ Fixture set (series code in brackets = the colour code's series number):
 - `Broken` [6] – 1 chapter × 5 pages: page 1 corrupt JPEG, page 2 zero bytes, page 3 a 1×1 image, pages 4–5 fine. Page 1 is also
   its (broken) cover, which makes it the **fallback-art** case. The server lists all 5 pages.
 
-After seeding (`tools/test-server/seed.ts`): categories `Reading` (Alpha, Beta RTL) and `Long series` (Gamma Webtoon, Delta Big);
-the other two are in no category (the Default category, id 0). Real answers for these are in `tests/fixtures/responses/`.
+- The **Big shelf** [7] (WP-09, `SHELF` in `fixtures.ts`) – 150 small manga `Shelf 001` … `Shelf 150`, 1 chapter × 1 JPEG page
+  400×600 each (that page is also the cover), in light colours that differ from cover to cover. They give the library grid
+  something to scroll, page (60 per request: 60 + 60 + 30) and recycle. They all share code 7: they never test the reader.
+  The server numbers manga in folder order, so these take ids 6–155 and `日本語タイトル テスト` is id 156.
+
+After seeding (`tools/test-server/seed.ts`): categories `Reading` (Alpha, Beta RTL), `Long series` (Gamma Webtoon, Delta Big),
+`Big shelf` (the 150) and `Empty` (none: the "nothing in this category" screen); `Broken` and `日本語タイトル テスト` are in no
+category (the Default category, id 0). Real answers for these are in `tests/fixtures/responses/`.
 
 ## Drivers (one scenario, two drivers)
 
@@ -191,7 +201,7 @@ Initial list, grown per UI WP:
 1. `smoke` – app starts with the test server, reaches Library connected (`server_check`), `idle`, golden, Settings by touch, no `error` events, no crash reports (WP-08)
 2. `setup-first-run` – no config → Setup screen → (desktop: tap the field, type the URL; Switch: `showSetup`) → Continue → Library; a restart skips setup (WP-08)
 3. `auth-matrix` – none / basic (+ wrong password → Setup) / ui_login (login, renewal after the 20 s JWT, logout → login screen, restart on saved tokens), restarting the test server per mode (WP-08)
-4. `library-browse` – switch categories, scroll 300-chapter title, open details
+4. `library-browse` – Default's covers (golden), tap the Big shelf tab (golden), tap a cover → Manga → B back, D-pad to the last row (pages load 60 → 120 → 150) and back, two more passes by flicking; memory flat over the 3 passes (`mem`), no cover downloaded twice, no cover loaded for an item that never had a cell (`image` vs `grid`); X refresh; Sort → Unread by touch; the Empty tab (golden); a restart keeps category and sort (WP-09). The 300-chapter list is WP-10's.
 5. `reader-paged` – open Alpha ch1, flip 10 pages, colour-code confirms each page, progress saved on server (checked via GraphQL from the harness)
 6. `reader-rtl-spread` – Beta RTL, direction and spread handling
 7. `resume-progress` – reopen chapter, lands on last page

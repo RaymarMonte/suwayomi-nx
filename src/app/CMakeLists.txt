@@ -16,12 +16,15 @@ set(SNX_APP_SOURCES
     crash/Crash.cpp
     crash/Drills.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/crash/CrashActivity.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/components/CoverGrid.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/components/ServerCheck.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/components/StatusView.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/diagnostics/DiagnosticsActivity.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/library/LibraryTab.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/login/LoginActivity.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/main/MainActivity.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/main/SettingsTab.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/manga/MangaActivity.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/setup/SetupActivity.cpp
 )
 if (PLATFORM_SWITCH)

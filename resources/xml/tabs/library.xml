@@ -1,0 +1,62 @@
+<!-- The Library tab (src/ui/library/LibraryTab, WP-09): a bar with the categories, Sort and Refresh, and below it the cover
+     grid or a status (loading, error + Retry, empty). The category buttons, the grid and the status are added in code.
+     Touch targets are 72 px high (D16). -->
+<brls:Box
+    width="auto"
+    height="auto"
+    axis="column">
+
+    <brls:Box
+        id="library/bar"
+        width="auto"
+        height="72"
+        axis="row"
+        alignItems="center"
+        paddingLeft="24"
+        paddingRight="24"
+        visibility="gone">
+
+        <brls:HScrollingFrame
+            id="library/categoriesFrame"
+            width="auto"
+            height="72"
+            grow="1.0"
+            shrink="1.0">
+
+            <brls:Box
+                id="library/categories"
+                width="auto"
+                height="72"
+                axis="row"
+                alignItems="center" />
+
+        </brls:HScrollingFrame>
+
+        <brls:Button
+            id="library/sort"
+            style="bordered"
+            height="72"
+            marginLeft="16"
+            paddingLeft="12"
+            paddingRight="12"
+            text="@i18n/library/sort" />
+
+        <brls:Button
+            id="library/refresh"
+            style="bordered"
+            height="72"
+            marginLeft="16"
+            paddingLeft="12"
+            paddingRight="12"
+            text="@i18n/library/refresh" />
+
+    </brls:Box>
+
+    <brls:Box
+        id="library/body"
+        width="auto"
+        height="auto"
+        grow="1.0"
+        axis="column" />
+
+</brls:Box>

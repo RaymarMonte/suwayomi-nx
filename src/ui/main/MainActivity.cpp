@@ -4,6 +4,7 @@
 
 #include "app/TestHooks.hpp"
 #include "ui/components/ServerCheck.hpp"
+#include "ui/library/LibraryTab.hpp"
 #include "ui/login/LoginActivity.hpp"
 #include "ui/main/SettingsTab.hpp"
 #include "ui/setup/SetupActivity.hpp"
@@ -30,6 +31,16 @@ class TabStatus : public StatusView {
     MainActivity& main_;
 };
 
+// The Library tab, telling the main screen the same.
+class LibraryTabView : public LibraryTab {
+  public:
+    explicit LibraryTabView(MainActivity& main) : LibraryTab(main.context()), main_(main) {}
+    ~LibraryTabView() override { main_.forgetTab(this); }
+
+  private:
+    MainActivity& main_;
+};
+
 }  // namespace
 
 MainActivity::MainActivity(app::AppContext& context)
@@ -37,6 +48,10 @@ MainActivity::MainActivity(app::AppContext& context)
 
 MainActivity::~MainActivity() {
     cancel_.cancel();
+    // The tab's view outlives this destructor (borealis deletes the content afterwards): let go of the model first.
+    if (libraryView_ != nullptr) {
+        libraryView_->showStatusOnly();
+    }
 }
 
 void MainActivity::onContentAvailable() {
@@ -57,13 +72,12 @@ brls::View* MainActivity::makeTab(std::size_t index) {
     if (index == kSettingsTab) {
         settingsView_ = new SettingsTab(*this);
         view = settingsView_;
+    } else if (index == kLibraryTab) {
+        libraryView_ = new LibraryTabView(*this);
+        view = libraryView_;
     } else {
         auto* status = new TabStatus(*this);
-        if (index == kLibraryTab) {
-            libraryView_ = status;
-        } else {
-            status->showMessage(brls::getStr(kTabLabels[index]), "main/coming_soon"_i18n);
-        }
+        status->showMessage(brls::getStr(kTabLabels[index]), "main/coming_soon"_i18n);
         view = status;
     }
     if (index == kLibraryTab) {
@@ -120,6 +134,9 @@ void MainActivity::onCheck(const api::ApiResult<core::ServerInfo>& result) {
     if (result.ok()) {
         fields["version"] = result.value().version;
         brls::Logger::info("main: connected to {} {}", result.value().name, result.value().version);
+        if (const auto warning = model_.serverWarning()) {
+            brls::Application::notify(*warning);  // D9: too old a server; the library still tries
+        }
     } else {
         fields["kind"] = api::apiErrorKindName(result.error().kind);
     }
@@ -141,24 +158,33 @@ void MainActivity::showConnection() {
     }
     switch (model_.connection()) {
         case MainModel::Connection::NotSetUp:
-            libraryView_->showMessage("main/not_set_up"_i18n, "");
+            libraryView_->status().showMessage("main/not_set_up"_i18n, "");
+            libraryView_->showStatusOnly();
             break;
         case MainModel::Connection::Checking:
-            libraryView_->showLoading("main/connecting"_i18n);
+            libraryView_->status().showLoading("main/connecting"_i18n);
+            libraryView_->showStatusOnly();
             break;
-        case MainModel::Connection::Connected: {
-            const core::ServerInfo& info = model_.server();
-            std::string text = "main/library_soon"_i18n;
-            if (const auto warning = model_.serverWarning()) {
-                text = *warning + "\n" + text;
+        case MainModel::Connection::Connected:
+            if (!library_) {
+                library_ = std::make_unique<LibraryModel>(context_.client, context_.config.config().library,
+                                                          context_.profile.libraryPageSize);
             }
-            libraryView_->showMessage("main/connected"_i18n + " " + info.name + " " + info.version, text);
+            libraryView_->attach(library_.get());
+            library_->start();  // only the first time
             break;
-        }
         case MainModel::Connection::Failed:
-            libraryView_->showError("Library", model_.error(), [this] { retry(); });
+            libraryView_->status().showError("Library", model_.error(), [this] { retry(); });
+            libraryView_->showStatusOnly();
             break;
     }
+}
+
+void MainActivity::dropLibrary() {
+    if (libraryView_ != nullptr) {
+        libraryView_->showStatusOnly();
+    }
+    library_.reset();
 }
 
 void MainActivity::retry() {
@@ -166,6 +192,7 @@ void MainActivity::retry() {
 }
 
 void MainActivity::serverChanged() {
+    dropLibrary();  // another server or login: another library
     model_.serverChanged();
     startCheck();
     if (settingsView_ != nullptr) {
@@ -199,6 +226,7 @@ void MainActivity::logout() {
     brls::Logger::info("main: logging out");
     context_.client.logout();  // drops the tokens and the password; onSettingsChanged saves that
     cancel_.cancel();
+    dropLibrary();
     openLogin({});
 }
 

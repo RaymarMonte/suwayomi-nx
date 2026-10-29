@@ -8,7 +8,10 @@
           "thumbnailUrl": "/api/v1/manga/4/thumbnail",
           "status": "UNKNOWN",
           "unreadCount": 300,
-          "downloadCount": 0
+          "downloadCount": 0,
+          "lastReadChapter": {
+            "lastReadAt": "0"
+          }
         }
       ],
       "totalCount": 2,

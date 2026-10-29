@@ -1,0 +1,23 @@
+{
+    "loading": "Loading your library...",
+    "loading_all": "Loading {} of {} manga to sort them...",
+    "empty_title": "Your library is empty",
+    "empty_text": "Add manga to your library on the server (its web page), then press X to refresh.",
+    "category_empty": "Nothing in {}",
+    "category_empty_text": "Manga you put in this category on the server show up here.",
+    "more_failed": "Couldn't load more manga. Press X to try again.",
+    "sort": "Sort",
+    "sort_title": "Title",
+    "sort_unread": "Unread",
+    "sort_last_read": "Last read",
+    "sort_button": "Sort: {}",
+    "refresh": "Refresh",
+    "category": "Category",
+    "menu": "Menu",
+    "menu_title": "Library",
+    "menu_category": "Go to category...",
+    "menu_sort": "Sort by...",
+    "menu_refresh": "Refresh",
+    "open": "Open",
+    "manga_soon": "Details and chapters come in a later version."
+}

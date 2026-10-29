@@ -179,7 +179,10 @@ int main(int argc, char* argv[]) {
     snx::image::ImageLoader images(http, imageOptions);
     testhooks::watchImages(images);
 
-    app::AppContext context{fs, runtime, profile, lastRun, config, http, client, images};
+    // GPU memory for the images on screen (S7): every texture a screen makes is reserved here first (WP-09).
+    snx::image::TextureBudget textures(profile.textureBudgetBytes);
+
+    app::AppContext context{fs, runtime, profile, lastRun, config, http, client, images, textures};
     // Test builds' idle rule: no network request or image load pending, and no animation (TESTING.md).
     testhooks::watchApp([&http, &images] { return http.inFlight() > 0 || images.activeJobs() > 0; });
 

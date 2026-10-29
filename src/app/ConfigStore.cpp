@@ -51,6 +51,14 @@ void ConfigStore::setServer(const core::ServerSettings& server) {
     scheduler_.changed(appClockMs());
 }
 
+void ConfigStore::setLibrary(const core::LibrarySettings& library) {
+    if (library.categoryId == config_.library.categoryId && library.sort == config_.library.sort) {
+        return;
+    }
+    config_.library = library;
+    scheduler_.changed(appClockMs());
+}
+
 void ConfigStore::useServer(const core::ServerSettings& server) {
     config_.server = server;
 }

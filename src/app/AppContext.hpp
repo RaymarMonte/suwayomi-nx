@@ -5,6 +5,7 @@
 #include "app/crash/Crash.hpp"
 #include "core/RuntimeInfo.hpp"
 #include "core/RuntimeProfile.hpp"
+#include "image/Caches.hpp"
 #include "image/ImageLoader.hpp"
 #include "net/HttpClient.hpp"
 #include "platform/SafeFs.hpp"
@@ -23,6 +24,7 @@ struct AppContext {
     net::HttpClient& http;
     api::SuwayomiClient& client;       // the server, with the login from config.server
     image::ImageLoader& images;
+    image::TextureBudget& textures;    // GPU memory for images on screen (S7, RuntimeProfile::textureBudgetBytes, WP-09)
 };
 
 }  // namespace snx::app

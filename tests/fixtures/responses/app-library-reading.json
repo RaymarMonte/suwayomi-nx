@@ -8,7 +8,10 @@
           "thumbnailUrl": "/api/v1/manga/1/thumbnail",
           "status": "ONGOING",
           "unreadCount": 3,
-          "downloadCount": 0
+          "downloadCount": 0,
+          "lastReadChapter": {
+            "lastReadAt": "0"
+          }
         },
         {
           "id": 2,
@@ -16,7 +19,10 @@
           "thumbnailUrl": "/api/v1/manga/2/thumbnail",
           "status": "UNKNOWN",
           "unreadCount": 2,
-          "downloadCount": 0
+          "downloadCount": 0,
+          "lastReadChapter": {
+            "lastReadAt": "0"
+          }
         }
       ],
       "totalCount": 2,

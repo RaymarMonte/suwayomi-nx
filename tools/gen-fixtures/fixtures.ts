@@ -91,3 +91,29 @@ export function seriesTime(s: SeriesDef): Date {
 export function chapterTime(s: SeriesDef, chapter: number): Date {
     return new Date(EPOCH_MS + s.code * 86_400_000 + chapter * 60_000);
 }
+
+/**
+ * The "Big shelf" (WP-09): many small manga, so the library grid has something to scroll, page (the app asks for 60 at a
+ * time) and recycle. One chapter of one page each; that page is also the cover (no cover.jpg). They all share code 7: they
+ * only test the library, never the reader. The seed puts them in their own category, so Default stays small.
+ */
+export const SHELF_COUNT = 150;
+export const SHELF_CODE = 7;
+export const SHELF: readonly SeriesDef[] = Array.from({ length: SHELF_COUNT }, (_, i) => {
+    const n = i + 1;
+    return {
+        code: SHELF_CODE,
+        title: `Shelf ${String(n).padStart(3, '0')}`,
+        label: `SHELF ${n}`,
+        format: 'jpeg' as const,
+        width: 400,
+        height: 600,
+        chapters: 1,
+        pages: 1,
+        // Light colours that differ from one cover to the next, so a screenshot shows which cover is where.
+        background: [200 + ((n * 37) % 56), 200 + ((n * 71) % 56), 200 + ((n * 13) % 56)] as Rgb,
+    };
+});
+
+/** Everything the generator writes and the seed adds to the library. */
+export const ALL_SERIES: readonly SeriesDef[] = [...SERIES, ...SHELF];

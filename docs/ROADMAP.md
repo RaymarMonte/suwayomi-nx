@@ -25,7 +25,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-07](wp/WP-07-image-pipeline-and-cache.md) | image: decode, downscale, tile, caches, memory budget | 05 | Opus | L | – | done |
 | [WP-08](wp/WP-08-app-shell-and-setup.md) | App shell, settings, logging, test hooks, server setup/login | 03b, 06 (its applet-guard device drill: 03c) | Opus | L | **Yes**: watched the applet-guard run on the console (D41) | done |
 | WP-08b | All controllers merged on the Switch: borealis's `getControllersConnectedCount` stops at the first empty slot, so a pad in slot 2 (sys-autopilot's after a real controller left slot 1) is ignored. Replace borealis's `switch_input.cpp` in our build with a fixed copy (Apache-2.0, CREDITS.md), D40. **Nice to have for now** (owner, 2026-10-29) | 08 | Opus | S | **Yes**: a second controller to check it | todo |
-| [WP-09](wp/WP-09-library-screen.md) | Library screen (categories + cover grid) | 07, 08 | Opus | M | – | todo |
+| [WP-09](wp/WP-09-library-screen.md) | Library screen (categories + cover grid) | 07, 08 | Opus | M | **Yes**: the console run (`library-browse`, new smoke golden) | PC done, console run left |
 | [WP-10](wp/WP-10-manga-details.md) | Manga details + chapter list | 09 | Opus | M | – | todo |
 | [WP-11](wp/WP-11-paged-reader.md) | Paged reader + progress sync | 10 | Opus | L | – | todo |
 | [WP-12](wp/WP-12-mvp-hardening.md) | MVP hardening, soak test, **v0.1 release** | 11 | Opus | M | Try it for real | todo |
