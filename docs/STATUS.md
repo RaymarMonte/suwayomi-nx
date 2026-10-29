@@ -1,21 +1,16 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 2 – App (WP-08 …). Next:** WP-11's **console run** (owner + Switch), then WP-12. WP-08b is nice to have for now
-(owner, 2026-10-29). Done: WP-00a … 10; WP-11 on the PC.
+**Phase 2 – App (WP-08 …). Next:** WP-12 (MVP hardening, soak test, v0.1; needs the owner: "Try it for real").
+WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 11.
 
-## Last session (2026-10-30, WP-11, Opus) — PC side done, console run left
-- **Paged reader (D44):** core `ReaderMath` (turn by side/direction, tap zones, swipes, fits, decode boxes, page position,
-  prefetch window) + `ProgressSync` (lastPageRead ≤ every 5 s, isRead at the last page at once, all on leave/HOME/close);
-  `ReaderModel` (page list, window −1/+3 with cancel outside, next chapter's list + 2 pages fetched near the end, chapter
-  changes, a progress "saver" whose saves are never cancelled); `ReaderView` (page tiles as textures, tap/drag/swipe) and
-  `ReaderActivity` (full screen, menu on A / middle tap, settings on MINUS: direction, fit, background, page number;
-  direction + fit per manga in config.json). `platform::keepScreenOn` (Switch: `appletSetMediaPlaybackState`). The details
-  screen reloads its chapters once the reader's last save ended. Events `reader`, `progress`, reader `error` (TESTING.md).
-- **Green:** unit 7/7 + contract 28/28, typecheck, desktop e2e 25/25 incl. new `reader-paged`, `reader-rtl-spread`,
-  `resume-progress`, `broken-images` (goldens looked at), Switch build (gate PASS, 0 warnings). Desktop: 100 turns, median 2 ms.
-- **Next (console, owner present):** test server reset + start; `tools/e2e.sh switch` `smoke`, `manga-details`, then each new
-  reader scenario once with `--update-goldens` (look at the new Switch goldens) and once without. `reader-paged` prints the
-  turn times (p90 must be < 150 ms) and memory growth. Then tick WP-11's last box, ROADMAP "done", commit.
-- Follow-ups: no download % under the spinner; the stick doesn't pan; a config.json save blocks a frame (D44).
+## Last session (2026-10-30, WP-11 console run, Opus) — WP-11 done
+- PC side was done in `7941da3` (paged reader, `ReaderModel`/`ReaderView`/`ReaderActivity`, `ReaderMath`, `ProgressSync`, D44).
+- **Console, all green:** `smoke`, `manga-details` (regression: the reader replaced the stand-in), then `reader-paged`,
+  `reader-rtl-spread`, `resume-progress`, `broken-images` once with `--update-goldens` and once against the goldens.
+  New Switch goldens (looked at, same as desktop): reader-paged page/menu/end, reader-rtl-spread spread, broken-images broken.
+- **Acceptance numbers (application mode, stock clocks):** 100 prefetched turns median 18 ms, p90 19 ms, max 19 ms
+  (limit 150 ms: the next frame at 60 Hz); memory 136.3 MiB after turn 20, growth 0.0 MiB (limit 16 MiB). Added to D44.
+- No new crash report or fatal file. Test server stopped at the end.
+- Follow-ups (D44): no download % under the spinner; the stick doesn't pan; a config.json save blocks a frame.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
@@ -26,7 +21,9 @@
 - Test server: `reset` + `start` ~10 s; `tools/record-fixtures/record-all.sh` ~1 min (it ends with the server running, auth none).
   It sometimes won't start ("null cannot be cast"): run it again (`reset` first after a hard stop).
 - WSL can fail to start ("insufficient system resources") when Windows memory is nearly all committed (it reserves up to 12 GB): ask the owner to close apps.
-- Device: e2e `smoke` ~27 s, `net-hello` ~25 s, `auth-matrix` ~110 s, `crash-drills` ~9 min (one drill ~50 s). The desktop text dialog ignores Enter: tap its OK. A start-up crash leaves no log: use breadcrumb writes (WP-03c).
+- Device: e2e `smoke` ~30 s, `net-hello` ~25 s, `manga-details` ~67 s, `reader-paged` ~120 s, `resume-progress` ~50–80 s,
+  `reader-rtl-spread` ~40 s, `broken-images` ~36 s, `auth-matrix` ~110 s, `crash-drills` ~9 min (one drill ~50 s).
+  The desktop text dialog ignores Enter: tap its OK. A start-up crash leaves no log: use breadcrumb writes (WP-03c).
 - Owner's real server (D18 "Update", never in tests): the Switch uses `http://<server-lan-ip>:4568`, no auth. Addresses: `docs/local/`.
 ## Console facts
 - **v1 Erista · FW 22.5.0 · AMS 1.11.2 · emuMMC** (`emuMMC/RAW1`), RCM payload, Hekate 6.5.3 (Launch → CFW (EMUMMC)). SD FAT32, ~88 GB free.

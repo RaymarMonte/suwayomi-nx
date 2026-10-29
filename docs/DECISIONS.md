@@ -686,7 +686,9 @@ throttled and never cancelled** (WP-11, 2026-10-30). Carries out ARCHITECTURE.md
   (`reader.manga`, the one changed last at the end, at most `readerMangaSettingsMax` = 500, by the server's manga id);
   background and page number are for every manga. No migration: new keys, old files lack them.
 - Drawing: `ReaderView` makes one texture per tile of the page on screen only (each reserved in `TextureBudget`, S7) and frees
-  them on the next page; on desktop a turn to a decoded page takes 1-4 ms to the frame that shows it. The loading spinner is
+  them on the next page; on desktop a turn to a decoded page takes 1-4 ms to the frame that shows it. On the console
+  (application mode, stock clocks, 2026-10-30) it takes 18-19 ms over 100 turns (median 18, p90 19, max 19: the next frame at
+  60 Hz, so the one texture upload per turn fits in a frame) and memory stays flat (0.0 MiB growth). The loading spinner is
   drawn from the clock (no borealis animation, so `idle` still comes). The reader's labels never auto-scroll: borealis scrolls
   any label under the focused view whose text is a hair wider than its box, forever, and the app never got `idle`. borealis
   sends touches only to focusable views (`hitTest`), so the menu's and Retry's buttons are focusable and give the focus back to
@@ -702,7 +704,7 @@ throttled and never cancelled** (WP-11, 2026-10-30). Carries out ARCHITECTURE.md
   callback through net); the stick doesn't pan (it turns, as borealis's NAV buttons); per-manga settings aren't kept apart per
   server; a `config.json` save blocks one frame (SafeFs's fsync on the main thread), and a key press shorter than that frame can
   be missed (seen once on desktop; the scenario waits for `config_saved` before its 100 turns).
-Rejected: keeping textures of the neighbouring pages (measure the console first: a turn from a decoded page needs one texture
-upload); cancelling a progress save when the reader closes; sending `lastPageRead` on every turn; borealis's `ProgressSpinner`
+Rejected: keeping textures of the neighbouring pages (a turn from a decoded page needs one texture upload, and the console
+measured that within one frame); cancelling a progress save when the reader closes; sending `lastPageRead` on every turn; borealis's `ProgressSpinner`
 (a running animation, never idle); deciding the page in the next chapter by the details screen's (possibly old) copy instead of
 the server's answer.

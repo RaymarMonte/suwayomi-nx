@@ -23,8 +23,9 @@ reading progress saved to the server, and seamless move to the next/previous cha
 - [x] "Next chapter" / "Previous chapter" end screens
 - [x] Keep the screen awake while reading (platform hook). Restore on exit
 - [x] Reader prefs per manga (direction, fit) stored in config (or server `meta` later)
-- [ ] Scenarios: `reader-paged` (colour-code verifies each page), `reader-rtl-spread`, `resume-progress`, `broken-images`; device run
-      (all four green on desktop 2026-10-30, D44; the console run is left: STATUS.md)
+- [x] Scenarios: `reader-paged` (colour-code verifies each page), `reader-rtl-spread`, `resume-progress`, `broken-images`; device run
+      (all four green on desktop and on the console 2026-10-30, D44, with new Switch goldens. Console, application mode, stock
+      clocks: 100 prefetched turns median 18 ms, p90 19 ms, max 19 ms (limit 150 ms); memory 136.3 MiB after turn 20, growth 0.0 MiB)
 
 ## Acceptance
 Page turn shows the next page in < 150 ms when prefetched (measured from events on the device, application mode).
