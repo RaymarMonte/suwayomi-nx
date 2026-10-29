@@ -356,7 +356,17 @@ export class SwitchDriver implements Driver {
 
     /** For the event stream: is the app still on screen? Back in hbmenu, on the HOME menu or its "closed" dialog means it ended. */
     private async appGone(): Promise<string | null> {
-        const shot = await this.autopilot.screenshot();
+        let shot: Buffer;
+        try {
+            shot = await this.autopilot.screenshot();
+        } catch (e) {
+            // Captures fail while the console switches apps (rc 0xe0ce), now and then for longer than the retries (WP-12: the
+            // relaunch after a crash drill). Not knowing isn't "gone": the next check looks again. An unreachable console
+            // still ends the wait.
+            if (e instanceof ConsoleUnreachableError) throw e;
+            console.warn(`[switch] ${(e as Error).message}: looking again at the next check`);
+            return null;
+        }
         if (await this.screenIs('hbmenu-header', shot)) return ENDED_IN_HBMENU;
         if (await this.screenIs('home-first-tile', shot)) return ENDED_AT_HOME;
         if (await this.screenIs('software-closed', shot)) return ENDED_SOFTWARE_CLOSED;

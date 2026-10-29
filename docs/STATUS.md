@@ -2,17 +2,16 @@
 **Phase 2 – App (WP-08 …). Now:** WP-12 (MVP hardening, v0.1), PC side done; the console and the owner's part are left.
 WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 11.
 
-## Last session (2026-10-30, WP-12 PC side, Opus)
+## Last session (2026-10-30, WP-12 PC side + console runs, Opus)
 - **Fixed (D45):** a stopped server times out (the firewall drops packets) instead of refusing: now "Can't reach the server"
   (net: a connect timeout = Network); a failed isRead save was resent every frame and saves never stopped while the server
   was away: saves back off 5 → … → 60 s; pages that failed offline reload when turned to. Page cache 512 → 256 MiB (soak).
-- **New scenarios, desktop green:** `offline-errors` (~2 min), `soak` (500 turns, 167 chapters, ~1.5 min; `summary.json`),
-  `touch-pass` (touch only; footer hints take taps). Test config `"diskCache": false`. Version 0.1.0, README user part,
-  CHANGELOG, `tools/release.sh` (dry run OK: gate PASS, crash handler in, hooks/drills out, .elf.gz 36 MB). Fuzz 600 s/target: no crash.
-- **Left (WP-12 checklist):** console (handheld): `smoke`, `offline-errors`, `touch-pass`, `soak` twice (fill in D45's console
-  numbers), full `crash-drills`; with the owner: release .nro from the Album (refusal screen, no new crash/fatal file), sleep
-  in the reader (POWER, wake, pages load again), dogfooding on the real server (`http://<server-lan-ip>:4568`), then tag
-  `v0.1.0` + GitHub Release (.nro, .elf.gz, SHA256SUMS.txt) with the owner's OK.
+- **New scenarios:** `offline-errors`, `soak` (500 turns, 167 chapters; `summary.json`), `touch-pass` (touch only; footer hints
+  take taps); test config `"diskCache": false`. Version 0.1.0, README user part, CHANGELOG, `tools/release.sh`. Fuzz 600 s/target ok.
+- **Green:** unit, integration, all desktop scenarios; console (handheld): `smoke`, `touch-pass`, `offline-errors`, `soak` twice
+  (turns p90 18 ms, peak 307/312 MiB), `crash-drills` 10/10 (1st try: a screenshot hiccup, driver fixed). Release .nro on the SD.
+- **Left (owner):** release .nro from the Album (refusal screen, no new crash/fatal file); sleep in the reader (POWER, wake,
+  pages load); dogfooding on the real server (`http://<server-lan-ip>:4568`); then tag `v0.1.0` + GitHub Release (owner's OK).
 - Follow-ups: a save failing as the reader closes isn't retried; covers that failed offline stay fallback art until rebuilt.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
@@ -31,7 +30,8 @@ WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 11.
 ## Console facts
 - **v1 Erista · FW 22.5.0 · AMS 1.11.2 · emuMMC** (`emuMMC/RAW1`), RCM payload, Hekate 6.5.3 (Launch → CFW (EMUMMC)). SD FAT32, ~88 GB free.
 - Sysmodules: sys-clk, emuiibo, MissionControl, sys-patch, nx-ovlloader, **sys-autopilot-nx `4200000000004150`** (`http://<switch-ip>:4150`).
-- Baseline: `fatal_errors` empty, `fatal_reports` 1 file + `dumps/` (WP-08's qlaunch fatal, D41), `crash_reports` 22 files + `dumps/` (4 from WP-03c, 1 from WP-08). Clock is off.
+- Baseline (2026-10-30): `fatal_errors` empty, `fatal_reports` 3 files + `dumps/` (qlaunch fatals from the Album: WP-08's, D41, and
+  two dated Oct 29, before WP-12), `crash_reports` 26 files + `dumps/`.. Clock is off.
 - **App mode:** Spelunky 2 = first HOME tile (playing another game moves it: the owner opens and closes Spelunky 2 again); hold R + A, A on the user picker, hbmenu ~3.7 s later. Heap ~3,181–3,184 MiB.
 - Console resets new connections after bursts (~50/s): one request at a time, ≥ 150 ms apart. A file open for writing can't be
   read by another program (events use a pending queue; `app.log` readable after quit). HOME on the HOME menu resumes the app.

@@ -9,19 +9,19 @@ Make the MVP trustworthy: survive network loss, server restarts, sleep/resume, l
 STATUS.md, `docs/TESTING.md` (scenarios 8–10), any open bug notes.
 
 ## Deliverables
-- [ ] Scenario `offline-errors`: stop the test server mid-session → errors shown → restart → retry works everywhere
-      (desktop green 2026-10-30, found and fixed three gaps, D45; console run left)
+- [x] Scenario `offline-errors`: stop the test server mid-session → errors shown → restart → retry works everywhere
+      (desktop and console green 2026-10-30; found and fixed three gaps, D45)
 - [ ] Sleep/resume (manual, owner presses the power button once): app reconnects, reader continues, no crash
-- [ ] Touch pass on the console in handheld mode across all MVP screens: automated if the touch fork exists (D19), otherwise the owner runs a 5-minute checklist
-      (scenario `touch-pass`, desktop green; console run left, handheld)
-- [ ] Scenario `soak` (device, application mode): 500 page turns across chapters + library scrolls. Assert memory within the profile's budget,
-      no crash reports, no `error` events (written, desktop green; console runs left, twice)
+- [x] Touch pass on the console in handheld mode across all MVP screens: automated if the touch fork exists (D19), otherwise the owner runs a 5-minute checklist
+      (scenario `touch-pass`, desktop and console (handheld) green)
+- [x] Scenario `soak` (device, application mode): 500 page turns across chapters + library scrolls. Assert memory within the profile's budget,
+      no crash reports, no `error` events (console green twice, numbers in D45)
 - [ ] Applet-mode guard on the **release** build (D21): open it from the Album → the message shows → back to hbmenu, no new crash report or fatal file
-- [ ] Tune `makeRuntimeProfile` budgets and disk budgets from soak data → DECISIONS.md (D45: page cache 512 → 256 MiB from the
-      desktop soak; confirm with the console soak numbers)
+- [x] Tune `makeRuntimeProfile` budgets and disk budgets from soak data → DECISIONS.md (D45: page cache 512 → 256 MiB from the
+      desktop soak, confirmed on the console)
 - [ ] Crash-safety pass: long fuzz runs (≥ 10 min per target), full `crash-drills` in application mode plus `applet-guard`, `check-elf.sh` on the release build,
       zero `atmosphere/fatal_errors` files across all device runs of this WP
-      (done: fuzz 600 s per target, no crash, 2026-10-30; `check-elf.sh` PASS on the release build. Left: console drills, applet-guard)
+      (done: fuzz 600 s per target, no crash, 2026-10-30; `check-elf.sh` PASS on the release build. console `crash-drills` 10/10; `fatal_errors` empty after every run. Left: the release build from the Album)
 - [x] Release build keeps the crash handler (only test hooks/drills are compiled out). Archive the matching `.elf` with the release for symbolizing user crash logs
       (`tools/release.sh` checks both and packs the .elf.gz, D45)
 - [ ] Owner dogfooding against the **real** server (read-only use; note issues in STATUS). Fix the blocking ones.

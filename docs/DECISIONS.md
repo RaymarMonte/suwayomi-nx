@@ -726,11 +726,15 @@ the server's answer.
   (500 turns, 167 chapters) memory rose by exactly the cache filling up (desktop: 86 -> 518 MiB) with pages the reader never
   came back to; the window is -1/+3 and the SD-card cache serves re-reads. 256 MiB still holds ~180 screen-fit or ~26
   fit-width pages. Unchanged: covers 64 MiB, textures 256 MiB (a ceiling; in use: one page plus the covers on screen),
-  SD-card cache 1 GiB with 1 GiB of the card kept free (real pages of 0.3-1 MB: 1,000-3,000 pages). Console soak numbers:
-  see STATUS until the device run is done.
+  SD-card cache 1 GiB with 1 GiB of the card kept free (real pages of 0.3-1 MB: 1,000-3,000 pages). **On the console**
+  (application mode, stock clocks, 2026-10-30, twice): 500 turns, 167 chapters, prefetched turns median 17 ms, p90 18 ms,
+  max 21 / 18 ms; memory 43 -> 307 MiB and 46 -> 312 MiB at the peak (the 256 MiB cache full), 304 MiB at the end, of a
+  3,180 MiB heap; no error, no mem_pressure, no crash report. Run 1 took 500 s, run 2 378 s (pages from the SD-card cache).
 - **Tests:** `offline-errors`, `soak` and `touch-pass` scenarios (TESTING.md 8, 10, 15); test config `"diskCache": false`;
   shared helpers `stopServer`/`startServer` (`lib/suwayomi.ts`), `flickUntil`/`inputInLoop` (`lib/library.ts`), the
   `STATUS` (Retry) and `FOOTER` (hints) points in `lib/screens.ts`. borealis's footer hints take taps, so "Back" works by touch.
+  The Switch driver's "is the app still there?" check treats a screenshot the console refuses (rc 0xe0ce, while it switches
+  apps) as "don't know yet", not as a failure (a crash drill's relaunch hit it once).
 - **Release:** `tools/release.sh` = the Switch release build (its safety gate) + checks on the .elf (the crash handler is in,
   test hooks and drills are out) + `~/build/suwayomi-nx/release/v<version>/` with the .nro, the gzipped .elf (to symbolize
   users' crash reports, ~36 MB), `SHA256SUMS.txt`, `build-info.txt` (build id) and the gate report. A GitHub Release carries
