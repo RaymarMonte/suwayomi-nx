@@ -1,9 +1,10 @@
 # One page of a manga's chapters. $order DESC = newest first (higher sourceOrder = newer).
+# lastReadAt: where "Continue" starts (WP-10, D43).
 query Chapters($mangaId: Int!, $order: SortOrder!, $first: Int!, $offset: Int!) {
   chapters(condition: { mangaId: $mangaId }, order: [{ by: SOURCE_ORDER, byType: $order }], first: $first, offset: $offset) {
     nodes {
       id mangaId name chapterNumber sourceOrder uploadDate scanlator
-      isRead isBookmarked isDownloaded lastPageRead pageCount
+      isRead isBookmarked isDownloaded lastPageRead pageCount lastReadAt
     }
     totalCount
     pageInfo { hasNextPage endCursor }

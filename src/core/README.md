@@ -30,4 +30,5 @@
 are our own documents' answers, `tools/record-fixtures`). Contract: `npm run contract` (`tests/contract/`). Fuzz: `tools/build.sh fuzz`
 (`tests/fuzz/`). Coverage ≥ 80% lines (94% after WP-04).
 
-**Status:** WP-04 added models, JSON, GraphQL, config and the runtime profile. Reader math and policies come with WP-07/WP-11.
+**Status:** WP-04 added models, JSON, GraphQL, config and the runtime profile. WP-10: `Chapter::lastReadAt`, `ChapterPatch`,
+the `UpdateChapters` and `FetchMangaAndChapters` documents, `RuntimeProfile::maxChapters`. Reader math and policies come with WP-07/WP-11.

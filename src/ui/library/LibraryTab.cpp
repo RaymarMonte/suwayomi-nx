@@ -5,6 +5,7 @@
 
 #include "app/TestHooks.hpp"
 #include "image/Caches.hpp"
+#include "ui/components/TextFit.hpp"
 #include "ui/manga/MangaActivity.hpp"
 
 using namespace brls::literals;  // for _i18n
@@ -30,31 +31,6 @@ const core::LibrarySort kSorts[] = {core::LibrarySort::Title, core::LibrarySort:
 
 std::string sortLabel(core::LibrarySort sort) {
     return brls::getStr(kSortKeys[static_cast<int>(sort)]);
-}
-
-// Text that fits in two lines of `width`, ending in "…" when it doesn't (borealis labels only shorten single lines).
-std::string twoLines(const std::string& text, float width, int font) {
-    NVGcontext* vg = brls::Application::getNVGContext();
-    nvgSave(vg);
-    nvgFontFaceId(vg, font);
-    nvgFontSize(vg, kTitleFontSize);
-    nvgTextLineHeight(vg, kTitleLineHeight);
-    NVGtextRow rows[3];
-    const int count = nvgTextBreakLines(vg, text.c_str(), nullptr, width, rows, 3);
-    std::string result = text;
-    if (count > 2) {
-        const char* const ellipsis = "…";
-        std::string second(rows[1].start, rows[1].end);
-        // Drop whole UTF-8 characters from the end until "…" fits too.
-        while (!second.empty() && nvgTextBounds(vg, 0, 0, (second + ellipsis).c_str(), nullptr, nullptr) > width) {
-            do {
-                second.pop_back();
-            } while (!second.empty() && (static_cast<unsigned char>(second.back()) & 0xC0) == 0x80);
-        }
-        result = std::string(text.c_str(), rows[1].start) + second + ellipsis;
-    }
-    nvgRestore(vg);
-    return result;
 }
 
 bool inside(brls::View* view, const brls::View* parent) {
@@ -115,7 +91,7 @@ class CoverCell : public GridCell {
     ~CoverCell() override { cancel_.cancel(); }
 
     void show(const core::Manga& manga, std::string url, app::AppContext& context) {
-        title_->setText(twoLines(manga.title, kCoverWidth, title_->getFont()));
+        title_->setText(fitLines(manga.title, kCoverWidth, title_->getFont(), kTitleFontSize, kTitleLineHeight, 2).text);
         if (manga.unreadCount > 0) {
             badge_->setText(std::to_string(manga.unreadCount));
             badgeBox_->setVisibility(brls::Visibility::VISIBLE);
@@ -339,7 +315,7 @@ void LibraryTab::modelChanged() {
         case LibraryModel::State::Ready: {
             const std::size_t count = model.items().size();
             const bool same = shownState_ == LibraryModel::State::Ready && categoryId == shownCategory_ &&
-                              model.sort() == shownSort_ && count >= shownCount_;
+                              model.sort() == shownSort_ && count >= shownCount_ && model.revision() == shownRevision_;
             showGrid(true);
             if (same && count > shownCount_) {
                 grid_->appended();
@@ -347,6 +323,7 @@ void LibraryTab::modelChanged() {
                 grid_->reload(model.rememberedFocus());
             }
             shownCount_ = count;
+            shownRevision_ = model.revision();
             break;
         }
     }
@@ -454,7 +431,13 @@ void LibraryTab::select(std::size_t index) {
         return;
     }
     model_->rememberFocus(index);
-    brls::Application::pushActivity(new MangaActivity(context_, model_->items()[index]));
+    // Chapter actions change the unread count: the badge (and the Unread sort) follow.
+    const std::weak_ptr<int> alive = alive_;
+    brls::Application::pushActivity(new MangaActivity(context_, model_->items()[index], [this, alive](const core::Manga& manga) {
+        if (!alive.expired() && model_ != nullptr) {
+            model_->updateManga(manga);
+        }
+    }));
 }
 
 void LibraryTab::focused(std::size_t index) {

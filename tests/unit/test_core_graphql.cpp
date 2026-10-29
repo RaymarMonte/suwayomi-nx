@@ -31,9 +31,10 @@ GqlResponse answer(const char* body) {
 TEST_SUITE("core") {
     TEST_CASE("every .graphql file is embedded, named after its operation, without comment lines") {
         const auto& docs = gql::documents();
-        const std::vector<std::string> expected = {"AboutServer", "Categories",       "Chapters", "FetchChapterPages",
-                                                   "LibraryByCategory", "Login", "Manga",    "RefreshToken",
-                                                   "UpdateChapterProgress"};
+        const std::vector<std::string> expected = {"AboutServer",       "Categories",           "Chapters",
+                                                   "FetchChapterPages", "FetchMangaAndChapters", "LibraryByCategory",
+                                                   "Login",             "Manga",                "RefreshToken",
+                                                   "UpdateChapterProgress", "UpdateChapters"};
         REQUIRE(docs.size() == expected.size());
         for (std::size_t i = 0; i < docs.size(); ++i) {
             CAPTURE(expected[i]);
@@ -334,5 +335,54 @@ TEST_SUITE("core") {
         const std::string cleaned = cleanServerMessage(longText);
         CHECK(cleaned == std::string(299, 'a'));
         CHECK(cleanServerMessage(std::string(1000, 'z')).size() == 300);
+    }
+    TEST_CASE("WP-10: updateChapters and fetchMangaAndChapters, requests and answers") {
+        ChapterPatch read;
+        read.isRead = true;
+        const auto mark = gql::updateChapters({3, 4}, read);
+        CHECK(mark.name == "UpdateChapters");
+        CHECK(mark.mutation);
+        CHECK(mark.variables == nlohmann::json::parse(R"({"ids": [3, 4], "patch": {"isRead": true}})"));
+        ChapterPatch unread;
+        unread.isRead = false;
+        unread.lastPageRead = -2;
+        unread.isBookmarked = true;
+        CHECK(gql::updateChapters({7}, unread).variables["patch"] ==
+              nlohmann::json::parse(R"({"isRead": false, "isBookmarked": true, "lastPageRead": 0})"));
+        CHECK(gql::updateChapters({}, ChapterPatch()).variables ==
+              nlohmann::json::parse(R"({"ids": [], "patch": {}})"));
+
+        const auto refresh = gql::fetchMangaAndChapters(9);
+        CHECK(refresh.name == "FetchMangaAndChapters");
+        CHECK(refresh.mutation);
+        CHECK(refresh.variables == nlohmann::json::parse(R"({"id": 9})"));
+
+        auto changed = gql::readUpdateChapters(answer(R"({"data": {"updateChapters": {"chapters": [
+            {"id": 3, "isRead": true, "isBookmarked": false, "lastPageRead": 0, "pageCount": 10, "lastReadAt": "1761696000"},
+            {"no": "id"}]}}})"));
+        REQUIRE(changed.ok());
+        REQUIRE(changed.value().size() == 1);  // the broken entry is left out
+        CHECK(changed.value()[0].isRead);
+        CHECK(changed.value()[0].pageCount == 10);
+        CHECK(changed.value()[0].lastReadAt == 1761696000);
+        CHECK_FALSE(gql::readUpdateChapters(answer(R"({"data": {"updateChapters": {}}})")).ok());
+        CHECK(gql::readUpdateChapters(answer(R"({"data": null, "errors": [{"message": "nope"}]})")).error().message ==
+              "nope");
+
+        auto manga = gql::readFetchMangaAndChapters(answer(
+            R"({"data": {"fetchMangaAndChapters": {"manga": {"id": 9, "title": "T", "genre": []}, "chapters": [{"id": 1}]}}})"));
+        REQUIRE(manga.ok());
+        CHECK(manga.value().id == 9);
+        CHECK_FALSE(gql::readFetchMangaAndChapters(answer(R"({"data": {"fetchMangaAndChapters": {}}})")).ok());
+
+        // Recorded from the test server (tools/record-fixtures).
+        auto recordedChanged = gql::readUpdateChapters(recorded("app-update-chapters"));
+        REQUIRE(recordedChanged.ok());
+        REQUIRE(recordedChanged.value().size() == 2);
+        CHECK_FALSE(recordedChanged.value()[0].isBookmarked);
+        auto recordedManga = gql::readFetchMangaAndChapters(recorded("app-fetch-manga-and-chapters"));
+        REQUIRE(recordedManga.ok());
+        CHECK(recordedManga.value().title == "Broken");
+        CHECK(gql::readChapters(recorded("app-chapters")).value().nodes[0].lastReadAt == 0);  // never read
     }
 }

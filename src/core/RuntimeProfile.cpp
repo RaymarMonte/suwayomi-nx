@@ -48,6 +48,7 @@ RuntimeProfile makeRuntimeProfile(LaunchMode mode, std::uint64_t totalMem, std::
         p.backgroundPrefetch = false;
         p.webtoonTilesAround = 1;
         p.coverRowPrefetch = false;
+        p.maxChapters = 3000;
         p.httpConcurrency = 2;
         p.decodeThreads = 1;
         p.heavyUiEffects = false;

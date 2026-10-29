@@ -65,7 +65,8 @@ void steadyScreenshots();
 // The app counts as idle only when it is false and no animation runs. Also writes {"ev":"focus","view":...} on every focus change.
 void watchApp(std::function<bool()> busy);
 
-// Any other event: {"ev":<ev>, fields...}. Main thread only. Release builds: nothing.
+// Any other event: {"ev":<ev>, fields...}. Like screen(), it makes the next quiet spell report "idle" again (WP-10).
+// Main thread only. Release builds: nothing.
 void write(std::string_view ev, const nlohmann::ordered_json& fields);
 
 // {"ev":"screen","name":...(,"params":{...})}: a screen is now on top. It also makes the next quiet spell report "idle" again.

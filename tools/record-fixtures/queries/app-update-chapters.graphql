@@ -1,0 +1,4 @@
+# document: UpdateChapters
+# vars: {"ids": ["$chapter:Delta Big:299", "$chapter:Delta Big:300"], "patch": {"isBookmarked": false}}
+# The chapter list's bulk action on two of Delta Big's chapters. It sets what they already are (not bookmarked), so no
+# later recording changes; the C++ tests check the request builder's other patches.

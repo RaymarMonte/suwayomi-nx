@@ -43,6 +43,7 @@ struct RuntimeProfile {
     int decodeThreads = 2;
     int libraryPageSize = 60;   // manga per LibraryByCategory request
     int chapterPageSize = 100;  // chapters per Chapters request
+    int maxChapters = 10000;    // chapters of one manga kept in memory: the details screen stops loading there (S6, WP-10)
 
     // Network (net, WP-05). Timeouts are per request. Retries are for GETs only (core/RetryPolicy.hpp).
     int httpConnectTimeoutMs = 5000;                   // a LAN server answers a connect in milliseconds

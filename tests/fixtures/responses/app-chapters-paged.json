@@ -14,7 +14,8 @@
           "isBookmarked": false,
           "isDownloaded": false,
           "lastPageRead": 0,
-          "pageCount": -1
+          "pageCount": -1,
+          "lastReadAt": "0"
         },
         {
           "id": 11,
@@ -28,7 +29,8 @@
           "isBookmarked": false,
           "isDownloaded": false,
           "lastPageRead": 0,
-          "pageCount": -1
+          "pageCount": -1,
+          "lastReadAt": "0"
         },
         {
           "id": 12,
@@ -42,7 +44,8 @@
           "isBookmarked": false,
           "isDownloaded": false,
           "lastPageRead": 0,
-          "pageCount": -1
+          "pageCount": -1,
+          "lastReadAt": "0"
         }
       ],
       "totalCount": 300,

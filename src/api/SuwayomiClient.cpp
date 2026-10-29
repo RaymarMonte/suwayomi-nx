@@ -542,6 +542,25 @@ ApiFuture<core::ReadProgress> SuwayomiClient::setProgress(int chapterId, int pag
                                          core::gql::readUpdateChapterProgress, cancel, priority);
 }
 
+ApiFuture<std::vector<core::Chapter>> SuwayomiClient::updateChapters(std::vector<int> ids, core::ChapterPatch patch,
+                                                                     const net::CancelToken& cancel,
+                                                                     net::Priority priority) {
+    if (ids.empty()) {
+        // Nothing to change: no request, but the empty answer still arrives through deliver, like every other answer.
+        net::Promise<ApiResult<std::vector<core::Chapter>>> promise;
+        ApiFuture<std::vector<core::Chapter>> future = promise.future();
+        deliverResult<std::vector<core::Chapter>>(state_, promise, std::vector<core::Chapter>(), cancel);
+        return future;
+    }
+    return startCall<std::vector<core::Chapter>>(state_, core::gql::updateChapters(ids, patch),
+                                                 core::gql::readUpdateChapters, cancel, priority);
+}
+
+ApiFuture<core::Manga> SuwayomiClient::refreshManga(int mangaId, const net::CancelToken& cancel, net::Priority priority) {
+    return startCall<core::Manga>(state_, core::gql::fetchMangaAndChapters(mangaId), core::gql::readFetchMangaAndChapters,
+                                  cancel, priority);
+}
+
 ApiFuture<core::LoginTokens> SuwayomiClient::login(std::string username, std::string password,
                                                    const net::CancelToken& cancel, net::Priority priority) {
     net::Promise<ApiResult<core::LoginTokens>> promise;

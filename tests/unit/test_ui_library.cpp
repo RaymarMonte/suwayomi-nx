@@ -381,4 +381,31 @@ TEST_CASE("grid: columns, positions, the visible rows and focus moves") {
     CHECK_FALSE(grid.neighbour(12, GridMove::Down, 12).has_value());
 }
 
+TEST_CASE("library: updateManga (WP-10) changes the unread count everywhere, sorts again, the focus follows") {
+    Harness h;
+    h.library.manga[1] = series(10, 3);  // unread 0, 2, 4
+    core::LibrarySettings start;
+    start.categoryId = 1;
+    start.sort = LibrarySort::Unread;
+    auto model = h.model(start);
+    model->start();
+    REQUIRE(model->state() == LibraryModel::State::Ready);
+    CHECK(ids(model->items()) == std::vector<int>{12, 11, 10});
+    const auto revision = model->revision();
+
+    core::Manga changed;
+    changed.id = 10;
+    changed.unreadCount = 9;
+    model->updateManga(changed);
+    CHECK(model->revision() == revision + 1);
+    CHECK(ids(model->items()) == std::vector<int>{10, 12, 11});
+    CHECK(model->items()[0].unreadCount == 9);
+    CHECK(model->rememberedFocus() == 0);
+
+    core::Manga unknown;
+    unknown.id = 999;  // not in the library: nothing happens
+    model->updateManga(unknown);
+    CHECK(model->revision() == revision + 1);
+}
+
 }  // TEST_SUITE

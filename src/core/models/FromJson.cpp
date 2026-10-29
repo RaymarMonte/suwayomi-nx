@@ -96,6 +96,7 @@ Result<Chapter> fromJson<Chapter>(const nlohmann::json& node) {
     chapter.isDownloaded = json::boolean(node, "isDownloaded").value_or(false);
     chapter.lastPageRead = json::int32(node, "lastPageRead").value_or(0);
     chapter.pageCount = json::int32(node, "pageCount").value_or(-1);
+    chapter.lastReadAt = json::int64(node, "lastReadAt").value_or(0);
     return chapter;
 }
 

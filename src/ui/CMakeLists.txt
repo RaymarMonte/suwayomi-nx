@@ -4,6 +4,7 @@
 add_library(snx_ui_models STATIC
     components/GridLayout.cpp
     library/LibraryModel.cpp
+    manga/MangaModel.cpp
     login/LoginModel.cpp
     main/MainModel.cpp
     setup/SetupModel.cpp

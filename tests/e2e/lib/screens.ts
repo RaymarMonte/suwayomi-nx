@@ -52,3 +52,33 @@ export const LIBRARY = {
     flickTo: { x: 845, y: 220 },
     maxFlicks: 40,
 };
+
+/** The Library tab's other category tabs (the test server's order: Default, Reading, Long series, Big shelf, Empty). */
+export const LIBRARY_MORE = {
+    reading: { x: 587, y: 123 },
+    longSeries: { x: 708, y: 123 },
+};
+
+/**
+ * The manga details screen (WP-10). Left: Continue and the description. Right: the bar (Sort, Show, Refresh) and the
+ * chapter list (rows of 800 x 80 px, 4 px apart; with the list at the top the first row's top is at y 167).
+ */
+export const MANGA = {
+    continue: { x: 228, y: 343 },
+    description: { x: 228, y: 450 },
+    sort: { x: 942, y: 123 },
+    filter: { x: 1100, y: 123 },
+    refresh: { x: 1211, y: 123 },
+    /** The middle of row `index` (a tap opens the chapter), while the list is scrolled to the top. */
+    row(index: number): { x: number; y: number } {
+        return { x: 760, y: 207 + 84 * index };
+    },
+    /** The "..." at the end of row `index` (a tap opens the chapter's menu). */
+    rowMenu(index: number): { x: number; y: number } {
+        return { x: 1224, y: 207 + 84 * index };
+    },
+    /** Entry `index` of a borealis dropdown with `count` entries (they sit at the bottom of the screen, 72 px apart). */
+    menuEntry(index: number, count: number): { x: number; y: number } {
+        return { x: 640, y: 588 - 72 * (count - 1 - index) };
+    },
+};

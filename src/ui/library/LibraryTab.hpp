@@ -2,6 +2,8 @@
 
 #include <borealis.hpp>
 #include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -64,6 +66,8 @@ class LibraryTab : public brls::Box, private GridSource {
     CoverGrid* grid_;
     std::vector<brls::Button*> categoryButtons_;
     net::CancelToken prefetch_;  // the row below the screen
+    // The manga screen tells the library about changes through this tab while it exists (weak_ptr: it may be gone).
+    std::shared_ptr<int> alive_ = std::make_shared<int>(0);
 
     // What the tab shows now, to tell a change from more of the same.
     std::vector<int> shownCategories_;
@@ -71,6 +75,7 @@ class LibraryTab : public brls::Box, private GridSource {
     core::LibrarySort shownSort_ = core::LibrarySort::Title;
     LibraryModel::State shownState_ = LibraryModel::State::Loading;
     std::size_t shownCount_ = 0;
+    std::uint64_t shownRevision_ = 0;
     bool gridShown_ = false;
     bool moreFailedShown_ = false;
     std::string reported_;

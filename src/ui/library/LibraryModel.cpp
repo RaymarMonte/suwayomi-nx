@@ -283,6 +283,34 @@ void LibraryModel::rememberFocus(std::size_t index) {
     }
 }
 
+void LibraryModel::updateManga(const core::Manga& manga) {
+    bool found = false;
+    for (auto& [id, kept] : shelves_) {
+        for (core::Manga& entry : kept.loaded) {
+            if (entry.id == manga.id) {
+                entry.unreadCount = manga.unreadCount;
+                found = true;
+            }
+        }
+    }
+    if (!found) {
+        return;
+    }
+    for (core::Manga& entry : items_) {
+        if (entry.id == manga.id) {
+            entry.unreadCount = manga.unreadCount;
+        }
+    }
+    sortLibrary(items_, settings_.sort);  // stable: with the title sort nothing moves
+    for (std::size_t i = 0; i < items_.size(); ++i) {
+        if (items_[i].id == manga.id) {
+            rememberFocus(i);
+        }
+    }
+    ++revision_;
+    changed();
+}
+
 std::size_t LibraryModel::rememberedFocus() const {
     const Shelf* s = currentShelf();
     if (s == nullptr || items_.empty()) {

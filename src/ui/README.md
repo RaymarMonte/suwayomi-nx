@@ -33,19 +33,22 @@
    for those, never for time (`tests/e2e/scenarios/library-browse.test.ts`; touch coordinates in `tests/e2e/lib/screens.ts`).
 
 **Screens:** `main/MainActivity` (tab frame, always the first screen, the connection check, owns the library model; `SettingsTab`,
-`CrashLogsActivity`), `library/LibraryTab` (categories, sort, refresh, the cover grid), `manga/MangaActivity` (a stand-in until
-WP-10), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
+`CrashLogsActivity`), `library/LibraryTab` (categories, sort, refresh, the cover grid), `manga/MangaActivity` (details + chapter list, WP-10,
+D43: `MangaModel` holds the list, sort, filter, Continue and the actions), `reader/ReaderActivity` (a stand-in until WP-11), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
 `crash/CrashActivity` (the crash screen, S1), `diagnostics/DiagnosticsActivity` (test builds only: WP-05's server check + request
 burst, WP-07's image benchmark).
 
 **Components** (`components/`): `StatusView` (loading / error + Retry / message; never takes the focus while hidden),
 `TextFieldCell` (XML `<TextFieldCell>`: a tap opens the keyboard; secret fields show dots), `errorText()` (says "no network"
 when the console has none), `checkServer()` (version + categories when a login is configured, D40), `CoverGrid` + `GridCell` +
-`GridSource` (the recycling grid, D42) and `GridLayout` (its arithmetic, in `snx_ui_models`).
+`GridSource` (the recycling grid, D42; one column makes it a list, as on the manga screen; `rebind()` redraws rows in place)
+and `GridLayout` (its arithmetic, in `snx_ui_models`), `CoverImage` (a cover of fixed size: cache first, texture lease,
+WP-10), `fitLines()` (`TextFit.hpp`: text cut to N lines with "…").
 
 **Threading:** main thread only. Results arrive through `brls::sync` (the client's and loader's `deliver`).
 
-**Tests:** models in `tests/unit/test_ui.cpp` and `test_ui_library.cpp` (suite `ui`); screens by E2E scenarios (`smoke`,
-`setup-first-run`, `auth-matrix`, `low-memory`, `library-browse`). Touch coordinates for the scenarios: `tests/e2e/lib/screens.ts`.
+**Tests:** models in `tests/unit/test_ui.cpp`, `test_ui_library.cpp` and `test_ui_manga.cpp` (suite `ui`); screens by E2E
+scenarios (`smoke`, `setup-first-run`, `auth-matrix`, `low-memory`, `library-browse`, `manga-details`). Touch coordinates for the scenarios: `tests/e2e/lib/screens.ts`.
 
-**Status:** WP-09. Updates, History and Browse are placeholder tabs until their WPs.
+**Status:** WP-10. Updates, History and Browse are placeholder tabs until their WPs; the reader comes with WP-11 (it then
+calls `MangaModel::reloadChapters()` on the way back, so the list shows the new progress).

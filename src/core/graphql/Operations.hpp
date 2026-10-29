@@ -35,6 +35,10 @@ GqlRequest chapters(int mangaId, int first, int offset, bool newestFirst = true)
 GqlRequest fetchChapterPages(int chapterId, std::string_view format = {});
 // Sends lastPageRead (never below 0), plus isRead: true when progress.isRead (false leaves the read flag alone).
 GqlRequest updateChapterProgress(const ReadProgress& progress);
+// The chapter list's actions (WP-10): the patch's fields that are set, for every id. No ids is still a valid request.
+GqlRequest updateChapters(const std::vector<int>& ids, const ChapterPatch& patch);
+// "Refresh from source": the manga's details and chapter list asked from the source again (WP-10).
+GqlRequest fetchMangaAndChapters(int mangaId);
 GqlRequest login(std::string_view username, std::string_view password);
 GqlRequest refreshToken(std::string_view refreshToken);
 
@@ -46,6 +50,8 @@ Result<Manga> readManga(const GqlResponse& response);
 Result<NodeList<Chapter>> readChapters(const GqlResponse& response);
 Result<PageList> readFetchChapterPages(const GqlResponse& response);
 Result<ReadProgress> readUpdateChapterProgress(const GqlResponse& response);
+Result<std::vector<Chapter>> readUpdateChapters(const GqlResponse& response);  // the changed chapters
+Result<Manga> readFetchMangaAndChapters(const GqlResponse& response);        // the refreshed manga
 Result<LoginTokens> readLogin(const GqlResponse& response);
 Result<std::string> readRefreshToken(const GqlResponse& response);  // the new access token
 

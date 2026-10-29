@@ -1,21 +1,20 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 2 – App (WP-08 …). Next WP:** WP-10 (Manga details + chapter list). WP-08b is nice to have for now (owner,
-2026-10-29). Done: WP-00a … 09.
+**Phase 2 – App (WP-08 …). Next WP:** WP-11 (Paged reader + progress sync). WP-08b is nice to have for now (owner,
+2026-10-29). Done: WP-00a … 10.
 
-## Last session (2026-10-29, WP-09, Opus) — done
-- **Library tab (D42; recipe in `src/ui/README.md` "How to make a list screen"):** `LibraryModel` (MainActivity owns it),
-  `CoverGrid` + `GridLayout` (recycling grid), `LibraryTab` (category bar, Sort, Refresh, covers + unread badge + 2-line
-  title), `MangaActivity` stand-in: **WP-10 replaces it** (`LibraryTab::select` opens it). L/R, Y, X, MINUS menu (PLUS stays
-  quit, owner OK), all by touch too. config.json `library {categoryId, sort}`; `AppContext::textures` (S7). Events `library`,
-  `grid`, screen `Manga`; cover cells have ids `library/cover-<index>`.
-- **Test server:** the seed adds the 150-manga "Big shelf" (`SHELF` in fixtures.ts) and an "Empty" category; 日本語 is now id 156.
-  Fixtures re-recorded. Test builds draw the focus frame without its glow (`testhooks::steadyScreenshots`): steady goldens.
-- **Found and fixed:** a focused Box cell crashed borealis's focus search (null index); hiding a focused view must switch
-  visibility before moving the focus (console: R to an empty category left the highlight on a hidden cover).
-- **Green:** unit 7/7 + contract, integration ×3, all 20 desktop e2e, npm + typecheck, Switch build (gate PASS). **Console:**
-  smoke (new golden), library-browse ×2 (memory 46.7 → 46.8 MiB over 3 passes of the shelf), crash-screen golden still matches.
-- Screens = Activity + Model; idle counts `http.inFlight()` + `images.activeJobs()`; any crash in applet mode is a system
-  fatal (D41). Test server won't start after a hard stop ("null cannot be cast"): `reset`.
+## Last session (2026-10-29, WP-10, Opus) — done
+- **Manga details (D43):** `MangaModel` (details + all chapter pages, sort, filter, `continueReading`, actions, reload,
+  refresh from source), `MangaActivity` (details left, one-column `CoverGrid` right, "..." row menu, X/Y/MINUS), and a
+  `ReaderActivity` stand-in: **WP-11 replaces it** and calls `MangaModel::reloadChapters()` when the reader closes. New:
+  `CoverImage`, `fitLines()`, `CoverGrid::rebind()`, `LibraryModel::updateManga`. API: `updateChapters`, `refreshManga`,
+  `Chapter::lastReadAt`, `RuntimeProfile::maxChapters`. The server stamps `lastReadAt` whenever a patch sends `lastPageRead`
+  (also 0), never for `isRead` alone, so "Continue" ignores stamps on unread page-0 chapters.
+- Alpha's fixture description is long now ("Show more"); answers re-recorded. Events `manga`, `chapter_action`,
+  `chapter_list`, `busy`, screen `Reader`; any screen event now starts a new quiet spell (`idle` follows it) (TESTING.md).
+- **Green:** unit 7/7 + contract 28/28, integration ×3 (ui_login needed a second server start: "null cannot be cast"),
+  npm + typecheck, desktop e2e 21/21 (one rerun: Xvfb's `import` failed once), Switch build (gate PASS). **Console:**
+  `manga-details` (new goldens, then green against them), `smoke`, `library-browse` (46.8 → 46.9 MiB).
+- Follow-ups: sort/filter aren't saved in config.json; a long opened description can't be scrolled with the stick.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
@@ -24,6 +23,7 @@
 - Builds (from `/mnt/c`): unit tests ~10 s, desktop ~50 s, Switch ~55 s clean (+ gate ~5 s); `.nro` 4.2 MB. 0 warnings in our code.
   Backups (WP-00a): `C:\Users\JohnDoe\SwitchBackup\2026-10-22\`. sysMMC NAND: owner's external drive.
 - Test server: `reset` + `start` ~10 s; `tools/record-fixtures/record-all.sh` ~1 min (it ends with the server running, auth none).
+  It sometimes won't start ("null cannot be cast"): run it again (`reset` first after a hard stop).
 - WSL can fail to start ("insufficient system resources") when Windows memory is nearly all committed (it reserves up to 12 GB): ask the owner to close apps.
 - Device: e2e `smoke` ~27 s, `net-hello` ~25 s, `auth-matrix` ~110 s, `crash-drills` ~9 min (one drill ~50 s). The desktop text dialog ignores Enter: tap its OK. A start-up crash leaves no log: use breadcrumb writes (WP-03c).
 - Owner's real server (D18 "Update", never in tests): the Switch uses `http://<server-lan-ip>:4568`, no auth. Addresses: `docs/local/`.

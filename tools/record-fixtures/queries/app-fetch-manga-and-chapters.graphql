@@ -1,0 +1,4 @@
+# document: FetchMangaAndChapters
+# vars: {"id": "$manga:Broken"}
+# "Refresh from source" on Broken: Local Source reads its folder again. Broken, because no later recording shows its
+# details (fetching Alpha again would change the status the other recordings show).

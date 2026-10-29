@@ -53,7 +53,11 @@ export const SERIES: readonly SeriesDef[] = [
             title: 'Alpha',
             author: 'SNX Fixture Author',
             artist: 'SNX Fixture Artist',
-            description: 'Fixture series for suwayomi-nx tests: 3 chapters of 10 JPEG pages, 1000x1500.',
+            // Long on purpose (WP-10): the details screen shows five lines of it and opens the rest with a tap.
+            description: 'Fixture series for suwayomi-nx tests: 3 chapters of 10 JPEG pages, 1000x1500. Every page shows its ' +
+                'series, chapter and page number in big letters, and a colour code in its top-right corner that the tests ' +
+                'read back from screenshots. This description is long on purpose: the details screen shows its first ' +
+                'five lines and opens the rest with a tap, so the tests can check both. It ends here.',
             genre: ['Action', 'Test'],
             status: 1,
         },

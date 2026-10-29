@@ -1,0 +1,168 @@
+<!-- The manga details screen (src/ui/manga/MangaActivity, WP-10). Left: the cover, title, author, status, genres, the
+     Continue button and the description (a tap opens or closes it). Right: the chapter count, Sort, Show (the filter) and
+     Refresh, and below them the chapter list or a status (loading, error + Retry, empty). The cover, the list and the status
+     are added in code. Touch targets are at least 72 px high (D16). -->
+<brls:AppletFrame
+    iconInterpolation="linear"
+    footerHidden="false">
+
+    <brls:Box
+        width="auto"
+        height="auto"
+        axis="row"
+        grow="1.0">
+
+        <brls:ScrollingFrame
+            id="manga/detailsFrame"
+            width="440"
+            height="auto">
+
+            <brls:Box
+                id="manga/details"
+                width="440"
+                height="auto"
+                axis="column"
+                paddingLeft="32"
+                paddingRight="16"
+                paddingTop="20"
+                paddingBottom="24">
+
+                <brls:Box
+                    id="manga/header"
+                    width="auto"
+                    height="auto"
+                    axis="row">
+
+                    <brls:Box
+                        id="manga/info"
+                        width="256"
+                        height="auto"
+                        axis="column"
+                        marginLeft="16">
+
+                        <brls:Label
+                            id="manga/title"
+                            width="256"
+                            fontSize="22" />
+
+                        <brls:Label
+                            id="manga/author"
+                            width="256"
+                            fontSize="16"
+                            marginTop="10" />
+
+                        <brls:Label
+                            id="manga/status"
+                            width="256"
+                            fontSize="16"
+                            marginTop="6" />
+
+                        <brls:Label
+                            id="manga/genres"
+                            width="256"
+                            fontSize="15"
+                            marginTop="6" />
+
+                    </brls:Box>
+
+                </brls:Box>
+
+                <brls:Button
+                    id="manga/continue"
+                    style="primary"
+                    width="auto"
+                    height="72"
+                    marginTop="20"
+                    text="@i18n/manga/continue" />
+
+                <brls:Box
+                    id="manga/descriptionBox"
+                    width="auto"
+                    height="auto"
+                    axis="column"
+                    marginTop="16"
+                    paddingTop="8"
+                    paddingBottom="8"
+                    paddingLeft="8"
+                    paddingRight="8"
+                    focusable="true">
+
+                    <brls:Label
+                        id="manga/description"
+                        width="376"
+                        fontSize="16" />
+
+                    <brls:Label
+                        id="manga/more"
+                        width="376"
+                        fontSize="15"
+                        marginTop="6" />
+
+                </brls:Box>
+
+            </brls:Box>
+
+        </brls:ScrollingFrame>
+
+        <brls:Box
+            width="auto"
+            height="auto"
+            axis="column"
+            grow="1.0">
+
+            <brls:Box
+                id="manga/bar"
+                width="auto"
+                height="72"
+                axis="row"
+                alignItems="center"
+                paddingLeft="20"
+                paddingRight="24">
+
+                <brls:Label
+                    id="manga/count"
+                    width="auto"
+                    grow="1.0"
+                    fontSize="18" />
+
+                <brls:Button
+                    id="manga/sort"
+                    style="bordered"
+                    height="72"
+                    marginLeft="12"
+                    paddingLeft="12"
+                    paddingRight="12"
+                    text="@i18n/manga/sort" />
+
+                <brls:Button
+                    id="manga/filter"
+                    style="bordered"
+                    height="72"
+                    marginLeft="12"
+                    paddingLeft="12"
+                    paddingRight="12"
+                    text="@i18n/manga/filter" />
+
+                <brls:Button
+                    id="manga/refresh"
+                    style="bordered"
+                    height="72"
+                    marginLeft="12"
+                    paddingLeft="12"
+                    paddingRight="12"
+                    text="@i18n/manga/refresh" />
+
+            </brls:Box>
+
+            <brls:Box
+                id="manga/body"
+                width="auto"
+                height="auto"
+                grow="1.0"
+                axis="column" />
+
+        </brls:Box>
+
+    </brls:Box>
+
+</brls:AppletFrame>

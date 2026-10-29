@@ -79,6 +79,18 @@ void CoverGrid::appended() {
     recycle();
 }
 
+void CoverGrid::rebind() {
+    if (source_ == nullptr) {
+        return;
+    }
+    for (brls::View* child : content_->getChildren()) {
+        auto* cell = static_cast<GridCell*>(child);
+        source_->unbind(*cell);
+        source_->bind(*cell, cell->index_);
+        cell->invalidate();
+    }
+}
+
 void CoverGrid::scrollTo(std::size_t index) {
     const std::size_t count = source_ ? source_->count() : 0;
     const float contentHeight = layout_.contentHeight(count);

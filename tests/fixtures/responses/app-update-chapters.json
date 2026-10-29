@@ -1,0 +1,24 @@
+{
+  "data": {
+    "updateChapters": {
+      "chapters": [
+        {
+          "id": 305,
+          "isRead": false,
+          "isBookmarked": false,
+          "lastPageRead": 0,
+          "pageCount": -1,
+          "lastReadAt": "0"
+        },
+        {
+          "id": 306,
+          "isRead": false,
+          "isBookmarked": false,
+          "lastPageRead": 0,
+          "pageCount": -1,
+          "lastReadAt": "0"
+        }
+      ]
+    }
+  }
+}

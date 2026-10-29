@@ -103,6 +103,15 @@ class SuwayomiClient {
     // page count). isRead = true marks the chapter read; false leaves the read flag alone. Answers what the server saved.
     ApiFuture<core::ReadProgress> setProgress(int chapterId, int page, bool isRead, const net::CancelToken& cancel,
                                               net::Priority priority = net::Priority::Interactive);
+    // The chapter list's actions (WP-10): applies `patch` to every chapter in `ids` (mark read / unread, bookmark) in one
+    // request. Answers the changed chapters as the server saved them. No ids: answers an empty list without asking the server.
+    ApiFuture<std::vector<core::Chapter>> updateChapters(std::vector<int> ids, core::ChapterPatch patch,
+                                                         const net::CancelToken& cancel,
+                                                         net::Priority priority = net::Priority::Interactive);
+    // "Refresh from source" (WP-10): the server asks the manga's source for its details and chapter list again (slow for an
+    // online source; a local one only reads its folder). Answers the refreshed manga; load chapters() again after it.
+    ApiFuture<core::Manga> refreshManga(int mangaId, const net::CancelToken& cancel,
+                                        net::Priority priority = net::Priority::Interactive);
     // ui_login: logs in (sent without a token: the server refuses a login while logged in), keeps the tokens, username and
     // password for renewing later, and reports them through onSettingsChanged. Wrong password: Auth with the server's words.
     ApiFuture<core::LoginTokens> login(std::string username, std::string password, const net::CancelToken& cancel,

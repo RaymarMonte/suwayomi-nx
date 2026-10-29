@@ -270,6 +270,42 @@ TEST_CASE("image loader (WP-07): real pages through the login, decoded and tiled
     CHECK(load(firstPage("Broken", 3), {1280, 720}).ok());
 }
 
+TEST_CASE("chapter actions (WP-10): updateChapters marks and unmarks two chapters; refreshManga") {
+    Live live;
+    const int delta = libraryId(live, "Delta Big");
+    const auto page = must(live->chapters(delta, 0, CancelToken()));  // newest first: 300, 299, ...
+    REQUIRE(page.nodes.size() >= 2);
+    const std::vector<int> ids = {page.nodes[0].id, page.nodes[1].id};
+
+    snx::core::ChapterPatch mark;
+    mark.isRead = true;
+    mark.isBookmarked = true;
+    const auto marked = must(live->updateChapters(ids, mark, CancelToken()));
+    REQUIRE(marked.size() == 2);
+    for (const auto& chapter : marked) {
+        CHECK(chapter.isRead);
+        CHECK(chapter.isBookmarked);
+        MESSAGE("lastReadAt after marking read: " << chapter.lastReadAt);  // D43: does marking stamp it?
+    }
+    CHECK(must(live->chapters(delta, 0, CancelToken())).nodes[0].isRead);
+
+    snx::core::ChapterPatch undo;
+    undo.isRead = false;
+    undo.isBookmarked = false;
+    undo.lastPageRead = 0;
+    for (const auto& chapter : must(live->updateChapters(ids, undo, CancelToken()))) {
+        CHECK_FALSE(chapter.isRead);
+        CHECK_FALSE(chapter.isBookmarked);
+        CHECK(chapter.lastPageRead == 0);
+    }
+    CHECK(must(live->updateChapters({}, undo, CancelToken())).empty());  // nothing asked
+
+    // Local Source reads Broken's folder again: same manga, same single chapter.
+    const snx::core::Manga refreshed = must(live->refreshManga(libraryId(live, "Broken"), CancelToken()));
+    CHECK(refreshed.title == "Broken");
+    CHECK(must(live->chapters(refreshed.id, 0, CancelToken())).totalCount == 1);
+}
+
 TEST_CASE("progress round trip: page 5 reads back as 5; beyond the end the server caps it at the page count") {
     Live live;
     const int alpha = libraryId(live, "Alpha");

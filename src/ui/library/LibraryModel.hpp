@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <set>
@@ -70,6 +71,12 @@ class LibraryModel {
     bool libraryEmpty() const;  // Empty, and the only category is Default: there are no manga in the library at all
     const api::ApiError& error() const { return error_; }
 
+    // The details screen changed a manga (WP-10: its unread count after chapter actions). Every category that has it gets
+    // the new count, the list is sorted again, and the focus follows the manga (the user comes back to it).
+    void updateManga(const core::Manga& manga);
+    // Goes up with every updateManga(): the grid redraws its cells.
+    std::uint64_t revision() const { return revision_; }
+
     // The cell that had the focus in the category on screen, so the grid can come back to it.
     void rememberFocus(std::size_t index);
     std::size_t rememberedFocus() const;
@@ -112,6 +119,7 @@ class LibraryModel {
     std::size_t current_ = 0;
     std::map<int, Shelf> shelves_;  // by category id
     std::vector<core::Manga> items_;
+    std::uint64_t revision_ = 0;
 };
 
 }  // namespace snx::ui

@@ -1,0 +1,14 @@
+# "Refresh from source" on the details screen (WP-10): the server asks the source for the manga's details and chapter list
+# again. Answers the manga with the same fields as Manga; of the chapters only the ids (the list is then loaded with Chapters,
+# a page at a time, instead of all at once here).
+mutation FetchMangaAndChapters($id: Int!) {
+  fetchMangaAndChapters(input: { id: $id, fetchManga: true, fetchChapters: true }) {
+    manga {
+      id title thumbnailUrl author artist description genre status inLibrary unreadCount downloadCount
+      source { id name displayName }
+      categories { nodes { id name } }
+      firstUnreadChapter { id name chapterNumber sourceOrder lastPageRead pageCount }
+    }
+    chapters { id }
+  }
+}

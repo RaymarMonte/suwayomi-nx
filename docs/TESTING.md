@@ -61,8 +61,19 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
   `sort` title/unread/last_read, `items` loaded, `total` on the server; written again after a refresh), `grid` (the cover grid's
   cells are now items [`first`, `last`), with `columns`; to check that no cover loads for an item that never had a cell) and
   `screen` `Manga` with `params` `id`, `title` (the stand-in manga screen until WP-10).
+- WP-10 added `manga` (the details screen shows something new, not while loading or busy: `state`, `id`, `items` shown,
+  `loaded`, `total`, `complete`, `sort` newest/oldest, `filter` all/unread/bookmarked, `first` = sourceOrder of the top row,
+  `unread`, `continue` {`kind` none/start/continue/all_read, `chapter` id, `page`}, `description` short/closed/open),
+  `chapter_action` (`action` mark_read/mark_unread/bookmark/remove_bookmark/mark_previous_read/mark_previous_unread/refresh,
+  `chapter` id, `ok`; `changed: false` when there was nothing to change), `chapter_list` (rows [`first`, `last`) have
+  cells), `screen` `Manga` again whenever it is back on top, and `screen` `Reader` with `mangaId`, `chapterId`, `page`
+  (the stand-in until WP-11). Chapter rows have the ids `manga/chapter-<index>`.
 - `idle` is emitted when there are no pending net/decode jobs (`http.inFlight()`, `images.activeJobs()`, WP-08) and no running animations (borealis's running tickings) for 3 frames in a row,
-  once per quiet spell: again only after something was busy or a new `screen` came. **Tests wait for `idle`, never `sleep`.**
+  once per quiet spell: again only after something was busy, a new `screen` came, or (WP-10) any other event a screen
+  writes (`library`, `manga`, `chapter_action`, ...: on the console an answer can arrive within one frame, so the app never
+  looked busy and a wait for `idle` after the event waited in vain). **Tests wait for `idle`, never `sleep`.**
+  Busy for 5 s on end: one `busy` event (`ms`, `tickings` = running animations, `jobs` = pending net/decode work), so a
+  wait for `idle` that times out shows what kept the app busy.
 - The app empties the file at start and appends each event with open → write → close, never keeping it open: on the Switch a file that one
   program has open for writing can't be opened by another, so a line the app can't write right now (sys-autopilot is reading the file)
   stays in a queue and goes out on the next frame. Since WP-08 the logger writes `logs/app.log` the same way (every 2 s), so it can be read while the app runs.
@@ -84,7 +95,8 @@ looking at images. It still reads correctly after the page is scaled into a 1280
 The set is defined in `tools/gen-fixtures/fixtures.ts` (tests import it for expected values); same bytes on every run.
 
 Fixture set (series code in brackets = the colour code's series number):
-- `Alpha` [1] – 3 chapters × 10 pages, JPEG 1000×1500, with `details.json` (author, genres, ongoing) and `cover.jpg`
+- `Alpha` [1] – 3 chapters × 10 pages, JPEG 1000×1500, with `details.json` (author, genres, ongoing) and `cover.jpg`;
+  its description is long on purpose (the details screen's "Show more", WP-10)
 - `Beta RTL` [2] – 2 chapters × 8 pages, PNG 1000×1500; chapter 1 page 4 is a double-page spread (2000×1500)
 - `Gamma Webtoon` [3] – 2 chapters × 3 tall strips 800×12000 WebP. A colour code every 1500 px, with the segment number (0–7)
 - `Delta Big` [4] – 300 chapters × 2 pages, JPEG 600×900 (pagination, long lists)
@@ -202,6 +214,7 @@ Initial list, grown per UI WP:
 2. `setup-first-run` – no config → Setup screen → (desktop: tap the field, type the URL; Switch: `showSetup`) → Continue → Library; a restart skips setup (WP-08)
 3. `auth-matrix` – none / basic (+ wrong password → Setup) / ui_login (login, renewal after the 20 s JWT, logout → login screen, restart on saved tokens), restarting the test server per mode (WP-08)
 4. `library-browse` – Default's covers (golden), tap the Big shelf tab (golden), tap a cover → Manga → B back, D-pad to the last row (pages load 60 → 120 → 150) and back, two more passes by flicking; memory flat over the 3 passes (`mem`), no cover downloaded twice, no cover loaded for an item that never had a cell (`image` vs `grid`); X refresh; Sort → Unread by touch; the Empty tab (golden); a restart keeps category and sort (WP-09). The 300-chapter list is WP-10's.
+4b. `manga-details` – Alpha: details + the long description open/closed (goldens), tap a chapter → reader stand-in at the right chapter/page, X read/unread, a row's "..." menu read/unread/bookmark, Show bookmarked, each checked on the server via GraphQL; Delta Big: 300 chapters load, Sort oldest, "Mark all before as read" on ch 4 = exactly 1–3 on the server, Show unread (golden), Continue → ch 4, progress saved on the server shows after Refresh and Continue opens that page; Switch: Y and MINUS menus (WP-10)
 5. `reader-paged` – open Alpha ch1, flip 10 pages, colour-code confirms each page, progress saved on server (checked via GraphQL from the harness)
 6. `reader-rtl-spread` – Beta RTL, direction and spread handling
 7. `resume-progress` – reopen chapter, lands on last page

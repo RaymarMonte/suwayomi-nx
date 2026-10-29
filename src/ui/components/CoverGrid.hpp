@@ -65,6 +65,8 @@ class CoverGrid : public brls::ScrollingFrame {
     void reload(std::size_t focus);
     // More items at the end; the cells on screen stay as they are.
     void appended();
+    // The items changed in place (same count, same order): the cells on screen are filled again, nothing scrolls.
+    void rebind();
     // The focused item (or the one that gets the focus when the grid gets it).
     std::size_t focusIndex() const { return focus_; }
 

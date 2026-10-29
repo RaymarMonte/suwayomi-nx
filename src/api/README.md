@@ -6,7 +6,7 @@
 **Public headers** (include as `"api/<Name>.hpp"`):
 - `SuwayomiClient.hpp`: `SuwayomiClient(http, serverSettings, clientOptionsFrom(profile))` with `serverInfo`, `categories`,
   `library(categoryId, page)`, `manga`, `chapters(mangaId, page)`, `pages(chapterId, PageFormat)`, `setProgress(chapterId, page,
-  isRead)`, `login`, `logout`, `configure`, `settings`, `absoluteUrl`. Each call takes a `net::CancelToken` (+ optional `Priority`)
+  isRead)`, `updateChapters(ids, ChapterPatch)` and `refreshManga(mangaId)` (WP-10: chapter actions, refresh from source), `login`, `logout`, `configure`, `settings`, `absoluteUrl`. Each call takes a `net::CancelToken` (+ optional `Priority`)
   and returns `ApiFuture<T>` = `net::Future<ApiResult<T>>`. Also `basicAuthHeader`, `serverWarning` (D9 minimum version).
 - `ApiError.hpp`: `ApiError{kind, message, detail}`, kinds Offline|Timeout|Auth|Permission|Server|Parse|Cancelled, `userMessage(kind)`,
   `ApiResult<T>` (= `core::Result<T, ApiError>`), and the mapping from core/net errors and HTTP statuses.
@@ -34,4 +34,4 @@ The `HttpClient` must outlive the client.
 mode, renewal cases), `test_api_curl.cpp` (single flight on real threads, for `tools/build.sh tsan`), doctest suite `api`.
 Integration against the test server in all three auth modes: `tools/build.sh integration` (`tests/integration/`, ~1 min).
 
-**Status:** WP-06.
+**Status:** WP-06; WP-10 added `updateChapters` and `refreshManga`.

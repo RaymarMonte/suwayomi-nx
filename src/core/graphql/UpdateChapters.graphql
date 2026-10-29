@@ -1,0 +1,8 @@
+# The chapter list's actions (WP-10): mark read / unread, bookmark, for one chapter or many at once. $patch has isRead,
+# isBookmarked and lastPageRead (each only when it changes; marking unread also sends lastPageRead 0, D43).
+# Answers the changed chapters.
+mutation UpdateChapters($ids: [Int!]!, $patch: UpdateChapterPatchInput!) {
+  updateChapters(input: { ids: $ids, patch: $patch }) {
+    chapters { id isRead isBookmarked lastPageRead pageCount lastReadAt }
+  }
+}

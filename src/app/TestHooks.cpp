@@ -4,6 +4,7 @@
 
 #include <borealis.hpp>
 #include <chrono>
+#include <cstddef>
 #include <thread>
 #include <utility>
 
@@ -31,6 +32,9 @@ std::function<bool()> gBusy;
 bool gDrillStarted = false;
 bool gCacheWritingReported = false;
 std::int64_t gLastMemMs = 0;
+std::int64_t gBusySinceMs = -1;  // when the app last became busy, for the "busy" event (WP-10)
+bool gBusyReported = false;
+constexpr std::int64_t kBusyReportMs = 5000;
 
 std::int64_t nowMs() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - gStart).count();
@@ -207,6 +211,9 @@ void watchApp(std::function<bool()> busy) {
 
 void write(std::string_view ev, const nlohmann::ordered_json& fields) {
     append(core::testevents::line(nowMs(), ev, fields));
+    // A screen's event says something changed, so the next quiet spell reports "idle" again (WP-10: on the console an
+    // action's answer came within one frame, the app never looked busy, and a scenario waited for "idle" in vain).
+    gIdle.markBusy();
 }
 
 void screen(std::string_view name) {
@@ -235,7 +242,23 @@ void onFrame() {
     }
     // borealis keeps every running animation (and other per-frame task) in this list until it ends. Pending network and
     // decode jobs count as busy too (WP-08): a screen that waits for an answer isn't idle yet.
-    const bool busy = !brls::Ticking::runningTickings.empty() || (gBusy && gBusy());
+    const std::size_t tickings = brls::Ticking::runningTickings.size();
+    const bool jobs = gBusy && gBusy();
+    const bool busy = tickings > 0 || jobs;
+    // Busy for a long time: say why, so a scenario that waits for "idle" in vain shows what kept the app busy (WP-10).
+    if (!busy) {
+        gBusySinceMs = -1;
+        gBusyReported = false;
+    } else if (gBusySinceMs < 0) {
+        gBusySinceMs = now;
+    } else if (!gBusyReported && now - gBusySinceMs >= kBusyReportMs) {
+        gBusyReported = true;
+        nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+        fields["ms"] = now - gBusySinceMs;
+        fields["tickings"] = tickings;
+        fields["jobs"] = jobs;
+        append(core::testevents::line(now, "busy", fields));
+    }
     if (gIdle.onFrame(busy)) {
         append(core::testevents::idle(now));
         if (gConfig.drill != core::testconfig::Drill::None && !gDrillStarted) {

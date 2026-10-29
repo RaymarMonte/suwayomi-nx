@@ -53,6 +53,8 @@ The owner's own server runs the same version (v2.4.2366 Stable, checked 2026-10-
      `serveConversions` can also force conversion.
    - `syncConflict { deviceName remotePage }` may be set when KOReader-sync has newer remote progress. Show a prompt or ignore it at first.
 3. Progress: `updateChapter(input:{id, patch:{lastPageRead, isRead, isBookmarked}})` → `{chapter}`; bulk: `updateChapters(input:{ids, patch})`.
+   - **`lastReadAt`** (seconds) is stamped whenever a patch sends `lastPageRead`, even 0, and for every chapter in a bulk
+     update; `isRead` or `isBookmarked` alone leave it alone (checked on the test server, WP-10, D43).
    The server stamps `lastReadAt` and **caps `lastPageRead` to `[0, pageCount]`** (source: `ChapterMutation.kt`). So:
    - progress sent before `fetchChapterPages` ever ran for that chapter is saved as **0** (pageCount is -1);
    - the cap is `pageCount` itself (10 for a 10-page chapter), one past the last page index.

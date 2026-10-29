@@ -104,6 +104,29 @@ GqlRequest updateChapterProgress(const ReadProgress& progress) {
     return r;
 }
 
+GqlRequest updateChapters(const std::vector<int>& ids, const ChapterPatch& patch) {
+    GqlRequest r = request("UpdateChapters");
+    r.variables["ids"] = ids;
+    nlohmann::json fields = nlohmann::json::object();
+    if (patch.isRead) {
+        fields["isRead"] = *patch.isRead;
+    }
+    if (patch.isBookmarked) {
+        fields["isBookmarked"] = *patch.isBookmarked;
+    }
+    if (patch.lastPageRead) {
+        fields["lastPageRead"] = std::max(*patch.lastPageRead, 0);
+    }
+    r.variables["patch"] = fields;
+    return r;
+}
+
+GqlRequest fetchMangaAndChapters(int mangaId) {
+    GqlRequest r = request("FetchMangaAndChapters");
+    r.variables["id"] = mangaId;
+    return r;
+}
+
 GqlRequest login(std::string_view username, std::string_view password) {
     GqlRequest r = request("Login");
     r.variables["username"] = std::string(username);
@@ -155,6 +178,36 @@ Result<ReadProgress> readUpdateChapterProgress(const GqlResponse& response) {
         return Result<ReadProgress>::fail(ErrorKind::Parse, "updateChapter has no \"chapter\"");
     }
     return fromJson<ReadProgress>(*chapter);
+}
+
+Result<std::vector<Chapter>> readUpdateChapters(const GqlResponse& response) {
+    Result<const nlohmann::json*> node = dataField(response, "updateChapters");
+    if (!node.ok()) {
+        return node.error();
+    }
+    const nlohmann::json* list = json::array(*node.value(), "chapters");
+    if (!list) {
+        return Result<std::vector<Chapter>>::fail(ErrorKind::Parse, "updateChapters has no \"chapters\"");
+    }
+    std::vector<Chapter> chapters;
+    for (const nlohmann::json& entry : *list) {
+        if (auto parsed = fromJson<Chapter>(entry)) {
+            chapters.push_back(std::move(parsed.value()));
+        }
+    }
+    return chapters;
+}
+
+Result<Manga> readFetchMangaAndChapters(const GqlResponse& response) {
+    Result<const nlohmann::json*> node = dataField(response, "fetchMangaAndChapters");
+    if (!node.ok()) {
+        return node.error();
+    }
+    const nlohmann::json* manga = json::object(*node.value(), "manga");
+    if (!manga) {
+        return Result<Manga>::fail(ErrorKind::Parse, "fetchMangaAndChapters has no \"manga\"");
+    }
+    return fromJson<Manga>(*manga);
 }
 
 Result<LoginTokens> readLogin(const GqlResponse& response) {

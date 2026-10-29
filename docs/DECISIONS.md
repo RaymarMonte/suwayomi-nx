@@ -621,3 +621,35 @@ mode isn't supported, D21, and every try risks a fatal).
   wherever it was when the input stopped, which made the Switch smoke golden differ by 0.15 % between runs. Release keeps it.
 Rejected: wiliwili's RecyclingGrid (GPL), borealis's RecyclerFrame as is (a list: rows of cells would lose the column on
 up/down), sorting on the server (it can't), loading every category at start (one category at a time is enough).
+
+**D43 The manga details screen: the whole chapter list on the console, "Continue" worked out from it, bulk chapter
+actions** (WP-10, 2026-10-29).
+- `MangaModel` (no borealis, unit-tested) loads the details and the chapters at the same time, then every chapter page
+  (`chapterPageSize`, 100) until the list is complete, at most `RuntimeProfile::maxChapters` (10000; 3000 in applet mode),
+  so a server can't make the list grow without end (S6). The list shows with the first page. Sort (newest / oldest first,
+  by `sourceOrder`), the filter (all / unread / bookmarked), "Continue" and "all before" work on the console. Sort and
+  filter aren't saved yet (each visit starts newest first, all).
+- "Continue" (`continueReading`): the chapter read most recently (`lastReadAt`, added to `Chapters`; a tie goes to the
+  later chapter), counting only chapters that are read or have progress. Unfinished: resume it at its page. Finished: the
+  next unread chapter after it (forward, so a skipped chapter or a second scanlation doesn't pull the user back), else the
+  first unread one from the start. No time stamps: the last read chapter in reading order instead. Nothing read: a chapter
+  with progress, else Start at chapter 1. Every chapter read: "All chapters read" (the button is off).
+- Found on the test server: the server stamps `lastReadAt` when an update sends `lastPageRead` (also 0), but not for
+  `isRead` alone. "Mark unread" sends `lastPageRead: 0` (unread starts from the first page again), so an unread chapter at
+  page 0 is no reading position, whatever its stamp says.
+- Actions go out as one `updateChapters` (new document) for all the chapters they change, only those that would change;
+  the list shows what the server answers (no guessing ahead), one action at a time. The row menu: mark read / unread,
+  bookmark / remove, mark all before read / unread ("before" = lower `sourceOrder`, the chapter itself not included).
+  "Refresh" = `fetchMangaAndChapters` (new document), then the list is loaded again; the old list stays until the new one
+  is complete.
+- Screen: details on the left (cover from the cover cache, title, author, status, genres, Continue, the description: five
+  lines, A or a tap opens the rest), the chapter list on the right: our `CoverGrid` with one column (80 px rows), a "..." on
+  each row for touch (borealis asks the innermost view first and cancels the row's own tap). A / tap opens the chapter, X
+  toggles read, Y the row menu, MINUS the screen menu (D42), all also by touch (D16). The reader is a stand-in until WP-11.
+- After chapter actions the library's unread badge (and its Unread sort) follow: `LibraryModel::updateManga`.
+- Test builds: every event a screen writes now starts a new quiet spell, so `idle` follows it (on the console an action's
+  answer came within one frame and the `idle` a scenario waited for never came); a `busy` event says what keeps the app
+  busy for 5 s on end.
+Rejected: loading chapters only near the end of the list like the library (sort, filter, Continue and "all before" need
+every chapter); guessing the new state before the server answers (two quick presses could send the wrong toggle);
+Suwayomi's `firstUnreadChapter` for Continue (it goes back to any gap).
