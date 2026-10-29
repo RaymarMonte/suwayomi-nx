@@ -77,7 +77,9 @@ function(snx_target_defaults target)
         target_compile_definitions(${target} PUBLIC SNX_TEST_HOOKS=1)
     endif ()
     if (SNX_COVERAGE)
-        target_compile_options(${target} PRIVATE --coverage -O0)
+        # Atomic counters: tests run code on several threads at once (the image loader's workers, WP-11's reader tests), and
+        # plain counters then lose updates or go negative, which makes gcovr stop (GCC bug 68080, seen on CI).
+        target_compile_options(${target} PRIVATE --coverage -fprofile-update=atomic -O0)
         target_link_options(${target} PUBLIC --coverage)
     endif ()
 endfunction()
