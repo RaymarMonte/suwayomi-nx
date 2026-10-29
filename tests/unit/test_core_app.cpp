@@ -93,18 +93,20 @@ TEST_CASE("test config: server login, showSetup, diagnostics") {
     CHECK(config.showSetup);
     CHECK(config.diagnostics);
     CHECK(config.diagnosticsBurst == 20);
+    CHECK(config.diskCache);
 
-    const auto plain = testconfig::parse(R"({"diagnostics": true})");
+    const auto plain = testconfig::parse(R"({"diagnostics": true, "diskCache": false})");
     CHECK(plain.diagnostics);
     CHECK(plain.diagnosticsBurst == 0);
     CHECK_FALSE(plain.showSetup);
     CHECK_FALSE(plain.serverAuth.has_value());
+    CHECK_FALSE(plain.diskCache);
 
     const auto bench = testconfig::parse(R"({"imageBench": {"paths": ["/a"], "repeat": 1}})");
     CHECK(bench.diagnostics);  // the benchmark runs on the diagnostics screen
 
     for (const char* bad : {R"({"server": {"auth": "cookie"}})", R"({"server": {"username": 5}})", R"({"showSetup": 1})",
-                            R"({"diagnostics": {"burst": 1000}})", R"({"diagnostics": "yes"})"}) {
+                            R"({"diagnostics": {"burst": 1000}})", R"({"diagnostics": "yes"})", R"({"diskCache": 0})"}) {
         CAPTURE(bad);
         const auto c = testconfig::parse(bad);
         CHECK(c.problems.size() == 1);

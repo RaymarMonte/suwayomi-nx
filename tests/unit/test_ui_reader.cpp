@@ -50,6 +50,7 @@ struct FakeServer {
     std::set<int> emptyPaths;           // page indexes listed as "" (a form the reader can't use)
     bool failPages = false;
     bool failProgress = false;
+    bool offline = false;  // no answer at all, to anything (the server stopped, WP-12)
     std::vector<nlohmann::json> progress;  // every UpdateChapterProgress patch, with "id"
     std::string image = readFixture("images/alpha-p1.jpg");
     std::string corrupt = readFixture("images/broken-corrupt.jpg");
@@ -64,6 +65,9 @@ struct FakeServer {
     }
 
     net::HttpResult answer(const Request& request) {
+        if (offline) {
+            return net::HttpResult::fail(core::ErrorKind::Network, "Connection refused");
+        }
         const std::string prefix = "http://s/api/v1/manga/1/chapter/";
         if (request.url.rfind(prefix, 0) == 0) {
             const std::string rest = request.url.substr(prefix.size());  // "<sourceOrder>/page/<n>"
@@ -420,6 +424,36 @@ TEST_CASE("reader: broken pages fail on their own and don't stop page turns; ret
     REQUIRE(h.settle(*model));
     CHECK(model->current().state == PageState::Ready);
     CHECK(h.imageRequests(1).count(1) == 2);
+}
+
+TEST_CASE("reader: pages that failed while the server was away load again when turned to, and once a page arrives") {
+    Harness h;
+    auto model = h.model();
+    model->open(101, 0);
+    REQUIRE(h.settle(*model));
+    CHECK(pagesIn(*model, PageState::Ready) == std::set<int>{0, 1, 2, 3});
+
+    // The server stops: the prefetched pages still show, the new ones fail as "network".
+    h.server.offline = true;
+    for (int i = 0; i < 4; ++i) {
+        CHECK(model->step(1));
+        REQUIRE(h.settle(*model));
+    }
+    CHECK(model->position() == 4);
+    CHECK(model->current().state == PageState::Failed);
+    CHECK(model->current().error.kind == image::ImageErrorKind::Network);
+    CHECK(pagesIn(*model, PageState::Failed) == std::set<int>{4, 5, 6, 7});
+    CHECK(h.imageRequests(1).count(4) == 2);  // as a prefetch, then again when it was turned to
+    CHECK(h.imageRequests(1).count(5) == 1);  // not again while no page arrives
+
+    // The server is back: turning to page 5 loads it (no Retry needed), and its arrival reloads the other failed pages.
+    h.server.offline = false;
+    CHECK(model->step(1));
+    REQUIRE(h.settle(*model));
+    CHECK(model->current().state == PageState::Ready);
+    CHECK(pagesIn(*model, PageState::Ready) == std::set<int>{4, 5, 6, 7, 8});
+    CHECK(h.imageRequests(1).count(5) == 2);
+    CHECK(h.imageRequests(1).count(6) == 2);
 }
 
 TEST_CASE("reader: a page list that doesn't come shows Failed; retry tries again") {

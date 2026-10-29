@@ -61,6 +61,9 @@ struct TestConfig {
     // "image" events plus one "image_bench" summary. At most kMaxBenchPaths paths, each starting with "/"; repeat 1..20.
     std::vector<std::string> benchPaths;
     int benchRepeat = 0;  // 0 = no benchmark
+    // "diskCache": false: the image loader runs without its SD-card cache (WP-12), so every image the app hasn't kept in RAM
+    // comes from the server. offline-errors needs that: pages cached by earlier runs would load with the server stopped.
+    bool diskCache = true;
     std::vector<std::string> problems;  // what couldn't be understood, in plain words (logged, otherwise ignored)
 };
 

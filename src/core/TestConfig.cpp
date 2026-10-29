@@ -170,6 +170,13 @@ TestConfig parse(std::string_view json) {
     if (const auto diagnostics = root.find("diagnostics"); diagnostics != root.end()) {
         parseDiagnostics(*diagnostics, config);
     }
+    if (const auto disk = root.find("diskCache"); disk != root.end()) {
+        if (disk->is_boolean()) {
+            config.diskCache = disk->get<bool>();
+        } else {
+            config.problems.push_back("test config: \"diskCache\" must be true or false");
+        }
+    }
     if (const auto bench = root.find("imageBench"); bench != root.end()) {
         parseBench(*bench, config);
         config.diagnostics = config.diagnostics || config.benchRepeat > 0;

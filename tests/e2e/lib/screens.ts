@@ -19,6 +19,12 @@ export const SETUP = { url: { x: 640, y: 184 }, test: { x: 369, y: 352 }, contin
 /** The login screen: username, password, then the buttons. */
 export const LOGIN = { login: { x: 369, y: 352 } };
 
+/**
+ * The footer's button hints (bottom right, borealis): a tap on one does what its button does (WP-12 touch pass). "Back" sits
+ * just left of "OK", the last hint, on every screen that has both.
+ */
+export const FOOTER = { back: { x: 1070, y: 683 } };
+
 /** The footer's clock (bottom left). On the Switch the same corner has battery and Wi-Fi. */
 export const CLOCK_MASK = { x: 0, y: 650, w: 420, h: 70, why: 'clock, battery, Wi-Fi' };
 
@@ -51,6 +57,16 @@ export const LIBRARY = {
     flickFrom: { x: 845, y: 600 },
     flickTo: { x: 845, y: 220 },
     maxFlicks: 40,
+};
+
+/**
+ * The Retry button of the error message (StatusView, WP-08) where a screen has nothing else to show (WP-12): in the Library
+ * tab (right of the tab list) and on the manga details screen (where the chapter list goes). The message above it takes one
+ * or two lines, which moves the button by ~18 px; these points are on it either way.
+ */
+export const STATUS = {
+    library: { x: 845, y: 400 },
+    manga: { x: 860, y: 440 },
 };
 
 /** The Library tab's other category tabs (the test server's order: Default, Reading, Long series, Big shelf, Empty). */

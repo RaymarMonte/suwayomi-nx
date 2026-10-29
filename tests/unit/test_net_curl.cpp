@@ -165,6 +165,14 @@ TEST_CASE("curl: timeout, refused connection, redirect limit") {
     REQUIRE_FALSE(refused.ok());
     CHECK(refused.error().kind == ErrorKind::Network);
 
+    // A connection that is never made (packets dropped, like a firewall in front of a stopped server) ends as Network after
+    // the connect timeout, not Timeout (WP-12): the server couldn't be reached at all.
+    Request dropped = get("http://192.0.2.1/");  // TEST-NET-1 (RFC 5737): nothing there answers
+    dropped.connectTimeoutMs = 200;
+    const HttpResult& unreachable = waitResult(client.submit(dropped, Priority::Interactive, {}));
+    REQUIRE_FALSE(unreachable.ok());
+    CHECK(unreachable.error().kind == ErrorKind::Network);
+
     const HttpResult& looped = waitResult(client.submit(get(s.url("/loop")), Priority::Interactive, {}));
     REQUIRE_FALSE(looped.ok());
     CHECK(looped.error().kind == ErrorKind::Network);

@@ -161,6 +161,10 @@ int imageBenchRepeat() {
     return gConfig.benchRepeat;
 }
 
+bool diskCache() {
+    return gConfig.diskCache;
+}
+
 void watchNet(net::HttpClient& http) {
     http.addResponseObserver([](const net::Request& request, const net::HttpResult& result) {
         core::testevents::NetEvent event;
@@ -313,6 +317,9 @@ std::vector<std::string> imageBenchPaths() {
 }
 int imageBenchRepeat() {
     return 0;
+}
+bool diskCache() {
+    return true;
 }
 void watchNet(net::HttpClient&) {}
 void watchImages(image::ImageLoader&) {}

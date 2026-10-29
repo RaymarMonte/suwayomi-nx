@@ -26,8 +26,8 @@ TEST_SUITE("core") {
         const std::uint64_t free512 = 512 * kMiB - kStartUsed;  // desktop --mem-limit=512
         const Case cases[] = {
             // The console: every budget at its cap.
-            {"switch, application mode", kSwitchHeap, kStartUsed, false, 512 * kMiB, 64 * kMiB, 256 * kMiB, 128 * kMiB},
-            {"switch, safe mode", kSwitchHeap, kStartUsed, true, 256 * kMiB, 32 * kMiB, 128 * kMiB, 64 * kMiB},
+            {"switch, application mode", kSwitchHeap, kStartUsed, false, 256 * kMiB, 64 * kMiB, 256 * kMiB, 128 * kMiB},
+            {"switch, safe mode", kSwitchHeap, kStartUsed, true, 128 * kMiB, 32 * kMiB, 128 * kMiB, 64 * kMiB},
             // Desktop with --mem-limit=512: shares of the free memory.
             {"desktop --mem-limit=512", 512 * kMiB, kStartUsed, false, free512 / 100 * 40, free512 / 100 * 5,
              free512 / 100 * 15, free512 / 100 * 10},
@@ -37,8 +37,8 @@ TEST_SUITE("core") {
             // Absurd input.
             {"used > total", 100 * kMiB, 200 * kMiB, false, 24 * kMiB, 8 * kMiB, 32 * kMiB, 16 * kMiB},
             {"nothing known", 0, 0, false, 24 * kMiB, 8 * kMiB, 32 * kMiB, 16 * kMiB},
-            {"huge", std::numeric_limits<std::uint64_t>::max(), 0, false, 512 * kMiB, 64 * kMiB, 256 * kMiB, 128 * kMiB},
-            {"a PC with 32 GiB and no limit", 32 * kGiB, 200 * kMiB, false, 512 * kMiB, 64 * kMiB, 256 * kMiB, 128 * kMiB},
+            {"huge", std::numeric_limits<std::uint64_t>::max(), 0, false, 256 * kMiB, 64 * kMiB, 256 * kMiB, 128 * kMiB},
+            {"a PC with 32 GiB and no limit", 32 * kGiB, 200 * kMiB, false, 256 * kMiB, 64 * kMiB, 256 * kMiB, 128 * kMiB},
         };
         for (const auto& c : cases) {
             CAPTURE(c.what);

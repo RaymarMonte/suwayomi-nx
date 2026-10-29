@@ -708,3 +708,33 @@ Rejected: keeping textures of the neighbouring pages (a turn from a decoded page
 measured that within one frame); cancelling a progress save when the reader closes; sending `lastPageRead` on every turn; borealis's `ProgressSpinner`
 (a running animation, never idle); deciding the page in the next chapter by the details screen's (possibly old) copy instead of
 the server's answer.
+
+**D45 MVP hardening: a server that goes away, the soak's memory budget, how a release is made** (WP-12, 2026-10-30).
+- **"Can't reach" vs. "too slow":** a stopped server behind a firewall that drops packets (the PC's test server, and a real
+  server that is off or asleep) makes connections time out after `httpConnectTimeoutMs` instead of being refused. A timeout
+  before the request went out (curl's pretransfer time still 0) now counts as Network, so the screens say "Can't reach the
+  server..." rather than "took too long to answer". Not retried, like every timeout. A timeout after the request went out
+  stays Timeout.
+- **Reader:** a page that failed for want of the server (network, timeout) loads again when it is turned to, and as soon as
+  another page of the chapter arrives (only a success starts that, so nothing loops while the server is away). Broken pages
+  (corrupt, too large, HTTP errors) still wait for Retry, as in WP-11.
+- **Progress saves back off:** after a failed save `due()` waits `progressSyncMs`, doubled for each failure in a row, at most
+  `progressRetryMaxMs` (60 s, new in the profile), isRead included. Before, a failed isRead was sent again in the very next
+  frame, and with 5 s timeouts a save was always on its way, so the app never went idle. `dueNow()` (leaving a chapter, HOME,
+  closing) doesn't wait. Still open: a save that fails while the reader closes isn't tried again later.
+- **Profile from the soak:** the image cache (decoded pages in RAM) is capped at **256 MiB** instead of 512. In the soak
+  (500 turns, 167 chapters) memory rose by exactly the cache filling up (desktop: 86 -> 518 MiB) with pages the reader never
+  came back to; the window is -1/+3 and the SD-card cache serves re-reads. 256 MiB still holds ~180 screen-fit or ~26
+  fit-width pages. Unchanged: covers 64 MiB, textures 256 MiB (a ceiling; in use: one page plus the covers on screen),
+  SD-card cache 1 GiB with 1 GiB of the card kept free (real pages of 0.3-1 MB: 1,000-3,000 pages). Console soak numbers:
+  see STATUS until the device run is done.
+- **Tests:** `offline-errors`, `soak` and `touch-pass` scenarios (TESTING.md 8, 10, 15); test config `"diskCache": false`;
+  shared helpers `stopServer`/`startServer` (`lib/suwayomi.ts`), `flickUntil`/`inputInLoop` (`lib/library.ts`), the
+  `STATUS` (Retry) and `FOOTER` (hints) points in `lib/screens.ts`. borealis's footer hints take taps, so "Back" works by touch.
+- **Release:** `tools/release.sh` = the Switch release build (its safety gate) + checks on the .elf (the crash handler is in,
+  test hooks and drills are out) + `~/build/suwayomi-nx/release/v<version>/` with the .nro, the gzipped .elf (to symbolize
+  users' crash reports, ~36 MB), `SHA256SUMS.txt`, `build-info.txt` (build id) and the gate report. A GitHub Release carries
+  the .nro, the .elf.gz and SHA256SUMS.txt. NACP: "Suwayomi NX", author "suwayomi-nx contributors", version from CMake
+  (0.1.0); the icon stays the "S NX" placeholder (owner, 2026-10-30).
+Rejected: retrying after a connect timeout (another 5 s per try for a server that is away); a negative cache for failed
+pages; keeping the 512 MiB page cache (no reader path comes back to most of those pages).

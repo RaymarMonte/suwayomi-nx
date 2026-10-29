@@ -135,7 +135,7 @@ TEST_SUITE("core") {
     }
 
     TEST_CASE("ProgressSync: at most one update per interval, counted from opening") {
-        ProgressSync sync(45, 0, false, 5000, 1000);
+        ProgressSync sync(45, 0, false, 5000, 60000, 1000);
         CHECK_FALSE(sync.pending());
         sync.shown(0, false);  // the page it opened at: nothing to send
         CHECK_FALSE(sync.pending());
@@ -163,7 +163,7 @@ TEST_SUITE("core") {
     }
 
     TEST_CASE("ProgressSync: the last page marks the chapter read at once, and only once") {
-        ProgressSync sync(7, 3, false, 5000, 0);
+        ProgressSync sync(7, 3, false, 5000, 60000, 0);
         sync.shown(9, true);
         CHECK(sync.read());
         const auto read = sync.due(100);  // doesn't wait for the interval
@@ -181,20 +181,43 @@ TEST_SUITE("core") {
     }
 
     TEST_CASE("ProgressSync: a failed update is tried again after the interval; dueNow doesn't wait") {
-        ProgressSync sync(7, 0, false, 5000, 0);
+        ProgressSync sync(7, 0, false, 5000, 60000, 0);
         sync.shown(4, false);
         const auto first = sync.dueNow();
         REQUIRE(first.has_value());
         sync.sending(*first, 100);
-        sync.failed();
+        sync.failed(100);
         CHECK(sync.pending());
         CHECK_FALSE(sync.due(2000).has_value());
         CHECK(sync.due(5100).has_value());
         CHECK(sync.dueNow().has_value());
     }
 
+    TEST_CASE("ProgressSync: each failure in a row doubles the wait, up to the cap; isRead waits too; a save resets it") {
+        ProgressSync sync(7, 0, false, 5000, 12000, 0);
+        sync.shown(9, true);  // the last page: isRead, which normally goes out at once
+        std::int64_t now = 0;
+        for (const int waitMs : {5000, 10000, 12000, 12000}) {
+            const auto progress = sync.due(now);
+            REQUIRE(progress.has_value());
+            CHECK(progress->isRead);
+            sync.sending(*progress, now);
+            now += 5000;  // the request timed out
+            sync.failed(now);
+            CHECK_FALSE(sync.due(now).has_value());  // not again in the next frame
+            CHECK_FALSE(sync.due(now + waitMs - 1).has_value());
+            now += waitMs;
+        }
+        const auto progress = sync.due(now);
+        REQUIRE(progress.has_value());
+        sync.sending(*progress, now);
+        sync.saved(*progress);
+        sync.shown(3, false);
+        CHECK(sync.due(now + 5000).has_value());  // back to the plain interval
+    }
+
     TEST_CASE("ProgressSync: a chapter that is read already never sends isRead") {
-        ProgressSync sync(7, 9, true, 5000, 0);
+        ProgressSync sync(7, 9, true, 5000, 60000, 0);
         sync.shown(9, true);
         CHECK_FALSE(sync.pending());
         sync.shown(0, false);

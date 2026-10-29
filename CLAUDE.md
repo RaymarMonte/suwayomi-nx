@@ -92,6 +92,9 @@ push from WSL, where `gh` is logged in (SETUP.md C). `<repo>` below = the repo p
 - Switch build: `<repo>/tools/build.sh switch` → `~/build/suwayomi-nx/switch/suwayomi-nx.nro`. Also archives .elf + .nro under
   `~/build/suwayomi-nx/archive/<build id>/`. The safety gate (`tools/safety/check-elf.sh`, S2/S3, D28) runs before packing:
   a failing .elf gets no .nro; report in `safety-report.txt`.
+- Release (WP-12, D45): `<repo>/tools/release.sh` (clean work tree; `SNX_RELEASE_DIRTY=1` = dry run) → Switch release build, checks
+  (crash handler in, test hooks and drills out, gate PASS) → `~/build/suwayomi-nx/release/v<version>/` (.nro, .elf.gz, SHA256SUMS.txt).
+  The version is CMakeLists.txt's `project(VERSION)`; user-facing changes go in `CHANGELOG.md`.
 - Safety tools (WP-03b, D33): `tools/safety/check-writes.sh` (write-jail grep gate, also run by `build.sh tests`),
   `tools/safety/gate-selftest.sh` (proves the gate fails on a banned call, ~1 min), `tools/symbolize-crash/symbolize-crash.sh
   <crash-record.txt>` (crash record addresses → function and file:line). Crash records: `<data>/logs/crash-*.txt`, then `logs/crashes/`.

@@ -23,7 +23,8 @@
 - `ReaderMath.hpp` (WP-11): the paged reader's rules: `pageStep` (a side to +1/-1 by direction), `tapArea`, `swipeSide`,
   `fitPage` (drawn size per fit), `decodeBoxFor`, `isSpread`, `clampPosition` / `startPosition` / `canMoveToward` (where a
   page sits and how far it moves), `prefetchOrder` and `nearChapterEnd`. `ProgressSync.hpp` (WP-11): when to send
-  `lastPageRead` / `isRead` (at most every `progressSyncMs`, the last page at once, everything when leaving). `AppConfig`
+  `lastPageRead` / `isRead` (at most every `progressSyncMs`, the last page at once, everything when leaving; after a failure
+  the wait doubles up to `progressRetryMaxMs`, WP-12). `AppConfig`
   got the reader's background, page number and per-manga direction and fit (`readerSettingsFor`, `rememberReaderSettings`).
 - `LogBuffer.hpp`, `SaveScheduler.hpp` (WP-08): the log file's line format, buffering and rotation; when to save config.json (debounce). WP-08 also added test config keys (server login, `showSetup`, `diagnostics`), test events (`launch_refused`, `mem`, screen params) and profile fields (`logFileBytes`, `logFlushMs`, `configSaveDelayMs`).
 

@@ -89,7 +89,8 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
 - Test config `<data>/test/config.json` (uploaded by the harness, `core/TestConfig.hpp`): `"server": {"url", "auth":
   "none|basic|ui_login", "username", "password"}` = the app starts with that server instead of config.json's (no setup screen);
   `"showSetup": true` = the setup screen opens with those values filled in (the Switch can't type in a test; the login screen
-  fills in the password too); `"diagnostics": {"burst": n}` = the diagnostics screen; `"imageBench"`; `"drill"`. The harness
+  fills in the password too); `"diagnostics": {"burst": n}` = the diagnostics screen; `"imageBench"`; `"drill"`; `"diskCache": false` = the image
+  loader runs without its SD-card cache (WP-12: pages cached by earlier runs would load with the server stopped). The harness
   removes `config.json` before every launch unless `launch({ keepConfig: true })` (a restart test).
 - Events are text. Asserting on them costs almost no tokens, while screenshots are images and cost a lot.
 
@@ -227,9 +228,19 @@ Initial list, grown per UI WP:
 5. `reader-paged` – Alpha ch1 (goldens page, menu, end): left to right through the settings menu, pages 2–10 by D-pad, taps on the right edge and swipes, the colour code confirms each page; the last page marks ch1 read on the server (GraphQL); the "next chapter" screen, ch2 at once (prefetched), back to ch1's last page; fit width (1280 × 1920); 100 page turns with memory flat (growth < 16 MiB after turn 20) and the prefetched turn time (console: 90th percentile < 150 ms, D17); B → the details screen shows the progress; a restart keeps Alpha's direction and fit (WP-11)
 6. `reader-rtl-spread` – Beta RTL ch1, right to left (the default): LEFT, a tap on the left edge and a swipe to the right go forward, RIGHT and the right edge back; page 4 is reported as a spread and shown whole at 960 × 720 (golden); the "next chapter" screen (WP-11)
 7. `resume-progress` – Alpha ch3 to page 5, B: the server has lastPageRead 4, Continue opens page 5 (colour code), and again after a restart (WP-11)
-8. `offline-errors` – stop test server mid-session → error UI + retry works after restart
+8. `offline-errors` (WP-12) – the test server stops and starts again four times while the app runs, with `"diskCache": false`: at start-up
+   (the Library tab shows the error + Retry, a tap on Retry connects once it is back); in the reader (prefetched pages still
+   show, the next one shows its error, Retry by touch and X fail again, X works once the server is back, and the following page,
+   which failed as a prefetch meanwhile, shows without another Retry); Refresh on the details screen (fails, the list stays); a
+   manga opened while it is away (error + Retry); the library's Refresh (error + Retry). Every `error` event is of kind offline,
+   network or timeout. The PC's firewall drops packets to the stopped server, so connections time out (5 s) rather than being
+   refused: that is what a real server that is off looks like too, and it counts as "can't reach" (D45). ~2 min on desktop
 9. `broken-images` – Broken ch1: pages 1–2 show an error with Retry (golden) and an `error` event, page 3 (1 × 1) and 4–5 show, turns never blocked, Retry by touch and by X fails again visibly (`retries`), B back (WP-11)
-10. `soak` (device only, application mode) – read 500 pages across chapters, `mem` events stay within the profile's budget, no leaks/crashes
+10. `soak` (WP-12; the console's numbers count, desktop runs it too) – the Big shelf flicked to the end and back, then 500 turns
+    (`SNX_SOAK_TURNS`) through Delta Big's 2-page chapters (~167 chapters), then the shelf again: no `error` or `mem_pressure`
+    events, every `mem` sample within the profile's cache budgets (+ 64 MiB) above the first, a clean quit (no crash report or
+    fatal file). Writes `out/soak/summary.json` (memory first / after 100 turns / peak / last, turn times) for the profile
+    tuning (D45). Desktop ~1.5 min
 11. `applet-guard` (desktop `--simulate-applet-mode`, device via the Album) – the "can't run from the Album yet" screen shows, `launch_refused`
     is the only event, a button press or tap closes it and the app is back in hbmenu, no new crash report or fatal file. Desktop also runs
     the null-pointer drill inside that screen (SAFETY.md S12). The console: opt-in `SNX_APPLET_CONSOLE=1` with the owner watching, the
@@ -242,6 +253,9 @@ Initial list, grown per UI WP:
 14. `net-hello` (device and desktop, WP-05) – the diagnostics screen (WP-08; was the Hello screen) asks the test server for its version through the curl client, then sends 20
     requests at once; all 21 `net` events must be HTTP 200 (the 20 queue behind 6 transfers, none fails). Saves a screenshot to look at.
     Needs the test server; the Switch reaches it at the PC's LAN address (`lib/suwayomi.ts` `appServerUrl`). Setup's "Test connection" is the user-facing version check.
+15. `touch-pass` (WP-12, D16) – every MVP screen by touch alone, no button until the quit (the Switch: handheld): the
+    Settings tab and back, a category, Refresh, a cover; the description, Sort; the reader's edges, a swipe, the menu and its
+    Close; back from the details and the setup screen by the footer's "Back" hint (borealis's hints take taps). ~10 s on desktop
 
 ## Golden screenshots
 - Stored per driver: `tests/e2e/goldens/{desktop,switch}/<scenario>/<step>.png`.

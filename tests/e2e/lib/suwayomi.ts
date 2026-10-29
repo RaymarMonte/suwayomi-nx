@@ -175,3 +175,25 @@ export function appServerUrl(driver: 'desktop' | 'switch', env: NodeJS.ProcessEn
     if (lan.length === 0) throw new Error('test-server.sh status lists no LAN address: set SNX_APP_SERVER_URL=http://<pc-ip>:4568');
     return `http://${lan[0]}:${status.port ?? cfg.port}`;
 }
+
+const SERVER_SCRIPT = fileURLToPath(new URL('../../../tools/test-server/test-server.sh', import.meta.url));
+
+/** Stops the test server (a hard stop: the app sees connections refused). auth-matrix and offline-errors (WP-12). */
+export function stopServer(): void {
+    execFileSync(SERVER_SCRIPT, ['stop'], { stdio: 'ignore' });
+}
+
+/**
+ * Starts the test server with login mode `auth` (restarts it when it runs with another one) and waits until it answers.
+ * After a hard stop the next start now and then dies with a broken server config (seen in WP-08: "null cannot be cast to
+ * ... ServerConfig"); `reset` repairs that (fresh data, same fixtures, so reading progress is gone), then it starts once more.
+ */
+export function startServer(auth: AuthMode = 'none'): void {
+    try {
+        execFileSync(SERVER_SCRIPT, ['start', '--auth', auth], { stdio: 'ignore', timeout: 120_000 });
+    } catch {
+        console.warn(`the test server didn't start with auth ${auth}; resetting it and trying once more`);
+        execFileSync(SERVER_SCRIPT, ['reset'], { stdio: 'ignore', timeout: 300_000 });
+        execFileSync(SERVER_SCRIPT, ['start', '--auth', auth], { stdio: 'ignore', timeout: 120_000 });
+    }
+}

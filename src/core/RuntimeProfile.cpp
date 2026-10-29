@@ -31,7 +31,8 @@ RuntimeProfile makeRuntimeProfile(LaunchMode mode, std::uint64_t totalMem, std::
 
     if (mode == LaunchMode::Application) {
         p.name = "full";
-        p.imageCacheBytes = share(p.freeMem, 40, kImageFloor, 512 * kMiB);
+        // 256 MiB at most (WP-12): in the soak, 512 filled up with pages the reader never came back to (D45).
+        p.imageCacheBytes = share(p.freeMem, 40, kImageFloor, 256 * kMiB);
         p.coverCacheBytes = share(p.freeMem, 5, kCoverFloor, 64 * kMiB);
         p.textureBudgetBytes = share(p.freeMem, 15, kTextureFloor, 256 * kMiB);
         p.maxDecodeBytes = share(p.freeMem, 10, kDecodeFloor, 128 * kMiB);

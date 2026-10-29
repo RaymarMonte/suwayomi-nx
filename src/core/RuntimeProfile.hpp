@@ -40,6 +40,7 @@ struct RuntimeProfile {
 
     // Reader (WP-11).
     int progressSyncMs = 5000;           // reading progress goes to the server at most this often (and when leaving a chapter)
+    int progressRetryMaxMs = 60000;      // a failed save waits progressSyncMs, doubled per failure, at most this (WP-12)
     int readerMangaSettingsMax = 500;    // manga whose own direction and fit config.json remembers (S6: the file stays small)
 
     // Work in parallel, and how much to ask for at once.
@@ -92,7 +93,7 @@ struct RuntimeProfile {
 
 // Turns what platform::runtimeInfo() measured into budgets. Pure: same input, same profile.
 // - Application mode: the "full" profile. Budgets are shares of the free memory with floors and caps:
-//   image cache 40% (24 MiB .. 512 MiB), covers 5% (8 .. 64 MiB), textures 15% (32 .. 256 MiB), one decode 10% (16 .. 128 MiB).
+//   image cache 40% (24 MiB .. 256 MiB, WP-12), covers 5% (8 .. 64 MiB), textures 15% (32 .. 256 MiB), one decode 10% (16 .. 128 MiB).
 //   The floors are what showing one page needs; below them the memory-pressure guard has to cope.
 // - safeMode: memory budgets halved (not below the floors), prefetch off, webtoon tiles +-1.
 // - Applet mode: the app refuses to run there (D21) and exits before using a profile, but this still returns something small

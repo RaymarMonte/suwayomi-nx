@@ -1,10 +1,13 @@
 #include "core/ProgressSync.hpp"
 
+#include <algorithm>
+
 namespace snx::core {
 
-ProgressSync::ProgressSync(int chapterId, int serverPage, bool serverRead, int intervalMs, std::int64_t nowMs)
+ProgressSync::ProgressSync(int chapterId, int serverPage, bool serverRead, int intervalMs, int retryMaxMs, std::int64_t nowMs)
     : chapterId_(chapterId),
       intervalMs_(intervalMs),
+      retryMaxMs_(retryMaxMs),
       savedPage_(serverPage),
       savedRead_(serverRead),
       wantPage_(serverPage),
@@ -41,6 +44,9 @@ std::optional<ReadProgress> ProgressSync::dueNow() const {
 }
 
 std::optional<ReadProgress> ProgressSync::due(std::int64_t nowMs) const {
+    if (failures_ > 0 && nowMs < retryAtMs_) {
+        return std::nullopt;
+    }
     std::optional<ReadProgress> progress = dueNow();
     if (!progress || progress->isRead || nowMs - lastSendMs_ >= intervalMs_) {
         return progress;
@@ -55,6 +61,7 @@ void ProgressSync::sending(const ReadProgress&, std::int64_t nowMs) {
 
 void ProgressSync::saved(const ReadProgress& progress) {
     inFlight_ = false;
+    failures_ = 0;
     savedPage_ = progress.lastPageRead;
     if (progress.isRead) {
         savedRead_ = true;
@@ -62,8 +69,15 @@ void ProgressSync::saved(const ReadProgress& progress) {
     }
 }
 
-void ProgressSync::failed() {
+void ProgressSync::failed(std::int64_t nowMs) {
     inFlight_ = false;
+    ++failures_;
+    // intervalMs, doubled for each failure after the first, at most retryMaxMs.
+    std::int64_t waitMs = intervalMs_;
+    for (int i = 1; i < failures_ && waitMs < retryMaxMs_; ++i) {
+        waitMs *= 2;
+    }
+    retryAtMs_ = nowMs + std::min<std::int64_t>(waitMs, retryMaxMs_);
 }
 
 }  // namespace snx::core

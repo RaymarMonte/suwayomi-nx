@@ -48,6 +48,8 @@ int diagnosticsBurst();
 // The test config's "imageBench" (WP-07): paths below the server URL, and how often to load each. Empty / 0 without one.
 std::vector<std::string> imageBenchPaths();
 int imageBenchRepeat();
+// False when the test config says "diskCache": false (WP-12): the image loader then runs without its SD-card cache.
+bool diskCache();
 
 // Writes a {"ev":"net",...} event for every request the client finishes (WP-05). The observer runs on the network thread and
 // hands the event to the main thread with brls::sync. Release builds: nothing.

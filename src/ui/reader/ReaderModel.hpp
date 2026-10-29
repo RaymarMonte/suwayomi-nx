@@ -33,6 +33,7 @@ struct ReaderOptions {
     int nextChapterPages = 2;           // RuntimeProfile::nextChapterPrefetchPages
     bool backgroundPrefetch = true;     // RuntimeProfile::backgroundPrefetch: the next chapter's pages near the end
     int progressSyncMs = 5000;          // RuntimeProfile::progressSyncMs
+    int progressRetryMaxMs = 60000;     // RuntimeProfile::progressRetryMaxMs
     api::PageFormat format = api::PageFormat::AsStored;  // ReaderSettings::serverConvertsToJpeg
     // Milliseconds on a steady clock, for the progress timing (the app: appClockMs). Required.
     std::function<std::int64_t()> clock;
@@ -49,7 +50,9 @@ struct ReaderPage {
         Waiting,  // not asked for: outside the window, or prefetching is paused (memory is low)
         Loading,
         Ready,
-        Failed,  // error says why; retryPage() tries again, and so does coming back to it from outside the window
+        Failed,  // error says why; retryPage() tries again, and so does coming back to it from outside the window.
+                 // A page that failed because the server didn't answer (offline, timeout) also loads again when it is
+                 // turned to, and as soon as another page of the chapter arrives (WP-12: the server may be back)
     };
     State state = State::Waiting;
     image::ImagePtr image;  // Ready
@@ -149,6 +152,7 @@ class ReaderModel {
     void updateWindow();
     void startLoad(Slot& slot, int chapterId, int index, net::Priority priority);
     void onLoaded(int chapterId, int index, const image::ImageResult& result);
+    void reloadNetworkFailures();
     void requestNext();
     void onNextPages(int chapterId, const api::ApiResult<core::PageList>& result);
     void resetSlot(Slot& slot);

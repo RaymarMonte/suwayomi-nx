@@ -7,7 +7,6 @@
 // It restarts the test server per mode (tools/test-server/test-server.sh start --auth <mode>) and leaves it running with
 // auth none. The login screen's password comes from the test config (the Switch can't type in a test).
 
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -17,26 +16,18 @@ import type { AppEvent } from '../lib/events.ts';
 import type { Scenario } from '../lib/scenario.ts';
 import { scenario } from '../lib/scenario.ts';
 import { LOGIN, settingsRow, tab } from '../lib/screens.ts';
-import { appServerUrl } from '../lib/suwayomi.ts';
+import { appServerUrl, startServer, stopServer } from '../lib/suwayomi.ts';
 
-const SCRIPT = fileURLToPath(new URL('../../../tools/test-server/test-server.sh', import.meta.url));
 const CONFIG = JSON.parse(readFileSync(fileURLToPath(new URL('../../../tools/test-server/server.json', import.meta.url)), 'utf8')) as {
     username: string;
     password: string;
 };
 const JWT_EXPIRY_MS = 20_000; // server.json: the test server's access token lives 20 s
 
-// The test server's stop is a hard stop (tools/test-server/README.md). Now and then the next start then dies with a broken
-// server config (seen in WP-08: "null cannot be cast to ... ServerConfig"); `reset` repairs that (fresh data, same fixtures).
+// A fresh start in login mode `auth` (lib/suwayomi.ts: a hard stop, then a start that resets the server if it won't come up).
 function serverMode(auth: 'none' | 'basic' | 'ui_login'): void {
-    execFileSync(SCRIPT, ['stop'], { stdio: 'ignore' });
-    try {
-        execFileSync(SCRIPT, ['start', '--auth', auth], { stdio: 'ignore', timeout: 120_000 });
-    } catch {
-        console.warn(`auth-matrix: the test server didn't start with auth ${auth}; resetting it and trying once more`);
-        execFileSync(SCRIPT, ['reset'], { stdio: 'ignore', timeout: 300_000 });
-        execFileSync(SCRIPT, ['start', '--auth', auth], { stdio: 'ignore', timeout: 120_000 });
-    }
+    stopServer();
+    startServer(auth);
 }
 
 async function connected(s: Scenario, from = 0): Promise<AppEvent> {

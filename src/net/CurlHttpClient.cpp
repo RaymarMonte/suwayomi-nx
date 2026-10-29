@@ -204,7 +204,7 @@ struct CurlHttpClient::Impl {
     void resetNow();
     void stopAll();
     std::unique_ptr<Transfer> detach(Transfer* transfer);
-    void conclude(std::unique_ptr<Transfer> transfer, CURLcode code, long status);
+    void conclude(std::unique_ptr<Transfer> transfer, CURLcode code, long status, bool requestSent);
     void retryOrFinish(Job job, const Request& sent, HttpResult result, bool transient);
     void finish(Job& job, const Request& sent, HttpResult result);
 };
@@ -428,7 +428,9 @@ void CurlHttpClient::Impl::collectFinished() {
         curl_easy_getinfo(easy, CURLINFO_PRIVATE, &priv);
         long status = 0;
         curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &status);
-        conclude(detach(reinterpret_cast<Transfer*>(priv)), code, status);
+        curl_off_t pretransferUs = 0;  // stays 0 while the connection was never made
+        curl_easy_getinfo(easy, CURLINFO_PRETRANSFER_TIME_T, &pretransferUs);
+        conclude(detach(reinterpret_cast<Transfer*>(priv)), code, status, pretransferUs > 0);
     }
 }
 
@@ -456,7 +458,7 @@ std::unique_ptr<Transfer> CurlHttpClient::Impl::detach(Transfer* transfer) {
     return t;
 }
 
-void CurlHttpClient::Impl::conclude(std::unique_ptr<Transfer> t, CURLcode code, long status) {
+void CurlHttpClient::Impl::conclude(std::unique_ptr<Transfer> t, CURLcode code, long status, bool requestSent) {
     bool transient = false;
     std::optional<HttpResult> result;
     if (t->job.cancel.cancelled()) {
@@ -469,9 +471,12 @@ void CurlHttpClient::Impl::conclude(std::unique_ptr<Transfer> t, CURLcode code, 
     } else if (t->tooLarge) {
         result = HttpResult::fail(core::ErrorKind::TooLarge, "the server's answer is larger than this request allows (" +
                                                                  std::to_string(t->maxBody) + " bytes)");
-    } else if (code == CURLE_OPERATION_TIMEDOUT) {
+    } else if (code == CURLE_OPERATION_TIMEDOUT && requestSent) {
         result = HttpResult::fail(core::ErrorKind::Timeout, describe(code, *t));
     } else {
+        // A timeout before the request went out counts here too (WP-12): the connection was never made, so the server
+        // couldn't be reached at all (off, asleep, or a firewall that drops instead of refusing). "Can't reach the server"
+        // says that; "took too long to answer" would not. Not retried, like any timeout.
         transient = transientCurlError(code);
         result = HttpResult::fail(core::ErrorKind::Network, describe(code, *t));
     }

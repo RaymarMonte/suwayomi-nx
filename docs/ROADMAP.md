@@ -28,7 +28,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-09](wp/WP-09-library-screen.md) | Library screen (categories + cover grid) | 07, 08 | Opus | M | **Yes**: watched the console run (`library-browse`, new smoke golden) | done |
 | [WP-10](wp/WP-10-manga-details.md) | Manga details + chapter list | 09 | Opus | M | – | done |
 | [WP-11](wp/WP-11-paged-reader.md) | Paged reader + progress sync | 10 | Opus | L | – | done |
-| [WP-12](wp/WP-12-mvp-hardening.md) | MVP hardening, soak test, **v0.1 release** | 11 | Opus | M | Try it for real | todo |
+| [WP-12](wp/WP-12-mvp-hardening.md) | MVP hardening, soak test, **v0.1 release** | 11 | Opus | M | Try it for real | in progress (PC side done) |
 | WP-13 | Webtoon / continuous reader + zoom & pan | 12 | Opus | L | – | todo |
 | WP-14 | Browse sources, search, add to library | 12 ∥13 | Opus | M | – | todo |
 | WP-15 | Updates feed + reading history | 12 ∥13 | **S** | M | – | todo |

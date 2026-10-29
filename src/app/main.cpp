@@ -171,7 +171,7 @@ int main(int argc, char* argv[]) {
     // limit from the profile. Results reach the screens through brls::sync; its log lines too (they come from its threads).
     snx::image::LoaderOptions imageOptions = snx::image::loaderOptionsFrom(profile);
     imageOptions.deliver = [](std::function<void()> task) { brls::sync(std::move(task)); };
-    imageOptions.fs = &fs;
+    imageOptions.fs = testhooks::diskCache() ? &fs : nullptr;  // test builds can turn the SD-card cache off (WP-12)
     imageOptions.memory = []() -> std::optional<snx::core::MemorySample> {
         const snx::core::RuntimeInfo info = snx::platform::runtimeInfo();
         return snx::core::MemorySample{info.usedMem, info.totalMem};

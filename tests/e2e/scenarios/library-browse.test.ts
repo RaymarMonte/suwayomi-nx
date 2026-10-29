@@ -11,8 +11,8 @@
 
 import { expect } from 'vitest';
 
-import { ConsoleUnreachableError } from '../drivers/autopilot.ts';
 import type { AppEvent } from '../lib/events.ts';
+import { flickUntil, inputInLoop } from '../lib/library.ts';
 import { scenario, type Scenario } from '../lib/scenario.ts';
 import { CLOCK_MASK, LIBRARY } from '../lib/screens.ts';
 import { appServerUrl, optionsFromEnv, SuwayomiClient } from '../lib/suwayomi.ts';
@@ -47,24 +47,6 @@ async function memNow(s: Scenario): Promise<number> {
     return Number(mem.used);
 }
 
-/**
- * One input inside a loop that checks the app's state before every step (walkTo, flickUntil), so an input that got lost or
- * went through twice doesn't matter. On the Switch, sys-autopilot sometimes resets the connection of an input request; the
- * driver never repeats those (a press could happen twice), but here that is safe: wait a moment and look again. Returns
- * false when the input may not have happened.
- */
-async function inputInLoop(s: Scenario, input: () => Promise<void>): Promise<boolean> {
-    try {
-        await input();
-        return true;
-    } catch (e) {
-        if (!(e instanceof ConsoleUnreachableError)) throw e;
-        console.warn(`[library-browse] ${e.message}: looking again in 2 s`);
-        await new Promise((r) => setTimeout(r, 2_000));
-        return false;
-    }
-}
-
 /** The cover that has the focus now, from the latest "focus" event (cells have the id "library/cover-<index>"). */
 function focusedCover(s: Scenario): number | undefined {
     const focus = s.events.events.filter((e) => e.ev === 'focus').at(-1);
@@ -85,19 +67,6 @@ async function walkTo(s: Scenario, button: 'UP' | 'DOWN', done: (index: number) 
         await s.events.waitFor(`${button}: the focus moves or a page arrives`, (e) => e.ev === 'focus' || e.ev === 'library', { from: mark });
     }
     throw new Error(`${3 * ROWS} presses of ${button} didn't reach ${what} (focus on cover ${focusedCover(s)})`);
-}
-
-/** Flicks over the grid (up to scroll down, or the other way) until the latest "grid" event says `done`. */
-async function flickUntil(s: Scenario, direction: 'down' | 'up', done: (grid: AppEvent) => boolean, what: string): Promise<void> {
-    const [from, to] = direction === 'down' ? [LIBRARY.flickFrom, LIBRARY.flickTo] : [LIBRARY.flickTo, LIBRARY.flickFrom];
-    for (let i = 0; i < LIBRARY.maxFlicks; i++) {
-        const grid = s.events.events.filter((e) => e.ev === 'grid').at(-1);
-        if (grid && done(grid)) return;
-        const mark = s.events.mark();
-        if (!(await inputInLoop(s, () => s.driver.swipe(from.x, from.y, to.x, to.y, 120)))) continue;
-        await s.events.waitForEvent('idle', {}, { from: mark }); // the flick's glide has ended
-    }
-    throw new Error(`${LIBRARY.maxFlicks} flicks ${direction} didn't reach ${what}`);
 }
 
 scenario('library-browse', async (s) => {

@@ -8,14 +8,16 @@
 // When the reader saves reading progress to the server (WP-11): the page on screen as lastPageRead, at most once every
 // intervalMs (RuntimeProfile::progressSyncMs), counted from when the chapter opened; isRead as soon as the chapter's last page
 // was shown (that one doesn't wait); and everything left at once when the reader leaves the chapter (dueNow). One update at a
-// time; a failed one is tried again at the next chance. isRead is only ever sent as true: re-reading never un-reads.
+// time. After a failed one due() waits intervalMs, then twice as long after each further failure, at most retryMaxMs
+// (RuntimeProfile::progressRetryMaxMs), also for isRead (WP-12: a server that is away isn't asked every frame); dueNow()
+// doesn't wait. isRead is only ever sent as true: re-reading never un-reads.
 // Pure and not thread-safe: the reader calls it on the main thread with the app's clock. One per opened chapter.
 namespace snx::core {
 
 class ProgressSync {
   public:
     // What the server has for the chapter (fetchChapterPages' answer), and when it opened.
-    ProgressSync(int chapterId, int serverPage, bool serverRead, int intervalMs, std::int64_t nowMs);
+    ProgressSync(int chapterId, int serverPage, bool serverRead, int intervalMs, int retryMaxMs, std::int64_t nowMs);
 
     // A page is on screen. `last`: it is the chapter's last page, so the chapter is read from now on.
     void shown(int page, bool last);
@@ -30,8 +32,8 @@ class ProgressSync {
     void sending(const ReadProgress& progress, std::int64_t nowMs);
     // ... and the server saved it.
     void saved(const ReadProgress& progress);
-    // ... and it failed: tried again when due() says so (intervalMs after it went out).
-    void failed();
+    // ... and it failed (at nowMs): due() offers it again after the wait above.
+    void failed(std::int64_t nowMs);
 
     int chapterId() const { return chapterId_; }
     bool pending() const;  // something on screen isn't saved yet (it may be on its way)
@@ -43,12 +45,15 @@ class ProgressSync {
 
     int chapterId_;
     int intervalMs_;
+    int retryMaxMs_;
     int savedPage_;
     bool savedRead_;
     int wantPage_;
     bool wantRead_ = false;
     bool inFlight_ = false;
     std::int64_t lastSendMs_;
+    int failures_ = 0;          // failed updates in a row
+    std::int64_t retryAtMs_ = 0;  // after a failure: nothing is due before this
 };
 
 }  // namespace snx::core

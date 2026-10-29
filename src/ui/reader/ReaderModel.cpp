@@ -6,6 +6,17 @@
 
 namespace snx::ui {
 
+namespace {
+
+// The page failed because the server didn't answer, not because it answered with something broken: worth asking again
+// once the server may be back.
+bool failedForNetwork(const ReaderPage& page) {
+    return page.state == ReaderPage::State::Failed &&
+           (page.error.kind == image::ImageErrorKind::Network || page.error.kind == image::ImageErrorKind::Timeout);
+}
+
+}  // namespace
+
 ReaderOptions readerOptionsFrom(const core::RuntimeProfile& profile, const core::ReaderSettings& reader) {
     ReaderOptions options;
     options.prefetchBehind = profile.prefetchBehind;
@@ -13,6 +24,7 @@ ReaderOptions readerOptionsFrom(const core::RuntimeProfile& profile, const core:
     options.nextChapterPages = profile.nextChapterPrefetchPages;
     options.backgroundPrefetch = profile.backgroundPrefetch;
     options.progressSyncMs = profile.progressSyncMs;
+    options.progressRetryMaxMs = profile.progressRetryMaxMs;
     options.format = reader.serverConvertsToJpeg ? api::PageFormat::Jpeg : api::PageFormat::AsStored;
     return options;
 }
@@ -45,7 +57,7 @@ struct ReaderModel::Saver {
                 if (ok) {
                     sync->saved(progress);
                 } else {
-                    sync->failed();
+                    sync->failed(self->clock());
                 }
                 if (self->onSaved) {
                     self->onSaved(progress, ok);
@@ -304,7 +316,7 @@ void ReaderModel::showList(const core::PageList& list, std::vector<Slot> ready, 
     position_ = count == 0 ? 0 : std::clamp(page, 0, count - 1);  // no pages: the "next chapter" screen
 
     sync_ = std::make_shared<core::ProgressSync>(chapter_.id, fresh.lastPageRead, fresh.isRead, options_.progressSyncMs,
-                                                 options_.clock());
+                                                 options_.progressRetryMaxMs, options_.clock());
     state_ = State::Ready;
     arrive();
     changed();
@@ -346,6 +358,10 @@ bool ReaderModel::turn(core::Side side) {
 void ReaderModel::arrive() {
     if (onPage() && sync_) {
         sync_->shown(position_, position_ == pageCount() - 1);
+    }
+    // A page that failed for want of the server loads again when it is turned to (updateWindow starts it).
+    if (onPage() && failedForNetwork(slots_[static_cast<std::size_t>(position_)].page)) {
+        resetSlot(slots_[static_cast<std::size_t>(position_)]);
     }
     updateWindow();
 }
@@ -420,6 +436,9 @@ void ReaderModel::onLoaded(int chapterId, int index, const image::ImageResult& r
         page.state = ReaderPage::State::Ready;
         page.image = result.value();
         page.error = image::ImageError{};
+        if (slots == &slots_) {
+            reloadNetworkFailures();
+        }
     } else {
         const image::ImageErrorKind kind = result.error().kind;
         const bool onScreen = slots == &slots_ && index == position_;
@@ -431,6 +450,21 @@ void ReaderModel::onLoaded(int chapterId, int index, const image::ImageResult& r
         }
     }
     changed();
+}
+
+// A page arrived, so the server may answer again: the pages in the window that failed for want of it load again, instead of
+// each waiting for its own Retry. Only a success calls this, so a server that is still away can't make it loop.
+void ReaderModel::reloadNetworkFailures() {
+    bool any = false;
+    for (Slot& slot : slots_) {
+        if (failedForNetwork(slot.page)) {
+            resetSlot(slot);
+            any = true;
+        }
+    }
+    if (any) {
+        updateWindow();
+    }
 }
 
 void ReaderModel::requestNext() {

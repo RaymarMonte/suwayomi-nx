@@ -1,22 +1,25 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 2 – App (WP-08 …). Next:** WP-12 (MVP hardening, soak test, v0.1; needs the owner: "Try it for real").
+**Phase 2 – App (WP-08 …). Now:** WP-12 (MVP hardening, v0.1), PC side done; the console and the owner's part are left.
 WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 11.
 
-## Last session (2026-10-30, WP-11 console run, Opus) — WP-11 done
-- PC side was done in `7941da3` (paged reader, `ReaderModel`/`ReaderView`/`ReaderActivity`, `ReaderMath`, `ProgressSync`, D44).
-- **Console, all green:** `smoke`, `manga-details` (regression: the reader replaced the stand-in), then `reader-paged`,
-  `reader-rtl-spread`, `resume-progress`, `broken-images` once with `--update-goldens` and once against the goldens.
-  New Switch goldens (looked at, same as desktop): reader-paged page/menu/end, reader-rtl-spread spread, broken-images broken.
-- **Acceptance numbers (application mode, stock clocks):** 100 prefetched turns median 18 ms, p90 19 ms, max 19 ms
-  (limit 150 ms: the next frame at 60 Hz); memory 136.3 MiB after turn 20, growth 0.0 MiB (limit 16 MiB). Added to D44.
-- No new crash report or fatal file. Test server stopped at the end.
-- Follow-ups (D44): no download % under the spinner; the stick doesn't pan; a config.json save blocks a frame.
+## Last session (2026-10-30, WP-12 PC side, Opus)
+- **Fixed (D45):** a stopped server times out (the firewall drops packets) instead of refusing: now "Can't reach the server"
+  (net: a connect timeout = Network); a failed isRead save was resent every frame and saves never stopped while the server
+  was away: saves back off 5 → … → 60 s; pages that failed offline reload when turned to. Page cache 512 → 256 MiB (soak).
+- **New scenarios, desktop green:** `offline-errors` (~2 min), `soak` (500 turns, 167 chapters, ~1.5 min; `summary.json`),
+  `touch-pass` (touch only; footer hints take taps). Test config `"diskCache": false`. Version 0.1.0, README user part,
+  CHANGELOG, `tools/release.sh` (dry run OK: gate PASS, crash handler in, hooks/drills out, .elf.gz 36 MB). Fuzz 600 s/target: no crash.
+- **Left (WP-12 checklist):** console (handheld): `smoke`, `offline-errors`, `touch-pass`, `soak` twice (fill in D45's console
+  numbers), full `crash-drills`; with the owner: release .nro from the Album (refusal screen, no new crash/fatal file), sleep
+  in the reader (POWER, wake, pages load again), dogfooding on the real server (`http://<server-lan-ip>:4568`), then tag
+  `v0.1.0` + GitHub Release (.nro, .elf.gz, SHA256SUMS.txt) with the owner's OK.
+- Follow-ups: a save failing as the reader closes isn't retried; covers that failed offline stay fallback art until rebuilt.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
   `MSYS_NO_PATHCONV=1`, or `/mnt/c/...` arguments get rewritten). Git Bash has no python. The Bash tool turns `\\` in a heredoc
   into `\`: write files with backslashes (regexes, CMake escapes) with the Write/Edit tools.
-- Builds (from `/mnt/c`): unit tests ~10 s, desktop ~50 s, Switch ~55 s clean (+ gate ~5 s); `.nro` 4.2 MB. 0 warnings in our code.
+- Builds (from `/mnt/c`): unit tests ~10 s, desktop ~50 s, Switch ~55 s clean (+ gate ~5 s); `.nro` 4.6 MB. 0 warnings in our code.
   Backups (WP-00a): `C:\Users\JohnDoe\SwitchBackup\2026-10-22\`. sysMMC NAND: owner's external drive.
 - Test server: `reset` + `start` ~10 s; `tools/record-fixtures/record-all.sh` ~1 min (it ends with the server running, auth none).
   It sometimes won't start ("null cannot be cast"): run it again (`reset` first after a hard stop).

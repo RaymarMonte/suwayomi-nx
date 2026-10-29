@@ -57,6 +57,7 @@ the app is never `idle`), so turn `setAutoAnimate(false)` on for labels that sit
 **Tests:** models in `tests/unit/test_ui.cpp`, `test_ui_library.cpp`, `test_ui_manga.cpp` and `test_ui_reader.cpp` (suite
 `ui`; the reader's with a real `ImageLoader`, `tests/unit/MainQueue.hpp` plays the main thread); screens by E2E scenarios
 (`smoke`, `setup-first-run`, `auth-matrix`, `low-memory`, `library-browse`, `manga-details`, `reader-paged`,
-`reader-rtl-spread`, `resume-progress`, `broken-images`). Touch coordinates for the scenarios: `tests/e2e/lib/screens.ts`.
+`reader-rtl-spread`, `resume-progress`, `broken-images`, WP-12: `offline-errors`, `soak`, `touch-pass`). Touch coordinates for the
+scenarios: `tests/e2e/lib/screens.ts`.
 
 **Status:** WP-11. Updates, History and Browse are placeholder tabs until their WPs.

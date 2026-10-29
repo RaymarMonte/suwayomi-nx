@@ -17,7 +17,8 @@ network thread driving a curl multi handle, request priorities, cancellation, re
   waiting until `releaseNext()`/`releaseAll()` (most urgent first).
 
 **What a caller gets:** the future completes exactly once. Any HTTP answer (404, 401, 500 too) is a `Response`; no answer is an
-`Error` with kind `Network` (refused, reset, too many redirects, bad URL or scheme), `Timeout`, `Cancelled` (token or shutdown) or
+`Error` with kind `Network` (refused, reset, too many redirects, bad URL or scheme, and since WP-12 a connect that timed out:
+the server was never reached, D45), `Timeout` (after the request went out), `Cancelled` (token or shutdown) or
 `TooLarge` (body over its limit, stopped while streaming; or headers over `httpMaxHeaderBytes`). Nothing throws.
 
 **Behaviour of `CurlHttpClient`:**
