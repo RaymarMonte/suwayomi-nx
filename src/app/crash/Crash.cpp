@@ -61,6 +61,7 @@ std::atomic<int> gExitStepCount{0};
 
 std::atomic<std::uint64_t> gBeats{0};
 std::atomic<bool> gFocused{true};
+std::atomic<int> gBlockingWaits{0};  // BlockingWait objects alive
 std::atomic<std::int64_t> gExitDeadlineMs{0};  // uptime in ms when the backstop ends the process, 0 = not armed
 std::mutex gWatchdogMutex;
 std::condition_variable gWatchdogWake;
@@ -235,7 +236,7 @@ void* watchdogMain(void*) {
             platform::exitProcessNow(EXIT_FAILURE);  // an exit after a crash hangs: end it (README "the exit deadline")
         }
         const std::uint64_t beats = gBeats.load();
-        if (beats != lastBeats || !gFocused.load()) {
+        if (beats != lastBeats || !gFocused.load() || gBlockingWaits.load() > 0) {
             lastBeats = beats;
             missed = 0;
             continue;
@@ -389,6 +390,15 @@ void beat() noexcept {
 
 void setFocused(bool focused) noexcept {
     gFocused.store(focused);
+}
+
+BlockingWait::BlockingWait() noexcept {
+    gBlockingWaits.fetch_add(1);
+}
+
+BlockingWait::~BlockingWait() {
+    beat();  // the wait counts as progress: the next 10 s start now
+    gBlockingWaits.fetch_sub(1);
 }
 
 void armExitDeadline(int ms) noexcept {

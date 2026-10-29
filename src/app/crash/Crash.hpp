@@ -53,6 +53,16 @@ std::string recordName();
 void startWatchdog();
 void beat() noexcept;
 void setFocused(bool focused) noexcept;
+// While one of these lives, the main thread waits inside a system call that blocks the frame on purpose, and the watchdog
+// doesn't count that time (WP-12: the Switch keyboard, swkbdShow, blocks for as long as the user types; the watchdog ended
+// the app 10 s into typing a server address). The count starts afresh when the last one ends. Main thread only.
+class BlockingWait {
+  public:
+    BlockingWait() noexcept;
+    ~BlockingWait();
+    BlockingWait(const BlockingWait&) = delete;
+    BlockingWait& operator=(const BlockingWait&) = delete;
+};
 // Backstop for an exit that hangs: if the process still runs `ms` from now, the watchdog ends it at once.
 void armExitDeadline(int ms) noexcept;
 void stopWatchdog();

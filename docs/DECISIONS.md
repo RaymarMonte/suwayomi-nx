@@ -740,5 +740,10 @@ the server's answer.
   users' crash reports, ~36 MB), `SHA256SUMS.txt`, `build-info.txt` (build id) and the gate report. A GitHub Release carries
   the .nro, the .elf.gz and SHA256SUMS.txt. NACP: "Suwayomi NX", author "suwayomi-nx contributors", version from CMake
   (0.1.0); the icon stays the "S NX" placeholder (owner, 2026-10-30).
+- **The keyboard and the watchdog (found by the owner's first real use):** on the Switch borealis opens the system keyboard
+  with `swkbdShow`, which blocks the main loop for as long as the user types; the watchdog (S8) ended the app 10 s into
+  typing the server address. A text field now holds a `crash::BlockingWait` while the keyboard is open: the watchdog doesn't
+  count that time and starts afresh after it. Any future blocking system call on the main thread needs the same. Test:
+  `keyboard-wait` (Switch only: the keyboard open for 15 s; it failed on the old build, passes on the fixed one).
 Rejected: retrying after a connect timeout (another 5 s per try for a server that is away); a negative cache for failed
 pages; keeping the 512 MiB page cache (no reader path comes back to most of those pages).

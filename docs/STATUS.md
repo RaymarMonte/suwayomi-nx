@@ -6,13 +6,13 @@ WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 11.
 - **Fixed (D45):** a stopped server times out (the firewall drops packets) instead of refusing: now "Can't reach the server"
   (net: a connect timeout = Network); a failed isRead save was resent every frame and saves never stopped while the server
   was away: saves back off 5 → … → 60 s; pages that failed offline reload when turned to. Page cache 512 → 256 MiB (soak).
-- **New scenarios:** `offline-errors`, `soak` (500 turns, 167 chapters; `summary.json`), `touch-pass` (touch only; footer hints
-  take taps); test config `"diskCache": false`. Version 0.1.0, README user part, CHANGELOG, `tools/release.sh`. Fuzz 600 s/target ok.
-- **Green:** unit, integration, all desktop scenarios; console (handheld): `smoke`, `touch-pass`, `offline-errors`, `soak` twice
-  (turns p90 18 ms, peak 307/312 MiB), `crash-drills` 10/10 (1st try: a screenshot hiccup, driver fixed). Release .nro on the SD.
+- **New:** scenarios `offline-errors`, `soak`, `touch-pass`; test config `"diskCache": false`; 0.1.0, README, CHANGELOG, `tools/release.sh`.
+- **Green:** unit, integration, desktop; console: `smoke`, `touch-pass`, `offline-errors`, `soak` ×2 (p90 18 ms), `crash-drills` 10/10.
+- **Owner's first try:** a watchdog crash 10 s into typing the address (the Switch keyboard blocks the loop): fixed with
+  `crash::BlockingWait`, new Switch test `keyboard-wait` (failed before, passes now). Release rebuilt and on the SD.
 - **Left (owner):** release .nro from the Album (refusal screen, no new crash/fatal file); sleep in the reader (POWER, wake,
   pages load); dogfooding on the real server (`http://<server-lan-ip>:4568`); then tag `v0.1.0` + GitHub Release (owner's OK).
-- Follow-ups: a save failing as the reader closes isn't retried; covers that failed offline stay fallback art until rebuilt.
+- Follow-ups: a save failing as the reader closes isn't retried; covers failed offline stay fallback art until rebuilt.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

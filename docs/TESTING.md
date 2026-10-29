@@ -256,6 +256,9 @@ Initial list, grown per UI WP:
 15. `touch-pass` (WP-12, D16) – every MVP screen by touch alone, no button until the quit (the Switch: handheld): the
     Settings tab and back, a category, Refresh, a cover; the description, Sort; the reader's edges, a swipe, the menu and its
     Close; back from the details and the setup screen by the footer's "Back" hint (borealis's hints take taps). ~10 s on desktop
+16. `keyboard-wait` (WP-12 regression, Switch only) – the setup screen's address field opens the system keyboard, which
+    stays open 15 s (it blocks the main loop, longer than the 10 s watchdog), + confirms, Continue reaches the library, no crash
+    record in `logs/`. ~50 s
 
 ## Golden screenshots
 - Stored per driver: `tests/e2e/goldens/{desktop,switch}/<scenario>/<step>.png`.

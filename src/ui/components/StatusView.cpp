@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "app/TestHooks.hpp"
+#include "app/crash/Crash.hpp"
 #include "platform/Platform.hpp"
 
 using namespace brls::literals;  // for _i18n
@@ -108,7 +109,9 @@ TextFieldCell::TextFieldCell() {
     detail->setTextColor(brls::Application::getTheme()["brls/list/listItem_value_color"]);
     setMinHeight(kTouchTarget);
     registerClickAction([this](brls::View*) {
-        // The keyboard closes before the callback runs, on the main thread (swkbd blocks the frame on the Switch).
+        // The keyboard closes before the callback runs, on the main thread (swkbd blocks the frame on the Switch). While
+        // the user types the main loop stands still on purpose: the watchdog mustn't take that for a hang (WP-12).
+        const app::crash::BlockingWait typing;
         brls::Application::getImeManager()->openForText(
             [this](std::string text) {
                 setValue(text);
