@@ -1,16 +1,16 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** WP-22 (portrait reader) done, the owner tried it; one console run of the tap fix is left. Then WP-13.
+**Phase 3 – Features. Now:** WP-22 (portrait reader) done and tried by the owner. **Next: WP-13.**
 WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 12, **v0.1.0 released**.
 ## Last session (2026-10-30, WP-22, Opus) — portrait reader done, owner's verdict in (D46)
 - **New:** reader orientation (Y, menu Rotate, settings → Orientation; `reader.orientation`/`lastPortrait`); portrait draws
   through one NanoVG transform, ReaderView takes every touch and runs `addButton` buttons by the mapped point; D-pad turned,
   L/R keep sides; docked = landscape (`handheldMode()`, `--simulate-docked`); `reader` event: `orientation`, `screenW/H`, `x/y`.
-- **Console** (handheld, app mode): `reader-portrait` ×2 and `reader-paged` ×2 green (100 portrait turns p90 18 ms, growth 0).
+- **Console** (handheld, app mode): `reader-portrait` ×2 and `reader-paged` ×3 green (100 portrait turns p90 18 ms, growth 0).
 - **Owner's try:** feels right, leans to turned right. Quick taps were sometimes lost in both orientations: borealis makes a
   6-unit slide a drag and drops the tap. Fix: a touch that slid ≤ 40 units and let go within 300 ms is a tap (`core::isTap`
-  in `ReaderView::onPan`). `reader-paged` turns a page by a slid tap (failed on the old build). Green: unit, desktop E2E all.
-- **Left:** `reader-paged` on the console with the tap fix (the console is free again, with the owner's normal build), then
-  the owner tries quick taps on the device. v0.2.0 is the owner's call (CHANGELOG [Unreleased]).
+  in `ReaderView::onPan`). `reader-paged` turns a page by a slid tap (failed on the old build). Green: unit, desktop E2E all,
+  console `reader-paged` (p90 19 ms; the owner's config came back byte-identical). The build runs for the owner's quick-tap try.
+- **Left (owner):** whether quick taps now feel right on the device; whether this ships as v0.2.0 (CHANGELOG [Unreleased]).
 - **Found:** a config save holds the main loop briefly (`reader-portrait` waits for it). **Fixed (chore):** Switch runs keep the
   owner's `config.json` (copy + exact restore, README "Device safety"). Follow-ups: saves off the main thread?; portrait D-pad repeats; D45's.
 ## Known facts about the environment

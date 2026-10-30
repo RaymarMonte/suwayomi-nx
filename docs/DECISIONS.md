@@ -784,6 +784,7 @@ pages; keeping the 512 MiB page cache (no reader path comes back to most of thos
   quick rotate goes to the last portrait way used, so once chosen in the settings Y goes there). Quick taps were sometimes
   lost, in both orientations: borealis starts a drag once a finger has moved 6 units and cancels the tap, and a short drag
   turns nothing. Now a touch that slid at most 40 units and let go within 300 ms is a tap (`core::isTap`, in
-  `ReaderView::onPan`; a button under it runs in landscape too). `reader-paged` turns one page by such a slid tap.
+  `ReaderView::onPan`; a button under it runs in landscape too). `reader-paged` turns one page by such a slid tap
+  (green on desktop and on the console).
 Rejected: the whole app in portrait (borealis patch, double tests); auto-rotate by the motion sensor (later); a "physical"
 L/R; decoding every page for both orientations (twice the memory).

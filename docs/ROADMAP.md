@@ -29,7 +29,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-10](wp/WP-10-manga-details.md) | Manga details + chapter list | 09 | Opus | M | – | done |
 | [WP-11](wp/WP-11-paged-reader.md) | Paged reader + progress sync | 10 | Opus | L | – | done |
 | [WP-12](wp/WP-12-mvp-hardening.md) | MVP hardening, soak test, **v0.1 release** | 11 | Opus | M | Try it for real | done (v0.1.0, 2026-10-30) |
-| [WP-22](wp/WP-22-portrait-reader.md) | **Portrait reader**: hold the Switch sideways, pages fill the tall screen (owner's top priority, 2026-10-30). **Runs next, after WP-12** | 12 | Opus | M | **Yes**: try it in your hands; console | Done (owner tried it 2026-10-30); the tap fix's console run left |
+| [WP-22](wp/WP-22-portrait-reader.md) | **Portrait reader**: hold the Switch sideways, pages fill the tall screen (owner's top priority, 2026-10-30). **Runs next, after WP-12** | 12 | Opus | M | **Yes**: try it in your hands; console | Done (owner tried it 2026-10-30) |
 | WP-13 | Webtoon / continuous reader + zoom & pan, in both orientations | 12, 22 | Opus | L | – | todo |
 | WP-14 | Browse sources, search, add to library | 12 ∥13 | Opus | M | – | todo |
 | WP-15 | Updates feed + reading history | 12 ∥13 | **S** | M | – | todo |
