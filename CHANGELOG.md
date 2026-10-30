@@ -3,7 +3,7 @@
 All notable changes to Suwayomi NX. Versions follow [Semantic Versioning](https://semver.org/); while the version starts
 with 0, any release may change things.
 
-## [0.1.0] - unreleased
+## [0.1.0] - 2026-10-30
 
 The first release: read your Suwayomi library on the Switch.
 

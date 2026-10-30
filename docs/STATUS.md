@@ -1,18 +1,18 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 2 – App (WP-08 …). Now:** WP-12 (MVP hardening, v0.1), PC side done; the console and the owner's part are left.
-WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 11.
+**Phase 2 – App (WP-08 …). Next:** WP-13 (webtoon / continuous reader + zoom & pan; its WP file is still a short
+note in ROADMAP.md: plan it first). WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 12, **v0.1.0 released**.
 
-## Last session (2026-10-30, WP-12 PC side + console runs, Opus)
+## Last session (2026-10-30, WP-12, Opus) — WP-12 done, v0.1.0 on GitHub Releases
 - **Fixed (D45):** a stopped server times out (the firewall drops packets) instead of refusing: now "Can't reach the server"
   (net: a connect timeout = Network); a failed isRead save was resent every frame and saves never stopped while the server
   was away: saves back off 5 → … → 60 s; pages that failed offline reload when turned to. Page cache 512 → 256 MiB (soak).
-- **New:** scenarios `offline-errors`, `soak`, `touch-pass`; test config `"diskCache": false`; 0.1.0, README, CHANGELOG, `tools/release.sh`.
-- **Green:** unit, integration, desktop; console: `smoke`, `touch-pass`, `offline-errors`, `soak` ×2 (p90 18 ms), `crash-drills` 10/10.
-- **Owner's first try:** a watchdog crash 10 s into typing the address (the Switch keyboard blocks the loop): fixed with
-  `crash::BlockingWait`, new Switch test `keyboard-wait` (failed before, passes now). Release rebuilt and on the SD.
-- **Left (owner):** release .nro from the Album (refusal screen, no new crash/fatal file); sleep in the reader (POWER, wake,
-  pages load); dogfooding on the real server (`http://<server-lan-ip>:4568`); then tag `v0.1.0` + GitHub Release (owner's OK).
-- Follow-ups: a save failing as the reader closes isn't retried; covers failed offline stay fallback art until rebuilt.
+- **Owner's first real use:** a watchdog crash 10 s into typing the address (the Switch keyboard blocks the main loop):
+  fixed with `crash::BlockingWait`; Switch-only test `keyboard-wait` (failed before, passes now).
+- **New:** scenarios `offline-errors`, `soak`, `touch-pass`, `keyboard-wait`; README user part, CHANGELOG, `tools/release.sh`.
+- **Green:** unit, integration, desktop; console `smoke`, `touch-pass`, `offline-errors`, `soak` ×2 (p90 18 ms, peak ~310 MiB),
+  `crash-drills` 10/10, `keyboard-wait`; owner: Album refusal, sleep/wake in the reader, setup + reading on the real server.
+- Follow-ups: a save failing as the reader closes isn't retried; covers failed offline stay fallback art; first-run log
+  says "config: the answer is not valid JSON" (no config.json yet).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
