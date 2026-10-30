@@ -1,6 +1,6 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 2 – App (WP-08 …). Next:** WP-13 (webtoon / continuous reader + zoom & pan; its WP file is still a short
-note in ROADMAP.md: plan it first). WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 12, **v0.1.0 released**.
+**Phase 3 – Features. Next:** WP-22 (portrait reader, `docs/wp/WP-22-portrait-reader.md`; owner's top priority, before
+WP-13). WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 12, **v0.1.0 released**.
 
 ## Last session (2026-10-30, WP-12, Opus) — WP-12 done, v0.1.0 on GitHub Releases
 - **Fixed (D45):** a stopped server times out (the firewall drops packets) instead of refusing: now "Can't reach the server"
