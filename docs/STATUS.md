@@ -7,12 +7,13 @@ WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 12, **v0.1.
   L/R keep sides; docked = landscape (`handheldMode()`, `--simulate-docked`); `reader` event: `orientation`, `screenW/H`, `x/y`.
 - **Green:** unit, npm test + typecheck, desktop E2E all 19 (new `reader-portrait`: 100 turns p90 1 ms, growth 0); Switch
   build + gate PASS. `MANGA.menuEntry` rows are 60 px apart (not 72); `reader-paged` desktop menu golden refreshed (Rotate).
-- **Found:** a config save holds the main loop briefly; a 100 ms desktop tap during it is lost (`reader-portrait` waits).
+- **Found:** a config save holds the main loop briefly (a 100 ms desktop tap during it is lost; `reader-portrait` waits).
+  The Switch test driver deletes the owner's `config.json` at every launch: after the runs it was put back by hand
+  (the owner's server, landscape) and the new build started for the owner's try. Fix the driver (back up + restore).
 - **Console** (handheld, app mode): `reader-portrait` ×2 green (new Switch goldens, looked at; 100 portrait turns p90 18 ms,
   memory growth 0), `reader-paged` ×2 green (menu golden refreshed; p90 19 ms). No crash report or fatal file.
 - **Left (owner):** read a real chapter both ways (which way, buttons, tap zones) → verdict into D46, tick WP-22. v0.2.0?
-- Follow-ups: config saves off the main thread?; in portrait the held page-turn D-pad button repeats; a save failing as the
-  reader closes isn't retried; first-run log "config: the answer is not valid JSON".
+- Follow-ups: config saves off the main thread?; the held page-turn D-pad button repeats in portrait; older ones: D45.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
