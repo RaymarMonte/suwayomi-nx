@@ -91,7 +91,8 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
   `"showSetup": true` = the setup screen opens with those values filled in (the Switch can't type in a test; the login screen
   fills in the password too); `"diagnostics": {"burst": n}` = the diagnostics screen; `"imageBench"`; `"drill"`; `"diskCache": false` = the image
   loader runs without its SD-card cache (WP-12: pages cached by earlier runs would load with the server stopped). The harness
-  removes `config.json` before every launch unless `launch({ keepConfig: true })` (a restart test).
+  removes `config.json` before every launch unless `launch({ keepConfig: true })` (a restart test). On the Switch the
+  driver copies the owner's `config.json` and `.bak` first and puts them back exactly after every scenario (SwitchDriver, below).
 - Events are text. Asserting on them costs almost no tokens, while screenshots are images and cost a lot.
 
 ## Fixture manga (deterministic content)
@@ -201,6 +202,13 @@ interface Driver {
     shows the fatal screen). A new fatal file also writes `tests/e2e/out/STOP-console-fatal.txt`, and the SwitchDriver refuses to start
     while that file exists, so nothing retries until the owner has checked the console and deleted it.
   - **safety allowlist**: the driver can only call the endpoints listed in SAFETY.md S10. Anything else throws before sending.
+  - **the owner's settings** (found 2026-10-30: every run wiped them): the console is also the owner's reading console (D18), and
+    its `config.json` names the owner's real server. Before the first launch changes it, `drivers/ownerConfig.ts` copies
+    `config.json` and `config.json.bak` to `tests/e2e/out/owner-config/` (git-ignored, hash-checked, `pending.json` written last).
+    Every scenario's cleanup puts them back (upload + SHA-256, or delete where there was no file), removes the harness's
+    `test/config.json`, and renames `pending.json` to `restored.json`. `tools/e2e.sh switch` restores once more after the run,
+    also after a failure or Ctrl+C; `tools/e2e.sh switch --restore-config` does only that. A leftover `pending.json` is never
+    overwritten (it holds the owner's files, the console the tests'). After a new fatal file the copy waits for the owner.
 
 ## Launch mode (application mode only, D21)
 

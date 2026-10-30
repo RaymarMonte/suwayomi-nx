@@ -112,6 +112,8 @@ push from WSL, where `gh` is logged in (SETUP.md C). `<repo>` below = the repo p
   runs `tests/e2e/scenarios/<scenario>.test.ts` (all of them without a name). Flags: `--update-goldens`, `--visible` (desktop in WSLg),
   `--no-build`. Output: `tests/e2e/out/<scenario>/`. Desktop smoke ~1 s; Switch smoke ~20 s (console on, HOME menu's first tile = Spelunky 2).
   A new console fatal file writes `tests/e2e/out/STOP-console-fatal.txt`: the Switch driver refuses to run until the owner deletes it.
+  Switch runs copy the owner's `config.json` (+ `.bak`) to `tests/e2e/out/owner-config/` and put it back after every scenario and the run;
+  `tools/e2e.sh switch --restore-config` puts back one a stopped run left (`pending.json` there).
 
 ## Docs index
 

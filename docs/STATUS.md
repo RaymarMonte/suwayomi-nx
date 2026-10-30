@@ -9,10 +9,10 @@ WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 12, **v0.1.
 - **Owner's try:** feels right, leans to turned right. Quick taps were sometimes lost in both orientations: borealis makes a
   6-unit slide a drag and drops the tap. Fix: a touch that slid ≤ 40 units and let go within 300 ms is a tap (`core::isTap`
   in `ReaderView::onPan`). `reader-paged` turns a page by a slid tap (failed on the old build). Green: unit, desktop E2E all.
-- **Left:** `reader-paged` on the console with the tap fix (once the driver session below is done with the console), then
+- **Left:** `reader-paged` on the console with the tap fix (the console is free again, with the owner's normal build), then
   the owner tries quick taps on the device. v0.2.0 is the owner's call (CHANGELOG [Unreleased]).
-- **Found:** a config save holds the main loop briefly (`reader-portrait` waits for it); the Switch driver deleted the owner's
-  `config.json` (a side session is fixing it). Follow-ups: saves off the main thread?; held portrait D-pad repeats; D45's.
+- **Found:** a config save holds the main loop briefly (`reader-portrait` waits for it). **Fixed (chore):** Switch runs keep the
+  owner's `config.json` (copy + exact restore, README "Device safety"). Follow-ups: saves off the main thread?; portrait D-pad repeats; D45's.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

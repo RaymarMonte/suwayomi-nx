@@ -15,6 +15,7 @@ tests/e2e/
   goldens/<driver>/<scenario>/<step>.png   committed golden screenshots
   device/               profile.json (how to drive this console), .env (address + token, git-ignored), local/ (reference crops, git-ignored)
   out/<scenario>/       what a run leaves behind: events.jsonl, app.log, golden diffs, last screen on failure (git-ignored)
+  out/owner-config/     Switch: the copy of the console's own config.json (+ .bak) the run puts back (git-ignored, see Device safety)
 ```
 
 ## Running
@@ -28,6 +29,7 @@ tools/e2e.sh switch smoke         # the same on the console (on, reachable, HOME
 tools/e2e.sh desktop smoke --visible          # watch it in a WSLg window instead of the hidden Xvfb screen
 tools/e2e.sh desktop smoke --update-goldens   # write new golden screenshots (only for an intended UI change)
 tools/e2e.sh switch smoke --no-build          # reuse the last test build
+tools/e2e.sh switch --restore-config          # only put the console's own config.json back (after a run that couldn't)
 ```
 
 The run stops at the first failure (`bail: 1`). Then look in `tests/e2e/out/<scenario>/`: the error message names the file to open.
@@ -82,7 +84,8 @@ Switch: closes the software and goes back to the HOME menu), and the logs land i
    (`SNX_APPLET_CONSOLE=1`, owner watching) and never runs a drill: from the Album any crash is a system fatal (D41).
 7. Fixture manga and the test server: `docs/TESTING.md` "Fixture manga", `tools/test-server/README.md`. Read the page on screen with
    `findPageCodes()` from `lib/pagecode.ts` (decode the screenshot with sharp first), not by looking at the picture.
-8. **WP-08:** every `launch()` removes `config.json` first (a first run) unless `keepConfig: true` (restart tests). Text fields:
+8. **WP-08:** every `launch()` removes `config.json` first (a first run) unless `keepConfig: true` (restart tests). On the Switch
+   that is the owner's own file: the driver copies it first and puts it back after the scenario (Device safety). Text fields:
    `typeText()` on desktop (tap the field, type, tap the dialog's OK hint, `KEYBOARD_OK`), the test config's `showSetup` on the
    Switch. Touch coordinates of the app's screens: `lib/screens.ts`.
 
@@ -102,6 +105,15 @@ A mismatch writes `out/<scenario>/<step>.actual.png` and `<step>.diff.png` (red 
   and deleted that file.
 - After a crash the HOME menu says "The software was closed because an error occurred." (D35). `waitForExit()` reports that
   (`ENDED_SOFTWARE_CLOSED`) and dismisses it with A, only after the screen check (reference crop `software-closed`).
+- **The owner's settings** (`drivers/ownerConfig.ts`): the test console is also the owner's reading console, and its
+  `config.json` names the owner's real server. Before the first launch changes it, the driver copies `config.json` and
+  `config.json.bak` (whichever exist) to `out/owner-config/`, checks each copy against the console's SHA-256, and writes
+  `pending.json` last. At the end of every scenario it uploads them again with a hash check (or deletes what the tests left where
+  there was no file), removes the harness's `test/config.json` (a test build would start with the test server), and renames
+  `pending.json` to `restored.json`. `tools/e2e.sh switch` runs `drivers/restore-config.ts` once more after the run, also after a
+  failure or Ctrl+C, for a scenario stopped before it could. A `pending.json` still there means the console has the tests' files:
+  it is never overwritten, the next run puts it back, or `tools/e2e.sh switch --restore-config` does. After a new fatal file it
+  waits (nothing touches the console until the owner has checked it). Only files inside `sdmc:/switch/suwayomi-nx/`.
 - It sends one request at a time, at least 150 ms apart: bursts of connections make the console reset new ones for ~10 s.
 - If the console stops answering, the error asks the owner to look at it (it might show the "press POWER" fatal screen).
 - Missing reference crops (`device/local/*.png`): `device/profile.json` says which screen and region to crop.

@@ -2,6 +2,7 @@
 // Every request goes through checkAllowed() first: the SAFETY.md S10 allowlist. Anything else throws before a byte is sent.
 // Host, port and bearer token come from tests/e2e/device/.env (git-ignored). The token never appears in messages or logs.
 
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { connect } from 'node:net';
 import { fileURLToPath } from 'node:url';
@@ -323,4 +324,14 @@ export class Autopilot {
     async deleteFile(sdPath: string): Promise<void> {
         await this.expect([200, 204, 404], 'DELETE', `/files?path=${encodeURIComponent(sdPath)}`);
     }
+}
+
+/** PUT writes in place and deletes the file if the upload breaks off, so the hash is checked; one retry on a mismatch. */
+export async function putVerified(api: Pick<Autopilot, 'putFile' | 'sha256'>, sdPath: string, data: Buffer): Promise<void> {
+    const want = createHash('sha256').update(data).digest('hex');
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        await api.putFile(sdPath, data);
+        if ((await api.sha256(sdPath)) === want) return;
+    }
+    throw new Error(`upload of ${sdPath} failed twice (SHA-256 mismatch)`);
 }

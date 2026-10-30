@@ -7,6 +7,8 @@
 // - A new file in atmosphere/fatal_errors/ or fatal_reports/ is a hard stop: the driver writes tests/e2e/out/STOP-console-fatal.txt and refuses
 //   to run again until the owner has looked at the console and deleted that file. It never retries.
 // - The console not answering at all gets a message asking the owner to look at it (it may show the fatal "press POWER" screen).
+// - The console is also the owner's reading console: their config.json is copied to tests/e2e/out/owner-config/ before the first
+//   launch changes it, and put back exactly at the end of every scenario (ownerConfig.ts).
 
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -16,8 +18,9 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 import { EventStream, type EventSource } from '../lib/events.ts';
-import { APP_DIR, Autopilot, ConsoleUnreachableError, CRASH_REPORTS_DIR, FATAL_DIRS, UNREACHABLE_HELP } from './autopilot.ts';
+import { APP_DIR, Autopilot, ConsoleUnreachableError, CRASH_REPORTS_DIR, FATAL_DIRS, putVerified, UNREACHABLE_HELP } from './autopilot.ts';
 import { NotSupportedError, startEventFor, type Button, type Driver, type LaunchOptions } from './Driver.ts';
+import { CONFIG_FILES, OwnerConfigBackup } from './ownerConfig.ts';
 import { parseRegion, regionRmse, type Region } from './screencheck.ts';
 
 const run = promisify(execFile);
@@ -81,6 +84,8 @@ export class SwitchDriver implements Driver {
     private firstCrashBefore: CrashLists | null = null; // from the first launch: dispose() compares once more (late reports)
     private launched = false; // the app was started and hasn't quit yet
     private touched = false; // the console was moved away from the HOME menu by this driver
+    private readonly ownerConfig: OwnerConfigBackup;
+    private ownerConfigSaved = false; // this driver made sure the owner's config.json is backed up (dispose() puts it back)
 
     constructor(options: SwitchDriverOptions) {
         if (existsSync(STOP_FILE)) {
@@ -89,6 +94,7 @@ export class SwitchDriver implements Driver {
         this.out = options.out;
         this.autopilot = options.autopilot ?? new Autopilot();
         this.profile = JSON.parse(readFileSync(join(DEVICE_DIR, 'profile.json'), 'utf8')) as Profile;
+        this.ownerConfig = new OwnerConfigBackup(this.autopilot);
     }
 
     async deploy(nroPath: string): Promise<void> {
@@ -116,11 +122,11 @@ export class SwitchDriver implements Driver {
         if (applet) await this.toHbmenuAppletMode();
         else await this.toHbmenuApplicationMode();
 
+        await this.backUpOwnerConfig(); // the app is closed here (hbmenu), so its files are settled
         if (opts.testConfig) await this.writeFile('test/config.json', JSON.stringify(opts.testConfig, null, 2));
         else await this.autopilot.deleteFile(`${APP_DIR}/test/config.json`);
         if (!opts.keepConfig) {
-            await this.autopilot.deleteFile(`${APP_DIR}/config.json`);
-            await this.autopilot.deleteFile(`${APP_DIR}/config.json.bak`);
+            for (const name of CONFIG_FILES) await this.autopilot.deleteFile(`${APP_DIR}/${name}`);
         }
         await this.autopilot.deleteFile(`${APP_DIR}/test/events.jsonl`);
 
@@ -234,19 +240,45 @@ export class SwitchDriver implements Driver {
     /**
      * Back to the start state: nothing running, HOME menu on the first tile. Then the crash check, if quit() didn't do it,
      * and once more against the lists from the first launch: a crash report that came a moment after an end the driver had
-     * already checked (D33: a thread of ours left running into unloaded code would cause one).
+     * already checked (D33: a thread of ours left running into unloaded code would cause one). Last, the owner's config.json
+     * goes back, also after a failure (its error never hides the first one), but not after a new fatal file: then nothing
+     * touches the console until the owner has checked it, and the copy waits in tests/e2e/out/owner-config/.
      */
     async dispose(): Promise<void> {
         if (!this.touched) return;
         try {
-            await this.recover();
-            this.touched = false;
-            this.launched = false;
-        } finally {
-            if (this.crashBefore) await this.checkCrashes();
-            const first = this.firstCrashBefore;
-            this.firstCrashBefore = null;
-            if (first) await this.compareCrashLists(first);
+            try {
+                await this.recover();
+                this.touched = false;
+                this.launched = false;
+            } finally {
+                if (this.crashBefore) await this.checkCrashes();
+                const first = this.firstCrashBefore;
+                this.firstCrashBefore = null;
+                if (first) await this.compareCrashLists(first);
+            }
+        } catch (e) {
+            if (!(e instanceof FatalConsoleError)) await this.restoreOwnerConfig().catch((r: Error) => console.warn(`[switch] ${r.message}`));
+            throw e;
+        }
+        await this.restoreOwnerConfig();
+    }
+
+    /**
+     * Puts the owner's config.json and config.json.bak back exactly as the first launch found them (ownerConfig.ts). dispose()
+     * does it at the end of every scenario, tools/e2e.sh once more after the run (restore-config.ts). True if there was
+     * something to put back.
+     */
+    async restoreOwnerConfig(): Promise<boolean> {
+        try {
+            const restored = await this.ownerConfig.restore();
+            this.ownerConfigSaved = false;
+            return restored;
+        } catch (e) {
+            throw new Error(
+                `the console's own config.json could not be put back: ${(e as Error).message}. The copy is in ${this.ownerConfig.dir}; ` +
+                    'once the console answers, tools/e2e.sh switch --restore-config puts it back.',
+            );
         }
     }
 
@@ -448,18 +480,25 @@ export class SwitchDriver implements Driver {
 
     // --- files -------------------------------------------------------------------------------------------------------------
 
+    /** Before this driver's first change to config.json: a copy of the owner's, unless one from a stopped run still waits. */
+    private async backUpOwnerConfig(): Promise<void> {
+        if (this.ownerConfigSaved) return;
+        const { manifest, earlier } = await this.ownerConfig.ensure();
+        if (earlier) {
+            console.warn(
+                `[switch] the console's own config.json from ${manifest.takenAt} was never put back (a run stopped early): ` +
+                    `its copy in ${this.ownerConfig.dir} goes back at the end of this scenario`,
+            );
+        }
+        this.ownerConfigSaved = true;
+    }
+
     private sdPath(path: string): string {
         if (path.startsWith('/') || path.split(/[\\/]/).some((s) => s === '..' || s === '.')) throw new Error(`not a path inside the data folder: ${path}`);
         return `${APP_DIR}/${path}`;
     }
 
-    /** PUT writes in place and deletes the file if the upload breaks off, so the hash is checked; one retry on a mismatch. */
-    private async putVerified(sdPath: string, data: Buffer): Promise<void> {
-        const want = createHash('sha256').update(data).digest('hex');
-        for (let attempt = 1; attempt <= 2; attempt++) {
-            await this.autopilot.putFile(sdPath, data);
-            if ((await this.autopilot.sha256(sdPath)) === want) return;
-        }
-        throw new Error(`upload of ${sdPath} failed twice (SHA-256 mismatch)`);
+    private putVerified(sdPath: string, data: Buffer): Promise<void> {
+        return putVerified(this.autopilot, sdPath, data);
     }
 }
