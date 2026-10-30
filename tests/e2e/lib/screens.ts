@@ -93,9 +93,12 @@ export const MANGA = {
     rowMenu(index: number): { x: number; y: number } {
         return { x: 1224, y: 207 + 84 * index };
     },
-    /** Entry `index` of a borealis dropdown with `count` entries (they sit at the bottom of the screen, 72 px apart). */
+    /**
+     * Entry `index` of a borealis dropdown with `count` entries (they sit at the bottom of the screen, 60 px apart, the last
+     * one's middle at y 576; measured with 5 entries in WP-22, where the old 72 px guess missed the first entry).
+     */
     menuEntry(index: number, count: number): { x: number; y: number } {
-        return { x: 640, y: 588 - 72 * (count - 1 - index) };
+        return { x: 640, y: 576 - 60 * (count - 1 - index) };
     },
 };
 
@@ -113,6 +116,44 @@ export const READER = {
     retry: { x: 640, y: 409 },
     swipeToLeft: { x1: 900, y1: 380, x2: 300, y2: 380 },
     swipeToRight: { x1: 300, y1: 380, x2: 900, y2: 380 },
-    /** The settings menu's entries (a borealis dropdown, MANGA.menuEntry places them): direction, fit, background, number. */
-    settingsCount: 4,
+    /** WP-22: the menu's Rotate button (between the page number and Settings). */
+    rotate: { x: 766, y: 672 },
+    /**
+     * The settings menu's entries (a borealis dropdown, MANGA.menuEntry places them): direction, fit, background, number,
+     * orientation (WP-22).
+     */
+    settingsCount: 5,
 };
+
+/** WP-22: how the console is held in the reader ("reader" events' orientation). */
+export type Orientation = 'landscape' | 'portrait-left' | 'portrait-right';
+
+/**
+ * The reader in portrait (WP-22), in reader units on its 720 x 1280 screen: tap zones (the outer 30 % on each side), the
+ * menu's buttons (Close, Rotate, Settings in the bottom bar), Retry, and swipes. Turn them into the landscape touch points
+ * the drivers send with portraitPoint().
+ */
+export const PORTRAIT = {
+    left: { x: 100, y: 640 },
+    middle: { x: 360, y: 400 },
+    right: { x: 620, y: 640 },
+    close: { x: 100, y: 1232 },
+    rotate: { x: 414, y: 1232 },
+    settings: { x: 620, y: 1232 },
+    swipeToLeft: { x1: 600, y1: 700, x2: 150, y2: 700 },
+    swipeToRight: { x1: 150, y1: 700, x2: 600, y2: 700 },
+};
+
+/**
+ * A point on the portrait reader's screen -> the landscape screen point to touch (core::readerToScreen). Turned left: the
+ * reader's top is the real right edge; turned right: its top is the real left edge.
+ */
+export function portraitPoint(way: Orientation, p: { x: number; y: number }): { x: number; y: number } {
+    if (way === 'portrait-left') {
+        return { x: 1280 - p.y, y: p.x };
+    }
+    if (way === 'portrait-right') {
+        return { x: p.y, y: 720 - p.x };
+    }
+    return p;
+}

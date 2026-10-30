@@ -747,3 +747,36 @@ the server's answer.
   `keyboard-wait` (Switch only: the keyboard open for 15 s; it failed on the old build, passes on the fixed one).
 Rejected: retrying after a connect timeout (another 5 s per try for a server that is away); a negative cache for failed
 pages; keeping the 512 MiB page cache (no reader path comes back to most of those pages).
+
+**D46 The portrait reader: only the reader turns, chosen by hand, drawn through one transform, touch mapped by us**
+(WP-22, 2026-10-30; planner's defaults, the owner's verdict after trying it is still to come).
+- **Reader only, chosen by hand.** The library, details and settings stay landscape; you turn the console once a chapter is
+  open. The whole app turned would need a borealis patch (it has no rotation and lays every screen out 1280 wide) and every
+  screen's tests twice. The orientation is a reader setting for all manga (`reader.orientation`: `landscape` /
+  `portrait-left` / `portrait-right`) plus `reader.lastPortrait`, the portrait way the quick rotate goes to (turned left at
+  first). New keys, no migration. Y and the menu's Rotate flip landscape <-> that way; the settings' Orientation picks any.
+  "Turned left" = a quarter turn counter-clockwise (the left Joy-Con at the bottom). No motion sensor (later, with a lock).
+- **Docked = landscape.** `platform::handheldMode()` (Switch: `appletGetOperationMode()`, a value libnx keeps, read every
+  frame) decides the orientation in effect; the saved choice comes back in handheld mode. Rotate is hidden while docked.
+  Desktop test flag `--simulate-docked`.
+- **Drawing:** `ReaderView` draws the page, the spinner and its `overlay()` (all of the reader's own views, laid out for the
+  720 x 1280 reader screen) inside one NanoVG transform from `core::readerTransform`. borealis is not changed. Two borealis
+  details needed handling: a box skips leaf children outside its parents' culling box (the view widens its own to the
+  reader screen), and the focus highlight is drawn outside any view's transform (in portrait the focus always stays on the
+  page view, whose highlight is hidden).
+- **Touch:** borealis finds the touched view by its unturned box, so in portrait the reader view takes every touch
+  (`hitTest` returns itself), turns the point with `core::screenToReader` and runs the action of a button registered with
+  `addButton` (Retry, Close, Rotate, Settings) whose box holds the turned point; anything else is a tap zone, a drag or a
+  swipe measured on the reader screen. In landscape borealis handles the buttons as before.
+- **Controller:** the D-pad and sticks turn with the screen (`core::readerArrow`: the press that points to the screen's right
+  as the console is held is "right"); L/R keep their sides (after a quarter turn both sit on one side of the console, so a
+  "physical" mapping doesn't help). Up/down repeat while held, so in portrait holding the button that turns pages turns
+  several. Pages decode for the portrait screen (`ReaderModel::setScreen`): turning reloads the page on screen once.
+- **Spreads** are shown whole in portrait (720 x 540 for a 4:3 spread). Splitting them, or turning back to landscape for
+  them, is for later.
+- **Tests:** unit tests for all the math; scenario `reader-portrait` (TESTING.md 6b) with touch points written on the
+  portrait screen (`portraitPoint`); the `reader` event has `orientation`, `orientationSetting`, `screenW/H` and the page's
+  `x`/`y` (a drag is reported once it ends). Found on the way: a config save runs on the main loop and holds it for a moment;
+  a desktop tap (100 ms) during it is lost, because borealis reads the mouse once a frame (the scenario waits for the save).
+Rejected: the whole app in portrait (borealis patch, double tests); auto-rotate by the motion sensor (later); a "physical"
+L/R; decoding every page for both orientations (twice the memory).

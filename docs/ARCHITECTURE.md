@@ -28,7 +28,8 @@ That README plus the public headers *is* the contract other sessions read.
 - **GraphQL**: `.graphql` documents in `src/core/graphql/*.graphql`, embedded as strings at build time. A `GqlRequest{doc, variables}` builder and a `GqlResponse` parser
   (data vs `errors[]`, partial data).
 - **Reader math** (`core/ReaderMath`, WP-11): fit modes (width/height/screen/original), page order (LTR/RTL/vertical), spread detection (aspect > 1.2),
-  tile slicing plan for tall images, prefetch window selection.
+  tile slicing plan for tall images, prefetch window selection. Portrait (WP-22, D46): the reader screen with width and height
+  swapped, one transform for drawing, and the mapping of touch points, moves and D-pad presses onto it.
 - **Policies**: LRU with byte budget (generic), retry/backoff policy, progress sync (`core/ProgressSync`, WP-11: send `lastPageRead` at most every N s, `isRead` at the last page, everything on exit).
 - **RuntimeProfile**: `makeRuntimeProfile(mode, totalMem, usedMem)` → all budgets and limits (see below). Only `Full` is built and used for now (D21).
   Pure and table-tested.

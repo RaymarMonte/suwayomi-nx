@@ -1,5 +1,6 @@
 #include "ui/reader/ReaderActivity.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <iterator>
 #include <utility>
@@ -19,6 +20,10 @@ constexpr float kMessageWidth = 800;
 constexpr float kBarHeight = 72;         // D16: touch targets of at least 72 px
 constexpr float kBottomBarHeight = 96;
 constexpr float kButtonWidth = 200;
+constexpr float kPortraitButtonWidth = 168;  // WP-22: four bar items fit across 720
+constexpr float kBarPadding = 32;
+constexpr float kPortraitBarPadding = 16;
+constexpr float kMessageMargin = 40;
 constexpr float kScrollShare = 0.5f;     // D-pad up/down moves a tall page by half a screen
 const NVGcolor kBarColor = nvgRGBA(16, 16, 16, 225);
 const NVGcolor kBarText = nvgRGB(235, 235, 235);
@@ -31,6 +36,10 @@ const char* const kFitKeys[] = {"reader/fit_screen", "reader/fit_width", "reader
 const core::ReaderBackground kBackgrounds[] = {core::ReaderBackground::Black, core::ReaderBackground::Gray,
                                                core::ReaderBackground::White};
 const char* const kBackgroundKeys[] = {"reader/background_black", "reader/background_gray", "reader/background_white"};
+const core::ReaderOrientation kOrientations[] = {core::ReaderOrientation::Landscape, core::ReaderOrientation::PortraitLeft,
+                                                 core::ReaderOrientation::PortraitRight};
+const char* const kOrientationKeys[] = {"reader/orientation_landscape", "reader/orientation_portrait_left",
+                                        "reader/orientation_portrait_right"};
 
 template <typename T, std::size_t N>
 int indexOf(const T (&values)[N], T value) {
@@ -140,7 +149,9 @@ ReaderActivity::ReaderActivity(app::AppContext& context, core::Manga manga, std:
       startPage_(page),
       onClosed_(std::move(onClosed)),
       background_(context.config.config().reader.background),
-      showPageNumber_(context.config.config().reader.showPageNumber) {}
+      showPageNumber_(context.config.config().reader.showPageNumber),
+      orientation_(context.config.config().reader.orientation),
+      lastPortrait_(context.config.config().reader.lastPortrait) {}
 
 ReaderActivity::~ReaderActivity() {
     if (subscribed_) {
@@ -164,34 +175,38 @@ void ReaderActivity::build() {
     view_ = new ReaderView(context_.textures);
     view_->setWidth(brls::Application::contentWidth);
     view_->setHeight(brls::Application::contentHeight);
-    view_->setAxis(brls::Axis::COLUMN);
-    view_->setJustifyContent(brls::JustifyContent::CENTER);
-    view_->setAlignItems(brls::AlignItems::CENTER);
+    handheld_ = platform::handheldMode();
+    view_->setOrientation(core::effectiveOrientation(orientation_, handheld_),
+                          {brls::Application::contentWidth, brls::Application::contentHeight});
+    brls::Box* overlay = view_->overlay();  // everything below goes here: upright in either orientation
+    // A button works by touch in both orientations: borealis runs it in landscape, the view's mapped taps in portrait.
+    auto button = [this](const std::string& text, std::function<void()> action) {
+        brls::Button* made = makeButton(text, action);
+        view_->addButton(made, std::move(action));
+        return made;
+    };
 
     // The message where there is no page: loading, an error with Retry, the screens before and after the chapter.
     message_ = new brls::Box(brls::Axis::COLUMN);
     message_->setAlignItems(brls::AlignItems::CENTER);
-    message_->setWidth(kMessageWidth);
+    // Widths: layoutForScreen().
     messageTitle_ = makeLabel(26, kBarText);
-    messageTitle_->setWidth(kMessageWidth);
     messageTitle_->setHorizontalAlign(brls::HorizontalAlign::CENTER);
     message_->addView(messageTitle_);
     messageText_ = makeLabel(18, kBarText);
-    messageText_->setWidth(kMessageWidth);
     messageText_->setHorizontalAlign(brls::HorizontalAlign::CENTER);
     messageText_->setMarginTop(14);
     message_->addView(messageText_);
-    retryButton_ = makeButton("reader/retry"_i18n, [this] { retry(); });
+    retryButton_ = button("reader/retry"_i18n, [this] { retry(); });
     retryButton_->setMarginTop(28);
     message_->addView(retryButton_);
-    view_->addView(message_);
+    overlay->addView(message_);
 
     // The page number, bottom centre.
     pageNumberBox_ = new brls::Box(brls::Axis::ROW);
     pageNumberBox_->setPositionType(brls::PositionType::ABSOLUTE);
     pageNumberBox_->setPositionBottom(10);
     pageNumberBox_->setPositionLeft(0);
-    pageNumberBox_->setWidth(brls::Application::contentWidth);
     pageNumberBox_->setJustifyContent(brls::JustifyContent::CENTER);
     auto* pill = new brls::Box(brls::Axis::ROW);
     pill->setBackgroundColor(kPageNumberBackground);
@@ -200,54 +215,52 @@ void ReaderActivity::build() {
     pageNumber_ = makeLabel(16, kBarText);
     pill->addView(pageNumber_);
     pageNumberBox_->addView(pill);
-    view_->addView(pageNumberBox_);
+    overlay->addView(pageNumberBox_);
 
-    // The menu: the title on top, Close / page / Settings at the bottom.
+    // The menu: the title on top, Close / page / Rotate / Settings at the bottom.
     topBar_ = new brls::Box(brls::Axis::ROW);
     topBar_->setPositionType(brls::PositionType::ABSOLUTE);
     topBar_->setPositionTop(0);
     topBar_->setPositionLeft(0);
-    topBar_->setWidth(brls::Application::contentWidth);
     topBar_->setHeight(kBarHeight);
     topBar_->setAlignItems(brls::AlignItems::CENTER);
-    topBar_->setPadding(0, 32, 0, 32);
     topBar_->setBackgroundColor(kBarColor);
     barTitle_ = makeLabel(20, kBarText);
     barTitle_->setSingleLine(true);
-    barTitle_->setWidth(brls::Application::contentWidth - 64);
     topBar_->addView(barTitle_);
-    view_->addView(topBar_);
+    overlay->addView(topBar_);
 
     bottomBar_ = new brls::Box(brls::Axis::ROW);
     bottomBar_->setPositionType(brls::PositionType::ABSOLUTE);
     bottomBar_->setPositionBottom(0);
     bottomBar_->setPositionLeft(0);
-    bottomBar_->setWidth(brls::Application::contentWidth);
     bottomBar_->setHeight(kBottomBarHeight);
     bottomBar_->setAlignItems(brls::AlignItems::CENTER);
     bottomBar_->setJustifyContent(brls::JustifyContent::SPACE_BETWEEN);
-    bottomBar_->setPadding(0, 32, 0, 32);
     bottomBar_->setBackgroundColor(kBarColor);
-    bottomBar_->addView(makeButton("reader/close"_i18n, [this] { close(); }));
+    barButtons_.push_back(button("reader/close"_i18n, [this] { close(); }));
+    bottomBar_->addView(barButtons_.back());
     barPage_ = makeLabel(20, kBarText);
     bottomBar_->addView(barPage_);
-    bottomBar_->addView(makeButton("reader/settings"_i18n, [this] { openSettings(); }));
-    view_->addView(bottomBar_);
+    rotateButton_ = button("reader/rotate"_i18n, [this] { rotate(); });
+    barButtons_.push_back(rotateButton_);
+    bottomBar_->addView(rotateButton_);
+    barButtons_.push_back(button("reader/settings"_i18n, [this] { openSettings(); }));
+    bottomBar_->addView(barButtons_.back());
+    overlay->addView(bottomBar_);
 
     // Controller. Left/right turn pages (mirrored for right to left): the D-pad (and the sticks, borealis's NAV buttons)
-    // and L/R. Their actions come before borealis's focus moves, so a page turn never moves the focus.
-    view_->registerAction("", brls::BUTTON_NAV_LEFT, [this](brls::View*) { turn(core::Side::Left); return true; }, true);
-    view_->registerAction("", brls::BUTTON_NAV_RIGHT, [this](brls::View*) { turn(core::Side::Right); return true; }, true);
+    // and L/R. Their actions come before borealis's focus moves, so a page turn never moves the focus. In portrait the D-pad
+    // turns with the screen (arrow()); L/R keep their sides. Up/down repeat while held (scrolling): in portrait that is the
+    // press that turns pages.
+    view_->registerAction("", brls::BUTTON_NAV_LEFT, [this](brls::View*) { arrow(core::Arrow::Left); return true; }, true);
+    view_->registerAction("", brls::BUTTON_NAV_RIGHT, [this](brls::View*) { arrow(core::Arrow::Right); return true; }, true);
     view_->registerAction("", brls::BUTTON_LB, [this](brls::View*) { turn(core::Side::Left); return true; }, true);
     view_->registerAction("", brls::BUTTON_RB, [this](brls::View*) { turn(core::Side::Right); return true; }, true);
-    view_->registerAction("", brls::BUTTON_NAV_UP, [this](brls::View*) {
-        view_->scrollBy(-brls::Application::contentHeight * kScrollShare);
-        return true;
-    }, true, true);
-    view_->registerAction("", brls::BUTTON_NAV_DOWN, [this](brls::View*) {
-        view_->scrollBy(brls::Application::contentHeight * kScrollShare);
-        return true;
-    }, true, true);
+    view_->registerAction("", brls::BUTTON_NAV_UP, [this](brls::View*) { arrow(core::Arrow::Up); return true; }, true, true);
+    view_->registerAction("", brls::BUTTON_NAV_DOWN, [this](brls::View*) { arrow(core::Arrow::Down); return true; }, true,
+                          true);
+    view_->registerAction("reader/rotate"_i18n, brls::BUTTON_Y, [this](brls::View*) { rotate(); return true; });
     view_->registerAction("reader/menu"_i18n, brls::BUTTON_A, [this](brls::View*) { toggleMenu(); return true; });
     view_->registerAction("reader/retry"_i18n, brls::BUTTON_X, [this](brls::View*) { retry(); return true; });
     view_->registerAction("reader/close"_i18n, brls::BUTTON_B, [this](brls::View*) { close(); return true; });
@@ -264,9 +277,105 @@ void ReaderActivity::build() {
     };
     view_->onSwipe = [this](core::Side side) { turn(side); };
     view_->onDrawn = [this] {
+        followScreen();    // docked or undocked, the screen's size
         model_.onFrame();  // progress, when it's due
         report();
     };
+    layoutForScreen();
+}
+
+void ReaderActivity::followScreen() {
+    const bool handheld = platform::handheldMode();
+    const core::ReaderOrientation shown = core::effectiveOrientation(orientation_, handheld);
+    if (shown != view_->orientation() || handheld != handheld_) {
+        handheld_ = handheld;
+        // In portrait nothing but the page may have the focus (its highlight is hidden; a button's would be drawn unturned).
+        // Only a reader button's focus moves: a settings menu on top keeps its own.
+        brls::View* focus = brls::Application::getCurrentFocus();
+        for (brls::View* v = focus; v != nullptr && focus != view_; v = v->getParent()) {
+            if (v == view_) {
+                brls::Application::giveFocus(view_);
+                break;
+            }
+        }
+        view_->setOrientation(shown, {brls::Application::contentWidth, brls::Application::contentHeight});
+        layoutForScreen();
+        brls::Logger::info("reader: orientation {} (saved {}, {})", core::readerOrientationName(shown),
+                           core::readerOrientationName(orientation_), handheld ? "handheld" : "docked");
+    }
+    const int width = static_cast<int>(brls::Application::windowWidth);
+    const int height = static_cast<int>(brls::Application::windowHeight);
+    if (width > 0 && height > 0) {
+        model_.setScreen(core::readerScreen(shown, core::ImageSize{width, height}));  // pages decode for it
+    }
+}
+
+void ReaderActivity::layoutForScreen() {
+    const core::SizeF screen = view_->readerScreen();
+    const bool portrait = core::isPortrait(view_->orientation());
+    const float padding = portrait ? kPortraitBarPadding : kBarPadding;
+    const float messageWidth = std::min(kMessageWidth, screen.width - 2 * kMessageMargin);
+    message_->setWidth(messageWidth);
+    messageTitle_->setWidth(messageWidth);
+    messageText_->setWidth(messageWidth);
+    pageNumberBox_->setWidth(screen.width);
+    topBar_->setWidth(screen.width);
+    topBar_->setPadding(0, padding, 0, padding);
+    barTitle_->setWidth(screen.width - 2 * padding);
+    bottomBar_->setWidth(screen.width);
+    bottomBar_->setPadding(0, padding, 0, padding);
+    for (brls::Button* barButton : barButtons_) {
+        barButton->setWidth(portrait ? kPortraitButtonWidth : kButtonWidth);
+    }
+    rotateButton_->setVisibility(handheld_ ? brls::Visibility::VISIBLE : brls::Visibility::GONE);  // docked: landscape
+}
+
+void ReaderActivity::arrow(core::Arrow pressed) {
+    const float scroll = view_->readerScreen().height * kScrollShare;
+    switch (core::readerArrow(view_->orientation(), pressed)) {
+        case core::Arrow::Left:
+            turn(core::Side::Left);
+            break;
+        case core::Arrow::Right:
+            turn(core::Side::Right);
+            break;
+        case core::Arrow::Up:
+            view_->scrollBy(-scroll);
+            break;
+        case core::Arrow::Down:
+            view_->scrollBy(scroll);
+            break;
+    }
+}
+
+void ReaderActivity::rotate() {
+    if (!handheld_) {
+        return;  // docked: always landscape (the button is hidden then)
+    }
+    setOrientation(core::quickRotate(orientation_, lastPortrait_));
+}
+
+void ReaderActivity::setOrientation(core::ReaderOrientation orientation) {
+    orientation_ = orientation;
+    if (core::isPortrait(orientation)) {
+        lastPortrait_ = orientation;
+    }
+    context_.config.setReaderOrientation(orientation_, lastPortrait_);
+    followScreen();
+}
+
+void ReaderActivity::chooseOrientation() {
+    std::vector<std::string> names;
+    for (const char* key : kOrientationKeys) {
+        names.push_back(brls::getStr(key));
+    }
+    auto* dropdown = new brls::Dropdown("reader/orientation"_i18n, names, [this](int selected) {
+        if (selected < 0 || selected >= static_cast<int>(std::size(kOrientations))) {
+            return;
+        }
+        setOrientation(kOrientations[selected]);
+    }, indexOf(kOrientations, orientation_));
+    brls::Application::pushActivity(new brls::Activity(dropdown));
 }
 
 void ReaderActivity::onContentAvailable() {
@@ -280,6 +389,7 @@ void ReaderActivity::onContentAvailable() {
     });
     subscribed_ = true;
     model_.setListener([this] { modelChanged(); });
+    followScreen();  // pages decode for the orientation from the start
     brls::Logger::info("reader: manga {} chapter {} page {}", model_.manga().id, startChapter_, startPage_);
     model_.open(startChapter_, startPage_);
     modelChanged();
@@ -435,6 +545,8 @@ void ReaderActivity::openSettings() {
         brls::getStr("reader/setting_fit", brls::getStr(kFitKeys[indexOf(kFits, model_.fit())])),
         brls::getStr("reader/setting_background", brls::getStr(kBackgroundKeys[indexOf(kBackgrounds, background_)])),
         showPageNumber_ ? "reader/setting_page_number_on"_i18n : "reader/setting_page_number_off"_i18n,
+        brls::getStr("reader/setting_orientation",
+                     brls::getStr(kOrientationKeys[indexOf(kOrientations, orientation_)])),
     };
     auto* dropdown = new brls::Dropdown("reader/settings"_i18n, entries, [this](int selected) {
         // Open the next menu after this one has closed.
@@ -453,6 +565,9 @@ void ReaderActivity::openSettings() {
                     showPageNumber_ = !showPageNumber_;
                     context_.config.setReaderLook(background_, showPageNumber_);
                     updateBars();
+                    break;
+                case 4:
+                    chooseOrientation();
                     break;
                 default:
                     break;
@@ -536,7 +651,8 @@ void ReaderActivity::report() {
                             std::to_string(static_cast<int>(model_.direction())) + "/" + (menuShown_ ? "m" : "") +
                             (showPageNumber_ ? "n" : "") + std::to_string(static_cast<int>(background_)) +
                             (model_.chapterRead() ? "r" : "") + "/" + std::to_string(view_->pageRevision()) + "/" +
-                            std::to_string(retries_);
+                            std::to_string(retries_) + "/" + std::to_string(static_cast<int>(view_->orientation())) +
+                            std::to_string(static_cast<int>(orientation_)) + "/" + std::to_string(view_->moveRevision());
     if (key == reported_) {
         return;
     }
@@ -553,6 +669,11 @@ void ReaderActivity::report() {
     fields["pageNumber"] = showPageNumber_;
     fields["background"] = std::string(core::readerBackgroundName(background_));
     fields["read"] = model_.chapterRead();
+    // WP-22: the orientation in effect, the saved choice, and the reader's screen (page sizes below are in its units).
+    fields["orientation"] = std::string(core::readerOrientationName(view_->orientation()));
+    fields["orientationSetting"] = std::string(core::readerOrientationName(orientation_));
+    fields["screenW"] = static_cast<int>(view_->readerScreen().width);
+    fields["screenH"] = static_cast<int>(view_->readerScreen().height);
     if (shown == "page") {
         const image::ImagePtr& image = model_.current().image;
         fields["spread"] = core::isSpread(image->sourceSize());
@@ -560,6 +681,9 @@ void ReaderActivity::report() {
         fields["h"] = static_cast<int>(std::lround(view_->pageSize().height));
         fields["srcW"] = image->sourceSize().width;
         fields["srcH"] = image->sourceSize().height;
+        // Where the page's corner is (a drag or a D-pad scroll moved it: reported once it ended).
+        fields["x"] = static_cast<int>(std::lround(view_->pagePosition().x));
+        fields["y"] = static_cast<int>(std::lround(view_->pagePosition().y));
     } else if (shown == "page_error") {
         const char* kind = view_->textureRefused() ? "texture" : image::imageErrorKindName(model_.current().error.kind);
         fields["error"] = kind;

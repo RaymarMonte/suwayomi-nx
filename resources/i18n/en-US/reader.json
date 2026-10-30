@@ -37,5 +37,11 @@
     "background": "Background",
     "background_black": "Black",
     "background_gray": "Gray",
-    "background_white": "White"
+    "background_white": "White",
+    "rotate": "Rotate",
+    "setting_orientation": "Orientation: {}",
+    "orientation": "Orientation",
+    "orientation_landscape": "Landscape",
+    "orientation_portrait_left": "Portrait, turned left",
+    "orientation_portrait_right": "Portrait, turned right"
 }

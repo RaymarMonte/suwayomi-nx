@@ -64,27 +64,28 @@ From borealis only: `View::hitTest` and the focus highlight in `library/borealis
    spread back to landscape by itself is an idea for later (WP-13 or after), not this WP.
 
 ## Deliverables
-- [ ] **Spike first** (desktop, short): a rotated `ReaderView` with one label and one button. It is drawn upright both ways,
+- [x] **Spike first** (desktop, short; done as the real ReaderView instead: `reader-portrait` checks the same: upright both
+      ways, buttons work by touch where you see them, the focus stays on the page): a rotated `ReaderView` with one label and one button. It is drawn upright both ways,
       a tap on the button works where you see it, and borealis's focus highlight never shows at the unrotated place (the
       focus stays on the page). If borealis fights this, stop at a clean point and write what you found in STATUS before
       building the rest.
-- [ ] core: `ReaderOrientation` + names, `reader.orientation` in config.json (old files lack it: landscape, no migration),
+- [x] core: `ReaderOrientation` + names, `reader.orientation` in config.json (old files lack it: landscape, no migration),
       the rotation math. Unit tests: both portrait ways, point and movement mapping (and back), D-pad meaning, fits on
       720 × 1280 for a typical page (1 : 1.45 → 720 × 1044), a spread, decode boxes
-- [ ] `ReaderView`: rotated drawing with children laid out for portrait; touch mapping; buttons run by mapped taps
-- [ ] `ReaderActivity`: layout from the reader's screen size; D-pad and sticks turned; Y and the menu's "Rotate"; the
+- [x] `ReaderView`: rotated drawing with children laid out for portrait; touch mapping; buttons run by mapped taps
+- [x] `ReaderActivity`: layout from the reader's screen size; D-pad and sticks turned; Y and the menu's "Rotate"; the
       Orientation setting in the reader settings; landscape when docked, the choice back when undocked
-- [ ] platform: `handheldMode()` on both platforms, desktop flag `--simulate-docked`; Switch build's safety gate PASS
-- [ ] Test events: the `reader` event gains `orientation` (what is in effect) and the saved choice; page sizes in the
+- [x] platform: `handheldMode()` on both platforms, desktop flag `--simulate-docked`; Switch build's safety gate PASS
+- [x] Test events: the `reader` event gains `orientation` (what is in effect) and the saved choice; page sizes in the
       reader's own units. E2E helper that turns a portrait point into the landscape touch point the drivers send
-- [ ] Scenario `reader-portrait` (desktop and Switch): Alpha ch1, Y to portrait, goldens of the page, the menu and the end
+- [ ] Scenario `reader-portrait` (desktop and Switch; **desktop green**, the Switch run is left; it also does the 100 turns): Alpha ch1, Y to portrait, goldens of the page, the menu and the end
       screen, both ways; edge taps, a swipe, a drag on a fit-width page, the menu's Close by touch, the turned D-pad; the
       setting survives a restart; `--simulate-docked` shows landscape (desktop only). The existing reader scenarios stay
       landscape and unchanged
 - [ ] Console (application mode, handheld, stock clocks): 100 prefetched turns in portrait (p90 < 150 ms, same rule as WP-11),
       memory flat (growth < 16 MiB after turn 20)
 - [ ] Owner tries both ways in their hands: which way, whether the buttons and tap zones feel right; adjust
-- [ ] Docs: new decision in DECISIONS.md, ARCHITECTURE.md reader math line, TESTING.md scenario, `src/ui/README.md`, the user
+- [x] Docs (D46; the owner's verdict still to add): new decision in DECISIONS.md, ARCHITECTURE.md reader math line, TESTING.md scenario, `src/ui/README.md`, the user
       part of README.md (how to read in portrait), CHANGELOG.md (whether this is v0.2.0 is the owner's call). WP-13's stub in
       ROADMAP.md: say it must work in both orientations
 

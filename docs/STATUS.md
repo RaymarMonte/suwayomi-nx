@@ -1,18 +1,18 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Next:** WP-22 (portrait reader, `docs/wp/WP-22-portrait-reader.md`; owner's top priority, before
-WP-13). WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 12, **v0.1.0 released**.
-
-## Last session (2026-10-30, WP-12, Opus) — WP-12 done, v0.1.0 on GitHub Releases
-- **Fixed (D45):** a stopped server times out (the firewall drops packets) instead of refusing: now "Can't reach the server"
-  (net: a connect timeout = Network); a failed isRead save was resent every frame and saves never stopped while the server
-  was away: saves back off 5 → … → 60 s; pages that failed offline reload when turned to. Page cache 512 → 256 MiB (soak).
-- **Owner's first real use:** a watchdog crash 10 s into typing the address (the Switch keyboard blocks the main loop):
-  fixed with `crash::BlockingWait`; Switch-only test `keyboard-wait` (failed before, passes now).
-- **New:** scenarios `offline-errors`, `soak`, `touch-pass`, `keyboard-wait`; README user part, CHANGELOG, `tools/release.sh`.
-- **Green:** unit, integration, desktop; console `smoke`, `touch-pass`, `offline-errors`, `soak` ×2 (p90 18 ms, peak ~310 MiB),
-  `crash-drills` 10/10, `keyboard-wait`; owner: Album refusal, sleep/wake in the reader, setup + reading on the real server.
-- Follow-ups: a save failing as the reader closes isn't retried; covers failed offline stay fallback art; first-run log
-  says "config: the answer is not valid JSON" (no config.json yet).
+**Phase 3 – Features. Now:** WP-22 (portrait reader): PC side done; console run + owner's try left. Then WP-13.
+WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 12, **v0.1.0 released**.
+## Last session (2026-10-30, WP-22, Opus) — PC side done (D46)
+- **New:** reader orientation (Y, menu Rotate, settings → Orientation; `reader.orientation`/`lastPortrait`); portrait draws
+  through one NanoVG transform, ReaderView takes every touch and runs `addButton` buttons by the mapped point; D-pad turned,
+  L/R keep sides; docked = landscape (`handheldMode()`, `--simulate-docked`); `reader` event: `orientation`, `screenW/H`, `x/y`.
+- **Green:** unit, npm test + typecheck, desktop E2E all 19 (new `reader-portrait`: 100 turns p90 1 ms, growth 0); Switch
+  build + gate PASS. `MANGA.menuEntry` rows are 60 px apart (not 72); `reader-paged` desktop menu golden refreshed (Rotate).
+- **Found:** a config save holds the main loop briefly; a 100 ms desktop tap during it is lost (`reader-portrait` waits).
+- **Left (owner/console, handheld, app mode):** `tools/e2e.sh switch reader-portrait --update-goldens` (look at the new
+  goldens; it does the 100 turns, p90 < 150 ms), then without; `switch reader-paged --update-goldens` (menu golden), then
+  without; the owner reads a real chapter both ways (which way, buttons, tap zones) → verdict into D46, tick WP-22. v0.2.0?
+- Follow-ups: config saves off the main thread?; in portrait the held page-turn D-pad button repeats; a save failing as the
+  reader closes isn't retried; first-run log "config: the answer is not valid JSON".
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

@@ -3,6 +3,14 @@
 All notable changes to Suwayomi NX. Versions follow [Semantic Versioning](https://semver.org/); while the version starts
 with 0, any release may change things.
 
+## [Unreleased]
+
+### Added
+- **Portrait reader:** read with the console held sideways, like a book. Y or the menu's Rotate switches between landscape
+  and portrait; the reader settings' Orientation chooses which way you hold it (turned left or right). Pages fill the tall
+  screen (a typical page about twice as big), and taps, swipes and the D-pad follow the turned screen. Docked, the reader
+  stays landscape. The choice is remembered.
+
 ## [0.1.0] - 2026-10-30
 
 The first release: read your Suwayomi library on the Switch.

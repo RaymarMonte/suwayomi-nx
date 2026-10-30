@@ -227,6 +227,15 @@ Initial list, grown per UI WP:
 4b. `manga-details` – Alpha: details + the long description open/closed (goldens), tap a chapter → the reader at the right chapter/page (a stand-in until WP-11), X read/unread, a row's "..." menu read/unread/bookmark, Show bookmarked, each checked on the server via GraphQL; Delta Big: 300 chapters load, Sort oldest, "Mark all before as read" on ch 4 = exactly 1–3 on the server, Show unread (golden), Continue → ch 4, progress saved on the server shows after Refresh and Continue opens that page; Switch: Y and MINUS menus (WP-10)
 5. `reader-paged` – Alpha ch1 (goldens page, menu, end): left to right through the settings menu, pages 2–10 by D-pad, taps on the right edge and swipes, the colour code confirms each page; the last page marks ch1 read on the server (GraphQL); the "next chapter" screen, ch2 at once (prefetched), back to ch1's last page; fit width (1280 × 1920); 100 page turns with memory flat (growth < 16 MiB after turn 20) and the prefetched turn time (console: 90th percentile < 150 ms, D17); B → the details screen shows the progress; a restart keeps Alpha's direction and fit (WP-11)
 6. `reader-rtl-spread` – Beta RTL ch1, right to left (the default): LEFT, a tap on the left edge and a swipe to the right go forward, RIGHT and the right edge back; page 4 is reported as a spread and shown whole at 960 × 720 (golden); the "next chapter" screen (WP-11)
+6b. `reader-portrait` (WP-22, D46) – Alpha ch1 turned to portrait: Y (desktop: the menu's Rotate, the desktop can't press Y
+    or L) gives turned left, the page 720 × 1080 on the 720 × 1280 reader screen; a tap on the left edge, the turned D-pad (UP
+    points left) and a swipe turn the right way; the menu (golden); Rotate by touch back to landscape; fit height and the
+    settings' Orientation → turned right (goldens menu, page); a drag moves the 853 × 1280 page (event `x` -133 → 0, golden),
+    the same drag then turns; DOWN points left; the end screen both ways (goldens); the menu's Close by touch; a restart keeps
+    the orientation, then 100 turns with the turned D-pad (memory growth < 16 MiB after turn 20, prefetched turns p90 < 150 ms
+    on the console, D17); desktop `--simulate-docked` reads landscape and keeps the saved choice. Touch points are written on the
+    portrait screen and turned with `portraitPoint` (`lib/screens.ts`). After each orientation change it waits for the
+    config save: the save holds the main loop for a moment and a 100 ms desktop tap during it is lost. ~35 s on desktop
 7. `resume-progress` – Alpha ch3 to page 5, B: the server has lastPageRead 4, Continue opens page 5 (colour code), and again after a restart (WP-11)
 8. `offline-errors` (WP-12) – the test server stops and starts again four times while the app runs, with `"diskCache": false`: at start-up
    (the Library tab shows the error + Retry, a tap on Retry connects once it is back); in the reader (prefetched pages still

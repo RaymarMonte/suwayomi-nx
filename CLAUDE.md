@@ -100,7 +100,7 @@ push from WSL, where `gh` is logged in (SETUP.md C). `<repo>` below = the repo p
   <crash-record.txt>` (crash record addresses → function and file:line). Crash records: `<data>/logs/crash-*.txt`, then `logs/crashes/`.
 - Device check (console on, Spelunky 2 first on HOME): `<repo>/tools/spike/wp01-hello.sh` (build → app mode → nxlink → screenshot → PLUS → log)
 - App flags: `-d` debug log. The log always goes to `<data>/logs/app.log` (Switch: `sdmc:/switch/suwayomi-nx/logs/app.log`; WP-08, `--log-file` is still accepted). Desktop test flags:
-  `--simulate-applet-mode`, `--mem-limit=<MB>`. Desktop quits cleanly on SIGTERM/Ctrl+C. Test builds write `<data>/test/events.jsonl`.
+  `--simulate-applet-mode`, `--mem-limit=<MB>`, `--simulate-docked` (WP-22: the reader stays landscape). Desktop quits cleanly on SIGTERM/Ctrl+C. Test builds write `<data>/test/events.jsonl`.
 - Node tooling (D30, run from `<repo>`): `npm ci` once (pinned packages), `npm test` (vitest), `npm run typecheck` (tsc), `npm run contract` (our `.graphql` files vs the schema).
   Node runs the `.ts` tools directly. Full fixture-determinism test: `SNX_FULL_FIXTURES=1 npm test`.
 - Test server (D29, Windows Java, port 4568, `tools/test-server/README.md`): `<repo>/tools/test-server/test-server.sh reset`, then

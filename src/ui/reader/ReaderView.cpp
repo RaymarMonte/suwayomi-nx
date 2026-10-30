@@ -19,13 +19,76 @@ constexpr double kPi = 3.14159265358979323846;
 ReaderView::ReaderView(image::TextureBudget& textures) : budget_(textures) {
     setFocusable(true);
     setHideHighlight(true);
+    overlay_ = new brls::Box(brls::Axis::COLUMN);
+    overlay_->setPositionType(brls::PositionType::ABSOLUTE);
+    overlay_->setPositionTop(0);
+    overlay_->setPositionLeft(0);
+    overlay_->setJustifyContent(brls::JustifyContent::CENTER);
+    overlay_->setAlignItems(brls::AlignItems::CENTER);
+    addView(overlay_);
     addGestureRecognizer(new brls::TapGestureRecognizer([this](brls::TapGestureStatus status, brls::Sound*) {
-        if (status.state == brls::GestureState::END && onTap) {
-            onTap(core::tapArea(status.position.x - getX(), getWidth()));
+        if (status.state == brls::GestureState::END) {
+            onTapped(status.position);
         }
     }));
     addGestureRecognizer(new brls::PanGestureRecognizer(
         [this](brls::PanGestureStatus status, brls::Sound*) { onPan(status); }, brls::PanAxis::ANY));
+}
+
+void ReaderView::setOrientation(core::ReaderOrientation orientation, core::SizeF screen) {
+    orientation_ = orientation;
+    real_ = screen;
+    const core::SizeF reader = readerScreen();
+    overlay_->setWidth(reader.width);
+    overlay_->setHeight(reader.height);
+    placed_ = false;
+}
+
+void ReaderView::addButton(brls::View* button, std::function<void()> action) {
+    buttons_.push_back({button, std::move(action)});
+}
+
+brls::View* ReaderView::hitTest(brls::Point point) {
+    // Portrait: no borealis tap may land on a child at its unturned place, so this view takes them all.
+    return core::isPortrait(orientation_) ? brls::View::hitTest(point) : brls::Box::hitTest(point);
+}
+
+void ReaderView::getCullingBounds(float* top, float* right, float* bottom, float* left) {
+    const core::SizeF screen = readerScreen();
+    *top = getY();
+    *left = getX();
+    *right = *left + screen.width;
+    *bottom = *top + screen.height;
+}
+
+core::PointF ReaderView::toReader(brls::Point position) {
+    return core::screenToReader(orientation_, {position.x - getX(), position.y - getY()}, {getWidth(), getHeight()});
+}
+
+bool ReaderView::shown(brls::View* view) {
+    for (brls::View* v = view; v != nullptr && v != this; v = v->getParent()) {
+        if (v->getVisibility() != brls::Visibility::VISIBLE) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void ReaderView::onTapped(brls::Point position) {
+    const core::PointF at = toReader(position);
+    if (core::isPortrait(orientation_)) {
+        // The overlay's children are laid out in reader units from this view's corner.
+        const brls::Point local{getX() + at.x, getY() + at.y};
+        for (const Button& button : buttons_) {
+            if (shown(button.view) && button.view->getFrame().pointInside(local)) {
+                brls::sync(button.action);  // after the tap is done (the action may close this screen)
+                return;
+            }
+        }
+    }
+    if (onTap) {
+        onTap(core::tapArea(at.x, readerScreen().width));
+    }
 }
 
 ReaderView::~ReaderView() {
@@ -90,6 +153,7 @@ void ReaderView::layout(core::SizeF screen) {
 void ReaderView::scrollBy(float dy) {
     if (placed_) {
         position_ = core::clampPosition({position_.x, position_.y - dy}, drawn_, screen_);
+        ++moves_;
     }
 }
 
@@ -99,13 +163,16 @@ void ReaderView::onPan(const brls::PanGestureStatus& status) {
         couldMoveLeft_ = placed_ && core::canMoveToward(position_, drawn_, screen_, core::Side::Left);
         couldMoveRight_ = placed_ && core::canMoveToward(position_, drawn_, screen_, core::Side::Right);
     }
-    const float dx = status.position.x - status.startPosition.x;
-    const float dy = status.position.y - status.startPosition.y;
+    const core::PointF move = core::screenMoveToReader(
+        orientation_, {status.position.x - status.startPosition.x, status.position.y - status.startPosition.y});
+    const float dx = move.x;
+    const float dy = move.y;
     if (placed_ && (status.state == brls::GestureState::START || status.state == brls::GestureState::STAY ||
                     status.state == brls::GestureState::END)) {
         position_ = core::clampPosition({dragFrom_.x + dx, dragFrom_.y + dy}, drawn_, screen_);
     }
     if (status.state == brls::GestureState::END) {
+        ++moves_;
         const std::optional<core::Side> side = core::swipeSide(dx, dy, kSwipeMinDistance);
         // A page that could still move that way when the swipe began moved instead of turning.
         if (side && onSwipe && !(*side == core::Side::Left ? couldMoveLeft_ : couldMoveRight_)) {
@@ -129,6 +196,32 @@ void ReaderView::drawSpinner(NVGcontext* vg, float cx, float cy) {
 
 void ReaderView::draw(NVGcontext* vg, float x, float y, float width, float height, brls::Style style,
                       brls::FrameContext* ctx) {
+    const core::SizeF screen = core::readerScreen(orientation_, core::SizeF{width, height});
+    const bool turned = core::isPortrait(orientation_);
+    if (turned) {
+        // Everything below is drawn in reader units from (x, y), turned onto the real screen.
+        const core::Transform t = core::readerTransform(orientation_, {width, height});
+        nvgSave(vg);
+        nvgTranslate(vg, x, y);
+        nvgTransform(vg, t.a, t.b, t.c, t.d, t.e, t.f);
+        nvgTranslate(vg, -x, -y);
+    }
+    drawPage(vg, x, y, screen);
+    if (spinner_) {
+        drawSpinner(vg, x + screen.width / 2, y + screen.height / 2);
+    }
+    brls::Box::draw(vg, x, y, width, height, style, ctx);
+    if (turned) {
+        nvgRestore(vg);
+    }
+    if (onDrawn) {
+        onDrawn();
+    }
+}
+
+void ReaderView::drawPage(NVGcontext* vg, float x, float y, core::SizeF screen) {
+    const float width = screen.width;
+    const float height = screen.height;
     if (!textures_.empty()) {
         if (!placed_ || screen_.width != width || screen_.height != height) {
             layout({width, height});
@@ -150,13 +243,6 @@ void ReaderView::draw(NVGcontext* vg, float x, float y, float width, float heigh
             nvgFillPaint(vg, nvgImagePattern(vg, tx, ty, tw, th, 0, textures_[i], 1.0f));
             nvgFill(vg);
         }
-    }
-    if (spinner_) {
-        drawSpinner(vg, x + width / 2, y + height / 2);
-    }
-    brls::Box::draw(vg, x, y, width, height, style, ctx);
-    if (onDrawn) {
-        onDrawn();
     }
 }
 

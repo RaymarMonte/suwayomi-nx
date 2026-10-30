@@ -37,7 +37,10 @@
 D43: `MangaModel` holds the list, sort, filter, Continue and the actions), `reader/ReaderActivity` (the paged reader, WP-11,
 D44: `ReaderModel` holds the pages, the prefetch window, chapter changes and the progress saves; `ReaderView` draws the page
 from its tiles and turns touch into taps, drags and swipes; full screen, the menu on A or a tap in the middle, settings on
-MINUS; `onClosed` runs once the progress is saved, and the details screen reloads its chapters then), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
+MINUS; `onClosed` runs once the progress is saved, and the details screen reloads its chapters then; WP-22, D46: portrait
+with Y / the menu's Rotate / the settings' Orientation: `ReaderView` draws the page and its `overlay()` inside one NanoVG
+transform, takes every touch itself in portrait and runs `addButton` buttons by the mapped point, D-pad turned by
+`core::readerArrow`; docked is landscape; the reader settings dropdown still opens landscape), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
 `crash/CrashActivity` (the crash screen, S1), `diagnostics/DiagnosticsActivity` (test builds only: WP-05's server check + request
 burst, WP-07's image benchmark).
 
@@ -53,6 +56,8 @@ WP-10), `fitLines()` (`TextFit.hpp`: text cut to N lines with "…").
 **Borealis traps** (found the hard way): touches only reach focusable views (`hitTest`), so a button meant for touch must be
 focusable; a `Label` under the focused view scrolls forever when its text is a hair wider than its box (a running animation:
 the app is never `idle`), so turn `setAutoAnimate(false)` on for labels that sit under a focusable full-screen view.
+A box skips drawing a leaf child that lies outside any parent's `getCullingBounds` (WP-22: the turned reader widens its own).
+borealis reads the mouse button once a frame, so a desktop tap shorter than a stalled frame (a config save) is lost.
 
 **Tests:** models in `tests/unit/test_ui.cpp`, `test_ui_library.cpp`, `test_ui_manga.cpp` and `test_ui_reader.cpp` (suite
 `ui`; the reader's with a real `ImageLoader`, `tests/unit/MainQueue.hpp` plays the main thread); screens by E2E scenarios

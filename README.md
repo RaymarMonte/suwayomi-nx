@@ -36,10 +36,19 @@ hint at the bottom of the screen does what its button does.
 |---|---|---|
 | Library | tap a category, Sort, Refresh or a cover; flick to scroll | L / R category, Y sort, X refresh, A open, − library menu |
 | Manga | tap Continue, a chapter, its "..." menu, Sort, Show, Refresh; tap the description to open it | A open chapter, X read / unread, Y chapter menu, − menu |
-| Reader | tap the left or right side (or swipe) to turn, the middle for the menu; drag a page that is bigger than the screen | L / R and left / right turn, up / down scroll, A menu, X retry, − reader settings |
+| Reader | tap the left or right side (or swipe) to turn, the middle for the menu; drag a page that is bigger than the screen | L / R and left / right turn, up / down scroll, A menu, X retry, Y rotate, − reader settings |
 
 The reader turns pages right to left by default (manga). Reader settings (− or the menu): direction, fit (screen, width,
-height), background colour and the page number. Direction and fit are remembered per manga.
+height), background colour, the page number and the orientation. Direction and fit are remembered per manga.
+
+**Reading in portrait (held sideways, like a book):** in the reader press **Y** or tap **Rotate** in the menu, then turn
+the console a quarter turn to the left, so the left Joy-Con is at the bottom. The page now fills the tall screen, about twice
+as big as before. The reader settings' **Orientation** also offers "Portrait, turned right" (the right Joy-Con at the
+bottom); after that Y switches between landscape and the way you used last. The choice is kept for every manga and after a
+restart. Taps, swipes and the D-pad follow the turned screen (the D-pad's button that points to the right as you hold it
+counts as right); L and R keep their sides. On the TV (docked) the reader is always landscape, and your choice comes back
+in handheld mode. Only the reader turns: the library and the other screens stay landscape, and the reader settings menu
+opens landscape too.
 
 ### Safety notes
 - **Use the app only in application mode** (hold R while starting a game). The Album (applet mode) isn't supported yet:

@@ -83,6 +83,15 @@ void ConfigStore::setReaderLook(core::ReaderBackground background, bool showPage
     scheduler_.changed(appClockMs());
 }
 
+void ConfigStore::setReaderOrientation(core::ReaderOrientation orientation, core::ReaderOrientation lastPortrait) {
+    if (orientation == config_.reader.orientation && lastPortrait == config_.reader.lastPortrait) {
+        return;
+    }
+    config_.reader.orientation = orientation;
+    config_.reader.lastPortrait = lastPortrait;
+    scheduler_.changed(appClockMs());
+}
+
 void ConfigStore::useServer(const core::ServerSettings& server) {
     config_.server = server;
 }

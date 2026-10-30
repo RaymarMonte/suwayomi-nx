@@ -22,7 +22,10 @@
 - `SafePath.hpp`, `CrashRecord.hpp`, `TestConfig.hpp` (WP-03b): write-jail path rules, crash record format, test config.
 - `ReaderMath.hpp` (WP-11): the paged reader's rules: `pageStep` (a side to +1/-1 by direction), `tapArea`, `swipeSide`,
   `fitPage` (drawn size per fit), `decodeBoxFor`, `isSpread`, `clampPosition` / `startPosition` / `canMoveToward` (where a
-  page sits and how far it moves), `prefetchOrder` and `nearChapterEnd`. `ProgressSync.hpp` (WP-11): when to send
+  page sits and how far it moves), `prefetchOrder` and `nearChapterEnd`. WP-22 (portrait): `readerScreen` (width and height
+  swapped), `readerTransform` (the six NanoVG numbers that turn the drawing), `readerToScreen` / `screenToReader` /
+  `screenMoveToReader` (touch points and moves), `readerArrow` (the D-pad turns with the screen), `effectiveOrientation`
+  (docked = landscape), `quickRotate`; `ReaderOrientation` and `reader.orientation` / `lastPortrait` in `AppConfig`. `ProgressSync.hpp` (WP-11): when to send
   `lastPageRead` / `isRead` (at most every `progressSyncMs`, the last page at once, everything when leaving; after a failure
   the wait doubles up to `progressRetryMaxMs`, WP-12). `AppConfig`
   got the reader's background, page number and per-manga direction and fit (`readerSettingsFor`, `rememberReaderSettings`).
