@@ -1,19 +1,18 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** WP-22 (portrait reader): PC side and console runs done; the owner's try is left. Then WP-13.
+**Phase 3 – Features. Now:** WP-22 (portrait reader) done, the owner tried it; one console run of the tap fix is left. Then WP-13.
 WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 12, **v0.1.0 released**.
-## Last session (2026-10-30, WP-22, Opus) — PC side + console runs done (D46)
+## Last session (2026-10-30, WP-22, Opus) — portrait reader done, owner's verdict in (D46)
 - **New:** reader orientation (Y, menu Rotate, settings → Orientation; `reader.orientation`/`lastPortrait`); portrait draws
   through one NanoVG transform, ReaderView takes every touch and runs `addButton` buttons by the mapped point; D-pad turned,
   L/R keep sides; docked = landscape (`handheldMode()`, `--simulate-docked`); `reader` event: `orientation`, `screenW/H`, `x/y`.
-- **Green:** unit, npm test + typecheck, desktop E2E all 19 (new `reader-portrait`: 100 turns p90 1 ms, growth 0); Switch
-  build + gate PASS. `MANGA.menuEntry` rows are 60 px apart (not 72); `reader-paged` desktop menu golden refreshed (Rotate).
-- **Found:** a config save holds the main loop briefly (a 100 ms desktop tap during it is lost; `reader-portrait` waits).
-  The Switch test driver deletes the owner's `config.json` at every launch: after the runs it was put back by hand
-  (the owner's server, landscape) and the new build started for the owner's try. Fix the driver (back up + restore).
-- **Console** (handheld, app mode): `reader-portrait` ×2 green (new Switch goldens, looked at; 100 portrait turns p90 18 ms,
-  memory growth 0), `reader-paged` ×2 green (menu golden refreshed; p90 19 ms). No crash report or fatal file.
-- **Left (owner):** read a real chapter both ways (which way, buttons, tap zones) → verdict into D46, tick WP-22. v0.2.0?
-- Follow-ups: config saves off the main thread?; the held page-turn D-pad button repeats in portrait; older ones: D45.
+- **Console** (handheld, app mode): `reader-portrait` ×2 and `reader-paged` ×2 green (100 portrait turns p90 18 ms, growth 0).
+- **Owner's try:** feels right, leans to turned right. Quick taps were sometimes lost in both orientations: borealis makes a
+  6-unit slide a drag and drops the tap. Fix: a touch that slid ≤ 40 units and let go within 300 ms is a tap (`core::isTap`
+  in `ReaderView::onPan`). `reader-paged` turns a page by a slid tap (failed on the old build). Green: unit, desktop E2E all.
+- **Left:** `reader-paged` on the console with the tap fix (once the driver session below is done with the console), then
+  the owner tries quick taps on the device. v0.2.0 is the owner's call (CHANGELOG [Unreleased]).
+- **Found:** a config save holds the main loop briefly (`reader-portrait` waits for it); the Switch driver deleted the owner's
+  `config.json` (a side session is fixing it). Follow-ups: saves off the main thread?; held portrait D-pad repeats; D45's.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

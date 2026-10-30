@@ -27,6 +27,11 @@ TapArea tapArea(float x, float width);
 // finger moved right. Nothing for a short or mostly vertical move (that one scrolls the page).
 std::optional<Side> swipeSide(float dx, float dy, float minDistance);
 
+// Whether a touch that borealis took for a drag was a tap after all. borealis starts a drag once the finger has moved 6 units,
+// so a quick tap that slides a little would do nothing. It is a tap when the finger moved at most maxSlide units in all
+// (dx, dy: from where it touched down to where it let go) and let go within maxHeldMs.
+bool isTap(float dx, float dy, int heldMs, float maxSlide, int maxHeldMs);
+
 // A size or a point in screen units (borealis's 1280 x 720 coordinates).
 struct SizeF {
     float width = 0;

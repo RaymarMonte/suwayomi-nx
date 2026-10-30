@@ -51,6 +51,11 @@ export function tap(s: Scenario, at: Point): () => Promise<void> {
     return () => s.driver.touch(at.x, at.y);
 }
 
+/** A quick tap whose finger slides 20 units on the way: borealis takes it for a drag, the reader still for a tap. */
+export function slidTap(s: Scenario, at: Point): () => Promise<void> {
+    return () => s.driver.swipe(at.x, at.y, at.x - 20, at.y + 4, 60, 3);
+}
+
 export function swipe(s: Scenario, move: { x1: number; y1: number; x2: number; y2: number }): () => Promise<void> {
     return () => s.driver.swipe(move.x1, move.y1, move.x2, move.y2, 250, 12);
 }

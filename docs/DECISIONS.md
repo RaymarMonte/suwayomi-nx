@@ -749,7 +749,7 @@ Rejected: retrying after a connect timeout (another 5 s per try for a server tha
 pages; keeping the 512 MiB page cache (no reader path comes back to most of those pages).
 
 **D46 The portrait reader: only the reader turns, chosen by hand, drawn through one transform, touch mapped by us**
-(WP-22, 2026-10-30; planner's defaults, the owner's verdict after trying it is still to come).
+(WP-22, 2026-10-30; planner's defaults, kept after the owner's try).
 - **Reader only, chosen by hand.** The library, details and settings stay landscape; you turn the console once a chapter is
   open. The whole app turned would need a borealis patch (it has no rotation and lays every screen out 1280 wide) and every
   screen's tests twice. The orientation is a reader setting for all manga (`reader.orientation`: `landscape` /
@@ -780,5 +780,10 @@ pages; keeping the 512 MiB page cache (no reader path comes back to most of thos
   2026-10-30): 100 portrait turns, prefetched p90 18 ms (one frame), memory growth 0 MiB; `reader-paged` unchanged (p90 19 ms).
   Found on the way: a config save runs on the main loop and holds it for a moment;
   a desktop tap (100 ms) during it is lost, because borealis reads the mouse once a frame (the scenario waits for the save).
+- **The owner's try** (2026-10-30, a real chapter on their server): portrait feels right; they lean to turned right (the
+  quick rotate goes to the last portrait way used, so once chosen in the settings Y goes there). Quick taps were sometimes
+  lost, in both orientations: borealis starts a drag once a finger has moved 6 units and cancels the tap, and a short drag
+  turns nothing. Now a touch that slid at most 40 units and let go within 300 ms is a tap (`core::isTap`, in
+  `ReaderView::onPan`; a button under it runs in landscape too). `reader-paged` turns one page by such a slid tap.
 Rejected: the whole app in portrait (borealis patch, double tests); auto-rotate by the motion sensor (later); a "physical"
 L/R; decoding every page for both orientations (twice the memory).

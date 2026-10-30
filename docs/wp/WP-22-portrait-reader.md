@@ -84,8 +84,9 @@ From borealis only: `View::hitTest` and the focus highlight in `library/borealis
       landscape and unchanged
 - [x] Console (2026-10-30: p90 18 ms, growth 0 MiB) (application mode, handheld, stock clocks): 100 prefetched turns in portrait (p90 < 150 ms, same rule as WP-11),
       memory flat (growth < 16 MiB after turn 20)
-- [ ] Owner tries both ways in their hands: which way, whether the buttons and tap zones feel right; adjust
-- [x] Docs (D46; the owner's verdict still to add): new decision in DECISIONS.md, ARCHITECTURE.md reader math line, TESTING.md scenario, `src/ui/README.md`, the user
+- [x] Owner tries both ways in their hands (2026-10-30: feels right, leans to turned right; quick taps were sometimes lost
+      in both orientations, fixed: a tap that slides a little still counts, D46)
+- [x] Docs (D46 with the owner's verdict): new decision in DECISIONS.md, ARCHITECTURE.md reader math line, TESTING.md scenario, `src/ui/README.md`, the user
       part of README.md (how to read in portrait), CHANGELOG.md (whether this is v0.2.0 is the owner's call). WP-13's stub in
       ROADMAP.md: say it must work in both orientations
 

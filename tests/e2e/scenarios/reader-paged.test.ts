@@ -2,7 +2,8 @@
 // on the Switch:
 // - chapter 1 opens at its first page (golden "page"); the menu (golden "menu"); reading direction left to right through
 //   the settings menu;
-// - pages 2..10 by D-pad, by taps on the right edge and by swipes to the left; the colour code on screen confirms each page;
+// - pages 2..10 by D-pad, by taps on the right edge (one slides a little: still a tap) and by swipes to the left; the colour
+//   code on screen confirms each page;
 // - the last page marks chapter 1 read on the server (GraphQL from the harness);
 // - past the last page the "next chapter" screen (golden "end"), then chapter 2 opens at once (its first pages were fetched
 //   ahead); back: the "previous chapter" screen, then chapter 1's last page;
@@ -15,7 +16,8 @@
 import { expect } from 'vitest';
 
 import { chaptersOf, mangaIds, resetChapters } from '../lib/chapters.ts';
-import { chooseSetting, expectPage, openChapter, openManga, readerAfter, stats, swipe, tap, waitForLibrary } from '../lib/reader.ts';
+import { chooseSetting, expectPage, openChapter, openManga, readerAfter, slidTap, stats, swipe, tap, waitForLibrary }
+    from '../lib/reader.ts';
 import { driverName, scenario } from '../lib/scenario.ts';
 import { LIBRARY_MORE, READER } from '../lib/screens.ts';
 import { appServerUrl, optionsFromEnv, SuwayomiClient } from '../lib/suwayomi.ts';
@@ -48,10 +50,12 @@ scenario('reader-paged', async (s) => {
         await chooseSetting(s, 0, 0, 2, { direction: 'ltr', menu: true });
         await readerAfter(s, tap(s, READER.middle), { menu: false });
 
-        // Pages 2..10: three by the D-pad, three by taps on the right edge, three by swipes to the left.
+        // Pages 2..10: three by the D-pad, three by taps on the right edge (one that slides a little, like a quick finger),
+        // three by swipes to the left.
         const turns = [
             ...Array.from({ length: 3 }, () => () => s.driver.press('RIGHT')),
-            ...Array.from({ length: 3 }, () => tap(s, READER.right)),
+            ...Array.from({ length: 2 }, () => tap(s, READER.right)),
+            slidTap(s, READER.right),
             ...Array.from({ length: 3 }, () => swipe(s, READER.swipeToLeft)),
         ];
         const beforeTurns = s.events.mark();

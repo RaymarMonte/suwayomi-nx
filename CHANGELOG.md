@@ -11,6 +11,9 @@ with 0, any release may change things.
   screen (a typical page about twice as big), and taps, swipes and the D-pad follow the turned screen. Docked, the reader
   stays landscape. The choice is remembered.
 
+### Fixed
+- Quick taps on the page sometimes did nothing when the finger slid a little; they now turn the page like any tap.
+
 ## [0.1.0] - 2026-10-30
 
 The first release: read your Suwayomi library on the Switch.

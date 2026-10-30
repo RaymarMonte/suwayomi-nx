@@ -1,6 +1,7 @@
 #pragma once
 
 #include <borealis.hpp>
+#include <chrono>
 #include <functional>
 #include <vector>
 
@@ -94,7 +95,9 @@ class ReaderView : public brls::Box {
     core::SizeF screen_;
     core::SizeF drawn_;
     core::PointF position_;
-    // The drag under way.
+    // The touch under way: where and when the finger touched down, and the drag (if borealis calls it one).
+    brls::Point touchDown_;
+    std::chrono::steady_clock::time_point touchDownAt_;
     core::PointF dragFrom_;
     bool couldMoveLeft_ = false;
     bool couldMoveRight_ = false;

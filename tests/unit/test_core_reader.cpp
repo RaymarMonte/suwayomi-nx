@@ -50,6 +50,13 @@ TEST_SUITE("core") {
         CHECK_FALSE(swipeSide(10, 300, 80).has_value());   // up/down scrolls the page
     }
 
+    TEST_CASE("ReaderMath: a quick touch that slid a little is still a tap") {
+        CHECK(isTap(-20, 4, 120, 40, 300));   // a quick finger
+        CHECK(isTap(0, 40, 300, 40, 300));    // right at both limits
+        CHECK_FALSE(isTap(30, 30, 120, 40, 300));  // 42 units: a short drag
+        CHECK_FALSE(isTap(10, 0, 301, 40, 300));   // held too long: a slow nudge of the page
+    }
+
     TEST_CASE("ReaderMath: fit sizes for a manga page, a spread and a webtoon strip on 1280 x 720") {
         const SizeF screen{1280, 720};
         const SizeF page = fitPage({1000, 1500}, screen, PageFit::Screen);

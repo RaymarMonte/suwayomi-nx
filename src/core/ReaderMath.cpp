@@ -47,6 +47,10 @@ std::optional<Side> swipeSide(float dx, float dy, float minDistance) {
     return dx < 0 ? Side::Right : Side::Left;
 }
 
+bool isTap(float dx, float dy, int heldMs, float maxSlide, int maxHeldMs) {
+    return heldMs <= maxHeldMs && dx * dx + dy * dy <= maxSlide * maxSlide;
+}
+
 SizeF fitPage(ImageSize image, SizeF screen, PageFit fit) {
     if (image.width <= 0 || image.height <= 0 || screen.width <= 0 || screen.height <= 0) {
         return {};

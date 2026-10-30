@@ -11,6 +11,9 @@ namespace snx::ui {
 namespace {
 
 constexpr float kSwipeMinDistance = 80;  // a shorter sideways move is a tap or a nudge, not a page turn
+// A touch that slid at most this far and let go this quickly is a tap, even when borealis took it for a drag.
+constexpr float kTapMaxSlide = 40;
+constexpr int kTapMaxHeldMs = 300;
 constexpr float kSpinnerRadius = 24;
 constexpr double kPi = 3.14159265358979323846;
 
@@ -76,14 +79,13 @@ bool ReaderView::shown(brls::View* view) {
 
 void ReaderView::onTapped(brls::Point position) {
     const core::PointF at = toReader(position);
-    if (core::isPortrait(orientation_)) {
-        // The overlay's children are laid out in reader units from this view's corner.
-        const brls::Point local{getX() + at.x, getY() + at.y};
-        for (const Button& button : buttons_) {
-            if (shown(button.view) && button.view->getFrame().pointInside(local)) {
-                brls::sync(button.action);  // after the tap is done (the action may close this screen)
-                return;
-            }
+    // In portrait every tap comes here. In landscape borealis runs a tapped button itself, but a tap that slid a little
+    // (onPan) comes here. The overlay's children are laid out in reader units from this view's corner.
+    const brls::Point local{getX() + at.x, getY() + at.y};
+    for (const Button& button : buttons_) {
+        if (shown(button.view) && button.view->getFrame().pointInside(local)) {
+            brls::sync(button.action);  // after the tap is done (the action may close this screen)
+            return;
         }
     }
     if (onTap) {
@@ -158,6 +160,12 @@ void ReaderView::scrollBy(float dy) {
 }
 
 void ReaderView::onPan(const brls::PanGestureStatus& status) {
+    if (status.state == brls::GestureState::UNSURE) {
+        // The finger just touched down: borealis does not know yet whether this is a tap or a drag.
+        touchDown_ = status.position;
+        touchDownAt_ = std::chrono::steady_clock::now();
+        return;
+    }
     if (status.state == brls::GestureState::START) {
         dragFrom_ = position_;
         couldMoveLeft_ = placed_ && core::canMoveToward(position_, drawn_, screen_, core::Side::Left);
@@ -172,6 +180,17 @@ void ReaderView::onPan(const brls::PanGestureStatus& status) {
         position_ = core::clampPosition({dragFrom_.x + dx, dragFrom_.y + dy}, drawn_, screen_);
     }
     if (status.state == brls::GestureState::END) {
+        // borealis cancelled the tap when this drag began. A quick one that slid only a little was a tap after all.
+        const auto held = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - touchDownAt_);
+        if (core::isTap(status.position.x - touchDown_.x, status.position.y - touchDown_.y,
+                        static_cast<int>(held.count()), kTapMaxSlide, kTapMaxHeldMs)) {
+            if (placed_) {
+                position_ = dragFrom_;  // undo the little move
+            }
+            onTapped(touchDown_);
+            return;
+        }
         ++moves_;
         const std::optional<core::Side> side = core::swipeSide(dx, dy, kSwipeMinDistance);
         // A page that could still move that way when the swipe began moved instead of turning.
