@@ -30,7 +30,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-11](wp/WP-11-paged-reader.md) | Paged reader + progress sync | 10 | Opus | L | – | done |
 | [WP-12](wp/WP-12-mvp-hardening.md) | MVP hardening, soak test, **v0.1 release** | 11 | Opus | M | Try it for real | done (v0.1.0, 2026-10-30) |
 | [WP-22](wp/WP-22-portrait-reader.md) | **Portrait reader**: hold the Switch sideways, pages fill the tall screen (owner's top priority, 2026-10-30). **Runs next, after WP-12** | 12 | Opus | M | **Yes**: try it in your hands; console | Done (owner tried it 2026-10-30) |
-| WP-13 | **Zoom & pan** in the paged reader, both orientations: pinch, double-tap and ZL/ZR zoom, drag and stick pan, sharper pages when zoomed, double-page spreads split | 22 | Opus | M | **Yes**: try it in your hands; console | todo |
+| [WP-13](wp/WP-13-zoom-and-pan.md) | **Zoom & pan** in the paged reader, both orientations: pinch, double-tap (middle) and ZL/ZR zoom up to 4 ×, drag and stick pan, sharper pages when zoomed, double-page spreads split in portrait, the portrait D-pad repeat fix. Planned 2026-10-30; if it runs long, spreads move to WP-13c | 22 | Opus | L | **Yes**: try it in your hands; console | todo |
 | WP-13b | **Webtoon reader**: long strips as one continuous strip, smooth stick and touch scrolling with flicks, both orientations, zoom in the strip | 13 | Opus | L | **Yes**: try it in your hands; console | todo |
 | WP-18 | **Offline 1: download chapters to the SD card**: a queue on the Switch, a storage limit, delete; the reader reads downloaded pages first | 13b | Opus | L | – | todo |
 | WP-18b | **Offline 2: read away from home**: start without the server, show the downloaded manga, keep offline progress and send it when the server is back | 18 | Opus | M | **Yes**: try it away from home | todo |
@@ -80,11 +80,16 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
 
 ## Phase 3 stubs (roadmap pass 2026-10-30, D47)
 
-- **WP-13 Zoom & pan (paged reader).** Pinch and double-tap zoom, ZL/ZR zoom, drag to pan and stick pan while zoomed (today the
-  stick turns pages, D44), in landscape and portrait (WP-22's transform and touch mapping, D46). Zoomed pages get sharper: decode
-  again at a bigger box, or only the part on screen, within `maxDecodeScale` and the decode budget (D39); zoom limits come from the
-  runtime profile. Double-page spreads (wider than 1.2 × tall, D44) can be split into halves, order mirrored for right to left,
-  with a setting; in portrait too (D46 left this). Also: holding the D-pad in portrait turns several pages (D46). Owner tries it.
+- **WP-13 Zoom & pan (paged reader).** Planned: full doc `wp/WP-13-zoom-and-pan.md` (2026-10-30). Pinch, double-tap and ZL/ZR
+  zoom up to `RuntimeProfile::maxZoom` (Full 4 ×), drag and stick pan while zoomed, in landscape and portrait (WP-22's transform
+  and touch mapping, D46). Zoomed pages get sharper by decoding the whole page again at the zoomed box (only the part on screen
+  was rejected: a whole page is ~6 MB), within `maxDecodeScale` (now capped for the screen as it is held; 2 or 4, decided by a
+  console measurement) and the decode budget (D39). Owner's answers: a page turn goes back to the whole page (setting: keep the
+  zoom); double-tap only in the middle (2 ×; the menu's single tap waits ~0.25 s, edge taps don't); spreads (wider than 1.2 ×
+  tall, D44) split in portrait only (setting: in portrait / always / never; right half first for right to left); not zoomed,
+  the sticks turn pages as now, zoomed they pan. Also: one press turns one page (holding the D-pad in portrait turned several,
+  D46). New test-hook touch channel (played pinches and double taps; sys-autopilot has one finger). Size L: if it runs long,
+  spread splitting moves to WP-13c (before 13b). Owner tries it.
 - **WP-13b Webtoon reader.** Direction `vertical` (already in config.json, D36) becomes one continuous strip: pages and long strips
   cut into tiles (`core::tileWindow`, `webtoonTilesAround`, D39), only the tiles near the screen decoded and on the GPU (S7), smooth
   stick and held-D-pad scrolling, touch drag with flick momentum, page and chapter boundaries, progress by the page at the

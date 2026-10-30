@@ -1,17 +1,16 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** roadmap pass done (D47). **Next: plan WP-13 (zoom & pan)** in a fresh Opus session
-(effort max, ROADMAP "How the Phase 3 WPs get their full docs"), then do WP-13.
+**Phase 3 – Features. Now:** WP-13 planned (`docs/wp/WP-13-zoom-and-pan.md`). **Next: do WP-13** in a fresh Opus session
+(effort max), then plan WP-13b. Order: ROADMAP.md (D47).
 Done: WP-00a … 12 and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
-## Last session (2026-10-30, roadmap pass, Opus, docs only)
-- With the owner: new order (zoom → webtoon → offline → updates/history → library tools → browse → extensions → tracking →
-  polish), WP-13 and WP-18 split (13b, 18b), "Download" = to the SD card (server-side = WP-17, nice to have), library update
-  moved to WP-15 (now Opus), new WP-23 test source, WP-24 library tools, WP-25 tracking, WP-26 in-app updates. ROADMAP.md has
-  the stubs and the planning steps; PLAN.md updated. No full WP docs written.
-- Test server facts (2026-10-30): Local browse works offline (popular/latest/search, only a Sort filter); no extensions or
-  repos; the server can't download Local chapters; the updates (`FETCHED_AT`) and history (`LAST_READ_AT`) queries work.
-  The test server was still running from an earlier session; this pass stopped it.
-- WP-22's follow-ups now sit in stubs: portrait D-pad repeats (WP-13), config saves off the main thread (WP-19), D45's
-  unretried save (WP-18b).
+## Last session (2026-10-30, WP-13 planning, Opus, docs only)
+- Owner's answers: a page turn goes back to the whole page (setting: keep the zoom); double-tap only in the middle; spreads
+  split in portrait only (setting); not zoomed, the sticks turn pages as now. The rest are planner's defaults in the doc
+  (max zoom 4, ZL/ZR steps, D-pad and stick rules, one press = one page). D48 gets written when WP-13 is done.
+- Size went M → L: the doc has a split point (spread splitting → WP-13c). New in the plan: a test-hook touch channel (played
+  pinches and double taps; sys-autopilot-nx has one finger and needs ≥ 150 ms between requests), the loader's decode cap made
+  orientation-free (portrait), and a console measurement that decides `maxDecodeScale` 2 or 4.
+- From the roadmap pass (still true): Local browse works offline on the test server, no extensions or repos, Local chapters
+  can't be downloaded by the server; WP-22's other follow-ups sit in the WP-19 and WP-18b stubs.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
