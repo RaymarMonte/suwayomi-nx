@@ -789,3 +789,26 @@ pages; keeping the 512 MiB page cache (no reader path comes back to most of thos
 - **Released** as v0.2.0 (the owner's OK, 2026-10-30), made like v0.1.0 (D45).
 Rejected: the whole app in portrait (borealis patch, double tests); auto-rotate by the motion sensor (later); a "physical"
 L/R; decoding every page for both orientations (twice the memory).
+
+**D47 The roadmap after v0.2.0: order, splits, what "Download" means, how each WP gets planned** (roadmap pass, owner's
+answers 2026-10-30). Stubs and the planning steps: ROADMAP.md.
+- **Order:** WP-13 zoom & pan → WP-13b webtoon → WP-18 / WP-18b offline → WP-15 updates and history → WP-24 library tools →
+  WP-14 browse → WP-16 extensions → WP-25 tracking → WP-19 polish. WP-23 (test source) and WP-20 (user docs) run alongside.
+  Nice to have: WP-17, WP-26, WP-21, WP-08b. The owner picked zoom before webtoon and offline before the other features;
+  offline waits for both reader halves, so downloaded chapters work in every reading mode from the start.
+- **Splits:** WP-13 (L) became zoom/pan/spreads (WP-13) and the webtoon strip (WP-13b). WP-18 (L) became downloading and
+  reading from the SD card (WP-18) and starting and syncing without the server (WP-18b).
+- **"Download" means to the Switch's SD card, like Mihon.** Suwayomi's own clients (web UI, Sorayomi, Suwayomi-JUI) only
+  queue the download on the server (checked in their code, 2026-10-30), so reading still needs the server, and the Switch has
+  no Tailscale away from home (D18). "Download on server" with the server's queue stays as a nice to have (WP-17, owner).
+- **Library update** moved from WP-17 to WP-15 (the Updates tab, where people look for it). WP-15 is now Opus: polling a
+  server job is a new pattern that WP-17 copies.
+- **New WPs:** WP-23 test source (the offline test server has no extensions or extension repo, and it can't download Local
+  chapters: tried 2026-10-30), WP-24 library tools (search my library, manage categories, move manga), WP-25 tracking,
+  WP-26 in-app updates (nice to have; it needs the owner's OK for an exception to D15/S11 and SafeFs's `.nro` refusal first).
+- **Planning:** a fresh Opus session writes each WP's full doc right before it runs (effort max for 13, 13b, 18, 18b, 21 and
+  26, xhigh for the rest). It changes only docs, so it may run alongside the previous WP on its own branch when it doesn't
+  depend on that WP's result.
+Rejected: writing every full WP doc now (later ones would point at code that doesn't exist yet, and one session can't hold
+all their reading); planning and building in one session (the planning reading crowds out the build, and a Sonnet WP needs
+an Opus plan); server-side "Download" only (no reading away from home).

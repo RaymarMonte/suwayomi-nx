@@ -1,18 +1,17 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** WP-22 (portrait reader) done and tried by the owner. **Next: WP-13.**
-WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 12 and 22; **v0.2.0 released** (v0.1.0 before it).
-## Last session (2026-10-30, WP-22, Opus) — portrait reader done, owner's verdict in (D46)
-- **New:** reader orientation (Y, menu Rotate, settings → Orientation; `reader.orientation`/`lastPortrait`); portrait draws
-  through one NanoVG transform, ReaderView takes every touch and runs `addButton` buttons by the mapped point; D-pad turned,
-  L/R keep sides; docked = landscape (`handheldMode()`, `--simulate-docked`); `reader` event: `orientation`, `screenW/H`, `x/y`.
-- **Console** (handheld, app mode): `reader-portrait` ×2 and `reader-paged` ×3 green (100 portrait turns p90 18 ms, growth 0).
-- **Owner's try:** feels right, leans to turned right. Quick taps were sometimes lost in both orientations: borealis makes a
-  6-unit slide a drag and drops the tap. Fix: a touch that slid ≤ 40 units and let go within 300 ms is a tap (`core::isTap`
-  in `ReaderView::onPan`). `reader-paged` turns a page by a slid tap (failed on the old build). Green: unit, desktop E2E all,
-  console `reader-paged` (p90 19 ms; the owner's config came back byte-identical). The owner tried it: quick taps feel right.
-- **v0.2.0** (owner OK, 2026-10-30): tag + GitHub Release by `tools/release.sh`, like v0.1.0 (D45).
-- **Found:** a config save holds the main loop briefly (`reader-portrait` waits for it). **Fixed (chore):** Switch runs keep the
-  owner's `config.json` (copy + exact restore, README "Device safety"). Follow-ups: saves off the main thread?; portrait D-pad repeats; D45's.
+**Phase 3 – Features. Now:** roadmap pass done (D47). **Next: plan WP-13 (zoom & pan)** in a fresh Opus session
+(effort max, ROADMAP "How the Phase 3 WPs get their full docs"), then do WP-13.
+Done: WP-00a … 12 and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
+## Last session (2026-10-30, roadmap pass, Opus, docs only)
+- With the owner: new order (zoom → webtoon → offline → updates/history → library tools → browse → extensions → tracking →
+  polish), WP-13 and WP-18 split (13b, 18b), "Download" = to the SD card (server-side = WP-17, nice to have), library update
+  moved to WP-15 (now Opus), new WP-23 test source, WP-24 library tools, WP-25 tracking, WP-26 in-app updates. ROADMAP.md has
+  the stubs and the planning steps; PLAN.md updated. No full WP docs written.
+- Test server facts (2026-10-30): Local browse works offline (popular/latest/search, only a Sort filter); no extensions or
+  repos; the server can't download Local chapters; the updates (`FETCHED_AT`) and history (`LAST_READ_AT`) queries work.
+  The test server was still running from an earlier session; this pass stopped it.
+- WP-22's follow-ups now sit in stubs: portrait D-pad repeats (WP-13), config saves off the main thread (WP-19), D45's
+  unretried save (WP-18b).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
