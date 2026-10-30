@@ -9,8 +9,8 @@ WP-08b is nice to have for now (owner, 2026-10-29). Done: WP-00a … 12, **v0.1.
 - **Owner's try:** feels right, leans to turned right. Quick taps were sometimes lost in both orientations: borealis makes a
   6-unit slide a drag and drops the tap. Fix: a touch that slid ≤ 40 units and let go within 300 ms is a tap (`core::isTap`
   in `ReaderView::onPan`). `reader-paged` turns a page by a slid tap (failed on the old build). Green: unit, desktop E2E all,
-  console `reader-paged` (p90 19 ms; the owner's config came back byte-identical). The build runs for the owner's quick-tap try.
-- **Left (owner):** whether quick taps now feel right on the device; whether this ships as v0.2.0 (CHANGELOG [Unreleased]).
+  console `reader-paged` (p90 19 ms; the owner's config came back byte-identical). The owner tried it: quick taps feel right.
+- **Left (owner):** whether this ships as v0.2.0 (CHANGELOG [Unreleased]).
 - **Found:** a config save holds the main loop briefly (`reader-portrait` waits for it). **Fixed (chore):** Switch runs keep the
   owner's `config.json` (copy + exact restore, README "Device safety"). Follow-ups: saves off the main thread?; portrait D-pad repeats; D45's.
 ## Known facts about the environment
