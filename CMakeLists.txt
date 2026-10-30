@@ -49,7 +49,7 @@ if (SNX_BUILD_APP)
     include(${BOREALIS_LIBRARY}/cmake/toolchain.cmake)
 endif ()
 
-project(suwayomi-nx VERSION 0.1.0 LANGUAGES C CXX)
+project(suwayomi-nx VERSION 0.2.0 LANGUAGES C CXX)
 
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)

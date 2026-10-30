@@ -3,7 +3,9 @@
 All notable changes to Suwayomi NX. Versions follow [Semantic Versioning](https://semver.org/); while the version starts
 with 0, any release may change things.
 
-## [Unreleased]
+## [0.2.0] - 2026-10-30
+
+Read with the console held sideways.
 
 ### Added
 - **Portrait reader:** read with the console held sideways, like a book. Y or the menu's Rotate switches between landscape
