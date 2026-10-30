@@ -62,6 +62,40 @@ PointF startPosition(SizeF page, SizeF screen, ReadingDirection direction);
 // Whether more of the page lies beyond the screen's `side` edge (so a swipe that way moves the page instead of turning it).
 bool canMoveToward(PointF position, SizeF page, SizeF screen, Side side);
 
+// --- Holding the console sideways (WP-22) ---
+// In portrait the reader draws everything turned a quarter turn, on a "reader screen" with width and height swapped (720 x 1280
+// units in handheld). The rules above work on that screen; these functions turn points, moves and D-pad presses between the
+// real (landscape) screen and the reader's. `screen` below is always the real screen, e.g. 1280 x 720.
+
+// The orientation in effect: the saved choice in handheld mode, always landscape when docked (on the TV).
+ReaderOrientation effectiveOrientation(ReaderOrientation saved, bool handheld);
+// What the quick rotate (Y, the menu's Rotate) goes to: landscape <-> the portrait way used last (`lastPortrait`; turned left
+// if that isn't a portrait way).
+ReaderOrientation quickRotate(ReaderOrientation current, ReaderOrientation lastPortrait);
+bool isPortrait(ReaderOrientation orientation);
+
+// The reader's screen: `screen` as it is for landscape, width and height swapped for portrait.
+SizeF readerScreen(ReaderOrientation orientation, SizeF screen);
+ImageSize readerScreen(ReaderOrientation orientation, ImageSize screen);  // the same in real pixels (decodeBoxFor)
+
+// A 2D transform: real-screen point = (a * x + c * y + e, b * x + d * y + f) for a reader point (x, y). The same six numbers
+// as NanoVG's nvgTransform, so the drawing and the touch mapping come from one place.
+struct Transform {
+    float a = 1, b = 0, c = 0, d = 1, e = 0, f = 0;
+};
+// Turned left: the reader's top is the real screen's right edge. Turned right: its top is the real left edge.
+Transform readerTransform(ReaderOrientation orientation, SizeF screen);
+PointF readerToScreen(ReaderOrientation orientation, PointF reader, SizeF screen);
+PointF screenToReader(ReaderOrientation orientation, PointF point, SizeF screen);
+// A movement (a swipe or drag: where the finger went minus where it started), real screen -> reader.
+PointF screenMoveToReader(ReaderOrientation orientation, PointF move);
+
+// A D-pad or stick direction.
+enum class Arrow { Up, Down, Left, Right };
+// What a press means on the reader's screen: the one that points to the screen's right as the console is held counts as
+// right. Turned left, the D-pad's right points up; turned right, it points down.
+Arrow readerArrow(ReaderOrientation orientation, Arrow pressed);
+
 // The pages to load around `current` (0 <= current < count), most urgent first: the current page, then the next `ahead` pages
 // nearest first, then the previous `behind` pages nearest first. Pages outside [0, count) are left out; a current page
 // outside it gives only the pages of the window that exist.

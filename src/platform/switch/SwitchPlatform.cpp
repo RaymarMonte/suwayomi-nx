@@ -18,7 +18,7 @@ std::string dataDir() {
     return "sdmc:/switch/suwayomi-nx/";
 }
 
-void setDesktopTestFlags(bool, std::uint64_t) {
+void setDesktopTestFlags(bool, std::uint64_t, bool) {
     // Desktop only. On the Switch the real launch mode and memory always win.
 }
 
@@ -79,6 +79,10 @@ void setResumeHandler(void (*handler)()) {
 void keepScreenOn(bool on) {
     // "Media playback": no dimming and no auto-sleep for this application while it is set (what video players use).
     appletSetMediaPlaybackState(on);
+}
+
+bool handheldMode() {
+    return appletGetOperationMode() == AppletOperationMode_Handheld;
 }
 
 bool showLaunchRefused(const char* text, int timeoutMs, void (*onShown)()) {

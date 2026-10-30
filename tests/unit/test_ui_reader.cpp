@@ -485,6 +485,24 @@ TEST_CASE("reader: a new fit decodes the pages again for its box") {
     CHECK(model->settings().fit == core::PageFit::Width);
 }
 
+TEST_CASE("reader: turned to portrait, the pages decode again for the portrait screen; the same box changes nothing") {
+    Harness h;
+    auto model = h.model();
+    model->open(101, 0);
+    REQUIRE(h.settle(*model));
+    const image::ImagePtr landscape = model->current().image;
+    REQUIRE(landscape);
+    model->setScreen({1280, 720});  // the same: nothing loads again
+    CHECK(model->current().image == landscape);
+    model->setScreen({720, 1280});
+    CHECK(model->pageBox() == core::ImageSize{720, 1280});
+    CHECK(model->current().state != PageState::Ready);  // loading again
+    REQUIRE(h.settle(*model));
+    REQUIRE(model->current().image);
+    CHECK(model->current().image->size().width >= 720);  // about the width it is drawn at
+    CHECK(model->current().image != landscape);
+}
+
 TEST_CASE("reader: close sends what isn't saved and calls back when the server answered") {
     Harness h;
     auto model = h.model();

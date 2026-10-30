@@ -15,6 +15,7 @@ namespace {
 
 bool gSimulateAppletMode = false;
 std::uint64_t gMemLimitBytes = 0;
+bool gSimulateDocked = false;
 
 // Set by the signal handler, read by the main loop. sig_atomic_t is the one type a signal handler may safely write.
 volatile std::sig_atomic_t gQuitRequested = 0;
@@ -54,7 +55,8 @@ std::string dataDir() {
     return "./data/";
 }
 
-void setDesktopTestFlags(bool simulateAppletMode, std::uint64_t memLimitBytes) {
+void setDesktopTestFlags(bool simulateAppletMode, std::uint64_t memLimitBytes, bool simulateDocked) {
+    gSimulateDocked = simulateDocked;
     gSimulateAppletMode = simulateAppletMode;
     gMemLimitBytes = memLimitBytes;
 }
@@ -86,6 +88,10 @@ void setResumeHandler(void (*)()) {
 
 void keepScreenOn(bool) {
     // The PC's screen saver is the PC owner's business.
+}
+
+bool handheldMode() {
+    return !gSimulateDocked;
 }
 
 bool showLaunchRefused(const char* text, int, void (*onShown)()) {

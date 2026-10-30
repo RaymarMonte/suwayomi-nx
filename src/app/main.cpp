@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
     namespace crash = snx::app::crash;
     namespace testhooks = snx::app::testhooks;
     const snx::core::LaunchOptions options = snx::core::parseLaunchOptions(argc, argv);
-    snx::platform::setDesktopTestFlags(options.simulateAppletMode, options.memLimitMb * kBytesPerMb);
+    snx::platform::setDesktopTestFlags(options.simulateAppletMode, options.memLimitMb * kBytesPerMb, options.simulateDocked);
 
     // 1. Crash containment, before anything that could crash (S1). It also files away the last run's crash records.
     const snx::platform::SafeFs fs(snx::platform::dataDir());

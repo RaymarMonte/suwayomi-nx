@@ -94,6 +94,9 @@ class ReaderModel {
 
     void setDirection(core::ReadingDirection direction);
     void setFit(core::PageFit fit);  // the pages load again, decoded for the new fit
+    // The screen pages decode for, in real pixels (WP-22: turned to portrait, docked). If that changes the decode box, the
+    // pages load again, like setFit.
+    void setScreen(core::ImageSize screen);
 
     // Once per frame: sends the progress when it's due (core::ProgressSync).
     void onFrame();
@@ -156,6 +159,7 @@ class ReaderModel {
     void requestNext();
     void onNextPages(int chapterId, const api::ApiResult<core::PageList>& result);
     void resetSlot(Slot& slot);
+    void decodeAgain();
     void onSaved(const core::ReadProgress& progress);
     int chapterIndex(int chapterId) const;
     void changed();

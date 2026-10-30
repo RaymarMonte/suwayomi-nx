@@ -36,6 +36,13 @@ enum class ReaderBackground { Black, Gray, White };
 std::string_view readerBackgroundName(ReaderBackground background);  // "black", "gray", "white"
 std::optional<ReaderBackground> readerBackgroundFromName(std::string_view name);
 
+// How the console is held while reading (WP-22). Landscape: as usual. PortraitLeft: held sideways after a quarter turn to the
+// left (counter-clockwise, the left Joy-Con at the bottom). PortraitRight: a quarter turn to the right (the right Joy-Con at
+// the bottom).
+enum class ReaderOrientation { Landscape, PortraitLeft, PortraitRight };
+std::string_view readerOrientationName(ReaderOrientation orientation);  // "landscape", "portrait-left", "portrait-right"
+std::optional<ReaderOrientation> readerOrientationFromName(std::string_view name);
+
 // The library grid's order (WP-09). Title: A to Z, as the server sends it. Unread: most unread chapters first. LastRead: the
 // manga read most recently first, never-read ones last.
 enum class LibrarySort { Title, Unread, LastRead };
@@ -64,6 +71,10 @@ struct ReaderSettings {
     bool serverConvertsToJpeg = false;  // ask the server for image/jpeg pages (D6, off by default)
     ReaderBackground background = ReaderBackground::Black;  // WP-11
     bool showPageNumber = true;                              // WP-11: "3 / 20" at the bottom of the page
+    // WP-22: how the console is held, for all manga, and the portrait way the quick rotate (Y) goes to (the one used last).
+    // New keys, so old files simply don't have them (no migration): landscape, turned left.
+    ReaderOrientation orientation = ReaderOrientation::Landscape;
+    ReaderOrientation lastPortrait = ReaderOrientation::PortraitLeft;
     // WP-11: the manga with their own direction and fit, the one changed last at the end. A new list in the "reader"
     // section, so old files simply don't have it (no migration).
     std::vector<MangaReaderSettings> manga;

@@ -130,4 +130,94 @@ bool nearChapterEnd(int current, int count, int ahead) {
     return ahead > 0 && count > 0 && current + ahead >= count;
 }
 
+ReaderOrientation effectiveOrientation(ReaderOrientation saved, bool handheld) {
+    return handheld ? saved : ReaderOrientation::Landscape;
+}
+
+bool isPortrait(ReaderOrientation orientation) {
+    return orientation != ReaderOrientation::Landscape;
+}
+
+ReaderOrientation quickRotate(ReaderOrientation current, ReaderOrientation lastPortrait) {
+    if (isPortrait(current)) {
+        return ReaderOrientation::Landscape;
+    }
+    return isPortrait(lastPortrait) ? lastPortrait : ReaderOrientation::PortraitLeft;
+}
+
+SizeF readerScreen(ReaderOrientation orientation, SizeF screen) {
+    return isPortrait(orientation) ? SizeF{screen.height, screen.width} : screen;
+}
+
+ImageSize readerScreen(ReaderOrientation orientation, ImageSize screen) {
+    return isPortrait(orientation) ? ImageSize{screen.height, screen.width} : screen;
+}
+
+Transform readerTransform(ReaderOrientation orientation, SizeF screen) {
+    switch (orientation) {
+        case ReaderOrientation::PortraitLeft:
+            // The reader's x runs down the real screen, its y from the real right edge to the left: (W - y, x).
+            return {0, 1, -1, 0, screen.width, 0};
+        case ReaderOrientation::PortraitRight:
+            // The reader's x runs up the real screen, its y from the real left edge to the right: (y, H - x).
+            return {0, -1, 1, 0, 0, screen.height};
+        case ReaderOrientation::Landscape:
+            break;
+    }
+    return {};
+}
+
+PointF readerToScreen(ReaderOrientation orientation, PointF reader, SizeF screen) {
+    const Transform t = readerTransform(orientation, screen);
+    return {t.a * reader.x + t.c * reader.y + t.e, t.b * reader.x + t.d * reader.y + t.f};
+}
+
+PointF screenToReader(ReaderOrientation orientation, PointF point, SizeF screen) {
+    switch (orientation) {
+        case ReaderOrientation::PortraitLeft:
+            return {point.y, screen.width - point.x};
+        case ReaderOrientation::PortraitRight:
+            return {screen.height - point.y, point.x};
+        case ReaderOrientation::Landscape:
+            break;
+    }
+    return point;
+}
+
+PointF screenMoveToReader(ReaderOrientation orientation, PointF move) {
+    switch (orientation) {
+        case ReaderOrientation::PortraitLeft:
+            return {move.y, -move.x};
+        case ReaderOrientation::PortraitRight:
+            return {-move.y, move.x};
+        case ReaderOrientation::Landscape:
+            break;
+    }
+    return move;
+}
+
+Arrow readerArrow(ReaderOrientation orientation, Arrow pressed) {
+    // The press as a movement on the real screen, turned like a swipe.
+    PointF move;
+    switch (pressed) {
+        case Arrow::Up:
+            move = {0, -1};
+            break;
+        case Arrow::Down:
+            move = {0, 1};
+            break;
+        case Arrow::Left:
+            move = {-1, 0};
+            break;
+        case Arrow::Right:
+            move = {1, 0};
+            break;
+    }
+    const PointF turned = screenMoveToReader(orientation, move);
+    if (turned.x != 0) {
+        return turned.x > 0 ? Arrow::Right : Arrow::Left;
+    }
+    return turned.y > 0 ? Arrow::Down : Arrow::Up;
+}
+
 }  // namespace snx::core

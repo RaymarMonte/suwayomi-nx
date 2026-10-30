@@ -41,6 +41,8 @@ LaunchOptions parseLaunchOptions(int argc, const char* const argv[]) {
             options.logToFile = true;
         } else if (arg == "--simulate-applet-mode") {
             options.simulateAppletMode = true;
+        } else if (arg == "--simulate-docked") {
+            options.simulateDocked = true;
         } else if (arg.substr(0, kMemLimitPrefix.size()) == kMemLimitPrefix) {
             std::uint64_t mb = 0;
             if (parseWholeNumber(arg.substr(kMemLimitPrefix.size()), mb) && mb > 0 && mb <= kMaxMemLimitMb) {

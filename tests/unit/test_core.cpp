@@ -63,9 +63,10 @@ TEST_CASE("launch options: no flags means defaults") {
 }
 
 TEST_CASE("launch options: every known flag") {
-    const auto options = parse({"-d", "--log-file", "--simulate-applet-mode", "--mem-limit=512"});
+    const auto options = parse({"-d", "--log-file", "--simulate-applet-mode", "--mem-limit=512", "--simulate-docked"});
     CHECK(options.debugLog);
     CHECK(options.logToFile);
+    CHECK(options.simulateDocked);
     CHECK(options.simulateAppletMode);
     CHECK(options.memLimitMb == 512);
     CHECK(options.problems.empty());

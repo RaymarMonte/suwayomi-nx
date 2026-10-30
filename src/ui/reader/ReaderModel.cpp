@@ -513,6 +513,18 @@ void ReaderModel::setFit(core::PageFit fit) {
         return;
     }
     settings_.fit = fit;
+    decodeAgain();
+}
+
+void ReaderModel::setScreen(core::ImageSize screen) {
+    const core::ImageSize before = pageBox();
+    options_.screen = screen;
+    if (pageBox() != before) {
+        decodeAgain();
+    }
+}
+
+void ReaderModel::decodeAgain() {
     // Every page decodes again for the new box.
     for (Slot& slot : slots_) {
         resetSlot(slot);

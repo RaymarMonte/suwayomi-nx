@@ -17,9 +17,10 @@ std::string_view platformName();
 // The app never writes outside it (D14). From WP-03b every write goes through SafeFs, which enforces that.
 std::string dataDir();
 
-// Desktop test flags (D21): act as if started from the Album, and pretend to have only memLimitBytes of memory
-// (0 = no limit). The Switch ignores both. Call once at start-up, before any other thread exists.
-void setDesktopTestFlags(bool simulateAppletMode, std::uint64_t memLimitBytes);
+// Desktop test flags (D21): act as if started from the Album, pretend to have only memLimitBytes of memory, and (WP-22) act
+// as if the console is docked
+// (0 = no limit). The Switch ignores them. Call once at start-up, before any other thread exists.
+void setDesktopTestFlags(bool simulateAppletMode, std::uint64_t memLimitBytes, bool simulateDocked);
 
 // Launch mode and memory, measured now (ARCHITECTURE.md "Launch modes and runtime profiles").
 // Switch: appletGetAppletType(), the heap libnx got, and the allocator's in-use bytes (D12 amendment).
@@ -44,6 +45,10 @@ void setResumeHandler(void (*handler)());
 // reader turns it on and off again when it closes. Switch: appletSetMediaPlaybackState (the setting ends with the app; it
 // changes nothing on the system). Desktop: nothing. Main thread only.
 void keepScreenOn(bool on);
+
+// Is the console in handheld mode (WP-22: the reader turns to portrait only then)? Switch: appletGetOperationMode() (libnx keeps
+// it from the applet messages, so it is cheap every frame; read-only). Desktop: true unless --simulate-docked. Main thread only.
+bool handheldMode();
 
 // The applet-mode guard's screen (D21, SAFETY.md S12): shows `text` until any button, a new tap, an exit request or
 // `timeoutMs`, then returns. Switch: libnx's text console (a plain framebuffer: no GPU set-up, no fonts to load). Desktop:

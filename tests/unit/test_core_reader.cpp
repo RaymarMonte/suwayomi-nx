@@ -273,4 +273,123 @@ TEST_SUITE("core") {
         CHECK(skippedNoted);
         CHECK(loadAppConfig(R"({"schemaVersion": 1, "reader": {"manga": "x"}})").problems.size() == 1);
     }
+
+    TEST_CASE("AppConfig: reader.orientation and lastPortrait, old files without them, a round trip") {
+        const ConfigLoad old = loadAppConfig(R"({"schemaVersion": 1, "reader": {"fit": "width"}})");
+        CHECK(old.problems.empty());
+        CHECK(old.config.reader.orientation == ReaderOrientation::Landscape);
+        CHECK(old.config.reader.lastPortrait == ReaderOrientation::PortraitLeft);
+
+        AppConfig config;
+        config.reader.orientation = ReaderOrientation::PortraitRight;
+        config.reader.lastPortrait = ReaderOrientation::PortraitRight;
+        const std::string text = saveAppConfig(config);
+        CHECK(text.find(R"("orientation": "portrait-right")") != std::string::npos);
+        const ConfigLoad back = loadAppConfig(text);
+        CHECK(back.config.reader.orientation == ReaderOrientation::PortraitRight);
+        CHECK(back.config.reader.lastPortrait == ReaderOrientation::PortraitRight);
+
+        // lastPortrait is never landscape; an unknown name keeps the default.
+        const ConfigLoad bad = loadAppConfig(
+            R"({"schemaVersion": 1, "reader": {"orientation": "upside-down", "lastPortrait": "landscape"}})");
+        CHECK(bad.config.reader.orientation == ReaderOrientation::Landscape);
+        CHECK(bad.config.reader.lastPortrait == ReaderOrientation::PortraitLeft);
+        CHECK(bad.problems.size() == 2);
+        CHECK(readerOrientationName(ReaderOrientation::PortraitLeft) == "portrait-left");
+        CHECK(readerOrientationFromName("portrait-right") == ReaderOrientation::PortraitRight);
+    }
+
+    TEST_CASE("ReaderMath: orientation in effect, quick rotate, the reader's screen") {
+        CHECK(effectiveOrientation(ReaderOrientation::PortraitLeft, true) == ReaderOrientation::PortraitLeft);
+        CHECK(effectiveOrientation(ReaderOrientation::PortraitLeft, false) == ReaderOrientation::Landscape);  // docked
+        CHECK(quickRotate(ReaderOrientation::Landscape, ReaderOrientation::PortraitRight) == ReaderOrientation::PortraitRight);
+        CHECK(quickRotate(ReaderOrientation::Landscape, ReaderOrientation::Landscape) == ReaderOrientation::PortraitLeft);
+        CHECK(quickRotate(ReaderOrientation::PortraitLeft, ReaderOrientation::PortraitLeft) == ReaderOrientation::Landscape);
+        CHECK(quickRotate(ReaderOrientation::PortraitRight, ReaderOrientation::PortraitLeft) == ReaderOrientation::Landscape);
+        const SizeF portrait = readerScreen(ReaderOrientation::PortraitRight, SizeF{1280, 720});
+        CHECK(portrait.width == 720);
+        CHECK(portrait.height == 1280);
+        CHECK(readerScreen(ReaderOrientation::Landscape, SizeF{1280, 720}).width == 1280);
+        CHECK(readerScreen(ReaderOrientation::PortraitLeft, ImageSize{1920, 1080}) == ImageSize{1080, 1920});
+        CHECK(readerScreen(ReaderOrientation::Landscape, ImageSize{1280, 720}) == ImageSize{1280, 720});
+    }
+
+    TEST_CASE("ReaderMath: points and moves between the real screen and the reader's, both portrait ways") {
+        const SizeF screen{1280, 720};
+        // Turned left: the reader's top-left corner is the real top-right one, its bottom-left the real top-left.
+        CHECK(near(readerToScreen(ReaderOrientation::PortraitLeft, {0, 0}, screen), {1280, 0}));
+        CHECK(near(readerToScreen(ReaderOrientation::PortraitLeft, {0, 1280}, screen), {0, 0}));
+        CHECK(near(readerToScreen(ReaderOrientation::PortraitLeft, {720, 0}, screen), {1280, 720}));
+        // Turned right: the reader's top-left corner is the real bottom-left one.
+        CHECK(near(readerToScreen(ReaderOrientation::PortraitRight, {0, 0}, screen), {0, 720}));
+        CHECK(near(readerToScreen(ReaderOrientation::PortraitRight, {720, 0}, screen), {0, 0}));
+        CHECK(near(readerToScreen(ReaderOrientation::PortraitRight, {720, 1280}, screen), {1280, 0}));
+        CHECK(near(readerToScreen(ReaderOrientation::Landscape, {100, 200}, screen), {100, 200}));
+        // And back, for a few points.
+        for (const ReaderOrientation o :
+             {ReaderOrientation::Landscape, ReaderOrientation::PortraitLeft, ReaderOrientation::PortraitRight}) {
+            for (const PointF p : {PointF{0, 0}, PointF{100, 900}, PointF{719, 1279}, PointF{360, 640}}) {
+                CHECK(near(screenToReader(o, readerToScreen(o, p, screen), screen), p));
+            }
+        }
+        // The middle stays the middle.
+        CHECK(near(screenToReader(ReaderOrientation::PortraitLeft, {640, 360}, screen), {360, 640}));
+        // A move: turned left, the finger going to the real left goes down the reader's screen.
+        CHECK(near(screenMoveToReader(ReaderOrientation::PortraitLeft, {-200, 0}), {0, 200}));
+        CHECK(near(screenMoveToReader(ReaderOrientation::PortraitLeft, {0, 300}), {300, 0}));
+        CHECK(near(screenMoveToReader(ReaderOrientation::PortraitRight, {-200, 0}), {0, -200}));
+        CHECK(near(screenMoveToReader(ReaderOrientation::PortraitRight, {0, 300}), {-300, 0}));
+        CHECK(near(screenMoveToReader(ReaderOrientation::Landscape, {5, 6}), {5, 6}));
+        // A move equals the difference of its mapped end points.
+        const PointF a{300, 100};
+        const PointF b{500, 400};
+        for (const ReaderOrientation o : {ReaderOrientation::PortraitLeft, ReaderOrientation::PortraitRight}) {
+            const PointF ra = screenToReader(o, a, screen);
+            const PointF rb = screenToReader(o, b, screen);
+            CHECK(near(screenMoveToReader(o, {b.x - a.x, b.y - a.y}), {rb.x - ra.x, rb.y - ra.y}));
+        }
+        // The transform is the one readerToScreen uses (NanoVG gets these numbers).
+        const Transform t = readerTransform(ReaderOrientation::PortraitLeft, screen);
+        CHECK(t.e == 1280);
+        CHECK(t.c == -1);
+    }
+
+    TEST_CASE("ReaderMath: the D-pad turns with the screen") {
+        CHECK(readerArrow(ReaderOrientation::Landscape, Arrow::Right) == Arrow::Right);
+        CHECK(readerArrow(ReaderOrientation::Landscape, Arrow::Up) == Arrow::Up);
+        // Turned left: the D-pad's right button points up, its up button to the left.
+        CHECK(readerArrow(ReaderOrientation::PortraitLeft, Arrow::Right) == Arrow::Up);
+        CHECK(readerArrow(ReaderOrientation::PortraitLeft, Arrow::Up) == Arrow::Left);
+        CHECK(readerArrow(ReaderOrientation::PortraitLeft, Arrow::Left) == Arrow::Down);
+        CHECK(readerArrow(ReaderOrientation::PortraitLeft, Arrow::Down) == Arrow::Right);
+        // Turned right: the right button points down, the up button to the right.
+        CHECK(readerArrow(ReaderOrientation::PortraitRight, Arrow::Right) == Arrow::Down);
+        CHECK(readerArrow(ReaderOrientation::PortraitRight, Arrow::Up) == Arrow::Right);
+        CHECK(readerArrow(ReaderOrientation::PortraitRight, Arrow::Left) == Arrow::Up);
+        CHECK(readerArrow(ReaderOrientation::PortraitRight, Arrow::Down) == Arrow::Left);
+    }
+
+    TEST_CASE("ReaderMath: fits and decode boxes on the portrait screen") {
+        const SizeF portrait = readerScreen(ReaderOrientation::PortraitLeft, SizeF{1280, 720});
+        // A typical page (1 : 1.45) fills the width: 720 x 1044, about twice the area of 497 x 720 in landscape.
+        const SizeF page = fitPage({1000, 1450}, portrait, PageFit::Screen);
+        CHECK(page.width == doctest::Approx(720));
+        CHECK(page.height == doctest::Approx(1044));
+        const SizeF landscape = fitPage({1000, 1450}, {1280, 720}, PageFit::Screen);
+        CHECK(page.width * page.height > 2 * landscape.width * landscape.height);
+        // A spread is shown whole, so small: 720 x 540.
+        const SizeF spread = fitPage({2000, 1500}, portrait, PageFit::Screen);
+        CHECK(spread.width == doctest::Approx(720));
+        CHECK(spread.height == doctest::Approx(540));
+        CHECK(near(startPosition(spread, portrait, ReadingDirection::RightToLeft), {0, 370}));
+        // Fit to width: taller than the screen, it moves up and down.
+        const SizeF wide = fitPage({1000, 2000}, portrait, PageFit::Width);
+        CHECK(wide.height == doctest::Approx(1440));
+        CHECK(near(clampPosition({0, -9000}, wide, portrait), {0, -160}));
+        // Pages decode at their portrait size.
+        const ImageSize real = readerScreen(ReaderOrientation::PortraitRight, ImageSize{1280, 720});
+        CHECK(decodeBoxFor(PageFit::Screen, real) == ImageSize{720, 1280});
+        CHECK(decodeBoxFor(PageFit::Width, real) == ImageSize{720, 0});
+        CHECK(fitInside({1000, 1450}, decodeBoxFor(PageFit::Screen, real)) == ImageSize{720, 1044});
+    }
 }

@@ -17,7 +17,8 @@ TEST_CASE("the desktop data folder is ./data/ (D10)") {
 }
 
 TEST_CASE("desktop runtime info: application mode with the PC's memory by default") {
-    snx::platform::setDesktopTestFlags(false, 0);
+    snx::platform::setDesktopTestFlags(false, 0, false);
+    CHECK(snx::platform::handheldMode());
     const auto info = snx::platform::runtimeInfo();
     CHECK(info.mode == snx::core::LaunchMode::Application);
     CHECK(info.totalMem > 64ULL * 1024 * 1024);  // any PC that builds this has more than 64 MiB
@@ -28,11 +29,12 @@ TEST_CASE("desktop runtime info: application mode with the PC's memory by defaul
 }
 
 TEST_CASE("desktop runtime info: the test flags (D21)") {
-    snx::platform::setDesktopTestFlags(true, 512ULL * 1024 * 1024);
+    snx::platform::setDesktopTestFlags(true, 512ULL * 1024 * 1024, true);
+    CHECK_FALSE(snx::platform::handheldMode());  // --simulate-docked
     const auto info = snx::platform::runtimeInfo();
     CHECK(info.mode == snx::core::LaunchMode::Applet);
     CHECK(info.totalMem == 512ULL * 1024 * 1024);
-    snx::platform::setDesktopTestFlags(false, 0);  // leave the defaults for other tests
+    snx::platform::setDesktopTestFlags(false, 0, false);  // leave the defaults for other tests
 }
 
 TEST_CASE("desktop: SIGTERM asks for a clean quit instead of killing the process") {
