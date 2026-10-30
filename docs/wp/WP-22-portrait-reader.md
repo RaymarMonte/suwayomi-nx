@@ -78,11 +78,11 @@ From borealis only: `View::hitTest` and the focus highlight in `library/borealis
 - [x] platform: `handheldMode()` on both platforms, desktop flag `--simulate-docked`; Switch build's safety gate PASS
 - [x] Test events: the `reader` event gains `orientation` (what is in effect) and the saved choice; page sizes in the
       reader's own units. E2E helper that turns a portrait point into the landscape touch point the drivers send
-- [ ] Scenario `reader-portrait` (desktop and Switch; **desktop green**, the Switch run is left; it also does the 100 turns): Alpha ch1, Y to portrait, goldens of the page, the menu and the end
+- [x] Scenario `reader-portrait` (desktop and Switch, both green 2026-10-30; it also does the 100 turns): Alpha ch1, Y to portrait, goldens of the page, the menu and the end
       screen, both ways; edge taps, a swipe, a drag on a fit-width page, the menu's Close by touch, the turned D-pad; the
       setting survives a restart; `--simulate-docked` shows landscape (desktop only). The existing reader scenarios stay
       landscape and unchanged
-- [ ] Console (application mode, handheld, stock clocks): 100 prefetched turns in portrait (p90 < 150 ms, same rule as WP-11),
+- [x] Console (2026-10-30: p90 18 ms, growth 0 MiB) (application mode, handheld, stock clocks): 100 prefetched turns in portrait (p90 < 150 ms, same rule as WP-11),
       memory flat (growth < 16 MiB after turn 20)
 - [ ] Owner tries both ways in their hands: which way, whether the buttons and tap zones feel right; adjust
 - [x] Docs (D46; the owner's verdict still to add): new decision in DECISIONS.md, ARCHITECTURE.md reader math line, TESTING.md scenario, `src/ui/README.md`, the user

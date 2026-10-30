@@ -776,7 +776,9 @@ pages; keeping the 512 MiB page cache (no reader path comes back to most of thos
   them, is for later.
 - **Tests:** unit tests for all the math; scenario `reader-portrait` (TESTING.md 6b) with touch points written on the
   portrait screen (`portraitPoint`); the `reader` event has `orientation`, `orientationSetting`, `screenW/H` and the page's
-  `x`/`y` (a drag is reported once it ends). Found on the way: a config save runs on the main loop and holds it for a moment;
+  `x`/`y` (a drag is reported once it ends). Green on desktop and on the console (handheld, application mode, stock clocks,
+  2026-10-30): 100 portrait turns, prefetched p90 18 ms (one frame), memory growth 0 MiB; `reader-paged` unchanged (p90 19 ms).
+  Found on the way: a config save runs on the main loop and holds it for a moment;
   a desktop tap (100 ms) during it is lost, because borealis reads the mouse once a frame (the scenario waits for the save).
 Rejected: the whole app in portrait (borealis patch, double tests); auto-rotate by the motion sensor (later); a "physical"
 L/R; decoding every page for both orientations (twice the memory).
