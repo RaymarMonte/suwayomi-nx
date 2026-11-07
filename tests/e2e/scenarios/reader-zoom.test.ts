@@ -166,8 +166,9 @@ scenario('reader-zoom', async (s) => {
         const b = at({ x: right.x2, y: right.y2 });
         const turned: Move = { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
         shown = await readerWhere(s, swipe(s, turned), 'the portrait drag', (e) => Number(e.x) > -720);
-        // borealis starts a pan only after the finger's first step (12 steps of 37.5 units): the page follows 412..450.
-        expect(Number(shown.x), 'x after the drag').toBeGreaterThanOrEqual(-720 + 410);
+        // borealis starts a pan only after the finger has moved a little, and the Switch's swipe steps vary: the page
+        // follows most of the 450 units (desktop ~413, console 375..450), without reaching an edge.
+        expect(Number(shown.x), 'x after the drag').toBeGreaterThanOrEqual(-720 + 300);
         expect(Number(shown.x), 'x after the drag').toBeLessThanOrEqual(-720 + 451);
         expect(shown).toMatchObject({ page, y: -620 });
         await s.expectGolden('portrait-zoom3');
@@ -247,9 +248,13 @@ async function switchControls(s: Scenario, ch1: number): Promise<void> {
     const memory: number[] = [];
     for (let i = 0; i < 50; i++) {
         for (const zoom of [1.5, 2, 3, 4]) await readerAfter(s, press('ZR'), { shown: 'page', zoom });
-        for (const zoom of [3, 2, 1.5, 1]) shown = await readerAfter(s, press('ZL'), { shown: 'page', zoom });
-        expect(Number(shown.texUsed), `texUsed after zoom cycle ${i + 1}`).toBe(fit);
-        memory.push(Number(shown.memUsed));
+        for (const zoom of [3, 2, 1.5, 1]) await readerAfter(s, press('ZL'), { shown: 'page', zoom });
+        // Back at 1 x the zoomed image stays on screen until the fit image is swapped in (150 ms later, before "idle"):
+        // the last "reader" event is the settled one.
+        const settled = lastReader(s);
+        expect(settled, 'zoom 1 settled').toMatchObject({ zoom: 1 });
+        expect(Number(settled?.texUsed), `texUsed after zoom cycle ${i + 1}`).toBe(fit);
+        memory.push(Number(settled?.memUsed));
     }
     const cycleGrowth = Math.max(...memory.slice(5)) - memory[5];
     console.log(`[reader-zoom] 50 zoom cycles: memory after the fifth ${(memory[5] / MiB).toFixed(1)} MiB, growth ` +

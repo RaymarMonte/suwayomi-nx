@@ -147,7 +147,7 @@ gets its own hit test and goes to that view's recognizers with its `fingerId`); 
 - [x] `ReaderActivity` ("Zoom on page turn"; "Split spreads" → WP-13c): ZL/ZR, the D-pad and sticks by the rules above, the fresh-press fix, the two new settings, the
       new event fields and the `gesture` event
 - [x] Test hooks: the touch channel (`command` event), `pinch()` / `doubleTap()` helpers, TESTING.md "Drivers" says how
-- [ ] Scenario `reader-zoom` (desktop and Switch; desktop green 2026-11-07, the Switch part written, not run yet). Desktop: Alpha ch1 in landscape: a double tap in the middle → zoom 2,
+- [x] Scenario `reader-zoom` (desktop and Switch; both green 2026-11-07). Desktop: Alpha ch1 in landscape: a double tap in the middle → zoom 2,
       the tapped point stays put (`x`/`y`), then the sharper decode (`decW` 1000, `sharp`; golden); a drag to the right
       edge and further (`x` stops at the edge); a swipe at the edge turns → page 2 at zoom 1; a played pinch in (zoom 3
       ± 0.1) and out to the fit; a double tap back to the fit; a single middle tap opens the menu (after the wait); an edge
@@ -163,9 +163,10 @@ gets its own hit test and goes to that view's recognizers with its `fingerId`); 
       left half, then page 5; back lands on page 4's left half; the server's `lastPageRead` is page 4 (index 3) on both
       halves; landscape shows it whole (960 × 720, as in `reader-rtl-spread`); "Always" splits it in landscape too; left
       to right shows the left half first; "Never" shows it whole in portrait (720 × 540). Goldens of both halves
-- [ ] The existing scenarios stay green and unchanged: `reader-paged`, `reader-rtl-spread`, `reader-portrait`,
+- [x] (2026-11-07; `reader-paged` waits for the launch's config save) The existing scenarios stay green and unchanged: `reader-paged`, `reader-rtl-spread`, `reader-portrait`,
       `touch-pass`, `broken-images`, `soak` (the middle tap's wait only makes the menu open a quarter second later)
-- [ ] Console (application mode, handheld, stock clocks, D17): the numbers in Acceptance; Switch build's safety gate PASS
+- [x] Console (application mode, handheld, stock clocks, D17): the numbers in Acceptance; Switch build's safety gate PASS
+      (2026-11-07: frames p90 17 / max 17 ms, `sharpMs` p90 183 ms, memory +0; the spread measurement → WP-13c)
 - [ ] Owner tries it in their hands: pinch and double-tap (the real touch path), ZL/ZR, the sticks, both orientations,
       a spread in portrait, on a real chapter from their server; and says whether "Back to whole page" feels right
 - [x] Docs (2026-11-07; the measurement and the owner's verdict still to add): D48 (the answers, the defaults as they ended up, the `maxDecodeScale` measurement and choice, the owner's

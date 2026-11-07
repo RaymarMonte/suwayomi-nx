@@ -1,20 +1,20 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now: WP-13 (zoom & pan)**, code done, desktop green; **console run + owner try pending**. Spreads
-split off to **WP-13c** (D48). Next: the console steps below, then WP-13c, then plan WP-13b. Order: ROADMAP.md (D47).
+**Phase 3 – Features. Now: WP-13 (zoom & pan)**: built, desktop and console green; **only the owner's try is left**. Spreads
+split off to **WP-13c** (D48). Next: the owner's try, then WP-13c, then plan WP-13b. Order: ROADMAP.md (D47).
 Done: WP-00a … 12 and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
 ## Last session (2026-11-07, WP-13, Opus)
 - Built (rules as built: D48): zoom math (`test_core_zoom.cpp`), `reader.zoomOnTurn`, `maxZoom`, the orientation-free decode
   cap, `ReaderModel::setPageZoom`, `ReaderView` zoom/pan/pinch/double tap/glides, ZL/ZR/D-pad/sticks (one press, one page),
-  the test-hook touch channel + `lib/touches.ts`, scenario `reader-zoom` (goldens `zoom2`, `portrait-zoom3`), docs.
-- Found: borealis gives the desktop mouse as touch phase NONE + a MouseState (we count it as finger 0); a pan starts after
-  the first step. A desktop e2e run under heavy load can lose a key press (down + up in one frame): run e2e alone.
-- Green: `build.sh tests` 7/7, `npm test`, typecheck, **`tools/e2e.sh desktop` all 20 files** (2 skipped as before), Switch
-  build + safety gate PASS. `reader-paged` now waits for the first launch's config save (the menu's 250 ms wait put its
-  Settings tap into the save's stall: 1 in 3 runs failed; 4/4 after). Console not touched this session.
-- **Left (WP-13 isn't done until then):** (1) `tools/e2e.sh switch reader-zoom` (its Switch part never ran: expect to fix
-  stick directions or timings), `reader-paged`, `reader-portrait`, `touch-pass`; (2) the Acceptance numbers it prints (gesture
-  frames p90 ≤ 17 / max 34 ms, `sharpMs` p90 ≤ 350 ms, 50 zoom cycles, 100 zoomed turns); (3) the owner pinches and reads a
-  real chapter both ways, and says if "Back to whole page" feels right → D48's verdict; then mark WP-13 done in ROADMAP.
+  the test-hook touch channel + `lib/touches.ts`, scenario `reader-zoom` (goldens desktop + switch), docs.
+- Green: `build.sh tests` 7/7, `npm test`, typecheck, `tools/e2e.sh desktop` (all 20 files), Switch gate PASS; console:
+  `reader-zoom` (frames p90 17 / max 17 ms, `sharpMs` p90 183 ms, 50 zoom cycles and 100 zoomed turns p90 18 ms, memory +0),
+  `reader-paged`, `reader-portrait` (prefetched turns p90 32 ms, growth 0), `touch-pass`. `reader-paged` now waits for the
+  launch's config save (the menu's 250 ms wait had put its Settings tap into the save's stall: 1 in 3 desktop runs failed).
+- Found: the desktop mouse reaches views as touch phase NONE + a MouseState (we count it as finger 0); a pan starts after the
+  first step. A desktop e2e run under heavy load can lose a key press. D-pad turns: p90 32 ms now vs ~19 before (read in
+  draw, so some turns show a frame later; target < 150 ms, a small polish item for later).
+- **Left:** the owner pinches and reads a real chapter zoomed in, both ways, and says if "Back to whole page" feels right →
+  D48's verdict; then mark WP-13 done in ROADMAP. The console was put to sleep: wake it before the next device run.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

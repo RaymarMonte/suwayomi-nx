@@ -266,10 +266,11 @@ Initial list, grown per UI WP:
     out snaps to the fit; double tap in and out; a single middle tap opens the menu after the 250 ms wait; an edge tap turns at
     once (`turnMs` < 100 on desktop) with `texUsed` back at the fit page's; "Zoom on page turn: Keep" → a turn keeps 2 × at
     the top, and survives a restart; turned right: the same double tap, pinch and drag on the portrait screen (golden
-    `portrait-zoom3`). The Switch adds (not run yet, 2026-11-07): ZR/ZL steps, a stick pan and a fresh push at the edge, D-pad
+    `portrait-zoom3`). The Switch adds (green 2026-11-07, ~7 min): ZR/ZL steps, a stick pan and a fresh push at the edge, D-pad
     glides and the edge press, a held stick and a held portrait D-pad turn one page, 50 zoom cycles (memory growth < 16 MiB
     after the fifth, `texUsed` back to the fit), 100 turns from zoomed pages (p90 < 150 ms), and the gesture frame times
-    (p90 ≤ 17 ms, none over 34 ms) and `sharpMs` p90 ≤ 350 ms. ~20 s on desktop
+    (p90 ≤ 17 ms, none over 34 ms) and `sharpMs` p90 ≤ 350 ms (console: frames p90 17 / max 17 ms, `sharpMs` p90
+    183 ms, zoomed turns p90 18 ms, memory growth 0). ~20 s on desktop
 7. `resume-progress` – Alpha ch3 to page 5, B: the server has lastPageRead 4, Continue opens page 5 (colour code), and again after a restart (WP-11)
 8. `offline-errors` (WP-12) – the test server stops and starts again four times while the app runs, with `"diskCache": false`: at start-up
    (the Library tab shows the error + Retry, a tap on Retry connects once it is back); in the reader (prefetched pages still
