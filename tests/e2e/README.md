@@ -88,6 +88,11 @@ Switch: closes the software and goes back to the HOME menu), and the logs land i
    that is the owner's own file: the driver copies it first and puts it back after the scenario (Device safety). Text fields:
    `typeText()` on desktop (tap the field, type, tap the dialog's OK hint, `KEYBOARD_OK`), the test config's `showSetup` on the
    Switch. Touch coordinates of the app's screens: `lib/screens.ts`.
+9. **Two fingers (WP-13):** the drivers touch with one finger. For a pinch or a double tap use `lib/touches.ts`: `pinch(s,
+   center, from, to)`, `doubleTap(s, at)`, `drag(s, from, to)` (each an action for `readerAfter`, with an optional `map`, e.g.
+   `(p) => portraitPoint(way, p)`), or `playTouches(s, frames)` for your own frames. They go through the test build's touch
+   channel (TESTING.md "Drivers") and wait for its `command` event. Reader steps: `lib/reader.ts` (`readerAfter`,
+   `chooseSetting`, ...).
 
 ### Goldens
 

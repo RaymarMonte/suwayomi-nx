@@ -1,25 +1,27 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** WP-13 planned (`docs/wp/WP-13-zoom-and-pan.md`). **Next: do WP-13** in a fresh Opus session
-(effort max), then plan WP-13b. Order: ROADMAP.md (D47).
+**Phase 3 – Features. Now: WP-13 (zoom & pan)**, code done, desktop green; **console run + owner try pending**. Spreads
+split off to **WP-13c** (D48). Next: the console steps below, then WP-13c, then plan WP-13b. Order: ROADMAP.md (D47).
 Done: WP-00a … 12 and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
-## Last session (2026-10-30, WP-13 planning, Opus, docs only)
-- Owner's answers: a page turn goes back to the whole page (setting: keep the zoom); double-tap only in the middle; spreads
-  split in portrait only (setting); not zoomed, the sticks turn pages as now. The rest are planner's defaults in the doc
-  (max zoom 4, ZL/ZR steps, D-pad and stick rules, one press = one page). D48 gets written when WP-13 is done.
-- Size went M → L: the doc has a split point (spread splitting → WP-13c). New in the plan: a test-hook touch channel (played
-  pinches and double taps; sys-autopilot-nx has one finger and needs ≥ 150 ms between requests), the loader's decode cap made
-  orientation-free (portrait), and a console measurement that decides `maxDecodeScale` 2 or 4.
-- From the roadmap pass (still true): Local browse works offline on the test server, no extensions or repos, Local chapters
-  can't be downloaded by the server; WP-22's other follow-ups sit in the WP-19 and WP-18b stubs.
+## Last session (2026-11-07, WP-13, Opus)
+- Built (rules as built: D48): zoom math (`test_core_zoom.cpp`), `reader.zoomOnTurn`, `maxZoom`, the orientation-free decode
+  cap, `ReaderModel::setPageZoom`, `ReaderView` zoom/pan/pinch/double tap/glides, ZL/ZR/D-pad/sticks (one press, one page),
+  the test-hook touch channel + `lib/touches.ts`, scenario `reader-zoom` (goldens `zoom2`, `portrait-zoom3`), docs.
+- Found: borealis gives the desktop mouse as touch phase NONE + a MouseState (we count it as finger 0); a pan starts after
+  the first step. A desktop e2e run under heavy load can lose a key press (down + up in one frame): run e2e alone.
+- Green: `build.sh tests` 7/7, `npm test`, typecheck, **`tools/e2e.sh desktop` all 20 files** (2 skipped as before), Switch
+  build + safety gate PASS. `reader-paged` now waits for the first launch's config save (the menu's 250 ms wait put its
+  Settings tap into the save's stall: 1 in 3 runs failed; 4/4 after). Console not touched this session.
+- **Left (WP-13 isn't done until then):** (1) `tools/e2e.sh switch reader-zoom` (its Switch part never ran: expect to fix
+  stick directions or timings), `reader-paged`, `reader-portrait`, `touch-pass`; (2) the Acceptance numbers it prints (gesture
+  frames p90 ≤ 17 / max 34 ms, `sharpMs` p90 ≤ 350 ms, 50 zoom cycles, 100 zoomed turns); (3) the owner pinches and reads a
+  real chapter both ways, and says if "Back to whole page" feels right → D48's verdict; then mark WP-13 done in ROADMAP.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
   `MSYS_NO_PATHCONV=1`, or `/mnt/c/...` arguments get rewritten). Git Bash has no python. The Bash tool turns `\\` in a heredoc
   into `\`: write files with backslashes (regexes, CMake escapes) with the Write/Edit tools.
-- Builds (from `/mnt/c`): unit tests ~10 s, desktop ~50 s, Switch ~55 s clean (+ gate ~5 s); `.nro` 4.6 MB. 0 warnings in our code.
-  Backups (WP-00a): `C:\Users\JohnDoe\SwitchBackup\2026-10-22\`. sysMMC NAND: owner's external drive.
-- Test server: `reset` + `start` ~10 s; `tools/record-fixtures/record-all.sh` ~1 min (it ends with the server running, auth none).
-  It sometimes won't start ("null cannot be cast"): run it again (`reset` first after a hard stop).
+- Builds: unit tests ~10 s, desktop ~50 s, Switch ~55 s (+ gate ~5 s), 0 warnings. Backups: `C:\Users\JohnDoe\SwitchBackup\2026-10-22\`.
+- Test server: `reset` + `start` ~10 s (desktop e2e needs it running); won't start ("null cannot be cast"): `reset`, start again.
 - WSL can fail to start ("insufficient system resources") when Windows memory is nearly all committed (it reserves up to 12 GB): ask the owner to close apps.
 - Device: e2e `smoke` ~30 s, `net-hello` ~25 s, `manga-details` ~67 s, `reader-paged` ~120 s, `resume-progress` ~50–80 s,
   `reader-rtl-spread` ~40 s, `broken-images` ~36 s, `auth-matrix` ~110 s, `crash-drills` ~9 min (one drill ~50 s).

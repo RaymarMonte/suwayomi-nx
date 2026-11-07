@@ -44,6 +44,7 @@ RuntimeProfile makeRuntimeProfile(LaunchMode mode, std::uint64_t totalMem, std::
         p.textureBudgetBytes = share(p.freeMem, 15, kTextureFloor, 64 * kMiB);
         p.maxDecodeBytes = share(p.freeMem, 10, kDecodeFloor, 64 * kMiB);
         p.maxDecodeScale = 1.0f;
+        p.maxZoom = 2.0f;
         p.prefetchAhead = 1;
         p.nextChapterPrefetchPages = 0;
         p.backgroundPrefetch = false;
@@ -61,6 +62,7 @@ RuntimeProfile makeRuntimeProfile(LaunchMode mode, std::uint64_t totalMem, std::
         p.coverCacheBytes = halved(p.coverCacheBytes, kCoverFloor);
         p.textureBudgetBytes = halved(p.textureBudgetBytes, kTextureFloor);
         p.maxDecodeBytes = halved(p.maxDecodeBytes, kDecodeFloor);
+        p.maxZoom = std::min(p.maxZoom, 2.0f);
         p.prefetchBehind = 0;
         p.prefetchAhead = 0;
         p.nextChapterPrefetchPages = 0;

@@ -224,6 +224,28 @@ TEST_SUITE("image") {
         CHECK(loader.activeJobs() == 0);
     }
 
+    TEST_CASE("ImageLoader: the box cap doesn't depend on how the console is held (WP-13)") {
+        // A portrait page zoomed 2 x wants 1440 x 2560. With the landscape cap (2560 x 1440) it was cut to 1440 tall; now
+        // each side may be 2 x the screen's longer side. The 800 x 12000 strip then fills the box's height.
+        net::FakeHttpClient http;
+        serveFixtures(http);
+        MainQueue main;
+        image::ImageLoader loader(http, testOptions(main));
+        Answer answer;
+        loader.load(page("http://s/strip.webp", {1440, 2560}), net::CancelToken(), answer.callback());
+        REQUIRE(main.runUntil([&] { return answer.result.has_value(); }));
+        REQUIRE(answer.result->ok());
+        CHECK(answer.result->value()->size().height == 2560);
+        CHECK(answer.result->value()->size().width >= 170);
+        CHECK(answer.result->value()->size().width <= 171);
+        // A box bigger than the cap each way is cut to 2560.
+        Answer big;
+        loader.load(page("http://s/strip.webp", {100000, 100000}), net::CancelToken(), big.callback());
+        REQUIRE(main.runUntil([&] { return big.result.has_value(); }));
+        REQUIRE(big.result->ok());
+        CHECK(big.result->value()->size().height == 2560);
+    }
+
     TEST_CASE("ImageLoader: every kind of answer") {
         net::FakeHttpClient http;
         serveFixtures(http);
@@ -238,7 +260,7 @@ TEST_SUITE("image") {
         };
         const Case cases[] = {
             {"http://s/beta.png", {1280, 720}, true, ImageErrorKind::Corrupt, {480, 720}},
-            // The box is capped at 2x the screen (1920x1440); 2000x1500 is within the 15 % slack, so it stays.
+            // The box is capped at 2x the screen's longer side (2560 each way); never bigger than the original 2000x1500.
             {"http://s/spread.png", {10000, 10000}, true, ImageErrorKind::Corrupt, {2000, 1500}},
             {"http://s/spread.png", {1280, 720}, true, ImageErrorKind::Corrupt, {960, 720}},
             {"http://s/strip.webp", {1280, 0}, true, ImageErrorKind::Corrupt, {800, 12000}},

@@ -39,6 +39,10 @@ constexpr std::array<std::pair<ReaderOrientation, std::string_view>, 2> kPortrai
     {ReaderOrientation::PortraitLeft, "portrait-left"},
     {ReaderOrientation::PortraitRight, "portrait-right"},
 }};
+constexpr std::array<std::pair<ZoomOnTurn, std::string_view>, 2> kZoomOnTurnNames = {{
+    {ZoomOnTurn::Reset, "reset"},
+    {ZoomOnTurn::Keep, "keep"},
+}};
 constexpr std::array<std::pair<LibrarySort, std::string_view>, 3> kSortNames = {{
     {LibrarySort::Title, "title"},
     {LibrarySort::Unread, "unread"},
@@ -206,6 +210,13 @@ std::optional<ReaderOrientation> readerOrientationFromName(std::string_view name
     return valueOf(kOrientationNames, name);
 }
 
+std::string_view zoomOnTurnName(ZoomOnTurn mode) {
+    return nameOf(kZoomOnTurnNames, mode);
+}
+std::optional<ZoomOnTurn> zoomOnTurnFromName(std::string_view name) {
+    return valueOf(kZoomOnTurnNames, name);
+}
+
 MangaReaderSettings readerSettingsFor(const ReaderSettings& reader, int mangaId) {
     for (const MangaReaderSettings& own : reader.manga) {
         if (own.mangaId == mangaId) {
@@ -304,6 +315,7 @@ ConfigLoad loadAppConfig(std::string_view text, const JsonLimits& limits, const 
     r.flag("pageNumber", reader.showPageNumber);
     r.choice("orientation", kOrientationNames, reader.orientation);
     r.choice("lastPortrait", kPortraitNames, reader.lastPortrait);  // never landscape
+    r.choice("zoomOnTurn", kZoomOnTurnNames, reader.zoomOnTurn);
     readMangaReaderSettings(root, reader, problems);
 
     LibrarySettings& library = load.config.library;
@@ -340,6 +352,7 @@ std::string saveAppConfig(const AppConfig& config) {
         {"pageNumber", config.reader.showPageNumber},
         {"orientation", readerOrientationName(config.reader.orientation)},
         {"lastPortrait", readerOrientationName(config.reader.lastPortrait)},
+        {"zoomOnTurn", zoomOnTurnName(config.reader.zoomOnTurn)},
         {"manga", std::move(manga)},
     };
     root["library"] = {

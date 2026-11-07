@@ -77,6 +77,14 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
   the reader closed), `error` with `where` reader (a page or chapter that couldn't be loaded), and `screen` `Reader` again
   when it is back on top (`params`: `mangaId`, `chapterId`, `page`). Reader touch coordinates: `READER` in `lib/screens.ts`;
   shared steps (open a chapter, wait for a `reader` event, read the colour code, change a setting): `lib/reader.ts`.
+- WP-13 (D48) added to `reader` (always) `zoomOnTurn` reset/keep and `texUsed` (the GPU texture budget in use, bytes), and for a
+  page `zoom` (1 = the fit, 2 decimals), `x`/`y` (the page corner on the reader screen; a zoom or a finished move reports
+  again), `decW`/`decH` (the decoded image drawn), `sharp` (it has the detail the zoom on screen wants, as far as the source
+  and the cap allow) and once `sharpMs` (from the last zoom change to the frame that draws the sharper decode, the 150 ms
+  settle wait included); `gesture` after every pinch, drag, glide (D-pad), stick pan, zoom step and double tap (`kind`,
+  `frames`, `p90Ms`/`maxMs` = frame intervals while it ran, `zoom`, `x`, `y`); `command` (a played touch command is done:
+  `id`, `ok`, `error`). The reader also counts as busy for `idle` while it settles by itself (a middle tap waiting for a
+  second one, the zoom about to decode, a glide, a pinch, a stick push).
 - `idle` is emitted when there are no pending net/decode jobs (`http.inFlight()`, `images.activeJobs()`, WP-08) and no running animations (borealis's running tickings) for 3 frames in a row,
   once per quiet spell: again only after something was busy, a new `screen` came, or (WP-10) any other event a screen
   writes (`library`, `manga`, `chapter_action`, ...: on the console an answer can arrive within one frame, so the app never
@@ -153,8 +161,16 @@ interface Driver {
 
 - **DesktopDriver**: launches the desktop build under Xvfb at 1280×720 (or WSLg when you want to watch),
   sends keys with `xdotool` (borealis maps keyboard to gamepad on desktop), screenshots with ImageMagick `import`, and reads files directly.
-  Touch (D16): `xdotool` mouse clicks and drags act as one finger. Multi-finger gestures (pinch) go through a test-hook command that
-  injects touch events straight into the app.
+  Touch (D16): `xdotool` mouse clicks and drags act as one finger. Multi-finger gestures (pinch) go through the touch channel below.
+- **Touch channel (WP-13, both drivers, test builds only):** the drivers have one finger (sys-autopilot-nx also needs 150 ms
+  between requests), so pinches and double taps are played inside the app. The harness writes `test/commands/<n>.json`
+  (`n` = 1, 2, ... in every launch, ≤ 64 KiB): `{"cmd":"touches","frames":[{"ms":0,"fingers":[{"id":0,"x":590,"y":360},
+  {"id":1,"x":690,"y":360}]}, ...]}` in landscape screen units. About every 100 ms the app looks for the next number, plays
+  the frames (one per app frame once its `ms` is due; a finger down is touched every frame, a finger missing from the next
+  frame lifts, all lift after the last), deletes the file and writes `{"ev":"command","id":n,"ok":true}`. Each finger gets
+  the same hit test and gesture recognizers as a real one. A file that doesn't parse yet is read again (50 tries). Helpers:
+  `pinch()`, `doubleTap()`, `drag()` and `playTouches()` in `tests/e2e/lib/touches.ts` (`map` = `portraitPoint` for
+  portrait). The real two-finger path is checked by the owner's hands on the console.
   Checked in WP-00 with the borealis demo (Xvfb, and the owner's mouse in WSLg):
   - Start it from its build folder (it loads `./resources`). Under Xvfb set `XDG_SESSION_TYPE=x11` and unset `WAYLAND_DISPLAY`: GLFW tries
     Wayland first and otherwise opens on the WSLg screen even with `DISPLAY=:99`. Mesa renders in software there, which is fine at 1280×720.
@@ -233,7 +249,7 @@ Initial list, grown per UI WP:
 3. `auth-matrix` – none / basic (+ wrong password → Setup) / ui_login (login, renewal after the 20 s JWT, logout → login screen, restart on saved tokens), restarting the test server per mode (WP-08)
 4. `library-browse` – Default's covers (golden), tap the Big shelf tab (golden), tap a cover → Manga → B back, D-pad to the last row (pages load 60 → 120 → 150) and back, two more passes by flicking; memory flat over the 3 passes (`mem`), no cover downloaded twice, no cover loaded for an item that never had a cell (`image` vs `grid`); X refresh; Sort → Unread by touch; the Empty tab (golden); a restart keeps category and sort (WP-09). The 300-chapter list is WP-10's.
 4b. `manga-details` – Alpha: details + the long description open/closed (goldens), tap a chapter → the reader at the right chapter/page (a stand-in until WP-11), X read/unread, a row's "..." menu read/unread/bookmark, Show bookmarked, each checked on the server via GraphQL; Delta Big: 300 chapters load, Sort oldest, "Mark all before as read" on ch 4 = exactly 1–3 on the server, Show unread (golden), Continue → ch 4, progress saved on the server shows after Refresh and Continue opens that page; Switch: Y and MINUS menus (WP-10)
-5. `reader-paged` – Alpha ch1 (goldens page, menu, end): left to right through the settings menu, pages 2–10 by D-pad, taps on the right edge (one slides 20 units: still a tap, D46) and swipes, the colour code confirms each page; the last page marks ch1 read on the server (GraphQL); the "next chapter" screen, ch2 at once (prefetched), back to ch1's last page; fit width (1280 × 1920); 100 page turns with memory flat (growth < 16 MiB after turn 20) and the prefetched turn time (console: 90th percentile < 150 ms, D17); B → the details screen shows the progress; a restart keeps Alpha's direction and fit (WP-11)
+5. `reader-paged` – Alpha ch1 (goldens page, menu, end; WP-13: it first waits for the launch's config save): left to right through the settings menu, pages 2–10 by D-pad, taps on the right edge (one slides 20 units: still a tap, D46) and swipes, the colour code confirms each page; the last page marks ch1 read on the server (GraphQL); the "next chapter" screen, ch2 at once (prefetched), back to ch1's last page; fit width (1280 × 1920); 100 page turns with memory flat (growth < 16 MiB after turn 20) and the prefetched turn time (console: 90th percentile < 150 ms, D17); B → the details screen shows the progress; a restart keeps Alpha's direction and fit (WP-11)
 6. `reader-rtl-spread` – Beta RTL ch1, right to left (the default): LEFT, a tap on the left edge and a swipe to the right go forward, RIGHT and the right edge back; page 4 is reported as a spread and shown whole at 960 × 720 (golden); the "next chapter" screen (WP-11)
 6b. `reader-portrait` (WP-22, D46) – Alpha ch1 turned to portrait: Y (desktop: the menu's Rotate, the desktop can't press Y
     or L) gives turned left, the page 720 × 1080 on the 720 × 1280 reader screen; a tap on the left edge, the turned D-pad (UP
@@ -244,6 +260,16 @@ Initial list, grown per UI WP:
     on the console, D17); desktop `--simulate-docked` reads landscape and keeps the saved choice. Touch points are written on the
     portrait screen and turned with `portraitPoint` (`lib/screens.ts`). After each orientation change it waits for the
     config save: the save holds the main loop for a moment and a 100 ms desktop tap during it is lost. ~35 s on desktop
+6c. `reader-zoom` (WP-13, D48) – Alpha ch1, landscape: a played double tap in the middle → zoom 2 around the tapped point (x 160,
+    y -200), then the sharper decode (`decW` 1000, `sharp`, golden `zoom2`); a drag down stops at the top (y 0); a played pinch
+    to 3 × (x -80, y -180); a drag right stops at the left edge (x 0), the same drag turns (page 2 at the fit); a pinch in and
+    out snaps to the fit; double tap in and out; a single middle tap opens the menu after the 250 ms wait; an edge tap turns at
+    once (`turnMs` < 100 on desktop) with `texUsed` back at the fit page's; "Zoom on page turn: Keep" → a turn keeps 2 × at
+    the top, and survives a restart; turned right: the same double tap, pinch and drag on the portrait screen (golden
+    `portrait-zoom3`). The Switch adds (not run yet, 2026-11-07): ZR/ZL steps, a stick pan and a fresh push at the edge, D-pad
+    glides and the edge press, a held stick and a held portrait D-pad turn one page, 50 zoom cycles (memory growth < 16 MiB
+    after the fifth, `texUsed` back to the fit), 100 turns from zoomed pages (p90 < 150 ms), and the gesture frame times
+    (p90 ≤ 17 ms, none over 34 ms) and `sharpMs` p90 ≤ 350 ms. ~20 s on desktop
 7. `resume-progress` – Alpha ch3 to page 5, B: the server has lastPageRead 4, Continue opens page 5 (colour code), and again after a restart (WP-11)
 8. `offline-errors` (WP-12) – the test server stops and starts again four times while the app runs, with `"diskCache": false`: at start-up
    (the Library tab shows the error + Retry, a tap on Retry connects once it is back); in the reader (prefetched pages still

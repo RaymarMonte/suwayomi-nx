@@ -25,6 +25,8 @@ ReaderOptions readerOptionsFrom(const core::RuntimeProfile& profile, const core:
     options.backgroundPrefetch = profile.backgroundPrefetch;
     options.progressSyncMs = profile.progressSyncMs;
     options.progressRetryMaxMs = profile.progressRetryMaxMs;
+    options.maxZoom = profile.maxZoom;
+    options.maxDecodeScale = profile.maxDecodeScale;
     options.format = reader.serverConvertsToJpeg ? api::PageFormat::Jpeg : api::PageFormat::AsStored;
     return options;
 }
@@ -128,6 +130,7 @@ ReaderModel::ReaderModel(api::SuwayomiClient& client, image::ImageLoader& images
 ReaderModel::~ReaderModel() {
     listCancel_.cancel();
     nextCancel_.cancel();
+    zoom_.cancel.cancel();
     for (Slot& slot : slots_) {
         slot.cancel.cancel();
     }
@@ -221,6 +224,7 @@ void ReaderModel::retryPage() {
 }
 
 void ReaderModel::leaveChapter() {
+    dropZoom();
     listCancel_.cancel();
     for (Slot& slot : slots_) {
         slot.cancel.cancel();
@@ -356,6 +360,7 @@ bool ReaderModel::turn(core::Side side) {
 }
 
 void ReaderModel::arrive() {
+    dropZoom();  // a zoomed decode belongs to the page it was made for; the reader asks again for the new one
     if (onPage() && sync_) {
         sync_->shown(position_, position_ == pageCount() - 1);
     }
@@ -526,6 +531,7 @@ void ReaderModel::setScreen(core::ImageSize screen) {
 
 void ReaderModel::decodeAgain() {
     // Every page decodes again for the new box.
+    dropZoom();
     for (Slot& slot : slots_) {
         resetSlot(slot);
     }
@@ -540,6 +546,84 @@ void ReaderModel::decodeAgain() {
         updateWindow();
     }
     changed();
+}
+
+void ReaderModel::dropZoom() {
+    zoom_.cancel.cancel();
+    zoom_ = ZoomLoad{};
+}
+
+void ReaderModel::setPageZoom(float zoom) {
+    if (state_ != State::Ready || !onPage()) {
+        return;
+    }
+    const Slot& slot = slots_[static_cast<std::size_t>(position_)];
+    const core::ImageSize box =
+        core::zoomDecodeBox(settings_.fit, options_.screen, zoom, options_.maxZoom, options_.maxDecodeScale);
+    const bool samePage = zoom_.chapterId == chapter_.id && zoom_.index == position_;
+    if (!core::isZoomed(zoom) || box == pageBox() || slot.url.empty()) {
+        // At the fit (or no bigger box allowed): the page's own image. Let a sharper one go.
+        const bool had = zoom_.image != nullptr || zoom_.loading;
+        dropZoom();
+        zoom_.chapterId = chapter_.id;
+        zoom_.index = position_;
+        zoom_.zoom = zoom;
+        if (had) {
+            changed();
+        }
+        return;
+    }
+    if (samePage && zoom_.box == box) {
+        zoom_.zoom = zoom;  // the same bucket: what is there (or on its way) is right
+        return;
+    }
+    dropZoom();
+    zoom_.chapterId = chapter_.id;
+    zoom_.index = position_;
+    zoom_.zoom = zoom;
+    zoom_.box = box;
+    if (image::ImagePtr hit = images_.cached(slot.url, box, image::ImageKind::Page)) {
+        zoom_.image = std::move(hit);
+        changed();
+        return;
+    }
+    zoom_.loading = true;
+    const net::CancelToken token = zoom_.cancel;
+    const int chapterId = chapter_.id;
+    const int index = position_;
+    images_.load(image::LoadRequest{slot.url, box, net::Priority::Reader, image::ImageKind::Page}, token,
+                 [this, token, chapterId, index, box](const image::ImageResult& result) {
+                     if (token.cancelled() || zoom_.chapterId != chapterId || zoom_.index != index || zoom_.box != box) {
+                         return;  // turned away, zoomed again, or the model is gone
+                     }
+                     zoom_.loading = false;
+                     if (result.ok()) {
+                         zoom_.image = result.value();
+                     }
+                     // A failed zoomed decode (busy, memory) isn't an error: the fit's image stays, scaled by the GPU.
+                     changed();
+                 });
+}
+
+image::ImagePtr ReaderModel::shownImage() const {
+    if (!onPage() || current().state != ReaderPage::State::Ready) {
+        return nullptr;
+    }
+    if (zoom_.image && zoom_.chapterId == chapter_.id && zoom_.index == position_) {
+        return zoom_.image;
+    }
+    return current().image;
+}
+
+core::ImageSize ReaderModel::wantedBox() const {
+    if (zoom_.chapterId == chapter_.id && zoom_.index == position_) {
+        return core::zoomDecodeBox(settings_.fit, options_.screen, zoom_.zoom, options_.maxZoom, options_.maxDecodeScale);
+    }
+    return pageBox();
+}
+
+core::ImageSize ReaderModel::boxForZoom(float zoom) const {
+    return core::zoomDecodeBox(settings_.fit, options_.screen, zoom, options_.maxZoom, options_.maxDecodeScale);
 }
 
 void ReaderModel::onFrame() {

@@ -29,7 +29,9 @@ That README plus the public headers *is* the contract other sessions read.
   (data vs `errors[]`, partial data).
 - **Reader math** (`core/ReaderMath`, WP-11): fit modes (width/height/screen/original), page order (LTR/RTL/vertical), spread detection (aspect > 1.2),
   tile slicing plan for tall images, prefetch window selection. Portrait (WP-22, D46): the reader screen with width and height
-  swapped, one transform for drawing, and the mapping of touch points, moves and D-pad presses onto it.
+  swapped, one transform for drawing, and the mapping of touch points, moves and D-pad presses onto it. Zoom (WP-13, D48):
+  steps and limits, zooming around a point, the pinch, the double tap, what an arrow or a stick does (move, turn or nothing,
+  with the fresh-press rule), and the zoomed decode box with its cap.
 - **Policies**: LRU with byte budget (generic), retry/backoff policy, progress sync (`core/ProgressSync`, WP-11: send `lastPageRead` at most every N s, `isRead` at the last page, everything on exit).
 - **RuntimeProfile**: `makeRuntimeProfile(mode, totalMem, usedMem)` → all budgets and limits (see below). Only `Full` is built and used for now (D21).
   Pure and table-tested.
@@ -105,7 +107,7 @@ halves the memory budgets and turns prefetch off.
 | Reader prefetch window | current ±1 page | current −1/+3 pages, plus first 2 pages of next chapter |
 | Concurrent HTTP transfers | 2 (matches the socket sessions) | 6 |
 | Decode threads | 1 | 2 |
-| Max decode resolution | fit-to-screen box, zoom up to 2× by re-decoding the visible region | up to 2× screen (or original if smaller), smoother zoom |
+| Max decode resolution / zoom | `maxZoom` 2; zoomed, the whole page decodes again at the zoomed box, each side ≤ 2× the screen's longer side | `maxZoom` 4; same box rule, `maxDecodeScale` 2 (2 or 4 is decided in WP-13c, D48) |
 | Webtoon tiles kept decoded | screen ±1 tile | screen ±4 tiles |
 | Cover thumbnails | decoded at cell size, small cache | larger cache, prefetch the next row |
 | Background prefetch of next chapter | off | on |

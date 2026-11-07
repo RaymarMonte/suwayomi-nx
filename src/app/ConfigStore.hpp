@@ -34,6 +34,8 @@ class ConfigStore {
     void setReaderLook(core::ReaderBackground background, bool showPageNumber);
     // How the console is held while reading, and the portrait way the quick rotate goes to (WP-22).
     void setReaderOrientation(core::ReaderOrientation orientation, core::ReaderOrientation lastPortrait);
+    // What a page turn does to a zoomed page (WP-13), for every manga.
+    void setReaderZoomOnTurn(core::ZoomOnTurn mode);
     // The test config's server (test builds): used as if it had been saved, but not written unless something changes it.
     void useServer(const core::ServerSettings& server);
 

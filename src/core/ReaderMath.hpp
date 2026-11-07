@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <vector>
 
@@ -100,6 +101,85 @@ enum class Arrow { Up, Down, Left, Right };
 // What a press means on the reader's screen: the one that points to the screen's right as the console is held counts as
 // right. Turned left, the D-pad's right points up; turned right, it points down.
 Arrow readerArrow(ReaderOrientation orientation, Arrow pressed);
+
+// --- Zoom and pan (WP-13) ---
+// Zoom 1 is the fit (fitPage); a page zoomed by z is drawn z times the fit's size. All points and sizes below are on the
+// reader's screen (units), like the rules above.
+
+// The zoom kept between the fit (1) and maxZoom (RuntimeProfile::maxZoom).
+float clampZoom(float zoom, float maxZoom);
+// ZR / ZL: the next step of 1, 1.5, 2, 3, 4 above (`direction` +1) or below (-1) `zoom`, capped at maxZoom (a cap between
+// two steps is a step of its own). Already at the end: the same zoom.
+float zoomStep(float zoom, int direction, float maxZoom);
+// The step a zoom decodes for: the smallest step at or above it (1.2 -> 1.5, 1.7 -> 2), at most maxZoom. A pinch to 1.7
+// decodes for 2, so small changes don't decode the page again.
+float zoomBucket(float zoom, float maxZoom);
+// A pinch let go below this (1.05) goes back to the fit.
+bool snapsToFit(float zoom);
+// Whether the page is zoomed in at all (a hair above 1 counts as the fit).
+bool isZoomed(float zoom);
+
+// Where the page's corner goes when its zoom changes from `from` to `to` (page = the fit's size): the point of the page under
+// `anchor` (a point on the screen) stays under it, then clampPosition (no gap at an edge, centred where it fits).
+PointF zoomAround(PointF position, SizeF fit, float from, float to, PointF anchor, SizeF screen);
+
+// A two-finger pinch. At its start: the zoom, the page's corner and the two fingers. The zoom follows the fingers' distance
+// (against the distance at the start), kept between 1 and maxZoom; the point of the page that was between the fingers at the
+// start stays between them as they move (it pans with them). Fingers that start at one point give the start's zoom.
+struct PinchStart {
+    float zoom = 1;
+    PointF position;
+    PointF a;
+    PointF b;
+};
+struct ZoomView {
+    float zoom = 1;
+    PointF position;
+};
+ZoomView pinchView(const PinchStart& start, PointF a, PointF b, SizeF fit, SizeF screen, float maxZoom);
+
+// A double tap (WP-13): the second touch went down within maxGapMs (250) of the first tap's lift, within maxDistance (40)
+// units of it, and both lie in the middle zone (tapArea). Either tap may slide a little (isTap decides what a tap is).
+bool isDoubleTap(PointF first, std::int64_t firstUpMs, PointF second, std::int64_t secondDownMs, float width,
+                 float maxDistance = 40, int maxGapMs = 250);
+
+// Whether more of the page lies beyond the screen's edge toward `arrow` (up: above the screen's top edge, ...).
+bool canMoveToward(PointF position, SizeF page, SizeF screen, Arrow arrow);
+
+// What a D-pad press toward `arrow` (on the reader's screen) does. Not zoomed (as before WP-13): left/right turn the page,
+// up/down move a tall page. Zoomed: the view moves that way while more of the page lies there; at the page's edge a press
+// toward a side turns, up/down do nothing. A turn needs a fresh press: holding a button never turns more than one page
+// (D46's leftover), a held one only moves.
+enum class ArrowEffect { Nothing, Turn, Move };
+ArrowEffect arrowEffect(Arrow arrow, bool zoomed, bool canMove, bool fresh);
+// The side a left/right arrow turns toward (up and down turn nothing: nullopt).
+std::optional<Side> arrowSide(Arrow arrow);
+// How far one D-pad press moves a zoomed page (a share of the screen: 0.75) and how long that glide takes (0.15 s).
+PointF arrowMove(Arrow arrow, SizeF screen);
+inline constexpr int kArrowGlideMs = 150;
+// Where a glide is after `t` of its time (0..1): eases out, so it starts fast and settles.
+float glideProgress(float t);
+
+// A stick (WP-13): x to the right, y down, each -1..1, as the console is held. readerStick turns it with the screen like
+// readerArrow: on the reader's screen, the push that points to its right has x > 0.
+PointF readerStick(ReaderOrientation orientation, PointF stick);
+// How fast a push moves the page, 0..1: nothing inside the dead zone (0.15), then faster the further pushed (a curve, so a
+// small push is fine control), 1 at a full push.
+float stickSpeed(float amount, float deadZone = 0.15f);
+// How far the page moves in `seconds` for a push `stick` (on the reader's screen): a full push crosses one screen in
+// crossSeconds (0.6). The page moves against the push (push right: see more on the right).
+PointF stickMove(PointF stick, SizeF screen, float seconds, float crossSeconds = 0.6f, float deadZone = 0.15f);
+// The arrow a stick push points to, once it is past `threshold` (0.5: "half way", the D-pad press a push counts as); the
+// larger of the two directions wins. Nothing below.
+std::optional<Arrow> stickArrow(PointF stick, float threshold = 0.5f);
+
+// The box to decode the page on screen at for `zoom` (WP-13): the fit's box (decodeBoxFor) times zoomBucket(zoom), each
+// limited side at most maxDecodeScale times the reader's screen as it is held (portrait: 2 x 720 wide, 2 x 1280 tall).
+// `screen` = the reader's screen in real pixels. The loader still keeps it within the source size and maxDecodeBytes.
+ImageSize zoomDecodeBox(PageFit fit, ImageSize screen, float zoom, float maxZoom, float maxDecodeScale);
+// Whether a decoded image has the detail `box` asks for (as far as the source has it): at least as wide and as tall as the
+// source fitted inside the box (fitInside), give or take a pixel of rounding.
+bool isSharp(ImageSize decoded, ImageSize source, ImageSize box);
 
 // The pages to load around `current` (0 <= current < count), most urgent first: the current page, then the next `ahead` pages
 // nearest first, then the previous `behind` pages nearest first. Pages outside [0, count) are left out; a current page

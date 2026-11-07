@@ -44,6 +44,12 @@ scenario('reader-paged', async (s) => {
         await expectPage(s, 1, 1, 1);
         await s.expectGolden('page');
 
+        // The first launch saves config.json about 2 s in; the save holds the main loop for a moment, and a desktop tap
+        // during it can go wrong (reader-portrait). Since WP-13 the menu opens 250 ms later, which put the Settings tap
+        // right there: wait for that save first.
+        const firstSave = await s.events.waitForEvent('config_saved', {}, { from: 0, timeoutMs: 10_000 });
+        await s.events.waitForEvent('idle', {}, { from: s.events.events.indexOf(firstSave) });
+
         // The menu, then reading direction left to right (settings entry 0, choice 0 of 2).
         await readerAfter(s, tap(s, READER.middle), { menu: true });
         await s.expectGolden('menu');

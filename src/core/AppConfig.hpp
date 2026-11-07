@@ -43,6 +43,12 @@ enum class ReaderOrientation { Landscape, PortraitLeft, PortraitRight };
 std::string_view readerOrientationName(ReaderOrientation orientation);  // "landscape", "portrait-left", "portrait-right"
 std::optional<ReaderOrientation> readerOrientationFromName(std::string_view name);
 
+// What a page turn does to a zoomed page (WP-13). Reset: the next page shows whole (like Mihon). Keep: the next page opens at
+// the same zoom, at the corner where reading starts (top right for right to left, top left otherwise).
+enum class ZoomOnTurn { Reset, Keep };
+std::string_view zoomOnTurnName(ZoomOnTurn mode);  // "reset", "keep"
+std::optional<ZoomOnTurn> zoomOnTurnFromName(std::string_view name);
+
 // The library grid's order (WP-09). Title: A to Z, as the server sends it. Unread: most unread chapters first. LastRead: the
 // manga read most recently first, never-read ones last.
 enum class LibrarySort { Title, Unread, LastRead };
@@ -75,6 +81,8 @@ struct ReaderSettings {
     // New keys, so old files simply don't have them (no migration): landscape, turned left.
     ReaderOrientation orientation = ReaderOrientation::Landscape;
     ReaderOrientation lastPortrait = ReaderOrientation::PortraitLeft;
+    // WP-13: what a page turn does to a zoomed page, for all manga. A new key: old files don't have it (no migration).
+    ZoomOnTurn zoomOnTurn = ZoomOnTurn::Reset;
     // WP-11: the manga with their own direction and fit, the one changed last at the end. A new list in the "reader"
     // section, so old files simply don't have it (no migration).
     std::vector<MangaReaderSettings> manga;

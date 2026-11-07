@@ -3,12 +3,16 @@
 #ifdef SNX_TEST_HOOKS
 
 #include <borealis.hpp>
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
+#include <optional>
 #include <thread>
 #include <utility>
 
 #include "app/crash/Drills.hpp"
+#include "core/Json.hpp"
+#include "core/Result.hpp"
 #include "core/TestConfig.hpp"
 #include "core/TestEvents.hpp"
 #include "core/Version.hpp"
@@ -35,6 +39,38 @@ std::int64_t gLastMemMs = 0;
 std::int64_t gBusySinceMs = -1;  // when the app last became busy, for the "busy" event (WP-10)
 bool gBusyReported = false;
 constexpr std::int64_t kBusyReportMs = 5000;
+bool gUiBusy = false;
+
+// The touch channel (WP-13).
+constexpr const char* kCommandsDir = "test/commands";
+constexpr std::size_t kMaxCommandBytes = 64 * 1024;
+constexpr std::int64_t kCommandPollMs = 100;
+constexpr int kMaxUnreadablePolls = 50;  // a command that still doesn't parse after ~5 s fails
+constexpr std::size_t kMaxFrames = 4000;
+constexpr std::size_t kMaxFingers = 10;
+struct PlayedFinger {
+    int id = 0;
+    brls::Point at;
+};
+struct PlayedFrame {
+    std::int64_t ms = 0;
+    std::vector<PlayedFinger> fingers;
+};
+struct DownFinger {
+    brls::TouchState touch;          // the finger's id, last position and the view it touched
+    brls::Activity* activity = nullptr;  // the screen it touched: gone or covered, the finger counts for nothing
+};
+struct Playback {
+    int id = 0;
+    std::vector<PlayedFrame> frames;
+    std::size_t next = 0;
+    std::int64_t startMs = 0;
+    std::vector<DownFinger> down;
+};
+int gNextCommand = 1;
+int gUnreadablePolls = 0;
+std::int64_t gLastCommandPollMs = 0;
+std::optional<Playback> gPlayback;
 
 std::int64_t nowMs() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - gStart).count();
@@ -67,6 +103,157 @@ void runGuardDrill() {
     drills::run(core::testconfig::Drill::NullWrite, *gFs);
 }
 
+void commandDone(int id, bool ok, const std::string& error) {
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["id"] = id;
+    fields["ok"] = ok;
+    if (!error.empty()) {
+        fields["error"] = error;
+    }
+    append(core::testevents::line(nowMs(), "command", fields));
+    gIdle.markBusy();
+}
+
+// The frames of a "touches" command, or an error in words.
+std::optional<std::vector<PlayedFrame>> readFrames(const nlohmann::json& doc, std::string& error) {
+    const nlohmann::json* frames = core::json::field(doc, "frames");
+    if (frames == nullptr || !frames->is_array() || frames->size() > kMaxFrames) {
+        error = "frames must be a list of at most " + std::to_string(kMaxFrames);
+        return std::nullopt;
+    }
+    std::vector<PlayedFrame> out;
+    for (const nlohmann::json& frame : *frames) {
+        PlayedFrame played;
+        const nlohmann::json* fingers = frame.is_object() ? core::json::field(frame, "fingers") : nullptr;
+        const std::optional<std::int64_t> ms = frame.is_object() ? core::json::int64(frame, "ms") : std::nullopt;
+        if (!ms || fingers == nullptr || !fingers->is_array() || fingers->size() > kMaxFingers) {
+            error = "every frame needs ms and a list of at most " + std::to_string(kMaxFingers) + " fingers";
+            return std::nullopt;
+        }
+        played.ms = *ms;
+        for (const nlohmann::json& finger : *fingers) {
+            const auto id = finger.is_object() ? core::json::int32(finger, "id") : std::nullopt;
+            const auto x = finger.is_object() ? core::json::number(finger, "x") : std::nullopt;
+            const auto y = finger.is_object() ? core::json::number(finger, "y") : std::nullopt;
+            if (!id || !x || !y) {
+                error = "every finger needs id, x and y";
+                return std::nullopt;
+            }
+            played.fingers.push_back({*id, brls::Point{static_cast<float>(*x), static_cast<float>(*y)}});
+        }
+        out.push_back(std::move(played));
+    }
+    return out;
+}
+
+// Looks for the next command file. A file that doesn't parse yet is read again at the next poll.
+void readCommand() {
+    const std::string path = std::string(kCommandsDir) + "/" + std::to_string(gNextCommand) + ".json";
+    if (!gFs->exists(path)) {
+        return;
+    }
+    const int id = gNextCommand;
+    const std::optional<std::string> text = gFs->readFile(path, kMaxCommandBytes);
+    core::Result<nlohmann::json> parsed =
+        text ? core::parseJson(*text) : core::Result<nlohmann::json>::fail(core::ErrorKind::Parse, "can't be read");
+    if (!parsed.ok() || !parsed.value().is_object()) {
+        if (++gUnreadablePolls < kMaxUnreadablePolls) {
+            return;  // still being written, or busy
+        }
+        gUnreadablePolls = 0;
+        gFs->removeFile(path);
+        ++gNextCommand;
+        commandDone(id, false, "the command file doesn't parse");
+        return;
+    }
+    gUnreadablePolls = 0;
+    gFs->removeFile(path);
+    ++gNextCommand;
+    const nlohmann::json& doc = parsed.value();
+    std::string error;
+    if (core::json::string(doc, "cmd").value_or("") != "touches") {
+        commandDone(id, false, "unknown command");
+        return;
+    }
+    std::optional<std::vector<PlayedFrame>> frames = readFrames(doc, error);
+    if (!frames) {
+        commandDone(id, false, error);
+        return;
+    }
+    Playback playback;
+    playback.id = id;
+    playback.frames = std::move(*frames);
+    playback.startMs = nowMs();
+    gPlayback = std::move(playback);
+}
+
+// Hands one finger's touch to the recognizers of the view it touched, as borealis's own touch loop does.
+void deliver(DownFinger& finger) {
+    const std::vector<brls::Activity*> stack = brls::Application::getActivitiesStack();
+    if (stack.empty() || stack.back() != finger.activity || finger.touch.view == nullptr) {
+        finger.touch.view = nullptr;  // the screen is gone or covered
+        return;
+    }
+    finger.touch.view->gestureRecognizerRequest(finger.touch, brls::MouseState(), finger.touch.view);
+}
+
+// One step of the touches being played: the next frame once it is due (then every finger in it is down, every other one
+// lifts), else every finger that is down is touched again where it is.
+void playTouches(std::int64_t now) {
+    if (!gPlayback) {
+        return;
+    }
+    Playback& p = *gPlayback;
+    if (p.next < p.frames.size() && p.frames[p.next].ms <= now - p.startMs) {
+        const PlayedFrame& frame = p.frames[p.next++];
+        std::vector<DownFinger> down;
+        for (const PlayedFinger& f : frame.fingers) {
+            auto old = std::find_if(p.down.begin(), p.down.end(), [&](const DownFinger& d) { return d.touch.fingerId == f.id; });
+            DownFinger finger;
+            if (old != p.down.end()) {
+                finger = *old;
+                finger.touch.phase = brls::TouchPhase::STAY;
+            } else {
+                // A new finger: the same hit test as borealis's (the top screen's content view).
+                const std::vector<brls::Activity*> stack = brls::Application::getActivitiesStack();
+                finger.activity = stack.empty() ? nullptr : stack.back();
+                finger.touch.fingerId = f.id;
+                finger.touch.phase = brls::TouchPhase::START;
+                finger.touch.view = finger.activity ? finger.activity->getContentView()->hitTest(f.at) : nullptr;
+            }
+            finger.touch.position = f.at;
+            deliver(finger);
+            down.push_back(finger);
+        }
+        for (DownFinger& old : p.down) {
+            const bool still = std::any_of(frame.fingers.begin(), frame.fingers.end(),
+                                           [&](const PlayedFinger& f) { return f.id == old.touch.fingerId; });
+            if (!still) {
+                old.touch.phase = brls::TouchPhase::END;
+                deliver(old);
+            }
+        }
+        p.down = std::move(down);
+    } else if (p.next >= p.frames.size()) {
+        // The last frame still had fingers down: they lift now.
+        for (DownFinger& finger : p.down) {
+            finger.touch.phase = brls::TouchPhase::END;
+            deliver(finger);
+        }
+        p.down.clear();
+    } else {
+        for (DownFinger& finger : p.down) {
+            finger.touch.phase = brls::TouchPhase::STAY;
+            deliver(finger);
+        }
+    }
+    if (p.next >= p.frames.size() && p.down.empty()) {
+        const int id = p.id;
+        gPlayback.reset();
+        commandDone(id, true, "");
+    }
+}
+
 }  // namespace
 
 void start(const platform::SafeFs& fs) {
@@ -80,6 +267,9 @@ void start(const platform::SafeFs& fs) {
         fs.removeFile(kEventsPath);
     }
     gFs = &fs;
+    // The touch channel's commands (WP-13) count from 1 in every launch: what an earlier run left goes.
+    fs.removeTree(kCommandsDir);
+    fs.makeDirs(kCommandsDir);
     if (const auto text = fs.readFile(kConfigPath, kMaxConfigBytes)) {
         gConfig = core::testconfig::parse(*text);
         for (const std::string& problem : gConfig.problems) {
@@ -238,8 +428,19 @@ void error(std::string_view where, std::string_view kind, std::string_view messa
     append(core::testevents::line(nowMs(), "error", fields));
 }
 
+void setUiBusy(bool busy) {
+    gUiBusy = busy;
+}
+
 void onFrame() {
     const std::int64_t now = nowMs();
+    if (gFs != nullptr) {
+        playTouches(now);
+        if (!gPlayback && now - gLastCommandPollMs >= kCommandPollMs) {
+            gLastCommandPollMs = now;
+            readCommand();
+        }
+    }
     if (now - gLastMemMs >= kMemEventMs) {
         gLastMemMs = now;
         append(core::testevents::mem(now, platform::runtimeInfo()));
@@ -248,7 +449,7 @@ void onFrame() {
     // decode jobs count as busy too (WP-08): a screen that waits for an answer isn't idle yet.
     const std::size_t tickings = brls::Ticking::runningTickings.size();
     const bool jobs = gBusy && gBusy();
-    const bool busy = tickings > 0 || jobs;
+    const bool busy = tickings > 0 || jobs || gUiBusy || gPlayback.has_value();
     // Busy for a long time: say why, so a scenario that waits for "idle" in vain shows what kept the app busy (WP-10).
     if (!busy) {
         gBusySinceMs = -1;
@@ -325,6 +526,7 @@ void watchNet(net::HttpClient&) {}
 void watchImages(image::ImageLoader&) {}
 void steadyScreenshots() {}
 void watchApp(std::function<bool()>) {}
+void setUiBusy(bool) {}
 void write(std::string_view, const nlohmann::ordered_json&) {}
 void screen(std::string_view) {}
 void screen(std::string_view, const nlohmann::ordered_json&) {}

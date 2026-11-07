@@ -43,5 +43,11 @@
     "orientation": "Orientation",
     "orientation_landscape": "Landscape",
     "orientation_portrait_left": "Portrait, turned left",
-    "orientation_portrait_right": "Portrait, turned right"
+    "orientation_portrait_right": "Portrait, turned right",
+    "setting_zoom_on_turn": "Zoom on page turn: {}",
+    "zoom_on_turn": "Zoom on page turn",
+    "zoom_on_turn_reset": "Back to whole page",
+    "zoom_on_turn_keep": "Keep the zoom",
+    "zoom_in": "Zoom in",
+    "zoom_out": "Zoom out"
 }

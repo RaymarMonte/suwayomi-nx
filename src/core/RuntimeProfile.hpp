@@ -29,6 +29,7 @@ struct RuntimeProfile {
     std::uint64_t textureBudgetBytes = 0;  // GPU textures alive at once (SAFETY.md S7)
     std::uint64_t maxDecodeBytes = 0;      // one decoded image, width x height x 4; checked from the header first (S6)
     float maxDecodeScale = 2.0f;           // decode up to this many times the screen size (or the original, if smaller)
+    float maxZoom = 4.0f;                  // the reader zooms a page up to this many times its fit (WP-13; safe mode: 2)
 
     // Reader prefetch.
     int prefetchBehind = 1;            // pages kept/fetched before the current one

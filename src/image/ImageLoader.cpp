@@ -93,11 +93,12 @@ void ImageLoader::setPressureObserver(std::function<void(int, const char*)> obse
 }
 
 core::ImageSize ImageLoader::clampBox(core::ImageSize box) const {
-    // A side the caller limits is capped at maxDecodeScale times the screen; a side of 0 stays unlimited (webtoon height).
-    const int maxWidth = static_cast<int>(std::lround(options_.screen.width * options_.maxDecodeScale));
-    const int maxHeight = static_cast<int>(std::lround(options_.screen.height * options_.maxDecodeScale));
-    return {box.width > 0 ? std::min(box.width, std::max(maxWidth, 1)) : 0,
-            box.height > 0 ? std::min(box.height, std::max(maxHeight, 1)) : 0};
+    // A side the caller limits is capped at maxDecodeScale times the screen's longer side, whichever way the console is held
+    // (WP-13: a portrait page at 2 x is 1440 x 2560; the reader caps it exactly, core::zoomDecodeBox). A side of 0 stays
+    // unlimited (webtoon height).
+    const int longer = std::max(options_.screen.width, options_.screen.height);
+    const int maxSide = std::max(static_cast<int>(std::lround(static_cast<float>(longer) * options_.maxDecodeScale)), 1);
+    return {box.width > 0 ? std::min(box.width, maxSide) : 0, box.height > 0 ? std::min(box.height, maxSide) : 0};
 }
 
 void ImageLoader::load(LoadRequest request, net::CancelToken cancel, LoadCallback done) {

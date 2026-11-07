@@ -14,10 +14,43 @@ constexpr float kSwipeMinDistance = 80;  // a shorter sideways move is a tap or 
 // A touch that slid at most this far and let go this quickly is a tap, even when borealis took it for a drag.
 constexpr float kTapMaxSlide = 40;
 constexpr int kTapMaxHeldMs = 300;
+// WP-13: a second tap this soon after the first (and close to it, core::isDoubleTap) makes a double tap; a single middle
+// tap waits this long before it opens the menu.
+constexpr int kDoubleTapGapMs = 250;
+constexpr float kDoubleTapZoom = 2;
 constexpr float kSpinnerRadius = 24;
 constexpr double kPi = 3.14159265358979323846;
 
+core::SizeF scaled(core::SizeF size, float zoom) {
+    return {size.width * zoom, size.height * zoom};
+}
+
 }  // namespace
+
+// Sees every finger's touch: borealis hands each finger to the recognizers of the view it touched, one call per finger with
+// its own id (application.cpp's touch loop), while its pan recognizer follows only one finger. It passes them to the view
+// and always answers FAILED, so it never interrupts the tap and pan recognizers and they never interrupt it.
+class ReaderView::PinchRecognizer : public brls::GestureRecognizer {
+  public:
+    explicit PinchRecognizer(ReaderView* view) : view_(view) {}
+
+    brls::GestureState recognitionLoop(brls::TouchState touch, brls::MouseState mouse, brls::View*,
+                                       brls::Sound*) override {
+        if (touch.phase == brls::TouchPhase::NONE) {
+            // The desktop's mouse: no touch, the left button's phase instead (as borealis's pan reads it), as finger 0.
+            touch.fingerId = 0;
+            touch.position = mouse.position;
+            touch.phase = mouse.leftButton;
+        }
+        if (touch.phase != brls::TouchPhase::NONE) {
+            view_->onFinger(touch);
+        }
+        return brls::GestureState::FAILED;
+    }
+
+  private:
+    ReaderView* view_;
+};
 
 ReaderView::ReaderView(image::TextureBudget& textures) : budget_(textures) {
     setFocusable(true);
@@ -29,6 +62,8 @@ ReaderView::ReaderView(image::TextureBudget& textures) : budget_(textures) {
     overlay_->setJustifyContent(brls::JustifyContent::CENTER);
     overlay_->setAlignItems(brls::AlignItems::CENTER);
     addView(overlay_);
+    // First, so the fingers are counted before the tap and pan recognizers see the same touch.
+    addGestureRecognizer(new PinchRecognizer(this));
     addGestureRecognizer(new brls::TapGestureRecognizer([this](brls::TapGestureStatus status, brls::Sound*) {
         if (status.state == brls::GestureState::END) {
             onTapped(status.position);
@@ -38,6 +73,17 @@ ReaderView::ReaderView(image::TextureBudget& textures) : budget_(textures) {
         [this](brls::PanGestureStatus status, brls::Sound*) { onPan(status); }, brls::PanAxis::ANY));
 }
 
+std::int64_t ReaderView::nowMs() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
+
+void ReaderView::gesture(const char* kind, bool started) {
+    if (onGesture) {
+        onGesture(kind, started);
+    }
+}
+
 void ReaderView::setOrientation(core::ReaderOrientation orientation, core::SizeF screen) {
     orientation_ = orientation;
     real_ = screen;
@@ -45,6 +91,10 @@ void ReaderView::setOrientation(core::ReaderOrientation orientation, core::SizeF
     overlay_->setWidth(reader.width);
     overlay_->setHeight(reader.height);
     placed_ = false;
+    setZoomValue(1);  // rotating goes back to the fit
+    glide_.reset();
+    pinch_.reset();
+    pendingTap_.reset();
 }
 
 void ReaderView::addButton(brls::View* button, std::function<void()> action) {
@@ -77,19 +127,64 @@ bool ReaderView::shown(brls::View* view) {
     return true;
 }
 
+void ReaderView::setDoubleTapWait(bool on) {
+    doubleTapWait_ = on;
+    if (!on) {
+        pendingTap_.reset();
+    }
+}
+
 void ReaderView::onTapped(brls::Point position) {
+    if (multiTouch_) {
+        return;  // a finger lifting after a pinch is no tap
+    }
     const core::PointF at = toReader(position);
     // In portrait every tap comes here. In landscape borealis runs a tapped button itself, but a tap that slid a little
     // (onPan) comes here. The overlay's children are laid out in reader units from this view's corner.
     const brls::Point local{getX() + at.x, getY() + at.y};
     for (const Button& button : buttons_) {
         if (shown(button.view) && button.view->getFrame().pointInside(local)) {
+            pendingTap_.reset();
             brls::sync(button.action);  // after the tap is done (the action may close this screen)
             return;
         }
     }
+    const core::TapArea area = core::tapArea(at.x, readerScreen().width);
+    if (area == core::TapArea::Middle && doubleTapWait_) {
+        onMiddleTap(at);
+        return;
+    }
+    if (pendingTap_) {
+        firePendingTap();
+    }
     if (onTap) {
-        onTap(core::tapArea(at.x, readerScreen().width));
+        onTap(area);  // the edges turn at once
+    }
+}
+
+void ReaderView::onMiddleTap(core::PointF at) {
+    if (!pendingTap_ || !pendingTap_->secondDown) {
+        pendingTap_ = PendingTap{at, nowMs(), false};  // the menu waits: a second tap may follow
+        return;
+    }
+    // The second tap of a double tap: 2 x at this point, or back to the whole page.
+    pendingTap_.reset();
+    if (!placed_ || !hasPage()) {
+        return;
+    }
+    gesture("double_tap", true);
+    if (core::isZoomed(zoom_)) {
+        resetZoom();
+    } else {
+        zoomTo(std::min(kDoubleTapZoom, maxZoom_), at);
+    }
+    gesture("double_tap", false);
+}
+
+void ReaderView::firePendingTap() {
+    pendingTap_.reset();
+    if (onTap) {
+        onTap(core::TapArea::Middle);
     }
 }
 
@@ -108,15 +203,65 @@ void ReaderView::freeTextures() {
     leases_.clear();
 }
 
-void ReaderView::showPage(const image::ImagePtr& image, core::PageFit fit, core::ReadingDirection direction) {
-    if (image == image_ && fit == fit_ && direction == direction_) {
+bool ReaderView::makeTextures(const image::ImagePtr& image, std::vector<int>& textures,
+                              std::vector<image::TextureLease>& leases) {
+    // One texture per tile (each side <= maxTextureSide), each one reserved in the GPU budget first (S7).
+    NVGcontext* vg = brls::Application::getNVGContext();
+    std::vector<std::uint8_t> scratch;
+    const auto& tiles = image->tiles();
+    for (std::size_t i = 0; i < tiles.size(); ++i) {
+        image::TextureLease lease(budget_, image::TextureBudget::bytesFor(tiles[i]));
+        const std::uint8_t* pixels = lease.ok() ? image->tilePixels(i, scratch) : nullptr;
+        const int texture = pixels ? nvgCreateImageRGBA(vg, tiles[i].width, tiles[i].height, 0, pixels) : 0;
+        if (texture == 0) {
+            for (const int made : textures) {
+                nvgDeleteImage(vg, made);
+            }
+            textures.clear();
+            leases.clear();
+            return false;
+        }
+        textures.push_back(texture);
+        leases.push_back(std::move(lease));
+    }
+    return true;
+}
+
+void ReaderView::showPage(const image::ImagePtr& image, core::PageFit fit, core::ReadingDirection direction,
+                          const std::string& pageKey) {
+    if (image == image_ && fit == fit_ && direction == direction_ && pageKey == pageKey_) {
         return;
     }
-    const bool newImage = image != image_;
+    const bool samePage = pageKey == pageKey_ && fit == fit_ && direction == direction_;
+    if (samePage && image && image_ && image->sourceSize() == image_->sourceSize()) {
+        // A sharper decode of the page on screen (or its fit image again): the new textures first, then the old ones go
+        // (S7: both are reserved for that moment). Zoom and position stay. No room: the old image stays, only blurrier.
+        std::vector<int> textures;
+        std::vector<image::TextureLease> leases;
+        if (!makeTextures(image, textures, leases)) {
+            return;
+        }
+        freeTextures();
+        textures_ = std::move(textures);
+        leases_ = std::move(leases);
+        image_ = image;
+        ++imageRevision_;
+        return;
+    }
+    const bool newPage = pageKey != pageKey_;
+    const bool fitChanged = fit != fit_;
+    pageKey_ = pageKey;
     fit_ = fit;
     direction_ = direction;
     placed_ = false;
-    if (!newImage) {
+    glide_.reset();
+    pinch_.reset();  // fingers still down count for nothing until they lift (multiTouch_)
+    if (fitChanged || (newPage && !keepZoomOnTurn_)) {
+        setZoomValue(1);  // a new fit, or a turn with "Back to whole page"
+    } else if (newPage && core::isZoomed(zoom_)) {
+        zoomChanged();  // "Keep the zoom": the new page decodes again for it
+    }
+    if (image == image_) {
         return;
     }
     freeTextures();
@@ -124,32 +269,81 @@ void ReaderView::showPage(const image::ImagePtr& image, core::PageFit fit, core:
     refused_ = false;
     drawn_ = {};
     ++revision_;
-    if (!image_) {
-        return;
-    }
-    // One texture per tile (each side <= maxTextureSide), each one reserved in the GPU budget first (S7).
-    NVGcontext* vg = brls::Application::getNVGContext();
-    std::vector<std::uint8_t> scratch;
-    const auto& tiles = image_->tiles();
-    for (std::size_t i = 0; i < tiles.size(); ++i) {
-        image::TextureLease lease(budget_, image::TextureBudget::bytesFor(tiles[i]));
-        const std::uint8_t* pixels = lease.ok() ? image_->tilePixels(i, scratch) : nullptr;
-        const int texture = pixels ? nvgCreateImageRGBA(vg, tiles[i].width, tiles[i].height, 0, pixels) : 0;
-        if (texture == 0) {
-            freeTextures();
-            refused_ = true;
-            return;
-        }
-        textures_.push_back(texture);
-        leases_.push_back(std::move(lease));
+    if (image_ && !makeTextures(image_, textures_, leases_)) {
+        freeTextures();
+        refused_ = true;
     }
 }
 
 void ReaderView::layout(core::SizeF screen) {
     screen_ = screen;
-    drawn_ = image_ ? core::fitPage(image_->sourceSize(), screen, fit_) : core::SizeF{};
+    fitSize_ = image_ ? core::fitPage(image_->sourceSize(), screen, fit_) : core::SizeF{};
+    drawn_ = scaled(fitSize_, zoom_);
+    // Zoomed ("Keep the zoom"), this is the corner where reading starts: top right for right to left, top left otherwise.
     position_ = core::startPosition(drawn_, screen, direction_);
     placed_ = true;
+}
+
+void ReaderView::setZoomValue(float zoom) {
+    zoom_ = zoom;
+    drawn_ = scaled(fitSize_, zoom_);
+}
+
+void ReaderView::zoomChanged() {
+    ++zoomRevision_;
+    zoomChangedMs_ = nowMs();
+}
+
+void ReaderView::zoomTo(float zoom, core::PointF anchor) {
+    if (!placed_ || !hasPage() || pinch_) {
+        return;
+    }
+    const float to = core::clampZoom(zoom, maxZoom_);
+    if (std::fabs(to - zoom_) < 0.0001f) {
+        return;
+    }
+    glide_.reset();
+    position_ = core::zoomAround(position_, fitSize_, zoom_, to, anchor, screen_);
+    setZoomValue(to);
+    zoomChanged();
+}
+
+void ReaderView::zoomStep(int direction) {
+    zoomTo(core::zoomStep(zoom_, direction, maxZoom_), {screen_.width / 2, screen_.height / 2});
+}
+
+void ReaderView::resetZoom() {
+    zoomTo(1, {screen_.width / 2, screen_.height / 2});
+}
+
+bool ReaderView::canMove(core::Arrow arrow) const {
+    if (!placed_) {
+        return false;
+    }
+    return core::canMoveToward(glide_ ? glide_->to : position_, drawn_, screen_, arrow);
+}
+
+bool ReaderView::panBy(core::PointF move) {
+    if (!placed_ || pinch_) {
+        return false;
+    }
+    glide_.reset();
+    const core::PointF to = core::clampPosition({position_.x + move.x, position_.y + move.y}, drawn_, screen_);
+    const bool moved = std::fabs(to.x - position_.x) > 0.01f || std::fabs(to.y - position_.y) > 0.01f;
+    position_ = to;
+    return moved;
+}
+
+void ReaderView::glideBy(core::PointF move) {
+    if (!placed_ || pinch_) {
+        return;
+    }
+    const core::PointF from = glide_ ? glide_->to : position_;
+    const core::PointF to = core::clampPosition({from.x + move.x, from.y + move.y}, drawn_, screen_);
+    if (!glide_) {
+        gesture("glide", true);
+    }
+    glide_ = Glide{position_, to, std::chrono::steady_clock::now()};
 }
 
 void ReaderView::scrollBy(float dy) {
@@ -159,17 +353,99 @@ void ReaderView::scrollBy(float dy) {
     }
 }
 
+void ReaderView::onFinger(const brls::TouchState& touch) {
+    const core::PointF at = toReader(touch.position);
+    const int id = touch.fingerId;
+    switch (touch.phase) {
+        case brls::TouchPhase::START:
+            if (fingers_.empty()) {
+                multiTouch_ = false;  // a fresh touch
+            }
+            fingers_[id] = Finger{at, pass_};
+            if (fingers_.size() >= 2) {
+                multiTouch_ = true;  // from now on until every finger has lifted, no tap, drag or swipe counts
+                pendingTap_.reset();
+                if (!pinch_ && fingers_.size() == 2 && placed_ && hasPage()) {
+                    startPinch();
+                }
+            }
+            break;
+        case brls::TouchPhase::STAY: {
+            fingers_[id] = Finger{at, pass_};
+            if (pinch_ && (id == pinch_->a || id == pinch_->b) && fingers_.count(pinch_->a) && fingers_.count(pinch_->b)) {
+                const core::ZoomView view = core::pinchView(pinch_->start, fingers_[pinch_->a].at, fingers_[pinch_->b].at,
+                                                            fitSize_, screen_, maxZoom_);
+                setZoomValue(view.zoom);
+                position_ = view.position;
+            }
+            break;
+        }
+        case brls::TouchPhase::END:
+            fingers_.erase(id);
+            if (pinch_ && (id == pinch_->a || id == pinch_->b)) {
+                endPinch();  // one finger lifted: the pinch ends; the other does nothing until it lifts too
+            }
+            break;
+        case brls::TouchPhase::NONE:
+            break;
+    }
+}
+
+void ReaderView::startPinch() {
+    if (dragging_) {
+        dragging_ = false;
+        ++moves_;
+        gesture("drag", false);
+    }
+    glide_.reset();
+    auto it = fingers_.begin();
+    const auto first = *it++;
+    const auto second = *it;
+    pinch_ = Pinch{core::PinchStart{zoom_, position_, first.second.at, second.second.at}, first.first, second.first};
+    gesture("pinch", true);
+}
+
+void ReaderView::endPinch() {
+    pinch_.reset();
+    if (core::snapsToFit(zoom_)) {
+        // Let go just above the fit: the whole page again, centred.
+        setZoomValue(1);
+        position_ = core::clampPosition(position_, drawn_, screen_);
+    }
+    zoomChanged();
+    ++moves_;
+    gesture("pinch", false);
+}
+
 void ReaderView::onPan(const brls::PanGestureStatus& status) {
+    if (multiTouch_) {
+        return;  // two fingers: the pinch has it
+    }
     if (status.state == brls::GestureState::UNSURE) {
         // The finger just touched down: borealis does not know yet whether this is a tap or a drag.
         touchDown_ = status.position;
         touchDownAt_ = std::chrono::steady_clock::now();
+        if (pendingTap_) {
+            // A middle tap waits: close by and in time this may be the second tap of a double tap; else it was a single tap.
+            if (core::isDoubleTap(pendingTap_->at, pendingTap_->upMs, toReader(status.position), nowMs(),
+                                  readerScreen().width, kTapMaxSlide, kDoubleTapGapMs)) {
+                pendingTap_->secondDown = true;
+            } else {
+                firePendingTap();
+            }
+        }
         return;
     }
     if (status.state == brls::GestureState::START) {
+        glide_.reset();
         dragFrom_ = position_;
+        dragging_ = true;
         couldMoveLeft_ = placed_ && core::canMoveToward(position_, drawn_, screen_, core::Side::Left);
         couldMoveRight_ = placed_ && core::canMoveToward(position_, drawn_, screen_, core::Side::Right);
+        gesture("drag", true);
+    }
+    if (!dragging_) {
+        return;  // the drag began before a pinch took over
     }
     const core::PointF move = core::screenMoveToReader(
         orientation_, {status.position.x - status.startPosition.x, status.position.y - status.startPosition.y});
@@ -180,6 +456,8 @@ void ReaderView::onPan(const brls::PanGestureStatus& status) {
         position_ = core::clampPosition({dragFrom_.x + dx, dragFrom_.y + dy}, drawn_, screen_);
     }
     if (status.state == brls::GestureState::END) {
+        dragging_ = false;
+        gesture("drag", false);
         // borealis cancelled the tap when this drag began. A quick one that slid only a little was a tap after all.
         const auto held = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - touchDownAt_);
@@ -192,6 +470,9 @@ void ReaderView::onPan(const brls::PanGestureStatus& status) {
             return;
         }
         ++moves_;
+        if (pendingTap_ && pendingTap_->secondDown) {
+            pendingTap_.reset();  // the second touch was a drag: neither a double tap nor a menu
+        }
         const std::optional<core::Side> side = core::swipeSide(dx, dy, kSwipeMinDistance);
         // A page that could still move that way when the swipe began moved instead of turning.
         if (side && onSwipe && !(*side == core::Side::Left ? couldMoveLeft_ : couldMoveRight_)) {
@@ -200,11 +481,43 @@ void ReaderView::onPan(const brls::PanGestureStatus& status) {
     }
 }
 
+void ReaderView::tick() {
+    // Fingers borealis said nothing about in the last input pass have lifted (a finger that is down gets a touch every
+    // pass), even if their end never came.
+    for (auto it = fingers_.begin(); it != fingers_.end();) {
+        if (it->second.pass != pass_) {
+            const int id = it->first;
+            it = fingers_.erase(it);
+            if (pinch_ && (id == pinch_->a || id == pinch_->b)) {
+                endPinch();
+            }
+        } else {
+            ++it;
+        }
+    }
+    if (glide_) {
+        const float elapsed = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - glide_->started)
+                                  .count();
+        const float t = elapsed / static_cast<float>(core::kArrowGlideMs);
+        const float p = core::glideProgress(t);
+        position_ = {glide_->from.x + (glide_->to.x - glide_->from.x) * p,
+                     glide_->from.y + (glide_->to.y - glide_->from.y) * p};
+        if (t >= 1) {
+            position_ = glide_->to;
+            glide_.reset();
+            ++moves_;
+            gesture("glide", false);
+        }
+    }
+    // A single middle tap that no second one followed: the menu now.
+    if (pendingTap_ && !pendingTap_->secondDown && nowMs() - pendingTap_->upMs > kDoubleTapGapMs) {
+        firePendingTap();
+    }
+}
+
 void ReaderView::drawSpinner(NVGcontext* vg, float cx, float cy) {
     // Turns with the clock, so it needs no borealis animation (one would keep the app from ever being "idle").
-    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                        std::chrono::steady_clock::now().time_since_epoch())
-                        .count();
+    const auto ms = nowMs();
     const float start = static_cast<float>(std::fmod(static_cast<double>(ms) / 1000.0 * 2 * kPi, 2 * kPi));
     nvgBeginPath(vg);
     nvgArc(vg, cx, cy, kSpinnerRadius, start, start + static_cast<float>(kPi * 1.5), NVG_CW);
@@ -215,6 +528,10 @@ void ReaderView::drawSpinner(NVGcontext* vg, float cx, float cy) {
 
 void ReaderView::draw(NVGcontext* vg, float x, float y, float width, float height, brls::Style style,
                       brls::FrameContext* ctx) {
+    tick();
+    if (onFrame) {
+        onFrame();
+    }
     const core::SizeF screen = core::readerScreen(orientation_, core::SizeF{width, height});
     const bool turned = core::isPortrait(orientation_);
     if (turned) {
@@ -233,6 +550,7 @@ void ReaderView::draw(NVGcontext* vg, float x, float y, float width, float heigh
     if (turned) {
         nvgRestore(vg);
     }
+    ++pass_;  // touches from now on belong to the next input pass
     if (onDrawn) {
         onDrawn();
     }

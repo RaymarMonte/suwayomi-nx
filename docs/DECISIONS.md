@@ -812,3 +812,35 @@ answers 2026-10-30). Stubs and the planning steps: ROADMAP.md.
 Rejected: writing every full WP doc now (later ones would point at code that doesn't exist yet, and one session can't hold
 all their reading); planning and building in one session (the planning reading crowds out the build, and a Sonnet WP needs
 an Opus plan); server-side "Download" only (no reading away from home).
+
+**D48 Zoom & pan in the paged reader: the rules as built** (WP-13, 2026-11-07; owner's answers 2026-10-30 in
+`wp/WP-13-zoom-and-pan.md`, the rest planner's defaults the owner may change after trying them).
+- **Owner's answers:** a page turn goes back to the whole page; the setting "Zoom on page turn" (`reader.zoomOnTurn`,
+  `reset` / `keep`) keeps the zoom instead, the next page at its reading start (the top, right side for right to left).
+  Double-tap only in the middle zone (2 × at the tapped point, again: back to the fit); the edges still turn at once, only
+  the single middle tap waits 250 ms. Not zoomed, the sticks turn pages as before.
+- **Zoom:** 1 = the fit. Steps 1, 1.5, 2, 3, 4 (ZR in, ZL out, around the middle, repeating while held), capped by
+  `RuntimeProfile::maxZoom` (Full 4; safe mode and the applet profile 2). Not saved; rotating and changing fit go back to
+  the fit. A pinch keeps the page point between the fingers under them; let go below 1.05 it snaps to the fit. Two fingers
+  down: no tap, drag or swipe counts until every finger has lifted. A double tap: two taps within 250 ms and 40 units.
+- **Moving:** a drag pans (no momentum; WP-13b). The D-pad glides 0.75 of the screen in 150 ms (eased out); at the edge a
+  fresh press turns. The sticks (either one, 15 % dead zone, speed grows with the push squared, a full push crosses the
+  screen in 0.6 s) pan; a push that starts at the edge turns (half way counts as a press). **One press, one page** in
+  every orientation (the D46 fix): after a turn, that button or stick does nothing until let go. L/R always turn.
+- **Sharp pages:** 150 ms after the zoom settles, the page on screen decodes again for the fit box × the zoom step at or
+  above the zoom (1.2 → 1.5), each side at most `maxDecodeScale` × the reader screen's longer side (2560 at 2: the loader's
+  cap is orientation-free now, so a portrait page isn't cut to 1440 tall). The fit image stays until the sharper one is
+  drawn; its textures are made first and the old ones freed after (S7: if they don't fit, the old ones stay). A turn
+  cancels the zoomed decode. "Sharp" (test events) = the drawn image has the detail the zoom wants, as far as the source
+  and the cap allow. `maxDecodeScale` stays 2 for now: Alpha's 1000 × 1500 pages are sharp at every zoom below the cap;
+  the spread measurement at 2 and 4 that decides it moves to WP-13c with the spreads.
+- **Two fingers without touching borealis:** borealis's pan follows one finger, so the reader view has its own first
+  recognizer that only counts fingers by id (and the desktop mouse as finger 0) and always reports "failed", so it never
+  blocks the others. Tests play pinches and double taps through a test-build touch channel (`test/commands/<n>.json`,
+  TESTING.md): sys-autopilot-nx has one finger and needs 150 ms between requests.
+- **Split:** spread splitting ("Split spreads", the halves, `reader-spread-split`) moved to **WP-13c** (Needs 13, before
+  13b), the WP's planned split point: the session ran long.
+- **Owner's verdict** on how it feels (and on "Back to whole page"): pending, after the console run.
+Rejected: patching borealis for two fingers (a submodule change, D1); saving the zoom per manga; B zooming out before it
+closes; double-tap on the edges (it would delay every edge tap); decoding while a pinch runs (the decode waits until the
+zoom has settled).

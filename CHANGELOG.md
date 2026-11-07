@@ -3,6 +3,20 @@
 All notable changes to Suwayomi NX. Versions follow [Semantic Versioning](https://semver.org/); while the version starts
 with 0, any release may change things.
 
+## [Unreleased]
+
+### Added
+- **Zoom:** pinch a page, double-tap its middle, or press ZR / ZL (up to 4 ×). Zoomed in, drag, push either stick or press
+  the D-pad to look around; at the edge, a new push or a swipe turns the page. A moment after you stop zooming the page
+  turns sharp (it is loaded again at the bigger size). A page turn goes back to the whole page; the new reader setting
+  "Zoom on page turn" can keep the zoom instead.
+
+### Changed
+- A single tap in the middle of the page opens the menu a quarter second later (it waits to see if it is a double tap).
+
+### Fixed
+- Holding the D-pad (or a stick) turns only one page, also in portrait.
+
 ## [0.2.0] - 2026-10-30
 
 Read with the console held sideways.

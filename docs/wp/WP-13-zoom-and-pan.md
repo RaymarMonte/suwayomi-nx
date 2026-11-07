@@ -125,28 +125,29 @@ gets its own hit test and goes to that view's recognizers with its `fingerId`); 
 7. **Settings menu:** "Zoom on page turn" and "Split spreads" join direction, fit, background, page number and orientation.
 
 ## Deliverables
-- [ ] **Spike first** (short): two real fingers reach `ReaderView` with their ids on the console (the session can't touch
+- [ ] **Spike first** (short; desktop half done 2026-11-07: played frames reach the same recognizers; borealis's touch loop
+      read: every finger has its own id. Owner's ten-second pinch on the console: pending): two real fingers reach `ReaderView` with their ids on the console (the session can't touch
       the console with two fingers: read borealis's touch loop to be sure, log the finger ids, and ask the owner for a
       ten-second pinch with the log on), and a played `touches` frame reaches the same recognizers on desktop. If borealis
       fights this, stop at a clean point and write what you found in STATUS before building the rest.
-- [ ] core: the zoom, pinch, double-tap, arrow/stick, fresh-press and spread math above; `ZoomOnTurn`, `SpreadSplit` +
+- [x] core (zoom part, 2026-11-07; the spread part → WP-13c): the zoom, pinch, double-tap, arrow/stick, fresh-press and spread math above; `ZoomOnTurn`, `SpreadSplit` +
       names and config keys; `RuntimeProfile::maxZoom` (Full 4, safe mode and applet 2); the zoomed decode box with the
       reader-screen cap. Unit tests: zoom steps and limits, `zoomAround` keeps the anchor point fixed and never shows a gap,
       the pinch (scale, midpoint pan, snap to fit), buckets (1.2 → 1.5, 1.7 → 2), boxes per fit and orientation (portrait
       2 × is sharp), split ×2, the source-limited "sharp" rule, double tap in/out of time and distance and only in the
       middle, arrows and sticks zoomed / not zoomed in all three orientations, the fresh-press rule, the dead zone and
       speed, `splitsSpread` for every mode × orientation, the halves' order and rectangles, config round trip and old files
-- [ ] image: the loader's orientation-free cap (unit test: a portrait box at 2 × isn't cut to 1440 tall)
-- [ ] `ReaderModel`: the wanted box for the page on screen (zoom), the fit image kept until the sharper one arrives,
+- [x] image: the loader's orientation-free cap (unit test: a portrait box at 2 × isn't cut to 1440 tall)
+- [x] `ReaderModel` (zoom part; halves and spreads → WP-13c): the wanted box for the page on screen (zoom), the fit image kept until the sharper one arrives,
       cancel on turn, spreads found after decode loaded again at the doubled box, halves in `step()`, progress by page,
       both zoom-on-turn modes. Unit tests (suite `ui`): through a spread both ways, backward lands on the last half, a
       spread found while prefetched, the zoom box only for the page on screen, cancel on turn
-- [ ] `ReaderView`: zoom and pan drawing, halves, the texture swap that keeps zoom and position, the pinch recognizer,
+- [x] `ReaderView` (no halves: WP-13c): zoom and pan drawing, halves, the texture swap that keeps zoom and position, the pinch recognizer,
       the double tap and the menu's wait, glides from the clock, stick pan each frame, the `touches` entry for tests
-- [ ] `ReaderActivity`: ZL/ZR, the D-pad and sticks by the rules above, the fresh-press fix, the two new settings, the
+- [x] `ReaderActivity` ("Zoom on page turn"; "Split spreads" → WP-13c): ZL/ZR, the D-pad and sticks by the rules above, the fresh-press fix, the two new settings, the
       new event fields and the `gesture` event
-- [ ] Test hooks: the touch channel (`command` event), `pinch()` / `doubleTap()` helpers, TESTING.md "Drivers" says how
-- [ ] Scenario `reader-zoom` (desktop and Switch). Desktop: Alpha ch1 in landscape: a double tap in the middle → zoom 2,
+- [x] Test hooks: the touch channel (`command` event), `pinch()` / `doubleTap()` helpers, TESTING.md "Drivers" says how
+- [ ] Scenario `reader-zoom` (desktop and Switch; desktop green 2026-11-07, the Switch part written, not run yet). Desktop: Alpha ch1 in landscape: a double tap in the middle → zoom 2,
       the tapped point stays put (`x`/`y`), then the sharper decode (`decW` 1000, `sharp`; golden); a drag to the right
       edge and further (`x` stops at the edge); a swipe at the edge turns → page 2 at zoom 1; a played pinch in (zoom 3
       ± 0.1) and out to the fit; a double tap back to the fit; a single middle tap opens the menu (after the wait); an edge
@@ -156,7 +157,7 @@ gets its own hit test and goes to that view's recognizers with its `fingerId`); 
       the edge turns; D-pad steps and the edge press; not zoomed, a stick held 2 s turns one page; in portrait, holding the
       D-pad that turns pages turns exactly one; the frame numbers and `sharpMs` below; 50 zoom cycles; 100 turns from
       zoomed pages
-- [ ] Scenario `reader-spread-split` (desktop and Switch): Beta RTL ch1 in portrait ("In portrait"): page 4 shows its
+- [ ] → WP-13c: Scenario `reader-spread-split` (desktop and Switch): Beta RTL ch1 in portrait ("In portrait"): page 4 shows its
       right half first (`split`, `half` 0, sharp: the spread decoded 1440 wide, so the half drawn 720 wide has 720
       pixels, not the 360 of the fit decode), the next step its
       left half, then page 5; back lands on page 4's left half; the server's `lastPageRead` is page 4 (index 3) on both
@@ -167,7 +168,7 @@ gets its own hit test and goes to that view's recognizers with its `fingerId`); 
 - [ ] Console (application mode, handheld, stock clocks, D17): the numbers in Acceptance; Switch build's safety gate PASS
 - [ ] Owner tries it in their hands: pinch and double-tap (the real touch path), ZL/ZR, the sticks, both orientations,
       a spread in portrait, on a real chapter from their server; and says whether "Back to whole page" feels right
-- [ ] Docs: D48 (the answers, the defaults as they ended up, the `maxDecodeScale` measurement and choice, the owner's
+- [x] Docs (2026-11-07; the measurement and the owner's verdict still to add): D48 (the answers, the defaults as they ended up, the `maxDecodeScale` measurement and choice, the owner's
       verdict), ARCHITECTURE.md (reader math line, the "Max decode resolution" row), TESTING.md (scenarios 6c and 6d, the
       touch channel, the new events), `src/core/README.md`, `src/image/README.md` (the cap), `src/ui/README.md`,
       `tests/e2e/README.md` (the helpers), the user part of README.md (how to zoom), CHANGELOG.md (a version is the owner's call)

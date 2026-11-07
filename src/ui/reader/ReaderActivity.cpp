@@ -25,6 +25,18 @@ constexpr float kBarPadding = 32;
 constexpr float kPortraitBarPadding = 16;
 constexpr float kMessageMargin = 40;
 constexpr float kScrollShare = 0.5f;     // D-pad up/down moves a tall page by half a screen
+// WP-13: a zoom that hasn't changed for this long decodes the page again for it; a held D-pad button repeats after the
+// first wait, then every repeat (like borealis's own repeat); a frame longer than kMaxStickStepMs moves the stick's pan no
+// further than that (a stalled frame doesn't jump the page).
+constexpr std::int64_t kZoomSettleMs = 150;
+constexpr std::int64_t kRepeatFirstMs = 250;
+constexpr std::int64_t kRepeatMs = 100;
+constexpr std::int64_t kMaxStickStepMs = 50;
+constexpr float kStickDeadZone = 0.15f;
+const core::Arrow kArrows[] = {core::Arrow::Up, core::Arrow::Down, core::Arrow::Left, core::Arrow::Right};
+const brls::ControllerButton kDpad[] = {brls::BUTTON_UP, brls::BUTTON_DOWN, brls::BUTTON_LEFT, brls::BUTTON_RIGHT};
+const core::ZoomOnTurn kZoomOnTurns[] = {core::ZoomOnTurn::Reset, core::ZoomOnTurn::Keep};
+const char* const kZoomOnTurnKeys[] = {"reader/zoom_on_turn_reset", "reader/zoom_on_turn_keep"};
 const NVGcolor kBarColor = nvgRGBA(16, 16, 16, 225);
 const NVGcolor kBarText = nvgRGB(235, 235, 235);
 const NVGcolor kPageNumberBackground = nvgRGBA(16, 16, 16, 180);
@@ -151,7 +163,8 @@ ReaderActivity::ReaderActivity(app::AppContext& context, core::Manga manga, std:
       background_(context.config.config().reader.background),
       showPageNumber_(context.config.config().reader.showPageNumber),
       orientation_(context.config.config().reader.orientation),
-      lastPortrait_(context.config.config().reader.lastPortrait) {}
+      lastPortrait_(context.config.config().reader.lastPortrait),
+      zoomOnTurn_(context.config.config().reader.zoomOnTurn) {}
 
 ReaderActivity::~ReaderActivity() {
     if (subscribed_) {
@@ -160,8 +173,11 @@ ReaderActivity::~ReaderActivity() {
     if (view_ != nullptr) {
         view_->onTap = nullptr;
         view_->onSwipe = nullptr;
+        view_->onFrame = nullptr;
         view_->onDrawn = nullptr;
+        view_->onGesture = nullptr;
     }
+    app::testhooks::setUiBusy(false);
     model_.setListener({});
     platform::keepScreenOn(false);
 }
@@ -249,17 +265,21 @@ void ReaderActivity::build() {
     bottomBar_->addView(barButtons_.back());
     overlay->addView(bottomBar_);
 
-    // Controller. Left/right turn pages (mirrored for right to left): the D-pad (and the sticks, borealis's NAV buttons)
-    // and L/R. Their actions come before borealis's focus moves, so a page turn never moves the focus. In portrait the D-pad
-    // turns with the screen (arrow()); L/R keep their sides. Up/down repeat while held (scrolling): in portrait that is the
-    // press that turns pages.
-    view_->registerAction("", brls::BUTTON_NAV_LEFT, [this](brls::View*) { arrow(core::Arrow::Left); return true; }, true);
-    view_->registerAction("", brls::BUTTON_NAV_RIGHT, [this](brls::View*) { arrow(core::Arrow::Right); return true; }, true);
+    // Controller. L/R turn pages (mirrored for right to left; also zoomed). The D-pad and the sticks are read once a frame
+    // (pollControls, WP-13): they turn with the screen in portrait (core::readerArrow / readerStick), a turn needs a fresh
+    // press (holding never turns more than one page), and zoomed they move around the page. borealis's NAV buttons ("D-pad
+    // or either stick") are still taken here, doing nothing, so they never move the focus. ZR / ZL zoom in and out a step,
+    // repeating while held.
+    for (const brls::ControllerButton nav :
+         {brls::BUTTON_NAV_LEFT, brls::BUTTON_NAV_RIGHT, brls::BUTTON_NAV_UP, brls::BUTTON_NAV_DOWN}) {
+        view_->registerAction("", nav, [](brls::View*) { return true; }, true, true);
+    }
     view_->registerAction("", brls::BUTTON_LB, [this](brls::View*) { turn(core::Side::Left); return true; }, true);
     view_->registerAction("", brls::BUTTON_RB, [this](brls::View*) { turn(core::Side::Right); return true; }, true);
-    view_->registerAction("", brls::BUTTON_NAV_UP, [this](brls::View*) { arrow(core::Arrow::Up); return true; }, true, true);
-    view_->registerAction("", brls::BUTTON_NAV_DOWN, [this](brls::View*) { arrow(core::Arrow::Down); return true; }, true,
+    view_->registerAction("reader/zoom_in"_i18n, brls::BUTTON_RT, [this](brls::View*) { zoomStep(1); return true; }, true,
                           true);
+    view_->registerAction("reader/zoom_out"_i18n, brls::BUTTON_LT, [this](brls::View*) { zoomStep(-1); return true; },
+                          true, true);
     view_->registerAction("reader/rotate"_i18n, brls::BUTTON_Y, [this](brls::View*) { rotate(); return true; });
     view_->registerAction("reader/menu"_i18n, brls::BUTTON_A, [this](brls::View*) { toggleMenu(); return true; });
     view_->registerAction("reader/retry"_i18n, brls::BUTTON_X, [this](brls::View*) { retry(); return true; });
@@ -276,11 +296,27 @@ void ReaderActivity::build() {
         }
     };
     view_->onSwipe = [this](core::Side side) { turn(side); };
+    view_->onFrame = [this] {
+        pollControls();  // before the page is drawn, so a press shows in this frame
+        settleZoom();
+    };
     view_->onDrawn = [this] {
         followScreen();    // docked or undocked, the screen's size
         model_.onFrame();  // progress, when it's due
         report();
+        // Test builds: not idle while a middle tap waits, a zoom waits to decode, or the page moves by itself.
+        app::testhooks::setUiBusy(seenZoomRevision_ != appliedZoomRevision_ || model_.zoomLoading() || view_->gliding() ||
+                                  view_->pinching() || view_->tapWaiting() || stickPushing_ || !gestureKind_.empty());
     };
+    view_->onGesture = [this](const char* kind, bool started) {
+        if (started) {
+            gestureBegin(kind);
+        } else {
+            gestureEnd(kind);
+        }
+    };
+    view_->setMaxZoom(context_.profile.maxZoom);
+    view_->setKeepZoomOnTurn(zoomOnTurn_ == core::ZoomOnTurn::Keep);
     layoutForScreen();
 }
 
@@ -330,22 +366,190 @@ void ReaderActivity::layoutForScreen() {
     rotateButton_->setVisibility(handheld_ ? brls::Visibility::VISIBLE : brls::Visibility::GONE);  // docked: landscape
 }
 
-void ReaderActivity::arrow(core::Arrow pressed) {
-    const float scroll = view_->readerScreen().height * kScrollShare;
-    switch (core::readerArrow(view_->orientation(), pressed)) {
-        case core::Arrow::Left:
-            turn(core::Side::Left);
+bool ReaderActivity::readerHasFocus() const {
+    // The D-pad and sticks act only while the reader is the screen in use (not under the settings menu).
+    for (brls::View* v = brls::Application::getCurrentFocus(); v != nullptr; v = v->getParent()) {
+        if (v == view_) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void ReaderActivity::pollControls() {
+    const std::int64_t now = app::appClockMs();
+    const float seconds =
+        lastFrameMs_ < 0 ? 0.0f : static_cast<float>(std::min(now - lastFrameMs_, kMaxStickStepMs)) / 1000.0f;
+    lastFrameMs_ = now;
+    gestureFrame(now);
+    const brls::ControllerState& state = brls::Application::getControllerState();
+    const bool active = !closing_ && readerHasFocus();
+    for (std::size_t i = 0; i < std::size(kArrows); ++i) {
+        ArrowHold& hold = dpad_[i];
+        const bool pressed = state.buttons[kDpad[i]];
+        if (!pressed) {
+            hold = ArrowHold{};
+            continue;
+        }
+        const bool fresh = !hold.down;
+        hold.down = true;
+        if (fresh) {
+            hold.nextRepeatMs = now + kRepeatFirstMs;
+        } else if (now >= hold.nextRepeatMs) {
+            hold.nextRepeatMs = now + kRepeatMs;
+        } else {
+            continue;
+        }
+        if (active) {
+            arrowPress(kArrows[i], fresh, hold);
+        }
+    }
+    if (active) {
+        pollStick(seconds);
+    }
+}
+
+void ReaderActivity::arrowPress(core::Arrow pressed, bool fresh, ArrowHold& hold) {
+    if (hold.latched) {
+        return;  // this press turned a page: one press, one page
+    }
+    const core::Arrow arrow = core::readerArrow(view_->orientation(), pressed);
+    const bool zoomed = core::isZoomed(view_->zoom());
+    switch (core::arrowEffect(arrow, zoomed, view_->canMove(arrow), fresh)) {
+        case core::ArrowEffect::Turn:
+            hold.latched = true;
+            turn(*core::arrowSide(arrow));
             break;
-        case core::Arrow::Right:
-            turn(core::Side::Right);
+        case core::ArrowEffect::Move:
+            if (zoomed) {
+                view_->glideBy(core::arrowMove(arrow, view_->readerScreen()));
+            } else {
+                const float scroll = view_->readerScreen().height * kScrollShare;
+                view_->scrollBy(arrow == core::Arrow::Up ? -scroll : scroll);
+            }
             break;
-        case core::Arrow::Up:
-            view_->scrollBy(-scroll);
-            break;
-        case core::Arrow::Down:
-            view_->scrollBy(scroll);
+        case core::ArrowEffect::Nothing:
             break;
     }
+}
+
+void ReaderActivity::pollStick(float seconds) {
+    // Either stick: the one pushed further (in portrait the one on the bottom Joy-Con is in reach).
+    const brls::ControllerState& state = brls::Application::getControllerState();
+    const core::PointF left{state.axes[brls::LEFT_X], state.axes[brls::LEFT_Y]};
+    const core::PointF right{state.axes[brls::RIGHT_X], state.axes[brls::RIGHT_Y]};
+    const core::PointF raw = std::hypot(left.x, left.y) >= std::hypot(right.x, right.y) ? left : right;
+    const core::PointF stick = core::readerStick(view_->orientation(), raw);
+    if (std::hypot(stick.x, stick.y) <= kStickDeadZone) {
+        // Back at rest: the push is over.
+        if (stickPanning_) {
+            view_->finishPan();
+            gestureEnd("stick");
+        }
+        stickPushing_ = false;
+        stickPanning_ = false;
+        stickLatched_ = false;
+        return;
+    }
+    if (stickLatched_) {
+        return;  // it turned a page: nothing until it is let go
+    }
+    if (!stickPushing_) {
+        stickPushing_ = true;
+        stickEdgeLeft_ = !view_->canMove(core::Arrow::Left);
+        stickEdgeRight_ = !view_->canMove(core::Arrow::Right);
+    }
+    const bool zoomed = core::isZoomed(view_->zoom());
+    const std::optional<core::Arrow> pushed = core::stickArrow(stick);
+    const std::optional<core::Side> side = pushed ? core::arrowSide(*pushed) : std::nullopt;
+    // Not zoomed, a push past half way sideways is a D-pad press (it turns). Zoomed, only a push that began with the page
+    // already at its edge that way turns, like a fresh D-pad press at the edge.
+    if (side && (!zoomed || (*side == core::Side::Left ? stickEdgeLeft_ : stickEdgeRight_))) {
+        stickLatched_ = true;
+        if (stickPanning_) {
+            view_->finishPan();
+            gestureEnd("stick");
+            stickPanning_ = false;
+        }
+        turn(*side);
+        return;
+    }
+    // Zoomed: a smooth pan, faster the further pushed. Not zoomed: only up and down (a tall page scrolls).
+    const core::PointF push = zoomed ? stick : core::PointF{0, stick.y};
+    const core::PointF move = core::stickMove(push, view_->readerScreen(), seconds, 0.6f, kStickDeadZone);
+    if (view_->panBy(move) && !stickPanning_) {
+        stickPanning_ = true;
+        gestureBegin("stick");
+    }
+}
+
+void ReaderActivity::zoomStep(int direction) {
+    if (!view_->hasPage()) {
+        return;
+    }
+    const unsigned before = view_->zoomRevision();
+    view_->zoomStep(direction);
+    if (view_->zoomRevision() != before) {
+        gestureBegin("zoom_step");
+        gestureEndAfter_ = 2;  // the frame that draws it, and the one after
+    }
+}
+
+void ReaderActivity::settleZoom() {
+    // The view's zoom changed: once it has stayed for kZoomSettleMs (and no fingers pinch), the page on screen decodes
+    // again for it (or goes back to its fit image).
+    const std::int64_t now = app::appClockMs();
+    if (view_->zoomRevision() != seenZoomRevision_) {
+        seenZoomRevision_ = view_->zoomRevision();
+        zoomSeenMs_ = now;
+        sharpMs_ = -1;
+    }
+    if (seenZoomRevision_ != appliedZoomRevision_ && !view_->pinching() && now - zoomSeenMs_ >= kZoomSettleMs) {
+        appliedZoomRevision_ = seenZoomRevision_;
+        model_.setPageZoom(view_->zoom());
+    }
+}
+
+void ReaderActivity::gestureBegin(const std::string& kind) {
+    if (!gestureKind_.empty()) {
+        gestureEnd(gestureKind_);  // one at a time: a new one ends the last
+    }
+    gestureKind_ = kind;
+    gestureLastMs_ = app::appClockMs();
+    gestureEndAfter_ = 0;
+    gestureFrames_.clear();
+}
+
+void ReaderActivity::gestureFrame(std::int64_t now) {
+    if (gestureKind_.empty()) {
+        return;
+    }
+    gestureFrames_.push_back(static_cast<int>(now - gestureLastMs_));
+    gestureLastMs_ = now;
+    if (gestureEndAfter_ > 0 && --gestureEndAfter_ == 0) {
+        gestureEnd(gestureKind_);
+    }
+}
+
+void ReaderActivity::gestureEnd(const std::string& kind) {
+    if (gestureKind_ != kind || kind.empty()) {
+        return;
+    }
+    // {"ev":"gesture"}: the frame intervals while it ran (WP-13 acceptance: p90 <= 17 ms, none over 34 ms on the console).
+    std::vector<int> sorted = gestureFrames_;
+    std::sort(sorted.begin(), sorted.end());
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["kind"] = kind;
+    fields["frames"] = sorted.size();
+    fields["p90Ms"] = sorted.empty() ? 0 : sorted[std::min(sorted.size() - 1, sorted.size() * 9 / 10)];
+    fields["maxMs"] = sorted.empty() ? 0 : sorted.back();
+    fields["zoom"] = std::round(view_->zoom() * 100) / 100;
+    fields["x"] = static_cast<int>(std::lround(view_->pagePosition().x));
+    fields["y"] = static_cast<int>(std::lround(view_->pagePosition().y));
+    app::testhooks::write("gesture", fields);
+    gestureKind_.clear();
+    gestureFrames_.clear();
+    gestureEndAfter_ = 0;
 }
 
 void ReaderActivity::rotate() {
@@ -412,7 +616,9 @@ void ReaderActivity::reportScreen() {
 void ReaderActivity::modelChanged() {
     const bool pageReady = model_.state() == ReaderModel::State::Ready && model_.onPage() &&
                            model_.current().state == ReaderPage::State::Ready;
-    view_->showPage(pageReady ? model_.current().image : nullptr, model_.fit(), model_.direction());
+    // The page's key tells the view a sharper decode of the same page (WP-13) from a new page.
+    const std::string key = std::to_string(model_.chapter().id) + "/" + std::to_string(model_.position());
+    view_->showPage(pageReady ? model_.shownImage() : nullptr, model_.fit(), model_.direction(), key);
     updateMessage();
     updateBars();
 }
@@ -492,6 +698,7 @@ void ReaderActivity::updateBars() {
     }
     topBar_->setVisibility(menuShown_ ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
     bottomBar_->setVisibility(menuShown_ ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
+    view_->setDoubleTapWait(!menuShown_);  // with the menu open any tap closes it at once (no double tap then)
 }
 
 void ReaderActivity::applyLook() {
@@ -547,6 +754,7 @@ void ReaderActivity::openSettings() {
         showPageNumber_ ? "reader/setting_page_number_on"_i18n : "reader/setting_page_number_off"_i18n,
         brls::getStr("reader/setting_orientation",
                      brls::getStr(kOrientationKeys[indexOf(kOrientations, orientation_)])),
+        brls::getStr("reader/setting_zoom_on_turn", brls::getStr(kZoomOnTurnKeys[indexOf(kZoomOnTurns, zoomOnTurn_)])),
     };
     auto* dropdown = new brls::Dropdown("reader/settings"_i18n, entries, [this](int selected) {
         // Open the next menu after this one has closed.
@@ -568,6 +776,9 @@ void ReaderActivity::openSettings() {
                     break;
                 case 4:
                     chooseOrientation();
+                    break;
+                case 5:
+                    chooseZoomOnTurn();
                     break;
                 default:
                     break;
@@ -604,6 +815,22 @@ void ReaderActivity::chooseFit() {
         model_.setFit(kFits[selected]);
         context_.config.setMangaReader(model_.settings());
     }, indexOf(kFits, model_.fit()));
+    brls::Application::pushActivity(new brls::Activity(dropdown));
+}
+
+void ReaderActivity::chooseZoomOnTurn() {
+    std::vector<std::string> names;
+    for (const char* key : kZoomOnTurnKeys) {
+        names.push_back(brls::getStr(key));
+    }
+    auto* dropdown = new brls::Dropdown("reader/zoom_on_turn"_i18n, names, [this](int selected) {
+        if (selected < 0 || selected >= static_cast<int>(std::size(kZoomOnTurns))) {
+            return;
+        }
+        zoomOnTurn_ = kZoomOnTurns[selected];
+        view_->setKeepZoomOnTurn(zoomOnTurn_ == core::ZoomOnTurn::Keep);
+        context_.config.setReaderZoomOnTurn(zoomOnTurn_);
+    }, indexOf(kZoomOnTurns, zoomOnTurn_));
     brls::Application::pushActivity(new brls::Activity(dropdown));
 }
 
@@ -646,13 +873,27 @@ void ReaderActivity::report() {
         return;  // loading
     }
     const int page = model_.position();
+    // WP-13: a sharper decode drawn for the first time: how long after the zoom changed (the 150 ms wait included).
+    const image::ImagePtr& drawnImage = view_->image();
+    // Against the box the zoom on screen wants (not the model's, which follows only once the zoom has settled).
+    const bool sharp =
+        drawnImage && core::isSharp(drawnImage->size(), drawnImage->sourceSize(), model_.boxForZoom(view_->zoom()));
+    if (view_->imageRevision() != seenImageRevision_) {
+        seenImageRevision_ = view_->imageRevision();
+        if (sharp && core::isZoomed(view_->zoom())) {
+            sharpMs_ = app::appClockMs() - zoomSeenMs_;
+        }
+    }
+    const core::ImageSize decoded = drawnImage ? drawnImage->size() : core::ImageSize{};
     const std::string key = std::to_string(model_.chapter().id) + "/" + std::to_string(page) + "/" + shown + "/" +
                             std::to_string(static_cast<int>(model_.fit())) + "/" +
                             std::to_string(static_cast<int>(model_.direction())) + "/" + (menuShown_ ? "m" : "") +
                             (showPageNumber_ ? "n" : "") + std::to_string(static_cast<int>(background_)) +
                             (model_.chapterRead() ? "r" : "") + "/" + std::to_string(view_->pageRevision()) + "/" +
                             std::to_string(retries_) + "/" + std::to_string(static_cast<int>(view_->orientation())) +
-                            std::to_string(static_cast<int>(orientation_)) + "/" + std::to_string(view_->moveRevision());
+                            std::to_string(static_cast<int>(orientation_)) + "/" + std::to_string(view_->moveRevision()) +
+                            "/" + std::to_string(view_->zoomRevision()) + "/" + std::to_string(decoded.width) + "x" +
+                            std::to_string(decoded.height) + "/" + std::to_string(static_cast<int>(zoomOnTurn_));
     if (key == reported_) {
         return;
     }
@@ -684,6 +925,16 @@ void ReaderActivity::report() {
         // Where the page's corner is (a drag or a D-pad scroll moved it: reported once it ended).
         fields["x"] = static_cast<int>(std::lround(view_->pagePosition().x));
         fields["y"] = static_cast<int>(std::lround(view_->pagePosition().y));
+        // WP-13: the zoom (1 = the fit), the decoded image drawn, whether it has the detail the zoom wants (as far as the
+        // source and the cap allow), and once, how long the sharper decode took to show.
+        fields["zoom"] = std::round(view_->zoom() * 100) / 100;
+        fields["decW"] = decoded.width;
+        fields["decH"] = decoded.height;
+        fields["sharp"] = sharp;
+        if (sharpMs_ >= 0) {
+            fields["sharpMs"] = sharpMs_;
+            sharpMs_ = -1;
+        }
     } else if (shown == "page_error") {
         const char* kind = view_->textureRefused() ? "texture" : image::imageErrorKindName(model_.current().error.kind);
         fields["error"] = kind;
@@ -699,6 +950,8 @@ void ReaderActivity::report() {
         fields["ready"] = turnReady_;
         turnStartMs_ = -1;
     }
+    fields["zoomOnTurn"] = std::string(core::zoomOnTurnName(zoomOnTurn_));
+    fields["texUsed"] = context_.textures.used();
     fields["memUsed"] = platform::runtimeInfo().usedMem;
     app::testhooks::write("reader", fields);
 }

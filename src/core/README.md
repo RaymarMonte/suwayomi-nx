@@ -25,7 +25,11 @@
   page sits and how far it moves), `prefetchOrder` and `nearChapterEnd`. WP-22 (portrait): `readerScreen` (width and height
   swapped), `readerTransform` (the six NanoVG numbers that turn the drawing), `readerToScreen` / `screenToReader` /
   `screenMoveToReader` (touch points and moves), `readerArrow` (the D-pad turns with the screen), `effectiveOrientation`
-  (docked = landscape), `quickRotate`; `ReaderOrientation` and `reader.orientation` / `lastPortrait` in `AppConfig`. `ProgressSync.hpp` (WP-11): when to send
+  (docked = landscape), `quickRotate`; `ReaderOrientation` and `reader.orientation` / `lastPortrait` in `AppConfig`. WP-13
+  (zoom, D48): `clampZoom` / `zoomStep` / `zoomBucket` / `snapsToFit` / `isZoomed`, `zoomAround` (a point stays put),
+  `pinchView`, `isDoubleTap`, `arrowEffect` (move, turn or nothing; the fresh-press rule) / `arrowMove` / `glideProgress`,
+  `readerStick` / `stickSpeed` / `stickMove` / `stickArrow`, `zoomDecodeBox` (the fit box × the zoom step, capped) and
+  `isSharp`; `ZoomOnTurn` and `reader.zoomOnTurn` in `AppConfig`, `RuntimeProfile::maxZoom` (tests: `test_core_zoom.cpp`). `ProgressSync.hpp` (WP-11): when to send
   `lastPageRead` / `isRead` (at most every `progressSyncMs`, the last page at once, everything when leaving; after a failure
   the wait doubles up to `progressRetryMaxMs`, WP-12). `AppConfig`
   got the reader's background, page number and per-manga direction and fit (`readerSettingsFor`, `rememberReaderSettings`).

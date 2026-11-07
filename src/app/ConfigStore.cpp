@@ -92,6 +92,14 @@ void ConfigStore::setReaderOrientation(core::ReaderOrientation orientation, core
     scheduler_.changed(appClockMs());
 }
 
+void ConfigStore::setReaderZoomOnTurn(core::ZoomOnTurn mode) {
+    if (mode == config_.reader.zoomOnTurn) {
+        return;
+    }
+    config_.reader.zoomOnTurn = mode;
+    scheduler_.changed(appClockMs());
+}
+
 void ConfigStore::useServer(const core::ServerSettings& server) {
     config_.server = server;
 }

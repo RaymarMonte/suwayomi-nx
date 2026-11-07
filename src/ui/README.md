@@ -40,7 +40,11 @@ from its tiles and turns touch into taps, drags and swipes; full screen, the men
 MINUS; `onClosed` runs once the progress is saved, and the details screen reloads its chapters then; WP-22, D46: portrait
 with Y / the menu's Rotate / the settings' Orientation: `ReaderView` draws the page and its `overlay()` inside one NanoVG
 transform, takes every touch itself in portrait and runs `addButton` buttons by the mapped point, D-pad turned by
-`core::readerArrow`; docked is landscape; the reader settings dropdown still opens landscape), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
+`core::readerArrow`; docked is landscape; the reader settings dropdown still opens landscape; WP-13, D48: zoom and pan:
+`ReaderView` draws the page `zoom()` times its fit, counts fingers by id with its own first recognizer (borealis's pan
+follows one) for the pinch, waits 250 ms after a single middle tap for a double tap, glides from the clock, and swaps in a
+sharper image of the same page without moving; `ReaderActivity` reads ZL/ZR, the D-pad and the sticks once a frame (one
+press, one page) and, 150 ms after the zoom settles, asks `ReaderModel::setPageZoom` for the sharper decode), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
 `crash/CrashActivity` (the crash screen, S1), `diagnostics/DiagnosticsActivity` (test builds only: WP-05's server check + request
 burst, WP-07's image benchmark).
 
@@ -62,7 +66,8 @@ borealis reads the mouse button once a frame, so a desktop tap shorter than a st
 **Tests:** models in `tests/unit/test_ui.cpp`, `test_ui_library.cpp`, `test_ui_manga.cpp` and `test_ui_reader.cpp` (suite
 `ui`; the reader's with a real `ImageLoader`, `tests/unit/MainQueue.hpp` plays the main thread); screens by E2E scenarios
 (`smoke`, `setup-first-run`, `auth-matrix`, `low-memory`, `library-browse`, `manga-details`, `reader-paged`,
-`reader-rtl-spread`, `resume-progress`, `broken-images`, WP-12: `offline-errors`, `soak`, `touch-pass`). Touch coordinates for the
+`reader-rtl-spread`, `resume-progress`, `broken-images`, WP-12: `offline-errors`, `soak`, `touch-pass`, WP-22:
+`reader-portrait`, WP-13: `reader-zoom`). Touch coordinates for the
 scenarios: `tests/e2e/lib/screens.ts`.
 
 **Status:** WP-11. Updates, History and Browse are placeholder tabs until their WPs.

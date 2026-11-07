@@ -30,7 +30,8 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-11](wp/WP-11-paged-reader.md) | Paged reader + progress sync | 10 | Opus | L | – | done |
 | [WP-12](wp/WP-12-mvp-hardening.md) | MVP hardening, soak test, **v0.1 release** | 11 | Opus | M | Try it for real | done (v0.1.0, 2026-10-30) |
 | [WP-22](wp/WP-22-portrait-reader.md) | **Portrait reader**: hold the Switch sideways, pages fill the tall screen (owner's top priority, 2026-10-30). **Runs next, after WP-12** | 12 | Opus | M | **Yes**: try it in your hands; console | Done (owner tried it 2026-10-30) |
-| [WP-13](wp/WP-13-zoom-and-pan.md) | **Zoom & pan** in the paged reader, both orientations: pinch, double-tap (middle) and ZL/ZR zoom up to 4 ×, drag and stick pan, sharper pages when zoomed, double-page spreads split in portrait, the portrait D-pad repeat fix. Planned 2026-10-30; if it runs long, spreads move to WP-13c | 22 | Opus | L | **Yes**: try it in your hands; console | todo |
+| [WP-13](wp/WP-13-zoom-and-pan.md) | **Zoom & pan** in the paged reader, both orientations: pinch, double-tap (middle) and ZL/ZR zoom up to 4 ×, drag and stick pan, sharper pages when zoomed, the portrait D-pad repeat fix (D48). Spreads moved to WP-13c | 22 | Opus | L | **Yes**: try it in your hands; console | code done, desktop green (2026-11-07); console run + owner try pending |
+| WP-13c | **Split spreads**: a double-page spread held sideways shows as two halves that each fill the screen (setting: in portrait / always / never; right half first for right to left), `reader-spread-split`, and the measurement that decides `maxDecodeScale` 2 or 4 (WP-13 doc, D48) | 13 | Opus | M | **Yes**: a spread in portrait; console | todo |
 | WP-13b | **Webtoon reader**: long strips as one continuous strip, smooth stick and touch scrolling with flicks, both orientations, zoom in the strip | 13 | Opus | L | **Yes**: try it in your hands; console | todo |
 | WP-18 | **Offline 1: download chapters to the SD card**: a queue on the Switch, a storage limit, delete; the reader reads downloaded pages first | 13b | Opus | L | – | todo |
 | WP-18b | **Offline 2: read away from home**: start without the server, show the downloaded manga, keep offline progress and send it when the server is back | 18 | Opus | M | **Yes**: try it away from home | todo |
@@ -51,7 +52,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 **Stock clocks (D17):** performance is judged at stock clocks only.
 **Application mode only (D21):** every WP builds, tunes and tests for application mode (hold R on a game). Applet mode only gets the
 "can't run from the Album yet" screen (WP-08) until WP-21.
-**Order after WP-22 (owner, 2026-10-30, D47):** WP-13 (zoom) → WP-13b (webtoon) → WP-18 → WP-18b (offline) → WP-15 (updates,
+**Order after WP-22 (owner, 2026-10-30, D47):** WP-13 (zoom) → WP-13c (spreads, split from 13 on 2026-11-07) → WP-13b (webtoon) → WP-18 → WP-18b (offline) → WP-15 (updates,
 history) → WP-24 (library tools) → WP-14 (browse) → WP-16 (extensions) → WP-25 (tracking) → WP-19 (polish). WP-23 (test source)
 and WP-20 (user docs) touch no app code and can run alongside; WP-23 must be done before WP-14. Nice to have, when the owner asks:
 WP-17, WP-26, WP-21, WP-08b. Phase 3 is listed in that order, not by number.
@@ -89,7 +90,10 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
   tall, D44) split in portrait only (setting: in portrait / always / never; right half first for right to left); not zoomed,
   the sticks turn pages as now, zoomed they pan. Also: one press turns one page (holding the D-pad in portrait turned several,
   D46). New test-hook touch channel (played pinches and double taps; sys-autopilot has one finger). Size L: if it runs long,
-  spread splitting moves to WP-13c (before 13b). Owner tries it.
+  spread splitting moves to WP-13c (before 13b). Owner tries it. **Split 2026-11-07:** spreads went to WP-13c (D48).
+- **WP-13c Split spreads.** The spread part of `wp/WP-13-zoom-and-pan.md` (its spread math, "Split spreads" setting, the
+  model's halves in `step()`, progress by page, `reader-spread-split`, and the Beta spread measurement at `maxDecodeScale` 2
+  and 4 that decides it). Builds on WP-13's zoom, decode box and touch channel. Runs before 13b. Owner tries a spread in portrait.
 - **WP-13b Webtoon reader.** Direction `vertical` (already in config.json, D36) becomes one continuous strip: pages and long strips
   cut into tiles (`core::tileWindow`, `webtoonTilesAround`, D39), only the tiles near the screen decoded and on the GPU (S7), smooth
   stick and held-D-pad scrolling, touch drag with flick momentum, page and chapter boundaries, progress by the page at the

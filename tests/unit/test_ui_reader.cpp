@@ -503,6 +503,95 @@ TEST_CASE("reader: turned to portrait, the pages decode again for the portrait s
     CHECK(model->current().image != landscape);
 }
 
+TEST_CASE("reader: a settled zoom decodes the page on screen again, sharper; the fit image shows until it is there") {
+    Harness h;
+    auto model = h.model();
+    model->open(101, 0);
+    REQUIRE(h.settle(*model));
+    const image::ImagePtr fit = model->current().image;
+    REQUIRE(fit);
+    CHECK(fit->size() == core::ImageSize{500, 750});  // JPEG 1/2 for the 480 x 720 fit (within the shrink slack)
+    CHECK(model->shownImage() == fit);
+    CHECK(model->wantedBox() == core::ImageSize{1280, 720});
+    const std::multiset<int> before = h.imageRequests(1);
+
+    // Zoom 2 (a double tap): page 0 decodes again for 2560 x 1440. Until it arrives the fit image shows.
+    model->setPageZoom(2);
+    CHECK(model->zoomLoading());
+    CHECK(model->shownImage() == fit);
+    CHECK(model->wantedBox() == core::ImageSize{2560, 1440});
+    REQUIRE(h.main.runUntil([&] { return !model->zoomLoading(); }));
+    const image::ImagePtr sharp = model->shownImage();
+    REQUIRE(sharp);
+    CHECK(sharp->size() == core::ImageSize{1000, 1500});  // the original: as sharp as it gets
+    CHECK(core::isSharp(sharp->size(), sharp->sourceSize(), model->wantedBox()));
+    CHECK_FALSE(core::isSharp(fit->size(), fit->sourceSize(), model->wantedBox()));
+    CHECK(model->current().image == fit);  // the page keeps its fit image for later
+    // Only the page on screen was asked for again.
+    std::multiset<int> after = h.imageRequests(1);
+    CHECK(after.size() == before.size() + 1);
+    CHECK(after.count(0) == before.count(0) + 1);
+
+    // A pinch to 1.7 is in the same bucket (2): nothing new.
+    model->setPageZoom(1.7f);
+    CHECK_FALSE(model->zoomLoading());
+    CHECK(model->shownImage() == sharp);
+    CHECK(h.imageRequests(1).size() == after.size());
+    // Zoom 3: the same box (capped at 2 x the screen, 2560 x 1440), so the same image.
+    model->setPageZoom(3);
+    CHECK_FALSE(model->zoomLoading());
+    CHECK(model->shownImage() == sharp);
+
+    // Back to the fit: the fit image again, the sharper one let go.
+    const int changes = h.changes;
+    model->setPageZoom(1);
+    CHECK(model->shownImage() == fit);
+    CHECK(model->wantedBox() == core::ImageSize{1280, 720});
+    CHECK(h.changes == changes + 1);
+    // Zoomed again: the sharper decode comes from the loader's memory cache at once (no download).
+    model->setPageZoom(2);
+    CHECK_FALSE(model->zoomLoading());
+    CHECK(model->shownImage()->size() == core::ImageSize{1000, 1500});
+    CHECK(h.imageRequests(1).size() == after.size());
+}
+
+TEST_CASE("reader: a turn cancels the zoomed decode under way and shows the next page at its fit") {
+    Harness h;
+    auto model = h.model();
+    model->open(101, 0);
+    REQUIRE(h.settle(*model));
+    h.http.hold(true);
+    model->setPageZoom(2);
+    CHECK(model->zoomLoading());
+    REQUIRE(model->step(1));
+    CHECK_FALSE(model->zoomLoading());  // cancelled with the turn
+    CHECK(model->wantedBox() == core::ImageSize{1280, 720});
+    h.drain();
+    REQUIRE(h.settle(*model));
+    REQUIRE(model->shownImage());
+    CHECK(model->shownImage() == model->current().image);  // page 1's fit image, never page 0's zoomed one
+    CHECK(model->shownImage()->size() == core::ImageSize{500, 750});
+    // "Keep the zoom": the reader sets it again for the new page.
+    model->setPageZoom(2);
+    REQUIRE(h.main.runUntil([&] { return !model->zoomLoading(); }));
+    CHECK(model->shownImage()->size() == core::ImageSize{1000, 1500});
+    CHECK(model->position() == 1);
+    // In portrait the zoomed box is capped for the portrait screen (1440 x 2560): the page still decodes whole.
+    model->setScreen({720, 1280});
+    REQUIRE(h.settle(*model));
+    model->setPageZoom(2);
+    CHECK(model->wantedBox() == core::ImageSize{1440, 2560});
+    REQUIRE(h.main.runUntil([&] { return !model->zoomLoading(); }));
+    CHECK(model->shownImage()->size() == core::ImageSize{1000, 1500});
+    // Not on a page (the end screen): nothing to zoom.
+    while (model->onPage()) {
+        REQUIRE(model->step(1));
+    }
+    model->setPageZoom(2);
+    CHECK_FALSE(model->zoomLoading());
+    CHECK(model->shownImage() == nullptr);
+}
+
 TEST_CASE("reader: close sends what isn't saved and calls back when the server answered") {
     Harness h;
     auto model = h.model();

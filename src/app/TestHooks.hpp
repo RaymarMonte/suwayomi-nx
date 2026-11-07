@@ -78,9 +78,20 @@ void screen(std::string_view name, const nlohmann::ordered_json& params);
 // {"ev":"error","where":<screen>,"kind":<ApiErrorKind name>,"msg":...}: a screen shows an error to the user.
 void error(std::string_view where, std::string_view kind, std::string_view message);
 
+// WP-13: a screen that is still settling by itself (the reader: a middle tap waiting for a second one, a zoom about to
+// decode, a glide, a pinch or a stick pan) counts as busy, so "idle" waits for it. Main thread only.
+void setUiBusy(bool busy);
+
 // Once per main-loop iteration: writes "idle" when nothing has run for a few frames, a "mem" event every 10 s, starts the
 // test config's crash drill the first time the app is idle, and retries lines that couldn't be written yet (on the Switch
 // the file is busy while the harness reads it).
+// WP-13, the touch channel (TESTING.md "Drivers"): about every 100 ms it looks for test/commands/<n>.json (n = 1, 2, ... per
+// launch; at most 64 KiB, S6), runs it, deletes it and writes {"ev":"command","id":n,"ok":...}. A file that doesn't parse
+// yet (the Switch's upload writes in place) is read again later. The one command: {"cmd":"touches","frames":[{"ms":0,
+// "fingers":[{"id":0,"x":640,"y":360}, ...]}, ...]}: finger positions in landscape screen units (like the drivers' touch),
+// a frame played at most once per app frame once its "ms" is due, a finger that is down touched every frame (like borealis's
+// own loop), a finger missing from the next frame lifted. Each finger goes through the same hit test and gesture
+// recognizers as a real one, so a test can pinch and double-tap (sys-autopilot-nx has one finger).
 void onFrame();
 
 // At exit: stops a running drill, then writes what is still pending (tries for about 100 ms).

@@ -34,6 +34,8 @@ struct ReaderOptions {
     bool backgroundPrefetch = true;     // RuntimeProfile::backgroundPrefetch: the next chapter's pages near the end
     int progressSyncMs = 5000;          // RuntimeProfile::progressSyncMs
     int progressRetryMaxMs = 60000;     // RuntimeProfile::progressRetryMaxMs
+    float maxZoom = 4.0f;               // RuntimeProfile::maxZoom (WP-13)
+    float maxDecodeScale = 2.0f;        // RuntimeProfile::maxDecodeScale: the zoomed decode's cap (core::zoomDecodeBox)
     api::PageFormat format = api::PageFormat::AsStored;  // ReaderSettings::serverConvertsToJpeg
     // Milliseconds on a steady clock, for the progress timing (the app: appClockMs). Required.
     std::function<std::int64_t()> clock;
@@ -98,6 +100,21 @@ class ReaderModel {
     // pages load again, like setFit.
     void setScreen(core::ImageSize screen);
 
+    // WP-13: the reader's zoom of the page on screen has settled (no change for a moment, the fingers lifted). Above the fit
+    // it decodes that page again at a bigger box (core::zoomDecodeBox: the zoom's bucket, capped), at Reader priority, so
+    // the zoomed page is sharp; the fit's image stays on screen until it arrives. Back at the fit (or a box no bigger than
+    // the fit's), the sharper image is let go. Only the page on screen: a turn cancels it (set it again for the new page).
+    void setPageZoom(float zoom);
+    // The image to draw for the page on screen: the sharper decode once it is there, else the page's own (fit) image.
+    // nullptr when the page isn't ready.
+    image::ImagePtr shownImage() const;
+    // The box the page on screen wants for the zoom it was last given (setPageZoom; the fit's box at zoom 1).
+    core::ImageSize wantedBox() const;
+    // The box a page wants at `zoom` (the fit's box at zoom 1): what "sharp" is measured against, for the zoom on screen.
+    core::ImageSize boxForZoom(float zoom) const;
+    // A zoomed decode is on its way (for tests and the idle check).
+    bool zoomLoading() const { return zoom_.loading; }
+
     // Once per frame: sends the progress when it's due (core::ProgressSync).
     void onFrame();
     // Sends everything not saved yet now (HOME, sleep).
@@ -145,7 +162,18 @@ class ReaderModel {
         int page = 0;
     };
     struct Saver;
+    // The page on screen decoded again for its zoom (WP-13).
+    struct ZoomLoad {
+        int chapterId = 0;
+        int index = -1;
+        float zoom = 1;          // as last set (setPageZoom)
+        core::ImageSize box;     // the zoomed box; {0, 0} = none (the fit)
+        image::ImagePtr image;   // once it is there
+        bool loading = false;
+        net::CancelToken cancel;
+    };
 
+    void dropZoom();
     void load(int chapterId, Start start);
     void leaveChapter();
     void onPages(Start start, const api::ApiResult<core::PageList>& result);
@@ -184,6 +212,7 @@ class ReaderModel {
     std::shared_ptr<core::ProgressSync> sync_;  // the opened chapter's progress
     std::optional<Prefetched> next_;
     net::CancelToken nextCancel_;
+    ZoomLoad zoom_;
 };
 
 }  // namespace snx::ui

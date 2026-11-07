@@ -120,9 +120,9 @@ export const READER = {
     rotate: { x: 766, y: 672 },
     /**
      * The settings menu's entries (a borealis dropdown, MANGA.menuEntry places them): direction, fit, background, number,
-     * orientation (WP-22).
+     * orientation (WP-22), zoom on page turn (WP-13).
      */
-    settingsCount: 5,
+    settingsCount: 6,
 };
 
 /** WP-22: how the console is held in the reader ("reader" events' orientation). */

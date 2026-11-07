@@ -4,9 +4,9 @@ A native Nintendo Switch homebrew client (`.nro`) for a [Suwayomi-Server](https:
 manga library. C++17, UI built with [xfangfang/borealis](https://github.com/xfangfang/borealis). The same code also builds
 as a desktop app (Linux), so most testing happens on a PC.
 
-**Status:** v0.1 (first release): browse your library, see a manga's chapters, read with the paged reader, and your
-reading progress goes back to the server. Not there yet: the webtoon (long strip) reader, zoom, updates, history, browsing
-sources, downloads. What changed: `CHANGELOG.md`. Plans: `docs/ROADMAP.md`.
+**Status:** v0.2: browse your library, see a manga's chapters, read with the paged reader (also held sideways, and zoomed
+in), and your reading progress goes back to the server. Not there yet: the webtoon (long strip) reader, updates, history,
+browsing sources, downloads. What changed: `CHANGELOG.md`. Plans: `docs/ROADMAP.md`.
 
 ## Using it
 
@@ -36,10 +36,19 @@ hint at the bottom of the screen does what its button does.
 |---|---|---|
 | Library | tap a category, Sort, Refresh or a cover; flick to scroll | L / R category, Y sort, X refresh, A open, − library menu |
 | Manga | tap Continue, a chapter, its "..." menu, Sort, Show, Refresh; tap the description to open it | A open chapter, X read / unread, Y chapter menu, − menu |
-| Reader | tap the left or right side (or swipe) to turn, the middle for the menu; drag a page that is bigger than the screen | L / R and left / right turn, up / down scroll, A menu, X retry, Y rotate, − reader settings |
+| Reader | tap the left or right side (or swipe) to turn, the middle for the menu; drag a page that is bigger than the screen; pinch or double-tap the middle to zoom | L / R and left / right turn, up / down scroll, ZR / ZL zoom, A menu, X retry, Y rotate, − reader settings |
 
 The reader turns pages right to left by default (manga). Reader settings (− or the menu): direction, fit (screen, width,
-height), background colour, the page number and the orientation. Direction and fit are remembered per manga.
+height), background colour, the page number, the orientation and what a page turn does to the zoom. Direction and fit are
+remembered per manga.
+
+**Zooming in:** pinch the page with two fingers, double-tap the middle of the page (2 ×; double-tap again for the whole
+page), or press **ZR** to zoom in and **ZL** to zoom out (1.5 ×, 2 ×, 3 ×, up to 4 ×). A moment after you stop, the page
+turns sharp: the reader loads it again at the bigger size. Zoomed in, drag the page, push either stick or press the D-pad to
+look around; at the page's edge, a new push or press that way (or a swipe) turns the page. L and R always turn. A turn goes
+back to the whole page; the reader setting **Zoom on page turn: Keep the zoom** keeps it instead (the next page opens at
+the top). Holding a button or a stick turns only one page. A single tap in the middle opens the menu a quarter second
+later (it waits to see if it is a double tap).
 
 **Reading in portrait (held sideways, like a book):** in the reader press **Y** or tap **Rotate** in the menu, then turn
 the console a quarter turn to the left, so the left Joy-Con is at the bottom. The page now fills the tall screen, about twice
