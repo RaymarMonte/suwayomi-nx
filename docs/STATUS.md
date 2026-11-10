@@ -1,20 +1,20 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. WP-13 (zoom & pan) and WP-13c (split spreads) done** (owner tried both 2026-11-10). **Next: plan
-WP-13b** (webtoon reader; ROADMAP.md "How the Phase 3 WPs get their full docs"). Order: ROADMAP.md (D47).
+**Phase 3 – Features. Now:** WP-13b planned (`docs/wp/WP-13b-webtoon-reader.md`). **Next: do WP-13b** (webtoon reader) in
+a fresh Opus session (effort max), then plan WP-18. Order: ROADMAP.md (D47).
 Done: WP-00a … 13, 13c and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
-## Last session (2026-11-10, WP-13c, Opus, side session)
-- Built (rules as built: D48 "Spreads as built"): `core::SpreadSplit` + `reader.splitSpreads` (portrait default / always /
-  never), the spread math (`test_core_spread.cpp`), `ReaderModel` halves in `step()` (back lands on the last half, progress
-  by page, a prefetched spread decoded again at the doubled box in place), `ReaderView` draws a half, the 7th reader setting
-  (the Dropdown's height is set so it doesn't scroll), test config `"maxDecodeScale"`, scenario `reader-spread-split`
-  (goldens desktop + switch), `expectPage(..., way)` turns a portrait screenshot upright.
-- **`maxDecodeScale` is 4 now** (Full; safe mode 2): at 4 a split spread zoomed 4 × is sharp after 240–253 ms, upload
-  8.5–10 ms, frames p90 17 / max 17, +11.4 MiB while zoomed; at 2 zoom 4 gave nothing sharper (D48 "Console (WP-13c)").
-- Green: `build.sh tests` 7/7, `tools/e2e.sh desktop` (21 files; after the cap change `reader-spread-split` and
-  `reader-zoom` again), Switch gate PASS; console: `reader-spread-split`, `reader-zoom`, `reader-paged`, `reader-portrait`.
-- Known limit: a page much bigger than 2000 × 1500 uploads more in one frame when it turns sharp (one tile per frame is
-  the fix if a real chapter shows a hitch). Owner's try: "Works well". Not released (a version is the owner's call;
-  CHANGELOG has it under Unreleased). The console has a normal (non-test) build and sleeps: wake it first.
+## Last session (2026-11-10, WP-13b planning, Opus, docs only)
+- Owner's answers: a manga with no direction of its own opens as a "Vertical strip" by itself (tag "Long Strip"/"Webtoon",
+  or a first page over 2.5 × as tall as wide; saved as its own choice); landscape strip half the screen wide (setting);
+  taps top/bottom scroll, middle menu; chapters join on (bands); the exact spot goes to the server as chapter meta next to
+  `lastPageRead`; the strip keeps its own orientation (amends D46, owner's OK). The rest are planner's defaults in the doc.
+  D49 gets written when WP-13b is done.
+- Test server (v2.4.2366): `updateChapter` + `setChapterMeta` work in one mutation request, `chapters { meta }` and
+  `chapter { meta }` read the note back, a second set overwrites. Gamma Webtoon has no genres (the shape rule is the e2e
+  route), 3 pages per chapter. The test server was stopped again.
+- Size L with a split point (zoom in the strip → WP-13d). The doc starts with a short spike: tile uploads while scrolling.
+- From WP-13c (still true): `maxDecodeScale` 4 on Full (safe mode 2, D48); not built: one tile upload per frame for big
+  pages (WP-13b builds it for the strip). Not released (owner's call; CHANGELOG "Unreleased"). The console has a normal
+  (non-test) build and sleeps: wake it first.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

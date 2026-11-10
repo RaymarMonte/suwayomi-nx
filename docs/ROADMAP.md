@@ -32,7 +32,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-22](wp/WP-22-portrait-reader.md) | **Portrait reader**: hold the Switch sideways, pages fill the tall screen (owner's top priority, 2026-10-30). **Runs next, after WP-12** | 12 | Opus | M | **Yes**: try it in your hands; console | Done (owner tried it 2026-10-30) |
 | [WP-13](wp/WP-13-zoom-and-pan.md) | **Zoom & pan** in the paged reader, both orientations: pinch, double-tap (middle) and ZL/ZR zoom up to 4 ×, drag and stick pan, sharper pages when zoomed, the portrait D-pad repeat fix (D48). Spreads moved to WP-13c | 22 | Opus | L | **Yes**: try it in your hands; console | done (2026-11-07; owner tried it 2026-11-10) |
 | WP-13c | **Split spreads**: a double-page spread held sideways shows as two halves that each fill the screen (setting: in portrait / always / never; right half first for right to left), `reader-spread-split`, and the measurement that decides `maxDecodeScale` 2 or 4 (WP-13 doc, D48) | 13 | Opus | M | **Yes**: a spread in portrait; console | done (2026-11-10; owner tried it: "Works well") |
-| WP-13b | **Webtoon reader**: long strips as one continuous strip, smooth stick and touch scrolling with flicks, both orientations, zoom in the strip | 13 | Opus | L | **Yes**: try it in your hands; console | todo |
+| [WP-13b](wp/WP-13b-webtoon-reader.md) | **Webtoon reader**: "Vertical strip", one continuous strip that opens by itself for webtoons, smooth stick, D-pad and touch scrolling with flicks, chapters joined on, the exact spot saved on the server, its own orientation, half width in landscape, zoom in the strip (split point: zoom → WP-13d) | 13 | Opus | L | **Yes**: try it in your hands; console | todo (planned 2026-11-10) |
 | WP-18 | **Offline 1: download chapters to the SD card**: a queue on the Switch, a storage limit, delete; the reader reads downloaded pages first | 13b | Opus | L | – | todo |
 | WP-18b | **Offline 2: read away from home**: start without the server, show the downloaded manga, keep offline progress and send it when the server is back | 18 | Opus | M | **Yes**: try it away from home | todo |
 | WP-15 | **Updates + history**: new chapters across the library, "update library" with progress, reading history with continue | 12 | Opus (History screen: Sonnet-safe chunk) | M | – | todo |
@@ -94,11 +94,17 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
 - **WP-13c Split spreads.** The spread part of `wp/WP-13-zoom-and-pan.md` (its spread math, "Split spreads" setting, the
   model's halves in `step()`, progress by page, `reader-spread-split`, and the Beta spread measurement at `maxDecodeScale` 2
   and 4 that decides it: 4, D48). Builds on WP-13's zoom, decode box and touch channel. Runs before 13b. Owner tries a spread in portrait.
-- **WP-13b Webtoon reader.** Direction `vertical` (already in config.json, D36) becomes one continuous strip: pages and long strips
-  cut into tiles (`core::tileWindow`, `webtoonTilesAround`, D39), only the tiles near the screen decoded and on the GPU (S7), smooth
-  stick and held-D-pad scrolling, touch drag with flick momentum, page and chapter boundaries, progress by the page at the
-  screen's centre, the next chapter joined on. Both orientations (a strip in portrait is likely the best way to read one on the
-  Switch). Zoom in the strip reuses WP-13's math. Fixture: Gamma Webtoon (800 × 12000 WebP strips, TESTING.md). Owner tries it.
+- **WP-13b Webtoon reader.** Planned: full doc `wp/WP-13b-webtoon-reader.md` (2026-11-10). Direction `vertical` (already in
+  config.json, D36) becomes "Vertical strip": a chapter's pages joined into one continuous strip, only the tiles near the screen
+  on the GPU (`core::tileWindow`, `webtoonTilesAround`, D39, S7), smooth stick, held-D-pad and L/R scrolling, touch drag with
+  flick momentum, progress by the page under the screen's middle line. Owner's answers: a manga with no direction of its own
+  opens as a strip by itself when it is tagged "Long Strip" / "Webtoon" or its first page is over 2.5 × as tall as wide (saved
+  as its own choice); in landscape the strip is half the screen wide (setting: half / three quarters / full; portrait: full);
+  taps at the top / bottom scroll back / on, the middle opens the menu; chapters join on below and above with a short band; the
+  exact spot inside the page goes to the server as a chapter meta note next to `lastPageRead` (one request, checked on the test
+  server); the strip keeps its own orientation (held sideways at first; amends D46). Zoom in the strip reuses WP-13's math.
+  Fixture: Gamma Webtoon (800 × 12000 WebP strips, TESTING.md). Size L: if it runs long, zoom in the strip moves to WP-13d
+  (before WP-18). Owner tries it.
 - **WP-18 Offline 1: download to the SD card.** "Download" means to the Switch, like Mihon (owner, D47). The chapter row menu and
   the bulk actions get Download / Delete download; a queue on the Switch downloads one chapter at a time in the background through
   the image path (the same page URLs, so the test server's Local source works), stops at sleep, and goes on after a restart. Every
@@ -106,7 +112,7 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
   reads from the SD card first, so pages turn without the network. Where downloads show: the planner's default is a new
   **Downloads** tab (queue, downloaded manga, space used, delete), to confirm while planning.
 - **WP-18b Offline 2: read away from home.** Starting without the server (no network, or it can't be reached) opens the downloaded
-  manga instead of an error. Progress made offline is kept on the SD card (a small queue, written atomically) and sent once the
+  manga instead of an error. Progress made offline (with the strip's spot note, WP-13b) is kept on the SD card (a small queue, written atomically) and sent once the
   server answers, with conflict rules (the server moved further meanwhile, a chapter read on another device). The same queue fixes
   D45's leftover: a save that fails while the reader closes is never tried again. The owner tries it away from home.
 - **WP-15 Updates + history.** Updates tab: new chapters across the library, newest first (`chapters(filter: {inLibrary: {equalTo:
