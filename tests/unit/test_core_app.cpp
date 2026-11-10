@@ -105,13 +105,19 @@ TEST_CASE("test config: server login, showSetup, diagnostics") {
     const auto bench = testconfig::parse(R"({"imageBench": {"paths": ["/a"], "repeat": 1}})");
     CHECK(bench.diagnostics);  // the benchmark runs on the diagnostics screen
 
+    // WP-13c: the decode cap for the measurement; not given = the profile's (0).
+    CHECK(plain.maxDecodeScale == doctest::Approx(0));
+    CHECK(testconfig::parse(R"({"maxDecodeScale": 4})").maxDecodeScale == doctest::Approx(4));
+
     for (const char* bad : {R"({"server": {"auth": "cookie"}})", R"({"server": {"username": 5}})", R"({"showSetup": 1})",
-                            R"({"diagnostics": {"burst": 1000}})", R"({"diagnostics": "yes"})", R"({"diskCache": 0})"}) {
+                            R"({"diagnostics": {"burst": 1000}})", R"({"diagnostics": "yes"})", R"({"diskCache": 0})",
+                            R"({"maxDecodeScale": 8})", R"({"maxDecodeScale": "4"})"}) {
         CAPTURE(bad);
         const auto c = testconfig::parse(bad);
         CHECK(c.problems.size() == 1);
         CHECK_FALSE(c.serverAuth.has_value());
         CHECK(c.diagnosticsBurst == 0);
+        CHECK(c.maxDecodeScale == doctest::Approx(0));
     }
     const std::string longName(300, 'x');
     CHECK(testconfig::parse(R"({"server": {"password": ")" + longName + "\"}}").serverPassword.empty());

@@ -7,7 +7,7 @@ import { expect } from 'vitest';
 import type { AppEvent } from './events.ts';
 import { readPageCode, type PageCode } from './pagecode.ts';
 import type { Scenario } from './scenario.ts';
-import { LIBRARY, MANGA, READER } from './screens.ts';
+import { LIBRARY, MANGA, type Orientation, READER } from './screens.ts';
 
 type Point = { x: number; y: number };
 
@@ -60,16 +60,21 @@ export function swipe(s: Scenario, move: { x1: number; y1: number; x2: number; y
     return () => s.driver.swipe(move.x1, move.y1, move.x2, move.y2, 250, 12);
 }
 
-/** The fixture page on screen, read from its colour code (D31), or null if none (or more than one) can be read. */
-export async function pageOnScreen(s: Scenario): Promise<PageCode | null> {
+/**
+ * The fixture page on screen, read from its colour code (D31), or null if none (or more than one) can be read. In portrait
+ * (WP-22) the screenshot is turned upright first: turned left, the reader's top is the real right edge.
+ */
+export async function pageOnScreen(s: Scenario, way: Orientation = 'landscape'): Promise<PageCode | null> {
     const shot = await s.driver.screenshot();
-    const { data, info } = await sharp(shot).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    const angle = way === 'portrait-left' ? 270 : way === 'portrait-right' ? 90 : 0;
+    const { data, info } = await sharp(shot).rotate(angle).removeAlpha().raw().toBuffer({ resolveWithObject: true });
     return readPageCode({ width: info.width, height: info.height, channels: info.channels, data });
 }
 
-/** Expects fixture page `page` (1-based, as printed) of `series`' chapter `chapter` on screen. */
-export async function expectPage(s: Scenario, series: number, chapter: number, page: number): Promise<void> {
-    const code = await pageOnScreen(s);
+/** Expects fixture page `page` (1-based, as printed) of `series`' chapter `chapter` on screen (held `way`). */
+export async function expectPage(s: Scenario, series: number, chapter: number, page: number,
+    way: Orientation = 'landscape'): Promise<void> {
+    const code = await pageOnScreen(s, way);
     expect(code, `page code on screen (series ${series}, chapter ${chapter}, page ${page})`)
         .toMatchObject({ series, chapter, page });
 }

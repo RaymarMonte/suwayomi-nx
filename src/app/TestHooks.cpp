@@ -355,6 +355,10 @@ bool diskCache() {
     return gConfig.diskCache;
 }
 
+float maxDecodeScale() {
+    return gConfig.maxDecodeScale;
+}
+
 void watchNet(net::HttpClient& http) {
     http.addResponseObserver([](const net::Request& request, const net::HttpResult& result) {
         core::testevents::NetEvent event;
@@ -521,6 +525,9 @@ int imageBenchRepeat() {
 }
 bool diskCache() {
     return true;
+}
+float maxDecodeScale() {
+    return 0;
 }
 void watchNet(net::HttpClient&) {}
 void watchImages(image::ImageLoader&) {}

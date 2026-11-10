@@ -21,8 +21,10 @@
 // The paged reader's state (WP-11): the opened chapter's pages, the position (a page, or the "previous chapter" and "next
 // chapter" screens before the first and after the last page), the reading direction and fit, the pages loaded around the
 // position (RuntimeProfile's prefetch window; everything outside it is cancelled and let go), the next chapter's first pages
-// near the end of a chapter, and the reading progress sent to the server (core::ProgressSync). Without borealis, so it is
-// unit-tested (FakeHttpClient and a real ImageLoader). ReaderActivity shows it.
+// near the end of a chapter, and the reading progress sent to the server (core::ProgressSync). WP-13: the page on screen
+// decoded again for its zoom. WP-13c: a spread that splits shows as two halves, one step each; progress, the page number and
+// the window still count pages. Without borealis, so it is unit-tested (FakeHttpClient and a real ImageLoader).
+// ReaderActivity shows it.
 namespace snx::ui {
 
 // What the reader needs from the profile and the config.
@@ -36,6 +38,7 @@ struct ReaderOptions {
     int progressRetryMaxMs = 60000;     // RuntimeProfile::progressRetryMaxMs
     float maxZoom = 4.0f;               // RuntimeProfile::maxZoom (WP-13)
     float maxDecodeScale = 2.0f;        // RuntimeProfile::maxDecodeScale: the zoomed decode's cap (core::zoomDecodeBox)
+    core::SpreadSplit spreadSplit = core::SpreadSplit::Portrait;  // ReaderSettings::splitSpreads (WP-13c)
     api::PageFormat format = api::PageFormat::AsStored;  // ReaderSettings::serverConvertsToJpeg
     // Milliseconds on a steady clock, for the progress timing (the app: appClockMs). Required.
     std::function<std::int64_t()> clock;
@@ -59,6 +62,9 @@ struct ReaderPage {
     State state = State::Waiting;
     image::ImagePtr image;  // Ready
     image::ImageError error;
+    // Ready, and decoding again at the doubled box: a spread that shows as two halves (WP-13c; a page is known to be a
+    // spread only once decoded). `image`, the smaller decode, shows meanwhile.
+    bool reloading = false;
 };
 
 class ReaderModel {
@@ -90,15 +96,27 @@ class ReaderModel {
     // One step: +1 = next, -1 = previous. Past the "next chapter" screen it opens the next chapter (where it was left, or at
     // the start if it is read); before the "previous chapter" screen the previous chapter at its last page. False when there
     // is no chapter that way or the page list isn't there (loading, failed).
+    // A split spread (WP-13c) takes two steps: from its first half a step forward shows its second half (the same page). A
+    // step back onto a spread lands on its last half, also on one not decoded yet (once it turns out to be a spread).
     bool step(int delta);
     // A key, tap or swipe toward `side`: step(core::pageStep(side, direction())).
     bool turn(core::Side side);
 
     void setDirection(core::ReadingDirection direction);
     void setFit(core::PageFit fit);  // the pages load again, decoded for the new fit
-    // The screen pages decode for, in real pixels (WP-22: turned to portrait, docked). If that changes the decode box, the
-    // pages load again, like setFit.
-    void setScreen(core::ImageSize screen);
+    // The screen pages decode for, in real pixels (WP-22: turned to portrait, docked), and the orientation in effect (WP-13c:
+    // it decides with the setting whether spreads split). If that changes the decode box, the pages load again, like setFit.
+    // A spread that starts to split shows its first half.
+    void setScreen(core::ImageSize screen, core::ReaderOrientation orientation);
+    // "Split spreads" (WP-13c). The spreads known so far load again at their new box.
+    void setSpreadSplit(core::SpreadSplit mode);
+    core::SpreadSplit spreadSplit() const { return options_.spreadSplit; }
+    // The page on screen shows as two halves (it is a spread, decoded, and the setting splits it in this orientation).
+    bool split() const;
+    // The half on screen while split(): 0 = the first in reading order, 1 = the second. 0 otherwise.
+    int half() const { return split() ? half_ : 0; }
+    // The side of the image the view draws: the half on screen, or nothing (the whole page).
+    std::optional<core::Side> halfSide() const;
 
     // WP-13: the reader's zoom of the page on screen has settled (no change for a moment, the fingers lifted). Above the fit
     // it decodes that page again at a bigger box (core::zoomDecodeBox: the zoom's bucket, capped), at Reader priority, so
@@ -138,7 +156,8 @@ class ReaderModel {
     core::ReadingDirection direction() const { return settings_.direction; }
     core::PageFit fit() const { return settings_.fit; }
     const core::MangaReaderSettings& settings() const { return settings_; }  // to remember in config.json
-    core::ImageSize pageBox() const;  // what pages decode at for the fit
+    // What pages decode at for the fit. A spread that splits decodes twice as wide (core::splitDecodeBox).
+    core::ImageSize pageBox() const;
     bool chapterRead() const;  // the opened chapter is read (on the server, or since its last page was shown)
     // The next chapter's page list came already (its first pages are loading or loaded): for tests.
     bool nextChapterReady() const { return next_.has_value() && next_->listReady; }
@@ -148,6 +167,7 @@ class ReaderModel {
         ReaderPage page;
         std::string url;  // full URL; empty: the server listed this page in a form we can't use
         net::CancelToken cancel;
+        bool spread = false;  // known once decoded (WP-13c); kept when the page is let go, so it loads at its box at once
     };
     // The next chapter, fetched near the end of this one.
     struct Prefetched {
@@ -162,10 +182,11 @@ class ReaderModel {
         int page = 0;
     };
     struct Saver;
-    // The page on screen decoded again for its zoom (WP-13).
+    // The page on screen decoded again for its zoom (WP-13), for one half of a split spread (WP-13c).
     struct ZoomLoad {
         int chapterId = 0;
         int index = -1;
+        int half = 0;
         float zoom = 1;          // as last set (setPageZoom)
         core::ImageSize box;     // the zoomed box; {0, 0} = none (the fit)
         image::ImagePtr image;   // once it is there
@@ -174,6 +195,11 @@ class ReaderModel {
     };
 
     void dropZoom();
+    bool zoomIsForScreen() const;  // zoom_ belongs to the page (and half) on screen
+    bool splitting() const;        // spreads split now (the setting and the orientation)
+    core::ImageSize boxFor(const Slot& slot) const;
+    void sharpenSpread(Slot& slot, int chapterId, int index, net::Priority priority);
+    void setSpreadBoxes();
     void load(int chapterId, Start start);
     void leaveChapter();
     void onPages(Start start, const api::ApiResult<core::PageList>& result);
@@ -209,6 +235,10 @@ class ReaderModel {
     net::CancelToken listCancel_;
     std::vector<Slot> slots_;
     int position_ = 0;
+    // The half of a split spread on screen (0 first, 1 second in reading order). Set by every step even when the page isn't
+    // known to be a spread yet: a step back sets 1, so a spread found once decoded shows its last half.
+    int half_ = 0;
+    core::ReaderOrientation orientation_ = core::ReaderOrientation::Landscape;
     std::shared_ptr<core::ProgressSync> sync_;  // the opened chapter's progress
     std::optional<Prefetched> next_;
     net::CancelToken nextCancel_;

@@ -37,6 +37,9 @@ const core::Arrow kArrows[] = {core::Arrow::Up, core::Arrow::Down, core::Arrow::
 const brls::ControllerButton kDpad[] = {brls::BUTTON_UP, brls::BUTTON_DOWN, brls::BUTTON_LEFT, brls::BUTTON_RIGHT};
 const core::ZoomOnTurn kZoomOnTurns[] = {core::ZoomOnTurn::Reset, core::ZoomOnTurn::Keep};
 const char* const kZoomOnTurnKeys[] = {"reader/zoom_on_turn_reset", "reader/zoom_on_turn_keep"};
+const core::SpreadSplit kSpreadSplits[] = {core::SpreadSplit::Portrait, core::SpreadSplit::Always, core::SpreadSplit::Never};
+const char* const kSpreadSplitKeys[] = {"reader/split_spreads_portrait", "reader/split_spreads_always",
+                                        "reader/split_spreads_never"};
 const NVGcolor kBarColor = nvgRGBA(16, 16, 16, 225);
 const NVGcolor kBarText = nvgRGB(235, 235, 235);
 const NVGcolor kPageNumberBackground = nvgRGBA(16, 16, 16, 180);
@@ -138,6 +141,19 @@ brls::Label* makeLabel(float fontSize, NVGcolor color) {
     return label;
 }
 
+// borealis's Dropdown is at most 73 % of the screen tall (525 units): 6 entries fit (510), 7 (570) would scroll, with the
+// last one half hidden under the footer. The reader settings have 7 (WP-13c), so their menu gets room for every entry: the
+// same rows the Dropdown would draw (60 each, plus its 70 header and 40 + 40 padding), from its own style.
+void showEveryEntry(brls::Dropdown* dropdown, std::size_t entries) {
+    brls::Style style = brls::Application::getStyle();
+    const float height = static_cast<float>(entries) * style["brls/dropdown/listItemHeight"] +
+                         style["brls/dropdown/header_height"] + 2 * style["brls/dropdown/listPadding"];
+    brls::View* content = dropdown->getView("brls/dropdown/content");
+    if (content != nullptr && height < brls::Application::contentHeight * 0.85f) {
+        content->setHeight(height);  // never so tall that it covers the screen (a scrolling list is better then)
+    }
+}
+
 brls::Button* makeButton(const std::string& text, std::function<void()> action) {
     auto* button = new brls::Button();
     button->setText(text);
@@ -164,7 +180,8 @@ ReaderActivity::ReaderActivity(app::AppContext& context, core::Manga manga, std:
       showPageNumber_(context.config.config().reader.showPageNumber),
       orientation_(context.config.config().reader.orientation),
       lastPortrait_(context.config.config().reader.lastPortrait),
-      zoomOnTurn_(context.config.config().reader.zoomOnTurn) {}
+      zoomOnTurn_(context.config.config().reader.zoomOnTurn),
+      spreadSplit_(context.config.config().reader.splitSpreads) {}
 
 ReaderActivity::~ReaderActivity() {
     if (subscribed_) {
@@ -304,9 +321,11 @@ void ReaderActivity::build() {
         followScreen();    // docked or undocked, the screen's size
         model_.onFrame();  // progress, when it's due
         report();
-        // Test builds: not idle while a middle tap waits, a zoom waits to decode, or the page moves by itself.
+        // Test builds: not idle while a middle tap waits, a zoom waits to decode, the page moves by itself, or the spread on
+        // screen decodes again for its halves.
         app::testhooks::setUiBusy(seenZoomRevision_ != appliedZoomRevision_ || model_.zoomLoading() || view_->gliding() ||
-                                  view_->pinching() || view_->tapWaiting() || stickPushing_ || !gestureKind_.empty());
+                                  view_->pinching() || view_->tapWaiting() || stickPushing_ || !gestureKind_.empty() ||
+                                  model_.current().reloading);
     };
     view_->onGesture = [this](const char* kind, bool started) {
         if (started) {
@@ -342,7 +361,8 @@ void ReaderActivity::followScreen() {
     const int width = static_cast<int>(brls::Application::windowWidth);
     const int height = static_cast<int>(brls::Application::windowHeight);
     if (width > 0 && height > 0) {
-        model_.setScreen(core::readerScreen(shown, core::ImageSize{width, height}));  // pages decode for it
+        // Pages decode for it; the orientation also decides whether spreads split (WP-13c).
+        model_.setScreen(core::readerScreen(shown, core::ImageSize{width, height}), shown);
     }
 }
 
@@ -616,9 +636,13 @@ void ReaderActivity::reportScreen() {
 void ReaderActivity::modelChanged() {
     const bool pageReady = model_.state() == ReaderModel::State::Ready && model_.onPage() &&
                            model_.current().state == ReaderPage::State::Ready;
-    // The page's key tells the view a sharper decode of the same page (WP-13) from a new page.
-    const std::string key = std::to_string(model_.chapter().id) + "/" + std::to_string(model_.position());
-    view_->showPage(pageReady ? model_.shownImage() : nullptr, model_.fit(), model_.direction(), key);
+    // The page's key tells the view a sharper decode of the same page (WP-13) from a new page; a split spread's halves
+    // (WP-13c) are two pages for the view.
+    std::string key = std::to_string(model_.chapter().id) + "/" + std::to_string(model_.position());
+    if (model_.split()) {
+        key += "/half" + std::to_string(model_.half());
+    }
+    view_->showPage(pageReady ? model_.shownImage() : nullptr, model_.fit(), model_.direction(), key, model_.halfSide());
     updateMessage();
     updateBars();
 }
@@ -755,6 +779,8 @@ void ReaderActivity::openSettings() {
         brls::getStr("reader/setting_orientation",
                      brls::getStr(kOrientationKeys[indexOf(kOrientations, orientation_)])),
         brls::getStr("reader/setting_zoom_on_turn", brls::getStr(kZoomOnTurnKeys[indexOf(kZoomOnTurns, zoomOnTurn_)])),
+        brls::getStr("reader/setting_split_spreads",
+                     brls::getStr(kSpreadSplitKeys[indexOf(kSpreadSplits, spreadSplit_)])),
     };
     auto* dropdown = new brls::Dropdown("reader/settings"_i18n, entries, [this](int selected) {
         // Open the next menu after this one has closed.
@@ -780,11 +806,15 @@ void ReaderActivity::openSettings() {
                 case 5:
                     chooseZoomOnTurn();
                     break;
+                case 6:
+                    chooseSpreadSplit();
+                    break;
                 default:
                     break;
             }
         });
     });
+    showEveryEntry(dropdown, entries.size());
     brls::Application::pushActivity(new brls::Activity(dropdown));
 }
 
@@ -831,6 +861,22 @@ void ReaderActivity::chooseZoomOnTurn() {
         view_->setKeepZoomOnTurn(zoomOnTurn_ == core::ZoomOnTurn::Keep);
         context_.config.setReaderZoomOnTurn(zoomOnTurn_);
     }, indexOf(kZoomOnTurns, zoomOnTurn_));
+    brls::Application::pushActivity(new brls::Activity(dropdown));
+}
+
+void ReaderActivity::chooseSpreadSplit() {
+    std::vector<std::string> names;
+    for (const char* key : kSpreadSplitKeys) {
+        names.push_back(brls::getStr(key));
+    }
+    auto* dropdown = new brls::Dropdown("reader/split_spreads"_i18n, names, [this](int selected) {
+        if (selected < 0 || selected >= static_cast<int>(std::size(kSpreadSplits))) {
+            return;
+        }
+        spreadSplit_ = kSpreadSplits[selected];
+        model_.setSpreadSplit(spreadSplit_);
+        context_.config.setReaderSplitSpreads(spreadSplit_);
+    }, indexOf(kSpreadSplits, spreadSplit_));
     brls::Application::pushActivity(new brls::Activity(dropdown));
 }
 
@@ -893,7 +939,9 @@ void ReaderActivity::report() {
                             std::to_string(retries_) + "/" + std::to_string(static_cast<int>(view_->orientation())) +
                             std::to_string(static_cast<int>(orientation_)) + "/" + std::to_string(view_->moveRevision()) +
                             "/" + std::to_string(view_->zoomRevision()) + "/" + std::to_string(decoded.width) + "x" +
-                            std::to_string(decoded.height) + "/" + std::to_string(static_cast<int>(zoomOnTurn_));
+                            std::to_string(decoded.height) + "/" + std::to_string(static_cast<int>(zoomOnTurn_)) + "/" +
+                            (model_.split() ? "s" + std::to_string(model_.half()) : "") +
+                            std::to_string(static_cast<int>(spreadSplit_));
     if (key == reported_) {
         return;
     }
@@ -918,6 +966,10 @@ void ReaderActivity::report() {
     if (shown == "page") {
         const image::ImagePtr& image = model_.current().image;
         fields["spread"] = core::isSpread(image->sourceSize());
+        // WP-13c: the spread shows as two halves; which one is on screen (0 = the first in reading order). w and h below are
+        // the half's size then.
+        fields["split"] = model_.split();
+        fields["half"] = model_.half();
         fields["w"] = static_cast<int>(std::lround(view_->pageSize().width));
         fields["h"] = static_cast<int>(std::lround(view_->pageSize().height));
         fields["srcW"] = image->sourceSize().width;
@@ -933,6 +985,8 @@ void ReaderActivity::report() {
         fields["sharp"] = sharp;
         if (sharpMs_ >= 0) {
             fields["sharpMs"] = sharpMs_;
+            // WP-13c: the texture upload of that sharper decode, in the frame that swapped it in.
+            fields["uploadMs"] = std::round(view_->uploadMs() * 10) / 10;
             sharpMs_ = -1;
         }
     } else if (shown == "page_error") {
@@ -951,6 +1005,7 @@ void ReaderActivity::report() {
         turnStartMs_ = -1;
     }
     fields["zoomOnTurn"] = std::string(core::zoomOnTurnName(zoomOnTurn_));
+    fields["splitSpreads"] = std::string(core::spreadSplitName(spreadSplit_));
     fields["texUsed"] = context_.textures.used();
     fields["memUsed"] = platform::runtimeInfo().usedMem;
     app::testhooks::write("reader", fields);

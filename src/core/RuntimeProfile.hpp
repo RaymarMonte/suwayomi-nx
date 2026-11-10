@@ -28,7 +28,8 @@ struct RuntimeProfile {
     std::uint64_t coverCacheBytes = 0;     // decoded cover thumbnails kept in RAM
     std::uint64_t textureBudgetBytes = 0;  // GPU textures alive at once (SAFETY.md S7)
     std::uint64_t maxDecodeBytes = 0;      // one decoded image, width x height x 4; checked from the header first (S6)
-    float maxDecodeScale = 2.0f;           // decode up to this many times the screen size (or the original, if smaller)
+    float maxDecodeScale = 4.0f;           // decode up to this many times the screen size (or the original, if smaller);
+                                           // 4 from WP-13c's console measurement (D48), safe mode 2, the applet profile 1
     float maxZoom = 4.0f;                  // the reader zooms a page up to this many times its fit (WP-13; safe mode: 2)
 
     // Reader prefetch.

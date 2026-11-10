@@ -832,14 +832,41 @@ an Opus plan); server-side "Download" only (no reading away from home).
   cap is orientation-free now, so a portrait page isn't cut to 1440 tall). The fit image stays until the sharper one is
   drawn; its textures are made first and the old ones freed after (S7: if they don't fit, the old ones stay). A turn
   cancels the zoomed decode. "Sharp" (test events) = the drawn image has the detail the zoom wants, as far as the source
-  and the cap allow. `maxDecodeScale` stays 2 for now: Alpha's 1000 × 1500 pages are sharp at every zoom below the cap;
-  the spread measurement at 2 and 4 that decides it moves to WP-13c with the spreads.
+  and the cap allow. `maxDecodeScale` was 2 here: Alpha's 1000 × 1500 pages are sharp at every zoom below the cap; the
+  spread measurement at 2 and 4 that decides it moved to WP-13c with the spreads (**now 4**, see "Console (WP-13c)").
 - **Two fingers without touching borealis:** borealis's pan follows one finger, so the reader view has its own first
   recognizer that only counts fingers by id (and the desktop mouse as finger 0) and always reports "failed", so it never
   blocks the others. Tests play pinches and double taps through a test-build touch channel (`test/commands/<n>.json`,
   TESTING.md): sys-autopilot-nx has one finger and needs 150 ms between requests.
 - **Split:** spread splitting ("Split spreads", the halves, `reader-spread-split`) moved to **WP-13c** (Needs 13, before
   13b), the WP's planned split point: the session ran long.
+- **Spreads as built (WP-13c, 2026-11-10):** the setting "Split spreads" (`reader.splitSpreads`: `portrait` default,
+  `always`, `never`; owner's answer "split in portrait only") shows a spread (wider than 1.2 × its height) as two halves,
+  one step each: the right half first for right to left, else the left one; going back onto a spread lands on its last
+  half; progress counts by page (both halves are the same page). A split spread decodes for the fit box with its width
+  doubled, so each half has the pixels of a whole page (portrait: 1440 × 1080, not 720 × 540). A page found to be a spread
+  only after its decode (prefetched) is decoded again at the doubled box in place: the small image stays drawn until the
+  sharper one is there. A half has its own zoom: the next half starts at the fit. The zoom skips a decode that would give
+  no more pixels than the page has now (Beta at cap 2, zoom 4) or than the zoomed decode it has. The view draws only the
+  half's part of the tiles, cut to the half's box where that box lies inside the screen (a cut exactly at the screen's edge
+  would leave a faint anti-aliased line). The settings menu's 7th entry would make borealis's Dropdown scroll (it caps
+  at 73 % of the screen), so the reader sets the menu's height for all 7 rows itself. Test builds can set
+  `maxDecodeScale` (test config, 1 … 4) for the measurement below.
+- **Console (WP-13c, 2026-11-10, application mode, handheld):** Beta's spread (PNG 2000 × 1500) split in portrait, ZR to 4 ×
+  on its right half. At `maxDecodeScale` 2 the half has 1440 × 1080 decoded already, so 4 × gives nothing sharper (no
+  decode; memory 85.4 → 85.4 MiB). At 4 it decodes the full 2000 × 1500: sharp after 253 ms (`sharpMs`, the 150 ms wait
+  included; target ≤ 0.5 s), the upload 10 ms inside a normal frame, zoom steps p90 17 / max 17 ms, memory +11.4 MiB and
+  textures 6.2 → 11.7 MiB while zoomed (one 2000 × 1500 image), the fit's textures again after ZL. **So Full takes 4** (the
+  planned rule: "Full keeps 2 unless the console numbers allow 4"): a high-resolution page stays sharp up to 4 ×. Safe mode
+  keeps 2 (after a crash, the smaller decodes of before), the applet profile 1. The biggest zoomed box, 5120 × 2880, is
+  56 MiB, inside one decode's budget (`maxDecodeBytes`, 128 MiB on Full); the texture budget (S7) still guards the upload.
+  Not measured: a page much bigger than 2000 × 1500 uploads more in one frame (~1 ms per MiB here), so its sharp frame
+  could run long (one frame, after the zoom has stopped). Uploading one tile per frame (WP-13's planned fallback, not
+  built) is the fix if a real chapter shows it. With 4 as the profile's value, `reader-spread-split` (sharp after 240 ms,
+  upload 8.5 ms), `reader-zoom` (50 zoom cycles +0.0 MiB, gestures p90 17 / worst 17 ms, `sharpMs` p90 183 ms),
+  `reader-paged` and `reader-portrait` (prefetched turns p90 32 ms, growth 0) all ran green on the console.
+- **Owner's verdict on spreads** (2026-11-10, a spread from their own server, held sideways, the build with cap 4): "Works
+  well", so "In portrait" stays the default.
 - **Console (2026-11-07, application mode, handheld):** while gestures run, frame intervals p90 17 ms, the worst 17 ms;
   Alpha sharp `sharpMs` p90 183 ms (the 150 ms wait included); 50 zoom cycles and 100 zoomed turns (p90 18 ms) grew memory
   by 0.0 MiB.

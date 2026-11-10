@@ -22,6 +22,8 @@
 // Zoom (WP-13): pinch, double-tap the middle, ZR / ZL (steps 1, 1.5, 2, 3, 4); zoomed, a drag, either stick and the D-pad
 // move around the page, and at its edge a fresh press (or swipe) turns. Holding a button or a stick never turns more than
 // one page. Once the zoom has settled (150 ms), the page on screen decodes again at the zoomed size (ReaderModel::setPageZoom).
+// Spreads (WP-13c): held sideways (setting "Split spreads": in portrait / always / never) a spread shows as two halves, one
+// step each, the right half first for right to left.
 // The screen stays on while the reader is open. The state lives in ReaderModel; direction and fit are saved per manga.
 namespace snx::ui {
 
@@ -72,6 +74,7 @@ class ReaderActivity : public brls::Activity {
     void zoomStep(int direction);
     void settleZoom();
     void chooseZoomOnTurn();
+    void chooseSpreadSplit();  // WP-13c
     bool readerHasFocus() const;
     void gestureBegin(const std::string& kind);
     void gestureEnd(const std::string& kind);
@@ -107,7 +110,8 @@ class ReaderActivity : public brls::Activity {
     core::ReaderOrientation orientation_;
     core::ReaderOrientation lastPortrait_;
     bool handheld_ = true;
-    core::ZoomOnTurn zoomOnTurn_;  // WP-13
+    core::ZoomOnTurn zoomOnTurn_;    // WP-13
+    core::SpreadSplit spreadSplit_;  // WP-13c
     // The controller (WP-13): the D-pad by its physical arrow (core::Arrow order), the stick's push under way.
     ArrowHold dpad_[4];
     std::int64_t lastFrameMs_ = -1;

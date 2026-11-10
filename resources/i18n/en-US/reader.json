@@ -48,6 +48,11 @@
     "zoom_on_turn": "Zoom on page turn",
     "zoom_on_turn_reset": "Back to whole page",
     "zoom_on_turn_keep": "Keep the zoom",
+    "setting_split_spreads": "Split spreads: {}",
+    "split_spreads": "Split spreads",
+    "split_spreads_portrait": "In portrait",
+    "split_spreads_always": "Always",
+    "split_spreads_never": "Never",
     "zoom_in": "Zoom in",
     "zoom_out": "Zoom out"
 }

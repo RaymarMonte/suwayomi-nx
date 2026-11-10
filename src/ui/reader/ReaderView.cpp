@@ -228,19 +228,21 @@ bool ReaderView::makeTextures(const image::ImagePtr& image, std::vector<int>& te
 }
 
 void ReaderView::showPage(const image::ImagePtr& image, core::PageFit fit, core::ReadingDirection direction,
-                          const std::string& pageKey) {
-    if (image == image_ && fit == fit_ && direction == direction_ && pageKey == pageKey_) {
+                          const std::string& pageKey, std::optional<core::Side> half) {
+    if (image == image_ && fit == fit_ && direction == direction_ && pageKey == pageKey_ && half == half_) {
         return;
     }
-    const bool samePage = pageKey == pageKey_ && fit == fit_ && direction == direction_;
+    const bool samePage = pageKey == pageKey_ && fit == fit_ && direction == direction_ && half == half_;
     if (samePage && image && image_ && image->sourceSize() == image_->sourceSize()) {
         // A sharper decode of the page on screen (or its fit image again): the new textures first, then the old ones go
         // (S7: both are reserved for that moment). Zoom and position stay. No room: the old image stays, only blurrier.
         std::vector<int> textures;
         std::vector<image::TextureLease> leases;
+        const auto started = std::chrono::steady_clock::now();
         if (!makeTextures(image, textures, leases)) {
             return;
         }
+        uploadMs_ = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - started).count();
         freeTextures();
         textures_ = std::move(textures);
         leases_ = std::move(leases);
@@ -248,11 +250,12 @@ void ReaderView::showPage(const image::ImagePtr& image, core::PageFit fit, core:
         ++imageRevision_;
         return;
     }
-    const bool newPage = pageKey != pageKey_;
+    const bool newPage = pageKey != pageKey_;  // the key names the half too: the other half of a spread is a new page
     const bool fitChanged = fit != fit_;
     pageKey_ = pageKey;
     fit_ = fit;
     direction_ = direction;
+    half_ = half;
     placed_ = false;
     glide_.reset();
     pinch_.reset();  // fingers still down count for nothing until they lift (multiTouch_)
@@ -262,6 +265,9 @@ void ReaderView::showPage(const image::ImagePtr& image, core::PageFit fit, core:
         zoomChanged();  // "Keep the zoom": the new page decodes again for it
     }
     if (image == image_) {
+        if (newPage) {
+            ++revision_;  // the other half of the same image: its textures stay
+        }
         return;
     }
     freeTextures();
@@ -277,7 +283,10 @@ void ReaderView::showPage(const image::ImagePtr& image, core::PageFit fit, core:
 
 void ReaderView::layout(core::SizeF screen) {
     screen_ = screen;
-    fitSize_ = image_ ? core::fitPage(image_->sourceSize(), screen, fit_) : core::SizeF{};
+    // A half of a split spread fits like a page of its own (WP-13c).
+    const core::ImageSize source =
+        image_ && half_ ? core::spreadHalfSize(image_->sourceSize(), *half_) : (image_ ? image_->sourceSize() : core::ImageSize{});
+    fitSize_ = core::fitPage(source, screen, fit_);
     drawn_ = scaled(fitSize_, zoom_);
     // Zoomed ("Keep the zoom"), this is the corner where reading starts: top right for right to left, top left otherwise.
     position_ = core::startPosition(drawn_, screen, direction_);
@@ -563,20 +572,35 @@ void ReaderView::drawPage(NVGcontext* vg, float x, float y, core::SizeF screen) 
         if (!placed_ || screen_.width != width || screen_.height != height) {
             layout({width, height});
         }
+        // The part of the decoded image drawn as the page: all of it, or one half of a split spread (WP-13c). It is drawn
+        // drawn_ big with its corner at position_.
         const core::ImageSize decoded = image_->size();
-        const float sx = decoded.width > 0 ? drawn_.width / static_cast<float>(decoded.width) : 1;
-        const float sy = decoded.height > 0 ? drawn_.height / static_cast<float>(decoded.height) : 1;
+        const core::TileRect part =
+            half_ ? core::spreadHalf(decoded, *half_) : core::TileRect{0, 0, decoded.width, decoded.height};
+        const float sx = part.width > 0 ? drawn_.width / static_cast<float>(part.width) : 1;
+        const float sy = part.height > 0 ? drawn_.height / static_cast<float>(part.height) : 1;
+        const float left = x + position_.x;
+        const float top = y + position_.y;
+        const float right = left + drawn_.width;
+        const float bottom = top + drawn_.height;
         const auto& tiles = image_->tiles();
         for (std::size_t i = 0; i < tiles.size() && i < textures_.size(); ++i) {
-            const float tx = x + position_.x + static_cast<float>(tiles[i].x) * sx;
-            const float ty = y + position_.y + static_cast<float>(tiles[i].y) * sy;
+            const float tx = left + static_cast<float>(tiles[i].x - part.x) * sx;
+            const float ty = top + static_cast<float>(tiles[i].y - part.y) * sy;
             const float tw = static_cast<float>(tiles[i].width) * sx;
             const float th = static_cast<float>(tiles[i].height) * sy;
-            if (tx > x + width || ty > y + height || tx + tw < x || ty + th < y) {
-                continue;  // off screen
+            // The tile cut to the part's box, so the other half never shows. Where that box reaches the screen's edge or
+            // beyond, the tile isn't cut there (nothing beyond the edge shows, and a cut right at the edge would draw a faint
+            // anti-aliased line). A whole page's tiles are never cut: they make up its box.
+            const float x0 = left > x ? std::max(tx, left) : tx;
+            const float y0 = top > y ? std::max(ty, top) : ty;
+            const float x1 = right < x + width ? std::min(tx + tw, right) : tx + tw;
+            const float y1 = bottom < y + height ? std::min(ty + th, bottom) : ty + th;
+            if (x1 <= x0 || y1 <= y0 || x0 > x + width || y0 > y + height || x1 < x || y1 < y) {
+                continue;  // outside the part, or off screen
             }
             nvgBeginPath(vg);
-            nvgRect(vg, tx, ty, tw, th);
+            nvgRect(vg, x0, y0, x1 - x0, y1 - y0);
             nvgFillPaint(vg, nvgImagePattern(vg, tx, ty, tw, th, 0, textures_[i], 1.0f));
             nvgFill(vg);
         }

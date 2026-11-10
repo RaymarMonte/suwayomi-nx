@@ -17,8 +17,9 @@ tiles ≤ 2048 px → the answer on the main thread. The UI turns tiles into tex
 **Budgets (Full profile on the console, 3,184 MiB heap; all from `RuntimeProfile`):** decoded pages 512 MiB, covers 64 MiB,
 GPU textures 256 MiB, one decode ≤ 128 MiB (output + shrunk copy + the decoder's own buffers, planned from the header by
 `core::planDecode`), 2 decode threads (1 MiB stacks) + 1 disk thread (256 KiB), at most 128 loads, downloads ≤ 32 MiB in 60 s,
-sides ≤ 16384 px, decode: each side ≤ 2× the screen's longer side, however the console is held (WP-13: 2560 at 1280 × 720, so a
-zoomed portrait page isn't cut to 1440 tall; an image up to 15 % over its box isn't shrunk: the GPU scales it), tiles ≤ 2048 px,
+sides ≤ 16384 px, decode: each side ≤ 4× the screen's longer side (`maxDecodeScale`, D48; safe mode 2×), however the
+console is held (WP-13: 5120 at 1280 × 720, so a zoomed portrait page isn't cut to the landscape height; an image up to
+15 % over its box isn't shrunk: the GPU scales it), tiles ≤ 2048 px,
 disk cache 1 GiB, never below 1 GiB free on the SD card. Memory guard every 2 s: ≥ 85 % used → caches to 50 %, prefetch
 paused, until < 75 %. Safe mode halves the memory budgets. **Switch (v1, stock clocks):** JPEG 1000×1500 page 18 ms, WebP strip
 800×12000 176 ms, SD cache read 6–11 ms, the strip's peak +38.6 MB (`image-bench`, D39).

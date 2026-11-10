@@ -39,8 +39,12 @@ hint at the bottom of the screen does what its button does.
 | Reader | tap the left or right side (or swipe) to turn, the middle for the menu; drag a page that is bigger than the screen; pinch or double-tap the middle to zoom | L / R and left / right turn, up / down scroll, ZR / ZL zoom, A menu, X retry, Y rotate, − reader settings |
 
 The reader turns pages right to left by default (manga). Reader settings (− or the menu): direction, fit (screen, width,
-height), background colour, the page number, the orientation and what a page turn does to the zoom. Direction and fit are
-remembered per manga.
+height), background colour, the page number, the orientation, what a page turn does to the zoom and when to split spreads.
+Direction and fit are remembered per manga.
+
+**Double-page spreads:** held sideways (portrait), a spread shows as two halves that each fill the screen, one page turn
+each: the right half first when reading right to left, the left half first otherwise. Going back onto a spread starts at
+its last half. The reader setting **Split spreads** offers In portrait (the default), Always (also in landscape) or Never.
 
 **Zooming in:** pinch the page with two fingers, double-tap the middle of the page (2 ×; double-tap again for the whole
 page), or press **ZR** to zoom in and **ZL** to zoom out (1.5 ×, 2 ×, 3 ×, up to 4 ×). A moment after you stop, the page

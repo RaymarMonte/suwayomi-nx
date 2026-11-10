@@ -63,6 +63,7 @@ RuntimeProfile makeRuntimeProfile(LaunchMode mode, std::uint64_t totalMem, std::
         p.textureBudgetBytes = halved(p.textureBudgetBytes, kTextureFloor);
         p.maxDecodeBytes = halved(p.maxDecodeBytes, kDecodeFloor);
         p.maxZoom = std::min(p.maxZoom, 2.0f);
+        p.maxDecodeScale = std::min(p.maxDecodeScale, 2.0f);  // after a crash: the smaller zoomed decodes of before WP-13c
         p.prefetchBehind = 0;
         p.prefetchAhead = 0;
         p.nextChapterPrefetchPages = 0;

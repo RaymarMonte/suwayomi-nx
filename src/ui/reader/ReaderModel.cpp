@@ -27,6 +27,7 @@ ReaderOptions readerOptionsFrom(const core::RuntimeProfile& profile, const core:
     options.progressRetryMaxMs = profile.progressRetryMaxMs;
     options.maxZoom = profile.maxZoom;
     options.maxDecodeScale = profile.maxDecodeScale;
+    options.spreadSplit = reader.splitSpreads;
     options.format = reader.serverConvertsToJpeg ? api::PageFormat::Jpeg : api::PageFormat::AsStored;
     return options;
 }
@@ -192,6 +193,31 @@ core::ImageSize ReaderModel::pageBox() const {
     return core::decodeBoxFor(settings_.fit, options_.screen);
 }
 
+bool ReaderModel::splitting() const {
+    return core::splitsSpread(options_.spreadSplit, orientation_, true);
+}
+
+core::ImageSize ReaderModel::boxFor(const Slot& slot) const {
+    // A spread known to split decodes twice as wide, so each half has the pixels a page would (WP-13c).
+    return slot.spread && splitting() ? core::splitDecodeBox(pageBox()) : pageBox();
+}
+
+bool ReaderModel::split() const {
+    if (!onPage()) {
+        return false;
+    }
+    const ReaderPage& page = current();
+    return page.state == ReaderPage::State::Ready && page.image &&
+           core::splitsSpread(options_.spreadSplit, orientation_, core::isSpread(page.image->sourceSize()));
+}
+
+std::optional<core::Side> ReaderModel::halfSide() const {
+    if (!split()) {
+        return std::nullopt;
+    }
+    return core::spreadHalfSide(half_, settings_.direction);
+}
+
 bool ReaderModel::chapterRead() const {
     return sync_ ? sync_->read() : chapter_.isRead;
 }
@@ -318,6 +344,7 @@ void ReaderModel::showList(const core::PageList& list, std::vector<Slot> ready, 
         page = count - 1;
     }
     position_ = count == 0 ? 0 : std::clamp(page, 0, count - 1);  // no pages: the "next chapter" screen
+    half_ = start.kind == Start::Kind::Last ? 1 : 0;  // back from the next chapter: a spread's last half
 
     sync_ = std::make_shared<core::ProgressSync>(chapter_.id, fresh.lastPageRead, fresh.isRead, options_.progressSyncMs,
                                                  options_.progressRetryMaxMs, options_.clock());
@@ -329,6 +356,14 @@ void ReaderModel::showList(const core::PageList& list, std::vector<Slot> ready, 
 bool ReaderModel::step(int delta) {
     if (state_ != State::Ready || delta == 0) {
         return false;
+    }
+    // A split spread (WP-13c): its first half steps forward to its second, its second back to its first. The same page, so
+    // no new progress and the same window.
+    if (split() && ((delta == 1 && half_ == 0) || (delta == -1 && half_ == 1))) {
+        half_ += delta;
+        dropZoom();  // a zoomed decode belongs to the half it was made for; the reader asks again for this one
+        changed();
+        return true;
     }
     const int target = position_ + delta;
     if (target > pageCount()) {
@@ -350,6 +385,7 @@ bool ReaderModel::step(int delta) {
         return true;
     }
     position_ = target;
+    half_ = delta > 0 ? 0 : 1;  // a step back lands on a spread's last half (also one not decoded yet)
     arrive();
     changed();
     return true;
@@ -392,8 +428,11 @@ void ReaderModel::updateWindow() {
     }
     for (const int i : wanted) {
         Slot& slot = slots_[static_cast<std::size_t>(i)];
+        const net::Priority priority = i == position_ ? net::Priority::Reader : net::Priority::Prefetch;
         if (slot.page.state == ReaderPage::State::Waiting) {
-            startLoad(slot, chapter_.id, i, i == position_ ? net::Priority::Reader : net::Priority::Prefetch);
+            startLoad(slot, chapter_.id, i, priority);
+        } else {
+            sharpenSpread(slot, chapter_.id, i, priority);  // e.g. a spread prefetched with the next chapter
         }
     }
     if (options_.backgroundPrefetch && options_.nextChapterPages > 0 &&
@@ -408,14 +447,19 @@ void ReaderModel::startLoad(Slot& slot, int chapterId, int index, net::Priority 
         slot.page.error = image::imageError(image::ImageErrorKind::Corrupt, "the server gave no address for this page");
         return;
     }
-    const core::ImageSize box = pageBox();
+    const core::ImageSize box = boxFor(slot);
     if (image::ImagePtr hit = images_.cached(slot.url, box, image::ImageKind::Page)) {
         slot.page.state = ReaderPage::State::Ready;
         slot.page.image = std::move(hit);
+        slot.page.reloading = false;
         return;
     }
     slot.cancel = net::CancelToken();
-    slot.page.state = ReaderPage::State::Loading;
+    if (slot.page.state == ReaderPage::State::Ready) {
+        slot.page.reloading = true;  // a spread decoding again for its halves: its smaller image shows meanwhile
+    } else {
+        slot.page.state = ReaderPage::State::Loading;
+    }
     const net::CancelToken token = slot.cancel;
     images_.load(image::LoadRequest{slot.url, box, priority, image::ImageKind::Page}, token,
                  [this, token, chapterId, index](const image::ImageResult& result) {
@@ -436,17 +480,26 @@ void ReaderModel::onLoaded(int chapterId, int index, const image::ImageResult& r
     if (slots == nullptr || index < 0 || index >= static_cast<int>(slots->size())) {
         return;
     }
-    ReaderPage& page = (*slots)[static_cast<std::size_t>(index)].page;
+    Slot& slot = (*slots)[static_cast<std::size_t>(index)];
+    ReaderPage& page = slot.page;
+    const bool onScreen = slots == &slots_ && index == position_;
     if (result.ok()) {
         page.state = ReaderPage::State::Ready;
         page.image = result.value();
         page.error = image::ImageError{};
+        page.reloading = false;
+        if (core::isSpread(page.image->sourceSize())) {
+            slot.spread = true;
+            // Found only now: one that splits decodes again at its doubled box at once (usually before it is on screen).
+            sharpenSpread(slot, chapterId, index, onScreen ? net::Priority::Reader : net::Priority::Prefetch);
+        }
         if (slots == &slots_) {
             reloadNetworkFailures();
         }
+    } else if (page.reloading) {
+        page.reloading = false;  // the doubled decode didn't come (busy, memory): the smaller image stays, scaled by the GPU
     } else {
         const image::ImageErrorKind kind = result.error().kind;
-        const bool onScreen = slots == &slots_ && index == position_;
         if (kind == image::ImageErrorKind::Paused || (kind == image::ImageErrorKind::Busy && !onScreen)) {
             page.state = ReaderPage::State::Waiting;  // asked for again when it is the page on screen
         } else {
@@ -521,12 +574,63 @@ void ReaderModel::setFit(core::PageFit fit) {
     decodeAgain();
 }
 
-void ReaderModel::setScreen(core::ImageSize screen) {
+void ReaderModel::setScreen(core::ImageSize screen, core::ReaderOrientation orientation) {
     const core::ImageSize before = pageBox();
+    const bool splitBefore = splitting();
     options_.screen = screen;
-    if (pageBox() != before) {
-        decodeAgain();
+    orientation_ = orientation;
+    const bool splitNow = splitting();
+    if (splitNow != splitBefore) {
+        half_ = 0;  // a spread that splits now starts at its first half (WP-13c)
     }
+    if (pageBox() != before) {
+        decodeAgain();  // every page, the known spreads at their new box
+    } else if (splitNow != splitBefore) {
+        setSpreadBoxes();
+    }
+}
+
+void ReaderModel::setSpreadSplit(core::SpreadSplit mode) {
+    if (mode == options_.spreadSplit) {
+        return;
+    }
+    const bool splitBefore = splitting();
+    options_.spreadSplit = mode;
+    if (splitting() != splitBefore) {
+        half_ = 0;
+        setSpreadBoxes();
+    }
+}
+
+void ReaderModel::setSpreadBoxes() {
+    // Whether spreads split changed, so the known ones want another box; every other page keeps its image. Split now: they
+    // decode again at the doubled box, showing their image meanwhile (updateWindow -> sharpenSpread). Whole again: they load
+    // at the plain box (most likely from the memory cache), so they don't keep the bigger image.
+    dropZoom();
+    if (!splitting()) {
+        for (Slot& slot : slots_) {
+            if (slot.spread) {
+                resetSlot(slot);
+            }
+        }
+    }
+    if (state_ == State::Ready) {
+        updateWindow();
+    }
+    changed();
+}
+
+void ReaderModel::sharpenSpread(Slot& slot, int chapterId, int index, net::Priority priority) {
+    // A spread that splits wants its doubled box (boxFor). One decoded smaller (found as a spread only once decoded, or
+    // prefetched before the split was on) loads again at it; its smaller image shows meanwhile. Never smaller again.
+    const ReaderPage& page = slot.page;
+    if (!slot.spread || page.state != ReaderPage::State::Ready || page.reloading || !page.image) {
+        return;
+    }
+    if (core::isSharp(page.image->size(), page.image->sourceSize(), boxFor(slot))) {
+        return;
+    }
+    startLoad(slot, chapterId, index, priority);
 }
 
 void ReaderModel::decodeAgain() {
@@ -553,33 +657,46 @@ void ReaderModel::dropZoom() {
     zoom_ = ZoomLoad{};
 }
 
+bool ReaderModel::zoomIsForScreen() const {
+    return zoom_.chapterId == chapter_.id && zoom_.index == position_ && zoom_.half == half();
+}
+
 void ReaderModel::setPageZoom(float zoom) {
     if (state_ != State::Ready || !onPage()) {
         return;
     }
     const Slot& slot = slots_[static_cast<std::size_t>(position_)];
-    const core::ImageSize box =
-        core::zoomDecodeBox(settings_.fit, options_.screen, zoom, options_.maxZoom, options_.maxDecodeScale);
-    const bool samePage = zoom_.chapterId == chapter_.id && zoom_.index == position_;
-    if (!core::isZoomed(zoom) || box == pageBox() || slot.url.empty()) {
+    const core::ImageSize box = boxForZoom(zoom);
+    const bool samePage = zoomIsForScreen();
+    // A bigger box that gives no more pixels than the page's own (the source has no more detail, or the cap holds it, like
+    // Beta's split spread at maxDecodeScale 2) would decode the same image again: the page's image is as sharp as it gets.
+    const image::ImagePtr& own = slot.page.image;
+    const bool noSharper =
+        own && core::fitInside(own->sourceSize(), box) == core::fitInside(own->sourceSize(), boxFor(slot));
+    if (!core::isZoomed(zoom) || box == boxFor(slot) || noSharper || slot.url.empty()) {
         // At the fit (or no bigger box allowed): the page's own image. Let a sharper one go.
         const bool had = zoom_.image != nullptr || zoom_.loading;
         dropZoom();
         zoom_.chapterId = chapter_.id;
         zoom_.index = position_;
+        zoom_.half = half();
         zoom_.zoom = zoom;
         if (had) {
             changed();
         }
         return;
     }
-    if (samePage && zoom_.box == box) {
-        zoom_.zoom = zoom;  // the same bucket: what is there (or on its way) is right
+    // The same bucket, or a box with no more pixels than the zoomed decode there (or on its way): that one is right.
+    const bool sameDetail =
+        own && core::fitInside(own->sourceSize(), box) == core::fitInside(own->sourceSize(), zoom_.box);
+    if (samePage && zoom_.box.width + zoom_.box.height > 0 && (zoom_.box == box || sameDetail)) {
+        zoom_.zoom = zoom;
         return;
     }
     dropZoom();
     zoom_.chapterId = chapter_.id;
     zoom_.index = position_;
+    zoom_.half = half();
     zoom_.zoom = zoom;
     zoom_.box = box;
     if (image::ImagePtr hit = images_.cached(slot.url, box, image::ImageKind::Page)) {
@@ -591,9 +708,11 @@ void ReaderModel::setPageZoom(float zoom) {
     const net::CancelToken token = zoom_.cancel;
     const int chapterId = chapter_.id;
     const int index = position_;
+    const int half = zoom_.half;
     images_.load(image::LoadRequest{slot.url, box, net::Priority::Reader, image::ImageKind::Page}, token,
-                 [this, token, chapterId, index, box](const image::ImageResult& result) {
-                     if (token.cancelled() || zoom_.chapterId != chapterId || zoom_.index != index || zoom_.box != box) {
+                 [this, token, chapterId, index, half, box](const image::ImageResult& result) {
+                     if (token.cancelled() || zoom_.chapterId != chapterId || zoom_.index != index ||
+                         zoom_.half != half || zoom_.box != box) {
                          return;  // turned away, zoomed again, or the model is gone
                      }
                      zoom_.loading = false;
@@ -609,21 +728,19 @@ image::ImagePtr ReaderModel::shownImage() const {
     if (!onPage() || current().state != ReaderPage::State::Ready) {
         return nullptr;
     }
-    if (zoom_.image && zoom_.chapterId == chapter_.id && zoom_.index == position_) {
+    if (zoom_.image && zoomIsForScreen()) {
         return zoom_.image;
     }
     return current().image;
 }
 
 core::ImageSize ReaderModel::wantedBox() const {
-    if (zoom_.chapterId == chapter_.id && zoom_.index == position_) {
-        return core::zoomDecodeBox(settings_.fit, options_.screen, zoom_.zoom, options_.maxZoom, options_.maxDecodeScale);
-    }
-    return pageBox();
+    return boxForZoom(zoomIsForScreen() ? zoom_.zoom : 1.0f);
 }
 
 core::ImageSize ReaderModel::boxForZoom(float zoom) const {
-    return core::zoomDecodeBox(settings_.fit, options_.screen, zoom, options_.maxZoom, options_.maxDecodeScale);
+    // A split spread: the doubled box times the zoom (WP-13c), capped like any page.
+    return core::zoomDecodeBox(settings_.fit, options_.screen, zoom, options_.maxZoom, options_.maxDecodeScale, split());
 }
 
 void ReaderModel::onFrame() {

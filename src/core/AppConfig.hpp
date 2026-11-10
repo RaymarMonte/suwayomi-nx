@@ -49,6 +49,13 @@ enum class ZoomOnTurn { Reset, Keep };
 std::string_view zoomOnTurnName(ZoomOnTurn mode);  // "reset", "keep"
 std::optional<ZoomOnTurn> zoomOnTurnFromName(std::string_view name);
 
+// When a double-page spread shows as two halves that each fill the screen, one after the other (WP-13c). Portrait: only
+// with the console held sideways (in landscape a half is no bigger than the whole spread). Always: in landscape too.
+// Never: always whole.
+enum class SpreadSplit { Portrait, Always, Never };
+std::string_view spreadSplitName(SpreadSplit mode);  // "portrait", "always", "never"
+std::optional<SpreadSplit> spreadSplitFromName(std::string_view name);
+
 // The library grid's order (WP-09). Title: A to Z, as the server sends it. Unread: most unread chapters first. LastRead: the
 // manga read most recently first, never-read ones last.
 enum class LibrarySort { Title, Unread, LastRead };
@@ -83,6 +90,8 @@ struct ReaderSettings {
     ReaderOrientation lastPortrait = ReaderOrientation::PortraitLeft;
     // WP-13: what a page turn does to a zoomed page, for all manga. A new key: old files don't have it (no migration).
     ZoomOnTurn zoomOnTurn = ZoomOnTurn::Reset;
+    // WP-13c: when spreads show as two halves, for all manga. A new key: old files don't have it (no migration).
+    SpreadSplit splitSpreads = SpreadSplit::Portrait;
     // WP-11: the manga with their own direction and fit, the one changed last at the end. A new list in the "reader"
     // section, so old files simply don't have it (no migration).
     std::vector<MangaReaderSettings> manga;

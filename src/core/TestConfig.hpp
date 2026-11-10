@@ -64,6 +64,9 @@ struct TestConfig {
     // "diskCache": false: the image loader runs without its SD-card cache (WP-12), so every image the app hasn't kept in RAM
     // comes from the server. offline-errors needs that: pages cached by earlier runs would load with the server stopped.
     bool diskCache = true;
+    // "maxDecodeScale": 1..4 (WP-13c): the app decodes up to this many times the screen instead of the profile's value, for
+    // the console measurement that chose RuntimeProfile::maxDecodeScale. 0 = not given (the profile's).
+    float maxDecodeScale = 0;
     std::vector<std::string> problems;  // what couldn't be understood, in plain words (logged, otherwise ignored)
 };
 

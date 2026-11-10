@@ -226,11 +226,14 @@ TEST_SUITE("image") {
 
     TEST_CASE("ImageLoader: the box cap doesn't depend on how the console is held (WP-13)") {
         // A portrait page zoomed 2 x wants 1440 x 2560. With the landscape cap (2560 x 1440) it was cut to 1440 tall; now
-        // each side may be 2 x the screen's longer side. The 800 x 12000 strip then fills the box's height.
+        // each side may be 2 x the screen's longer side. The 800 x 12000 strip then fills the box's height. (The cap of 2
+        // is set here: Full has 4 since WP-13c, safe mode 2.)
         net::FakeHttpClient http;
         serveFixtures(http);
         MainQueue main;
-        image::ImageLoader loader(http, testOptions(main));
+        image::LoaderOptions options = testOptions(main);
+        options.maxDecodeScale = 2.0f;
+        image::ImageLoader loader(http, options);
         Answer answer;
         loader.load(page("http://s/strip.webp", {1440, 2560}), net::CancelToken(), answer.callback());
         REQUIRE(main.runUntil([&] { return answer.result.has_value(); }));

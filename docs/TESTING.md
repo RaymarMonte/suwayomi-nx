@@ -81,7 +81,9 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
   page `zoom` (1 = the fit, 2 decimals), `x`/`y` (the page corner on the reader screen; a zoom or a finished move reports
   again), `decW`/`decH` (the decoded image drawn), `sharp` (it has the detail the zoom on screen wants, as far as the source
   and the cap allow) and once `sharpMs` (from the last zoom change to the frame that draws the sharper decode, the 150 ms
-  settle wait included); `gesture` after every pinch, drag, glide (D-pad), stick pan, zoom step and double tap (`kind`,
+  settle wait included; WP-13c adds `uploadMs`, that decode's texture upload); WP-13c: (always) `splitSpreads`
+  portrait/always/never, for a page `split` (it shows as two halves) and `half` (0 = the first in reading order; `w`/`h`
+  are the half's then); `gesture` after every pinch, drag, glide (D-pad), stick pan, zoom step and double tap (`kind`,
   `frames`, `p90Ms`/`maxMs` = frame intervals while it ran, `zoom`, `x`, `y`); `command` (a played touch command is done:
   `id`, `ok`, `error`). The reader also counts as busy for `idle` while it settles by itself (a middle tap waiting for a
   second one, the zoom about to decode, a glide, a pinch, a stick push).
@@ -97,7 +99,8 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
 - Test config `<data>/test/config.json` (uploaded by the harness, `core/TestConfig.hpp`): `"server": {"url", "auth":
   "none|basic|ui_login", "username", "password"}` = the app starts with that server instead of config.json's (no setup screen);
   `"showSetup": true` = the setup screen opens with those values filled in (the Switch can't type in a test; the login screen
-  fills in the password too); `"diagnostics": {"burst": n}` = the diagnostics screen; `"imageBench"`; `"drill"`; `"diskCache": false` = the image
+  fills in the password too); `"diagnostics": {"burst": n}` = the diagnostics screen; `"imageBench"`; `"drill"`; `"maxDecodeScale": 1..4` = decode up to that many times the screen instead of the profile's value (WP-13c, for
+  the measurement in `reader-spread-split`); `"diskCache": false` = the image
   loader runs without its SD-card cache (WP-12: pages cached by earlier runs would load with the server stopped). The harness
   removes `config.json` before every launch unless `launch({ keepConfig: true })` (a restart test). On the Switch the
   driver copies the owner's `config.json` and `.bak` first and puts them back exactly after every scenario (SwitchDriver, below).
@@ -271,6 +274,15 @@ Initial list, grown per UI WP:
     after the fifth, `texUsed` back to the fit), 100 turns from zoomed pages (p90 < 150 ms), and the gesture frame times
     (p90 ≤ 17 ms, none over 34 ms) and `sharpMs` p90 ≤ 350 ms (console: frames p90 17 / max 17 ms, `sharpMs` p90
     183 ms, zoomed turns p90 18 ms, memory growth 0). ~20 s on desktop
+6e. `reader-spread-split` (WP-13c, D48) – Beta RTL ch1 turned left ("Split spreads: In portrait"): page 4 shows its right
+    half first (`split`, `half` 0, 720 × 1080, `sharp`, decoded 1440 wide; its page code, read from the screenshot turned
+    upright; golden `split-right-half`), a played double tap zooms that half and back, the next step its left half (no page
+    code; golden `split-left-half`), then page 5; back lands on the left half, then the right; after B the server has
+    `lastPageRead` 3; Continue opens page 4 at its first half; Rotate → landscape shows it whole (960 × 720); "Always"
+    splits it there (480 × 720, golden `always-landscape-right-half`); left to right starts with the left half; "Never"
+    in portrait shows it whole (720 × 540). The Switch adds the `maxDecodeScale` measurement: ZR to 4 × on the split half,
+    logging the decoded size, `sharpMs`, `uploadMs`, the zoom steps' frames, memory and `texUsed`; run it at another cap
+    with `SNX_MAX_DECODE_SCALE=2` (the test config's `"maxDecodeScale"`; the profile has 4, D48). ~30 s on desktop
 7. `resume-progress` – Alpha ch3 to page 5, B: the server has lastPageRead 4, Continue opens page 5 (colour code), and again after a restart (WP-11)
 8. `offline-errors` (WP-12) – the test server stops and starts again four times while the app runs, with `"diskCache": false`: at start-up
    (the Library tab shows the error + Retry, a tap on Retry connects once it is back); in the reader (prefetched pages still

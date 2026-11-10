@@ -120,9 +120,10 @@ export const READER = {
     rotate: { x: 766, y: 672 },
     /**
      * The settings menu's entries (a borealis dropdown, MANGA.menuEntry places them): direction, fit, background, number,
-     * orientation (WP-22), zoom on page turn (WP-13).
+     * orientation (WP-22), zoom on page turn (WP-13), split spreads (WP-13c). With 7 the reader makes the menu tall enough
+     * for all of them (borealis would cap it at 6 and scroll), so the last one's middle stays at y 576.
      */
-    settingsCount: 6,
+    settingsCount: 7,
 };
 
 /** WP-22: how the console is held in the reader ("reader" events' orientation). */

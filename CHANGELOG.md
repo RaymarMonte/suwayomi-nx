@@ -8,8 +8,11 @@ with 0, any release may change things.
 ### Added
 - **Zoom:** pinch a page, double-tap its middle, or press ZR / ZL (up to 4 ×). Zoomed in, drag, push either stick or press
   the D-pad to look around; at the edge, a new push or a swipe turns the page. A moment after you stop zooming the page
-  turns sharp (it is loaded again at the bigger size). A page turn goes back to the whole page; the new reader setting
-  "Zoom on page turn" can keep the zoom instead.
+  turns sharp (it is loaded again at the bigger size, up to 4 × the screen, so large scans stay sharp all the way in). A
+  page turn goes back to the whole page; the new reader setting "Zoom on page turn" can keep the zoom instead.
+- **Split spreads:** held sideways (portrait), a double-page spread shows as two halves that each fill the screen, one page
+  turn each (the right half first when reading right to left). The new reader setting "Split spreads" offers In portrait
+  (the default), Always or Never. Both halves count as the same page for your reading progress.
 
 ### Changed
 - A single tap in the middle of the page opens the menu a quarter second later (it waits to see if it is a double tap).

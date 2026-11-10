@@ -1,20 +1,20 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. WP-13 (zoom & pan) done** (owner tried it 2026-11-10: "Everything feels alright"). **Next: WP-13c**
-(split spreads; its plan is the spread part of `wp/WP-13-zoom-and-pan.md`), then plan WP-13b. Order: ROADMAP.md (D47).
-Done: WP-00a … 13 and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
-## Last session (2026-11-07, WP-13, Opus)
-- Built (rules as built: D48): zoom math (`test_core_zoom.cpp`), `reader.zoomOnTurn`, `maxZoom`, the orientation-free decode
-  cap, `ReaderModel::setPageZoom`, `ReaderView` zoom/pan/pinch/double tap/glides, ZL/ZR/D-pad/sticks (one press, one page),
-  the test-hook touch channel + `lib/touches.ts`, scenario `reader-zoom` (goldens desktop + switch), docs.
-- Green: `build.sh tests` 7/7, `npm test`, typecheck, `tools/e2e.sh desktop` (all 20 files), Switch gate PASS; console:
-  `reader-zoom` (frames p90 17 / max 17 ms, `sharpMs` p90 183 ms, 50 zoom cycles and 100 zoomed turns p90 18 ms, memory +0),
-  `reader-paged`, `reader-portrait` (prefetched turns p90 32 ms, growth 0), `touch-pass`. `reader-paged` now waits for the
-  launch's config save (the menu's 250 ms wait had put its Settings tap into the save's stall: 1 in 3 desktop runs failed).
-- Found: the desktop mouse reaches views as touch phase NONE + a MouseState (we count it as finger 0); a pan starts after the
-  first step. A desktop e2e run under heavy load can lose a key press. D-pad turns: p90 32 ms now vs ~19 before (read in
-  draw, so some turns show a frame later; target < 150 ms, a small polish item for later).
-- Owner's try (2026-11-10): pinch, double tap, ZL/ZR, sticks, both orientations: all fine, defaults stay (D48). Not
-  released: a version (0.3.0?) is the owner's call; CHANGELOG has it under Unreleased. The console sleeps: wake it first.
+**Phase 3 – Features. WP-13 (zoom & pan) and WP-13c (split spreads) done** (owner tried both 2026-11-10). **Next: plan
+WP-13b** (webtoon reader; ROADMAP.md "How the Phase 3 WPs get their full docs"). Order: ROADMAP.md (D47).
+Done: WP-00a … 13, 13c and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
+## Last session (2026-11-10, WP-13c, Opus, side session)
+- Built (rules as built: D48 "Spreads as built"): `core::SpreadSplit` + `reader.splitSpreads` (portrait default / always /
+  never), the spread math (`test_core_spread.cpp`), `ReaderModel` halves in `step()` (back lands on the last half, progress
+  by page, a prefetched spread decoded again at the doubled box in place), `ReaderView` draws a half, the 7th reader setting
+  (the Dropdown's height is set so it doesn't scroll), test config `"maxDecodeScale"`, scenario `reader-spread-split`
+  (goldens desktop + switch), `expectPage(..., way)` turns a portrait screenshot upright.
+- **`maxDecodeScale` is 4 now** (Full; safe mode 2): at 4 a split spread zoomed 4 × is sharp after 240–253 ms, upload
+  8.5–10 ms, frames p90 17 / max 17, +11.4 MiB while zoomed; at 2 zoom 4 gave nothing sharper (D48 "Console (WP-13c)").
+- Green: `build.sh tests` 7/7, `tools/e2e.sh desktop` (21 files; after the cap change `reader-spread-split` and
+  `reader-zoom` again), Switch gate PASS; console: `reader-spread-split`, `reader-zoom`, `reader-paged`, `reader-portrait`.
+- Known limit: a page much bigger than 2000 × 1500 uploads more in one frame when it turns sharp (one tile per frame is
+  the fix if a real chapter shows a hitch). Owner's try: "Works well". Not released (a version is the owner's call;
+  CHANGELOG has it under Unreleased). The console has a normal (non-test) build and sleeps: wake it first.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

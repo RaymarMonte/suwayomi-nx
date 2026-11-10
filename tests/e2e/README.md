@@ -92,7 +92,8 @@ Switch: closes the software and goes back to the HOME menu), and the logs land i
    center, from, to)`, `doubleTap(s, at)`, `drag(s, from, to)` (each an action for `readerAfter`, with an optional `map`, e.g.
    `(p) => portraitPoint(way, p)`), or `playTouches(s, frames)` for your own frames. They go through the test build's touch
    channel (TESTING.md "Drivers") and wait for its `command` event. Reader steps: `lib/reader.ts` (`readerAfter`,
-   `chooseSetting`, ...).
+   `chooseSetting`, ...). `expectPage(s, series, chapter, page, way)` reads the fixture page code from a screenshot; in
+   portrait pass the reader's `way` (`portrait-left` / `portrait-right`), so it turns the screenshot upright first.
 
 ### Goldens
 

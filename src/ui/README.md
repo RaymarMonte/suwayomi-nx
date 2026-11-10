@@ -44,7 +44,11 @@ transform, takes every touch itself in portrait and runs `addButton` buttons by 
 `ReaderView` draws the page `zoom()` times its fit, counts fingers by id with its own first recognizer (borealis's pan
 follows one) for the pinch, waits 250 ms after a single middle tap for a double tap, glides from the clock, and swaps in a
 sharper image of the same page without moving; `ReaderActivity` reads ZL/ZR, the D-pad and the sticks once a frame (one
-press, one page) and, 150 ms after the zoom settles, asks `ReaderModel::setPageZoom` for the sharper decode), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
+press, one page) and, 150 ms after the zoom settles, asks `ReaderModel::setPageZoom` for the sharper decode; WP-13c: a spread
+that splits ("Split spreads") is two steps in `ReaderModel` (`half()`, a step back lands on the last half; progress and the
+window still count pages), decodes twice as wide once it is known to be a spread (`ReaderPage::reloading` meanwhile), and
+`ReaderView::showPage(..., half)` draws only that half of the page's tiles; the settings menu makes borealis's Dropdown tall
+enough for its 7 entries), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
 `crash/CrashActivity` (the crash screen, S1), `diagnostics/DiagnosticsActivity` (test builds only: WP-05's server check + request
 burst, WP-07's image benchmark).
 

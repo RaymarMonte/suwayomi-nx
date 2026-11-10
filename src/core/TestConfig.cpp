@@ -177,6 +177,13 @@ TestConfig parse(std::string_view json) {
             config.problems.push_back("test config: \"diskCache\" must be true or false");
         }
     }
+    if (const auto scale = root.find("maxDecodeScale"); scale != root.end()) {
+        if (scale->is_number() && scale->get<double>() >= 1 && scale->get<double>() <= 4) {
+            config.maxDecodeScale = scale->get<float>();
+        } else {
+            config.problems.push_back("test config: \"maxDecodeScale\" must be a number from 1 to 4");
+        }
+    }
     if (const auto bench = root.find("imageBench"); bench != root.end()) {
         parseBench(*bench, config);
         config.diagnostics = config.diagnostics || config.benchRepeat > 0;

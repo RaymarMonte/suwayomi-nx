@@ -36,6 +36,8 @@ class ConfigStore {
     void setReaderOrientation(core::ReaderOrientation orientation, core::ReaderOrientation lastPortrait);
     // What a page turn does to a zoomed page (WP-13), for every manga.
     void setReaderZoomOnTurn(core::ZoomOnTurn mode);
+    // When spreads show as two halves (WP-13c), for every manga.
+    void setReaderSplitSpreads(core::SpreadSplit mode);
     // The test config's server (test builds): used as if it had been saved, but not written unless something changes it.
     void useServer(const core::ServerSettings& server);
 

@@ -50,6 +50,9 @@ std::vector<std::string> imageBenchPaths();
 int imageBenchRepeat();
 // False when the test config says "diskCache": false (WP-12): the image loader then runs without its SD-card cache.
 bool diskCache();
+// The test config's "maxDecodeScale" (WP-13c: the measurement that chose the profile's value), 0 when not given. Release
+// builds: always 0.
+float maxDecodeScale();
 
 // Writes a {"ev":"net",...} event for every request the client finishes (WP-05). The observer runs on the network thread and
 // hands the event to the main thread with brls::sync. Release builds: nothing.

@@ -28,6 +28,8 @@
 // and after a pinch nothing counts until every finger has lifted. A double tap in the middle zooms to 2 x at that point (or
 // back to the fit); so a single middle tap waits 250 ms before it reports. The page may be swapped for a sharper decode of
 // itself (the same page key) without moving. Glides (the D-pad) run from the clock.
+// Split spreads (WP-13c): the view may draw one half of the image (the textures still hold all of it): fit, zoom and pan
+// treat that half as the page, and each tile is cut to the half's box where that box lies inside the screen.
 // Main thread only.
 namespace snx::ui {
 
@@ -36,25 +38,29 @@ class ReaderView : public brls::Box {
     explicit ReaderView(image::TextureBudget& textures);
     ~ReaderView() override;  // frees the textures
 
-    // The page to draw (nullptr: none), its fit, the reading direction (where a page wider than the screen starts) and the
-    // page's key (which page of which chapter). A new page or fit starts at the page's start position (the top;
-    // core::startPosition), back at the fit unless keepZoomOnTurn. Another image of the same page (a sharper decode, WP-13)
-    // replaces the textures and keeps the zoom and position; the new textures are reserved and made first, and if they don't
-    // fit the old ones stay.
+    // The page to draw (nullptr: none), its fit, the reading direction (where a page wider than the screen starts), the
+    // page's key (which page of which chapter, and which half) and the half of a split spread to draw (WP-13c: the image's
+    // left or right half, drawn like a page of its own; nothing = the whole image). A new page, half or fit starts at the
+    // page's start position (the top; core::startPosition), back at the fit unless keepZoomOnTurn. Another image of the same
+    // page (a sharper decode, WP-13) replaces the textures and keeps the zoom and position; the new textures are reserved and
+    // made first, and if they don't fit the old ones stay.
     void showPage(const image::ImagePtr& image, core::PageFit fit, core::ReadingDirection direction,
-                  const std::string& pageKey);
+                  const std::string& pageKey, std::optional<core::Side> half = std::nullopt);
     // The GPU budget had no room for the page (S7): it isn't drawn.
     bool textureRefused() const { return refused_; }
     bool hasPage() const { return !textures_.empty(); }
     // The image drawn now (nullptr: none): its decoded size is what the "sharp" rule looks at.
     const image::ImagePtr& image() const { return image_; }
-    // Goes up with every new page shown (the activity's test events tell one page from the next). Not for a sharper decode.
+    // Goes up with every new page (or half) shown (the activity's test events tell one page from the next). Not for a sharper
+    // decode.
     unsigned pageRevision() const { return revision_; }
     // Goes up whenever another image of the same page is swapped in.
     unsigned imageRevision() const { return imageRevision_; }
+    // How long the last swap took to make its textures (the GPU upload, in the frame that swaps), in ms: test events.
+    float uploadMs() const { return uploadMs_; }
     // Moves a page taller than the screen up or down (not zoomed, D-pad), in screen units.
     void scrollBy(float dy);
-    // The drawn page's size, for the test events. {0, 0} without a page.
+    // The drawn page's (or half's) size, for the test events. {0, 0} without a page.
     core::SizeF pageSize() const { return drawn_; }
     // Where the page's top-left corner is on the reader's screen, and a count of finished moves (drags, scrolls, glides,
     // stick pans), for the test events: a move changes no page, so the activity reports it by this count.
@@ -168,11 +174,13 @@ class ReaderView : public brls::Box {
     image::TextureBudget& budget_;
     image::ImagePtr image_;
     std::string pageKey_;
+    std::optional<core::Side> half_;  // WP-13c: the half of the image drawn; nothing = all of it
     std::vector<int> textures_;  // one per tile, in image_->tiles() order
     std::vector<image::TextureLease> leases_;
     bool refused_ = false;
     unsigned revision_ = 0;
     unsigned imageRevision_ = 0;
+    float uploadMs_ = 0;
     unsigned moves_ = 0;
     core::PageFit fit_ = core::PageFit::Screen;
     core::ReadingDirection direction_ = core::ReadingDirection::RightToLeft;

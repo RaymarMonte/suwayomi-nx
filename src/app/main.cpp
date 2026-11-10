@@ -93,7 +93,7 @@ int main(int argc, char* argv[]) {
 
     // 2. The logger. The profile is pure math on what was just measured; it's built once and used everywhere (D21: Full).
     // Safe mode after a crash (S1): memory budgets halved, prefetch off.
-    const snx::core::RuntimeProfile profile =
+    snx::core::RuntimeProfile profile =
         snx::core::makeRuntimeProfile(runtime.mode, runtime.totalMem, runtime.usedMem, lastRun.crashed);
     app::logger::start(fs, profile, options.debugLog);
     brls::Logger::info("app: suwayomi-nx {} ({} build, {})", std::string(snx::core::appVersion()),
@@ -120,6 +120,12 @@ int main(int argc, char* argv[]) {
                        std::string(snx::core::launchModeName(runtime.mode)), runtime.totalMem / kBytesPerMb,
                        runtime.usedMem / kBytesPerMb, std::string(profile.name), profile.safeMode ? " (safe mode)" : "");
     testhooks::start(fs);
+    // Test builds only: the decode cap the console measurement asks for (WP-13c). Nothing reads the profile before this
+    // except the logger, which doesn't use it.
+    if (const float scale = testhooks::maxDecodeScale(); scale > 0) {
+        profile.maxDecodeScale = scale;
+        brls::Logger::info("app: test config: maxDecodeScale {}", scale);
+    }
     testhooks::appStart(runtime, profile, lastRun.crashed, lastRun.recordPath);
 
     // 4. config.json, or the test config's server (test builds; "showSetup" shows it in the setup screen instead).

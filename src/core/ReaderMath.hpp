@@ -53,8 +53,8 @@ SizeF fitPage(ImageSize image, SizeF screen, PageFit fit);
 // Original: no limit (the image loader caps every box at maxDecodeScale times the screen anyway).
 ImageSize decodeBoxFor(PageFit fit, ImageSize screen);
 
-// A double-page spread: more than 1.2 times as wide as tall (ARCHITECTURE.md "core" reader math). Shown whole like any page;
-// the reader only reports it (a later WP may split it).
+// A double-page spread: more than 1.2 times as wide as tall (ARCHITECTURE.md "core" reader math). It may show as two halves
+// (splitsSpread, WP-13c).
 bool isSpread(ImageSize image);
 
 // Where a drawn page's top-left corner may be (screen units): a page smaller than the screen in a direction is centred that
@@ -173,10 +173,31 @@ PointF stickMove(PointF stick, SizeF screen, float seconds, float crossSeconds =
 // larger of the two directions wins. Nothing below.
 std::optional<Arrow> stickArrow(PointF stick, float threshold = 0.5f);
 
-// The box to decode the page on screen at for `zoom` (WP-13): the fit's box (decodeBoxFor) times zoomBucket(zoom), each
-// limited side at most maxDecodeScale times the reader's screen as it is held (portrait: 2 x 720 wide, 2 x 1280 tall).
-// `screen` = the reader's screen in real pixels. The loader still keeps it within the source size and maxDecodeBytes.
-ImageSize zoomDecodeBox(PageFit fit, ImageSize screen, float zoom, float maxZoom, float maxDecodeScale);
+// --- Split spreads (WP-13c) ---
+// A split spread shows as two halves, one after the other, each drawn like a page of its own (fit, zoom and pan treat the
+// half as the page). Both halves are the same page for the server (progress, the page number, the prefetch window).
+
+// Whether a page shows as two halves: it is a spread (isSpread) and the setting asks for it in this orientation (the one in
+// effect: docked is landscape). Portrait: only in portrait. Always: in landscape too. Never: never.
+bool splitsSpread(SpreadSplit mode, ReaderOrientation orientation, bool spread);
+// Which side of the image half `half` is: 0 = the first in reading order, 1 = the second. Right to left starts with the
+// right half; left to right and vertical with the left half.
+Side spreadHalfSide(int half, ReadingDirection direction);
+// The half of an image of `image`'s size on `side`, in that image's pixels: the left half is the narrower one when the width
+// is odd (1441 -> 720 + 721), so the two always add up to the whole. Works for the source size (for the fit) and for the
+// decoded size (what the view draws).
+TileRect spreadHalf(ImageSize image, Side side);
+ImageSize spreadHalfSize(ImageSize image, Side side);  // spreadHalf's width and height
+// The box to decode a split spread at: twice as wide as `box` (each half gets the pixels a page would; a width of 0, no
+// limit, stays 0). Fit height has no width limit, so its box stays the same.
+ImageSize splitDecodeBox(ImageSize box);
+
+// The box to decode the page on screen at for `zoom` (WP-13): the fit's box (decodeBoxFor; splitDecodeBox for a split
+// spread, WP-13c) times zoomBucket(zoom), each limited side at most maxDecodeScale times the reader's screen as it is held
+// (portrait: 2 x 720 wide, 2 x 1280 tall), never below the fit's box. `screen` = the reader's screen in real pixels. The
+// loader still keeps it within the source size and maxDecodeBytes.
+ImageSize zoomDecodeBox(PageFit fit, ImageSize screen, float zoom, float maxZoom, float maxDecodeScale,
+                        bool split = false);
 // Whether a decoded image has the detail `box` asks for (as far as the source has it): at least as wide and as tall as the
 // source fitted inside the box (fitInside), give or take a pixel of rounding.
 bool isSharp(ImageSize decoded, ImageSize source, ImageSize box);

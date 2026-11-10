@@ -47,6 +47,7 @@ struct FakeChapter {
 struct FakeServer {
     std::vector<FakeChapter> chapters{{101, 1, 10}, {102, 2, 10}, {103, 3, 4}};
     std::set<std::string> brokenPages;  // "<sourceOrder>/<page>": answered with a corrupt JPEG
+    std::set<std::string> spreadPages;  // "<sourceOrder>/<page>": answered with Beta's 2000 x 1500 PNG spread (WP-13c)
     std::set<int> emptyPaths;           // page indexes listed as "" (a form the reader can't use)
     bool failPages = false;
     bool failProgress = false;
@@ -54,6 +55,7 @@ struct FakeServer {
     std::vector<nlohmann::json> progress;  // every UpdateChapterProgress patch, with "id"
     std::string image = readFixture("images/alpha-p1.jpg");
     std::string corrupt = readFixture("images/broken-corrupt.jpg");
+    std::string spread = readFixture("images/beta-spread.png");
 
     FakeChapter* find(int id) {
         for (FakeChapter& c : chapters) {
@@ -72,7 +74,7 @@ struct FakeServer {
         if (request.url.rfind(prefix, 0) == 0) {
             const std::string rest = request.url.substr(prefix.size());  // "<sourceOrder>/page/<n>"
             const std::string key = rest.substr(0, rest.find('/')) + "/" + rest.substr(rest.rfind('/') + 1);
-            return FakeHttpClient::answer(200, brokenPages.count(key) ? corrupt : image);
+            return FakeHttpClient::answer(200, brokenPages.count(key) ? corrupt : spreadPages.count(key) ? spread : image);
         }
         const std::string operation = operationOf(request);
         const nlohmann::json vars = variablesOf(request);
@@ -120,6 +122,8 @@ struct Harness {
     std::unique_ptr<image::ImageLoader> images;
     std::int64_t now = 1000;
     int changes = 0;
+    core::SpreadSplit spreadSplit = core::SpreadSplit::Portrait;  // the models made from now on (WP-13c)
+    float maxDecodeScale = 2.0f;
     std::vector<std::pair<core::ReadProgress, bool>> saved;  // onSaved
 
     Harness() {
@@ -158,6 +162,8 @@ struct Harness {
         ui::ReaderOptions options;
         options.prefetchBehind = behind;
         options.prefetchAhead = ahead;
+        options.spreadSplit = spreadSplit;
+        options.maxDecodeScale = maxDecodeScale;
         options.clock = [this] { return now; };
         options.onSaved = [this](const core::ReadProgress& p, bool ok) { saved.emplace_back(p, ok); };
         core::MangaReaderSettings settings;
@@ -201,7 +207,7 @@ struct Harness {
                 return false;
             }
             for (int i = 0; i < model.pageCount(); ++i) {
-                if (model.page(i).state == PageState::Loading) {
+                if (model.page(i).state == PageState::Loading || model.page(i).reloading) {
                     return false;
                 }
             }
@@ -492,9 +498,9 @@ TEST_CASE("reader: turned to portrait, the pages decode again for the portrait s
     REQUIRE(h.settle(*model));
     const image::ImagePtr landscape = model->current().image;
     REQUIRE(landscape);
-    model->setScreen({1280, 720});  // the same: nothing loads again
+    model->setScreen({1280, 720}, core::ReaderOrientation::Landscape);  // the same: nothing loads again
     CHECK(model->current().image == landscape);
-    model->setScreen({720, 1280});
+    model->setScreen({720, 1280}, core::ReaderOrientation::PortraitLeft);
     CHECK(model->pageBox() == core::ImageSize{720, 1280});
     CHECK(model->current().state != PageState::Ready);  // loading again
     REQUIRE(h.settle(*model));
@@ -577,7 +583,7 @@ TEST_CASE("reader: a turn cancels the zoomed decode under way and shows the next
     CHECK(model->shownImage()->size() == core::ImageSize{1000, 1500});
     CHECK(model->position() == 1);
     // In portrait the zoomed box is capped for the portrait screen (1440 x 2560): the page still decodes whole.
-    model->setScreen({720, 1280});
+    model->setScreen({720, 1280}, core::ReaderOrientation::PortraitLeft);
     REQUIRE(h.settle(*model));
     model->setPageZoom(2);
     CHECK(model->wantedBox() == core::ImageSize{1440, 2560});
@@ -590,6 +596,207 @@ TEST_CASE("reader: a turn cancels the zoomed decode under way and shows the next
     model->setPageZoom(2);
     CHECK_FALSE(model->zoomLoading());
     CHECK(model->shownImage() == nullptr);
+}
+
+// --- Split spreads (WP-13c): chapter 1's page 3 is Beta's 2000 x 1500 spread. ---
+
+constexpr core::ImageSize kPortrait{720, 1280};
+constexpr core::ImageSize kLandscape{1280, 720};
+
+TEST_CASE("reader: a spread in portrait shows as two halves, right first for right to left; progress stays its page") {
+    Harness h;
+    h.server.spreadPages = {"1/3"};
+    auto model = h.model(ReadingDirection::RightToLeft);
+    model->setScreen(kPortrait, core::ReaderOrientation::PortraitLeft);
+    model->open(101, 2);
+    REQUIRE(h.settle(*model));
+    // Page 3 was prefetched at the plain box (720 x 540), found to be a spread, and decoded again at once at the doubled
+    // box, before it is on screen: each half then has 720 pixels across, like a page.
+    REQUIRE(model->page(3).image);
+    CHECK(model->page(3).image->sourceSize() == core::ImageSize{2000, 1500});
+    CHECK(model->page(3).image->size() == core::ImageSize{1440, 1080});
+    CHECK(h.imageRequests(1).count(3) == 2);
+    CHECK_FALSE(model->split());  // page 2 isn't a spread
+    CHECK(model->halfSide() == std::nullopt);
+
+    // Forward: its right half, its left half, then page 4.
+    REQUIRE(model->step(1));
+    CHECK(model->position() == 3);
+    CHECK(model->split());
+    CHECK(model->half() == 0);
+    CHECK(model->halfSide() == Side::Right);
+    CHECK(model->boxForZoom(1) == core::ImageSize{1440, 1280});
+    CHECK(core::isSharp(model->shownImage()->size(), model->shownImage()->sourceSize(), model->wantedBox()));
+    REQUIRE(model->turn(Side::Left));  // right to left: the left side is next
+    CHECK(model->position() == 3);
+    CHECK(model->half() == 1);
+    CHECK(model->halfSide() == Side::Left);
+    // Both halves are the same server page: the progress says page 3.
+    h.now += 5000;
+    model->onFrame();
+    REQUIRE_FALSE(h.server.progress.empty());
+    CHECK(h.server.progress.back()["lastPageRead"] == 3);
+    REQUIRE(model->step(1));
+    CHECK(model->position() == 4);
+    CHECK_FALSE(model->split());
+    CHECK(model->half() == 0);
+
+    // Back: page 3's last (left) half, its right half, then page 2.
+    REQUIRE(model->step(-1));
+    CHECK(model->position() == 3);
+    CHECK(model->half() == 1);
+    CHECK(model->halfSide() == Side::Left);
+    REQUIRE(model->turn(Side::Right));
+    CHECK(model->position() == 3);
+    CHECK(model->half() == 0);
+    REQUIRE(model->step(-1));
+    CHECK(model->position() == 2);
+    // The window counts pages: nothing was asked for again on the way.
+    CHECK(h.imageRequests(1).count(3) == 2);
+    h.main.settle(50);
+}
+
+TEST_CASE("reader: a step back onto a spread not decoded yet lands on its last half once it turns out to be one") {
+    Harness h;
+    h.server.spreadPages = {"1/3"};
+    auto model = h.model(ReadingDirection::RightToLeft, 0, 3);  // nothing behind: page 3 isn't loaded from page 4
+    model->setScreen(kPortrait, core::ReaderOrientation::PortraitRight);
+    model->open(101, 4);
+    REQUIRE(h.settle(*model));
+    CHECK(model->page(3).state == PageState::Waiting);
+    REQUIRE(model->step(-1));
+    CHECK(model->position() == 3);
+    CHECK_FALSE(model->split());  // not known yet
+    REQUIRE(h.settle(*model));
+    CHECK(model->split());
+    CHECK(model->half() == 1);
+    CHECK(model->halfSide() == Side::Left);
+    CHECK(model->current().image->size() == core::ImageSize{1440, 1080});
+    REQUIRE(model->step(-1));
+    CHECK(model->position() == 3);
+    CHECK(model->half() == 0);
+    // Left to right: the left half comes first.
+    model->setDirection(ReadingDirection::LeftToRight);
+    CHECK(model->halfSide() == Side::Left);
+    REQUIRE(model->step(1));
+    CHECK(model->halfSide() == Side::Right);
+    h.main.settle(50);
+}
+
+TEST_CASE("reader: \"In portrait\" keeps a spread whole in landscape; \"Always\" splits it there; \"Never\" in portrait") {
+    Harness h;
+    h.server.spreadPages = {"1/3"};
+    auto model = h.model(ReadingDirection::RightToLeft);
+    model->setScreen(kLandscape, core::ReaderOrientation::Landscape);
+    model->open(101, 3);
+    REQUIRE(h.settle(*model));
+    CHECK_FALSE(model->split());
+    CHECK(model->current().image->size() == core::ImageSize{960, 720});  // whole, as in WP-11
+    CHECK(h.imageRequests(1).count(3) == 1);
+    REQUIRE(model->step(1));
+    CHECK(model->position() == 4);
+
+    // "Always": split in landscape too. A half there is 480 x 720: the 960 x 720 decode already has those pixels.
+    model->setSpreadSplit(core::SpreadSplit::Always);
+    CHECK(model->spreadSplit() == core::SpreadSplit::Always);
+    REQUIRE(model->step(-1));
+    CHECK(model->position() == 3);
+    CHECK(model->split());
+    CHECK(model->half() == 1);
+    REQUIRE(h.settle(*model));
+    CHECK(h.imageRequests(1).count(3) == 1);  // nothing decoded again
+
+    // "Never", in portrait: whole at 720 x 540, one step from page 3 to page 4.
+    model->setSpreadSplit(core::SpreadSplit::Never);
+    model->setScreen(kPortrait, core::ReaderOrientation::PortraitLeft);
+    REQUIRE(h.settle(*model));
+    CHECK_FALSE(model->split());
+    CHECK(model->current().image->size() == core::ImageSize{720, 540});
+    REQUIRE(model->step(1));
+    CHECK(model->position() == 4);
+    // Back to "In portrait": the known spread decodes again at the doubled box, its whole image showing meanwhile.
+    model->setSpreadSplit(core::SpreadSplit::Portrait);
+    REQUIRE(model->step(-1));
+    CHECK(model->split());
+    CHECK(model->half() == 1);
+    REQUIRE(h.settle(*model));
+    CHECK(model->current().image->size() == core::ImageSize{1440, 1080});
+    h.main.settle(50);
+}
+
+TEST_CASE("reader: rotating shows a split spread whole in landscape, and back in portrait from its first half") {
+    Harness h;
+    h.server.spreadPages = {"1/3"};
+    auto model = h.model(ReadingDirection::RightToLeft);
+    model->setScreen(kPortrait, core::ReaderOrientation::PortraitLeft);
+    model->open(101, 3);
+    REQUIRE(h.settle(*model));
+    REQUIRE(model->step(1));
+    CHECK(model->half() == 1);
+    model->setScreen(kLandscape, core::ReaderOrientation::Landscape);
+    REQUIRE(h.settle(*model));
+    CHECK(model->position() == 3);
+    CHECK_FALSE(model->split());
+    CHECK(model->current().image->size() == core::ImageSize{960, 720});
+    // Back to portrait: the known spread loads at its doubled box at once (here from the memory cache), first half.
+    const std::size_t requests = h.imageRequests(1).count(3);
+    model->setScreen(kPortrait, core::ReaderOrientation::PortraitLeft);
+    REQUIRE(h.settle(*model));
+    CHECK(model->split());
+    CHECK(model->half() == 0);
+    CHECK(model->current().image->size() == core::ImageSize{1440, 1080});
+    CHECK(h.imageRequests(1).count(3) == requests);
+    h.main.settle(50);
+}
+
+TEST_CASE("reader: a split half zooms on its own; at maxDecodeScale 2 Beta's spread is as sharp as it gets, at 4 it isn't") {
+    SUBCASE("maxDecodeScale 2: zoom 4 asks for 1440 wide, which the split decode has already") {
+        Harness h;
+        h.server.spreadPages = {"1/3"};
+        auto model = h.model(ReadingDirection::RightToLeft);
+        model->setScreen(kPortrait, core::ReaderOrientation::PortraitLeft);
+        model->open(101, 3);
+        REQUIRE(h.settle(*model));
+        const std::size_t requests = h.imageRequests(1).count(3);
+        model->setPageZoom(4);
+        CHECK(model->wantedBox() == core::ImageSize{1440, 2560});
+        CHECK_FALSE(model->zoomLoading());  // no decode that would give the same 1440 x 1080 again
+        CHECK(model->shownImage() == model->current().image);
+        CHECK(core::isSharp(model->shownImage()->size(), model->shownImage()->sourceSize(), model->wantedBox()));
+        CHECK(h.imageRequests(1).count(3) == requests);
+        h.main.settle(50);
+    }
+    SUBCASE("maxDecodeScale 4: zoom 2 decodes the whole 2000 x 1500; the other half starts from the split decode") {
+        Harness h;
+        h.maxDecodeScale = 4;
+        h.server.spreadPages = {"1/3"};
+        auto model = h.model(ReadingDirection::RightToLeft);
+        model->setScreen(kPortrait, core::ReaderOrientation::PortraitLeft);
+        model->open(101, 3);
+        REQUIRE(h.settle(*model));
+        model->setPageZoom(2);
+        CHECK(model->wantedBox() == core::ImageSize{2880, 2560});
+        CHECK(model->zoomLoading());
+        REQUIRE(h.main.runUntil([&] { return !model->zoomLoading(); }));
+        CHECK(model->shownImage()->size() == core::ImageSize{2000, 1500});
+        // Zoom 4 wants a bigger box, but the whole original is there already: nothing decodes again.
+        const image::ImagePtr whole = model->shownImage();
+        model->setPageZoom(4);
+        CHECK(model->wantedBox() == core::ImageSize{2880, 5120});
+        CHECK_FALSE(model->zoomLoading());
+        CHECK(model->shownImage() == whole);
+        // The next half: the zoomed decode belonged to the first one ("Back to whole page").
+        REQUIRE(model->step(1));
+        CHECK(model->half() == 1);
+        CHECK_FALSE(model->zoomLoading());
+        CHECK(model->shownImage() == model->current().image);
+        CHECK(model->wantedBox() == core::ImageSize{1440, 1280});
+        // "Keep the zoom": the reader asks again for this half; the memory cache has it.
+        model->setPageZoom(2);
+        CHECK_FALSE(model->zoomLoading());
+        CHECK(model->shownImage()->size() == core::ImageSize{2000, 1500});
+        h.main.settle(50);
+    }
 }
 
 TEST_CASE("reader: close sends what isn't saved and calls back when the server answered") {

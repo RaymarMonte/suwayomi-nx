@@ -315,8 +315,46 @@ std::optional<Arrow> stickArrow(PointF stick, float threshold) {
     return stick.y > 0 ? Arrow::Down : Arrow::Up;
 }
 
-ImageSize zoomDecodeBox(PageFit fit, ImageSize screen, float zoom, float maxZoom, float maxDecodeScale) {
-    const ImageSize base = decodeBoxFor(fit, screen);
+bool splitsSpread(SpreadSplit mode, ReaderOrientation orientation, bool spread) {
+    switch (mode) {
+        case SpreadSplit::Portrait:
+            return spread && isPortrait(orientation);
+        case SpreadSplit::Always:
+            return spread;
+        case SpreadSplit::Never:
+            break;
+    }
+    return false;
+}
+
+Side spreadHalfSide(int half, ReadingDirection direction) {
+    const Side first = direction == ReadingDirection::RightToLeft ? Side::Right : Side::Left;
+    const Side second = first == Side::Right ? Side::Left : Side::Right;
+    return half == 0 ? first : second;
+}
+
+TileRect spreadHalf(ImageSize image, Side side) {
+    if (image.width <= 0 || image.height <= 0) {
+        return {};
+    }
+    const int left = image.width / 2;  // the narrower one when the width is odd
+    if (side == Side::Left) {
+        return {0, 0, left, image.height};
+    }
+    return {left, 0, image.width - left, image.height};
+}
+
+ImageSize spreadHalfSize(ImageSize image, Side side) {
+    const TileRect half = spreadHalf(image, side);
+    return {half.width, half.height};
+}
+
+ImageSize splitDecodeBox(ImageSize box) {
+    return {box.width > 0 ? box.width * 2 : 0, box.height};
+}
+
+ImageSize zoomDecodeBox(PageFit fit, ImageSize screen, float zoom, float maxZoom, float maxDecodeScale, bool split) {
+    const ImageSize base = split ? splitDecodeBox(decodeBoxFor(fit, screen)) : decodeBoxFor(fit, screen);
     const float z = zoomBucket(zoom, maxZoom);
     const auto side = [z, maxDecodeScale](int fitSide, int screenSide) {
         if (fitSide <= 0) {

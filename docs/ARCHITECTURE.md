@@ -107,7 +107,7 @@ halves the memory budgets and turns prefetch off.
 | Reader prefetch window | current ±1 page | current −1/+3 pages, plus first 2 pages of next chapter |
 | Concurrent HTTP transfers | 2 (matches the socket sessions) | 6 |
 | Decode threads | 1 | 2 |
-| Max decode resolution / zoom | `maxZoom` 2; zoomed, the whole page decodes again at the zoomed box, each side ≤ 2× the screen's longer side | `maxZoom` 4; same box rule, `maxDecodeScale` 2 (2 or 4 is decided in WP-13c, D48) |
+| Max decode resolution / zoom | `maxZoom` 2; zoomed, the whole page decodes again at the zoomed box, each side ≤ 2× the screen's longer side | `maxZoom` 4; same box rule, `maxDecodeScale` 4 (WP-13c's console measurement, D48; safe mode 2) |
 | Webtoon tiles kept decoded | screen ±1 tile | screen ±4 tiles |
 | Cover thumbnails | decoded at cell size, small cache | larger cache, prefetch the next row |
 | Background prefetch of next chapter | off | on |

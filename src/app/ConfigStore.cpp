@@ -100,6 +100,14 @@ void ConfigStore::setReaderZoomOnTurn(core::ZoomOnTurn mode) {
     scheduler_.changed(appClockMs());
 }
 
+void ConfigStore::setReaderSplitSpreads(core::SpreadSplit mode) {
+    if (mode == config_.reader.splitSpreads) {
+        return;
+    }
+    config_.reader.splitSpreads = mode;
+    scheduler_.changed(appClockMs());
+}
+
 void ConfigStore::useServer(const core::ServerSettings& server) {
     config_.server = server;
 }

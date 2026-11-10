@@ -43,6 +43,11 @@ constexpr std::array<std::pair<ZoomOnTurn, std::string_view>, 2> kZoomOnTurnName
     {ZoomOnTurn::Reset, "reset"},
     {ZoomOnTurn::Keep, "keep"},
 }};
+constexpr std::array<std::pair<SpreadSplit, std::string_view>, 3> kSpreadSplitNames = {{
+    {SpreadSplit::Portrait, "portrait"},
+    {SpreadSplit::Always, "always"},
+    {SpreadSplit::Never, "never"},
+}};
 constexpr std::array<std::pair<LibrarySort, std::string_view>, 3> kSortNames = {{
     {LibrarySort::Title, "title"},
     {LibrarySort::Unread, "unread"},
@@ -217,6 +222,13 @@ std::optional<ZoomOnTurn> zoomOnTurnFromName(std::string_view name) {
     return valueOf(kZoomOnTurnNames, name);
 }
 
+std::string_view spreadSplitName(SpreadSplit mode) {
+    return nameOf(kSpreadSplitNames, mode);
+}
+std::optional<SpreadSplit> spreadSplitFromName(std::string_view name) {
+    return valueOf(kSpreadSplitNames, name);
+}
+
 MangaReaderSettings readerSettingsFor(const ReaderSettings& reader, int mangaId) {
     for (const MangaReaderSettings& own : reader.manga) {
         if (own.mangaId == mangaId) {
@@ -316,6 +328,7 @@ ConfigLoad loadAppConfig(std::string_view text, const JsonLimits& limits, const 
     r.choice("orientation", kOrientationNames, reader.orientation);
     r.choice("lastPortrait", kPortraitNames, reader.lastPortrait);  // never landscape
     r.choice("zoomOnTurn", kZoomOnTurnNames, reader.zoomOnTurn);
+    r.choice("splitSpreads", kSpreadSplitNames, reader.splitSpreads);
     readMangaReaderSettings(root, reader, problems);
 
     LibrarySettings& library = load.config.library;
@@ -353,6 +366,7 @@ std::string saveAppConfig(const AppConfig& config) {
         {"orientation", readerOrientationName(config.reader.orientation)},
         {"lastPortrait", readerOrientationName(config.reader.lastPortrait)},
         {"zoomOnTurn", zoomOnTurnName(config.reader.zoomOnTurn)},
+        {"splitSpreads", spreadSplitName(config.reader.splitSpreads)},
         {"manga", std::move(manga)},
     };
     root["library"] = {

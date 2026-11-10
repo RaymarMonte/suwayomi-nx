@@ -64,7 +64,11 @@ TEST_SUITE("core") {
         CHECK(full.webtoonTilesAround == 4);
         CHECK(full.httpConcurrency == 6);
         CHECK(full.decodeThreads == 2);
-        CHECK(full.maxDecodeScale == doctest::Approx(2.0));
+        CHECK(full.maxDecodeScale == doctest::Approx(4.0));  // D48: WP-13c's console measurement
+        // The biggest zoomed box (each side at most maxDecodeScale x the screen as held) fits one decode's budget.
+        const auto capW = static_cast<std::uint64_t>(full.maxDecodeScale * 1280);
+        const auto capH = static_cast<std::uint64_t>(full.maxDecodeScale * 720);
+        CHECK(capW * capH * 4 <= full.maxDecodeBytes);
         CHECK(full.heavyUiEffects);
         // S6 input limits and the memory-pressure guard.
         CHECK(full.json.maxBytes == 8 * kMiB);
@@ -95,6 +99,8 @@ TEST_SUITE("core") {
         CHECK_FALSE(safe.backgroundPrefetch);
         CHECK_FALSE(safe.coverRowPrefetch);
         CHECK(safe.webtoonTilesAround == 1);
+        CHECK(safe.maxZoom == doctest::Approx(2.0));
+        CHECK(safe.maxDecodeScale == doctest::Approx(2.0));
         CHECK(safe.httpConcurrency == full.httpConcurrency);
         CHECK(safe.decodeThreads == full.decodeThreads);
     }

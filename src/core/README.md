@@ -29,7 +29,10 @@
   (zoom, D48): `clampZoom` / `zoomStep` / `zoomBucket` / `snapsToFit` / `isZoomed`, `zoomAround` (a point stays put),
   `pinchView`, `isDoubleTap`, `arrowEffect` (move, turn or nothing; the fresh-press rule) / `arrowMove` / `glideProgress`,
   `readerStick` / `stickSpeed` / `stickMove` / `stickArrow`, `zoomDecodeBox` (the fit box × the zoom step, capped) and
-  `isSharp`; `ZoomOnTurn` and `reader.zoomOnTurn` in `AppConfig`, `RuntimeProfile::maxZoom` (tests: `test_core_zoom.cpp`). `ProgressSync.hpp` (WP-11): when to send
+  `isSharp`; `ZoomOnTurn` and `reader.zoomOnTurn` in `AppConfig`, `RuntimeProfile::maxZoom` (tests: `test_core_zoom.cpp`).
+  WP-13c (split spreads): `splitsSpread` (mode × orientation), `spreadHalfSide` (right half first for right to left),
+  `spreadHalf` / `spreadHalfSize` (odd widths: the left half is the narrower), `splitDecodeBox` (twice as wide) and
+  `zoomDecodeBox(..., split)`; `SpreadSplit` and `reader.splitSpreads` in `AppConfig` (tests: `test_core_spread.cpp`). `ProgressSync.hpp` (WP-11): when to send
   `lastPageRead` / `isRead` (at most every `progressSyncMs`, the last page at once, everything when leaving; after a failure
   the wait doubles up to `progressRetryMaxMs`, WP-12). `AppConfig`
   got the reader's background, page number and per-manga direction and fit (`readerSettingsFor`, `rememberReaderSettings`).
