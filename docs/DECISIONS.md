@@ -843,7 +843,8 @@ an Opus plan); server-side "Download" only (no reading away from home).
 - **Console (2026-11-07, application mode, handheld):** while gestures run, frame intervals p90 17 ms, the worst 17 ms;
   Alpha sharp `sharpMs` p90 183 ms (the 150 ms wait included); 50 zoom cycles and 100 zoomed turns (p90 18 ms) grew memory
   by 0.0 MiB.
-- **Owner's verdict** on how it feels (and on "Back to whole page"): pending.
+- **Owner's verdict** (2026-11-10, after trying it on the console): "Everything feels alright", "Back to whole page" included,
+  so the defaults above stay.
 Rejected: patching borealis for two fingers (a submodule change, D1); saving the zoom per manga; B zooming out before it
 closes; double-tap on the edges (it would delay every edge tap); decoding while a pinch runs (the decode waits until the
 zoom has settled).

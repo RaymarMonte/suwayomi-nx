@@ -125,8 +125,8 @@ gets its own hit test and goes to that view's recognizers with its `fingerId`); 
 7. **Settings menu:** "Zoom on page turn" and "Split spreads" join direction, fit, background, page number and orientation.
 
 ## Deliverables
-- [ ] **Spike first** (short; desktop half done 2026-11-07: played frames reach the same recognizers; borealis's touch loop
-      read: every finger has its own id. Owner's ten-second pinch on the console: pending): two real fingers reach `ReaderView` with their ids on the console (the session can't touch
+- [x] **Spike first** (short; desktop half done 2026-11-07: played frames reach the same recognizers; borealis's touch loop
+      read: every finger has its own id. The real two-finger path: the owner's pinch on the console works, 2026-11-10): two real fingers reach `ReaderView` with their ids on the console (the session can't touch
       the console with two fingers: read borealis's touch loop to be sure, log the finger ids, and ask the owner for a
       ten-second pinch with the log on), and a played `touches` frame reaches the same recognizers on desktop. If borealis
       fights this, stop at a clean point and write what you found in STATUS before building the rest.
@@ -167,9 +167,9 @@ gets its own hit test and goes to that view's recognizers with its `fingerId`); 
       `touch-pass`, `broken-images`, `soak` (the middle tap's wait only makes the menu open a quarter second later)
 - [x] Console (application mode, handheld, stock clocks, D17): the numbers in Acceptance; Switch build's safety gate PASS
       (2026-11-07: frames p90 17 / max 17 ms, `sharpMs` p90 183 ms, memory +0; the spread measurement → WP-13c)
-- [ ] Owner tries it in their hands: pinch and double-tap (the real touch path), ZL/ZR, the sticks, both orientations,
+- [x] (2026-11-10: "Everything feels alright") Owner tries it in their hands: pinch and double-tap (the real touch path), ZL/ZR, the sticks, both orientations,
       a spread in portrait, on a real chapter from their server; and says whether "Back to whole page" feels right
-- [x] Docs (2026-11-07; the measurement and the owner's verdict still to add): D48 (the answers, the defaults as they ended up, the `maxDecodeScale` measurement and choice, the owner's
+- [x] Docs (2026-11-07; verdict 2026-11-10; the `maxDecodeScale` measurement → WP-13c): D48 (the answers, the defaults as they ended up, the `maxDecodeScale` measurement and choice, the owner's
       verdict), ARCHITECTURE.md (reader math line, the "Max decode resolution" row), TESTING.md (scenarios 6c and 6d, the
       touch channel, the new events), `src/core/README.md`, `src/image/README.md` (the cap), `src/ui/README.md`,
       `tests/e2e/README.md` (the helpers), the user part of README.md (how to zoom), CHANGELOG.md (a version is the owner's call)

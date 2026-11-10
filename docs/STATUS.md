@@ -1,7 +1,7 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now: WP-13 (zoom & pan)**: built, desktop and console green; **only the owner's try is left**. Spreads
-split off to **WP-13c** (D48). Next: the owner's try, then WP-13c, then plan WP-13b. Order: ROADMAP.md (D47).
-Done: WP-00a … 12 and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
+**Phase 3 – Features. WP-13 (zoom & pan) done** (owner tried it 2026-11-10: "Everything feels alright"). **Next: WP-13c**
+(split spreads; its plan is the spread part of `wp/WP-13-zoom-and-pan.md`), then plan WP-13b. Order: ROADMAP.md (D47).
+Done: WP-00a … 13 and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
 ## Last session (2026-11-07, WP-13, Opus)
 - Built (rules as built: D48): zoom math (`test_core_zoom.cpp`), `reader.zoomOnTurn`, `maxZoom`, the orientation-free decode
   cap, `ReaderModel::setPageZoom`, `ReaderView` zoom/pan/pinch/double tap/glides, ZL/ZR/D-pad/sticks (one press, one page),
@@ -13,8 +13,8 @@ Done: WP-00a … 12 and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have
 - Found: the desktop mouse reaches views as touch phase NONE + a MouseState (we count it as finger 0); a pan starts after the
   first step. A desktop e2e run under heavy load can lose a key press. D-pad turns: p90 32 ms now vs ~19 before (read in
   draw, so some turns show a frame later; target < 150 ms, a small polish item for later).
-- **Left:** the owner pinches and reads a real chapter zoomed in, both ways, and says if "Back to whole page" feels right →
-  D48's verdict; then mark WP-13 done in ROADMAP. The console was put to sleep: wake it before the next device run.
+- Owner's try (2026-11-10): pinch, double tap, ZL/ZR, sticks, both orientations: all fine, defaults stay (D48). Not
+  released: a version (0.3.0?) is the owner's call; CHANGELOG has it under Unreleased. The console sleeps: wake it first.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
