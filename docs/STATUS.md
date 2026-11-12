@@ -1,19 +1,19 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** WP-13d (strip zoom): desktop done, console runs + owner's try left; then WP-18 (ROADMAP, D47).
-Done: WP-00a … 13, 13b, 13c and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
-## Last session (2026-11-12, WP-13d, Opus)
-- **Zoom in the strip (D50):** pinch, middle double tap (2 ×, again 1), ZR / ZL; zoomed, drags pan both ways, D-pad
-  left / right glide sideways, the stick's x pans; Rotate / Strip width go back to 1. Once the view stands still (150 ms)
-  the pages on screen nearest the middle (profile `stripZoomPages`: Full 2, else 1) decode sharper unless already sharp.
-  Code: `StripMath` zoom math, `StripModel::setView` / `sharpenOnScreen`, `StripCanvas` rewritten (per-page textures, swap).
-- **Rest on whole units (D50):** a flick, glide, pinch, zoom or drag ends on whole screen units. `webtoon-seam` had hung
-  on where a touch-stopped flick ended (a fraction of a pixel): desktop `webtoon-seam` / `webtoon-band` refreshed, a
-  second run matched. **The Switch's two goldens likely need the same refresh.**
-- **Green:** `build.sh tests`, `npm test` / `typecheck` / `contract`, full `e2e.sh desktop`, `build.sh switch` (gate PASS).
-  `reader-webtoon`'s new Switch steps (ZR / ZL, a zoomed D-pad glide sideways) haven't run yet.
-- **Next:** console (wake it, HOME): `tools/e2e.sh switch reader-webtoon --update-goldens`, check the two pictures, rerun
-  with `--no-build` to confirm, then `reader-zoom`; console to sleep. Owner's try (`build.sh switch` + `deploy` in
-  `tools/spike/lib.sh`), verdict into D50, ROADMAP WP-13d done. CHANGELOG stays Unreleased (a version is the owner's call).
+**Phase 3 – Features. Now:** WP-18 (order: ROADMAP.md, D47). Done: WP-00a … 13, 13b, 13c, 13d and 22;
+**v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
+## Last session (2026-11-12/13, WP-13d, Opus)
+- **WP-13d done (D50):** zoom in the strip: pinch, middle double tap (2 ×, again 1), ZR / ZL; zoomed, drags pan both
+  ways, D-pad left / right glide sideways, the stick's x pans; Rotate / Strip width go back to 1. Once the view stands
+  still (150 ms) the pages on screen nearest the middle (profile `stripZoomPages`: Full 2, else 1) decode sharper unless
+  already sharp. Code: `StripMath` zoom math, `StripModel::setView` / `sharpenOnScreen`, `StripCanvas` rewritten.
+- **At rest on whole units (D50):** a flick, glide, pinch, zoom or drag ends on whole screen units; `webtoon-seam` had
+  hung on a fraction of a pixel. Goldens `webtoon-seam` / `webtoon-band` (desktop + Switch) and the Switch's
+  `webtoon-landscape` refreshed, each confirmed by a second run.
+- **Owner's try:** quick taps on the touch screen missed half (a touch during a glide stopped it and was swallowed,
+  D49); now a tap adds another glide, a touch still catches a flick. Then "It feels good now". New desktop step for it.
+- **Green:** `build.sh tests`, `npm test` / `typecheck` / `contract`, full `e2e.sh desktop`, Switch `reader-webtoon`
+  (twice) and `reader-zoom`, gate PASS, CI. The quick-tap step ran on desktop only (the owner checked it by hand).
+- **Note:** console's longest strip frame now 31–32 ms (WP-13b 20, limit 34), not looked into. WP-13…13d unreleased.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

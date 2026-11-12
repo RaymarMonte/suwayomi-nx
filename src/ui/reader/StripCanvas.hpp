@@ -49,7 +49,8 @@ class StripCanvas {
     bool ready() const { return model_.state() == StripModel::State::Ready; }
 
     // --- Touch (ReaderView) ---
-    // A finger touched down: a flick or glide stops. True if one was running (that touch is then no tap).
+    // A finger touched down: a flick stops, and true is returned (that touch is then no tap). A glide runs on (a tap adds
+    // to it, a drag stops it).
     bool touchDown();
     // A drag: the finger's offset from where the drag began (reader units: + y = down, + x = right), at `ms`. The strip
     // follows it: up and down, and sideways when it is wider than the screen (zoomed).

@@ -906,7 +906,8 @@ page reader its own; the strip starts the way the console was turned last (`last
   reader also puts the page's top at the top; switching back opens the page under the middle line.
 - **Touch:** a drag scrolls, from where borealis begins it (after 6 px, so it doesn't jump). Let go while moving and it
   flicks on: the speed of the finger's last 100 ms (0 if it rested 50 ms), halving every 0.25 s, stopping below 20 units/s,
-  at most 5 screens a second. A touch during a flick or glide stops it and is no tap. No swipes. Taps on the reader's
+  at most 5 screens a second. A touch during a flick or glide stops it and is no tap (a glide: until WP-13d, D50: a tap
+  during a glide adds another). No swipes. Taps on the reader's
   screen: top 30 % glide back 0.75 of a screen (0.25 s, eased out), bottom 30 % on, the middle 40 % opens the menu **at
   once** (no double-tap wait: zoom in the strip is WP-13d; since then it waits 250 ms for a double tap, D50).
 - **Controller** (turned with the screen; L/R keep their sides): D-pad up/down and L/R glide 0.75 of a screen; held past
@@ -970,10 +971,21 @@ open details below in the session)
   for them, the own decode stays. Going back to a smaller decode frees the bigger tiles first. A sharper decode that is
   still sharp enough stays when zooming out part way; it goes at 1 × or once its page leaves the screen (and with the
   page when the window cuts it).
+- **Quick taps count** (the owner's try, 2026-11-12: "repeatedly tapping next on the touch screen misses half of the
+  taps", not with L / R or the D-pad): a touch during a glide no longer stops it and is swallowed (D49); a top / bottom tap
+  then adds another glide, as a second button press does, and a drag stops the glide when it begins. A touch during a
+  flick still catches it (it stops, no tap).
 - **At rest on whole units:** when a flick, a glide, a pinch, a zoom step, a held scroll or a drag ends, the strip moves
   (by less than half a unit) so its top line and left edge sit on whole screen units (pixels in handheld): no blur from a
   half-pixel offset, and two screenshots of one place are the same (`webtoon-seam` had depended on where a stopped flick
   ended, to a fraction of a pixel).
+- **Console numbers** (v1, application mode, handheld, stock clocks, 2026-11-12): `reader-webtoon` with its zoom steps
+  and ZR / ZL green twice (the refreshed Switch goldens matched on the second run), `reader-zoom` green (worst frame
+  18 ms). In `reader-webtoon` the p90 of the gestures' p90s stays 17 ms, memory 323.1 MiB flat, `texUsed` ≤ 61.1 MiB; the
+  longest frame was 31–32 ms, twice per run (a drag or flick at 1 ×), where WP-13b's worst was 20 ms: within the limit
+  (34 ms) and not looked into further. The quick-tap step ran on desktop only (the owner checked it by hand).
+- **The owner's verdict** (2026-11-12, a real webtoon from their server): quick taps missed half (fixed above), then
+  "It feels good now".
 - **How it's built:** `core/StripMath` (`StripZoomView`, `clampStripLeft`, `stripZoomAround`, `stripPinchView`,
   `isStripDoubleTap`, `stripSharpPages`), `StripModel` (`setView`, `sharpenOnScreen`, `shownImage`), `StripCanvas` (the
   view's left edge, the textures per page with the swap, the zoom gestures), `ReaderView` (the double tap and pinch in strip

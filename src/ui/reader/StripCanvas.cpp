@@ -105,9 +105,14 @@ void StripCanvas::finishScroll() {
 }
 
 bool StripCanvas::touchDown() {
-    const bool was = moving();
+    // A touch catches a flick: it stops, and that touch is no tap. A glide (from a tap or a button) runs on: a tap during it
+    // adds another glide, as a second button press does, so tapping quickly through the strip counts every tap (the
+    // owner's try, WP-13d); a drag stops the glide when it begins.
+    if (!fling_) {
+        return false;
+    }
     stopMotion();
-    return was;
+    return true;
 }
 
 void StripCanvas::dragStart(std::int64_t ms) {

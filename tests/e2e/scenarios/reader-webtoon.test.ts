@@ -4,8 +4,8 @@
 // - Gamma ch1 from the details screen opens as a strip by itself (auto "shape"), turned left on a fresh config (the strip's
 //   own orientation), 720 wide, the first page's top at the screen's top; config.json then has Gamma as "vertical";
 // - a played drag moves the strip by the drag; a played flick carries on past the finger and stops; a touch during a flick
-//   stops it (and is no tap); a bottom tap glides on 960 units (3/4 of the screen), a top tap back, a middle tap opens the
-//   menu (after the double tap's 250 ms wait);
+//   stops it (and is no tap); a bottom tap glides on 960 units (3/4 of the screen), a top tap back (two quick taps: twice as
+//   far, WP-13d), a middle tap opens the menu (after the double tap's 250 ms wait);
 // - zoom (WP-13d): a double tap in the middle zooms to 2 x around the tapped point (Gamma's 800-wide decode is sharp
 //   enough: nothing decodes again); a zoomed drag pans sideways; a pinch goes to 3 x and back, the point between the
 //   fingers staying put; a zoomed drag scrolls half as far (the zoom stays); a double tap goes back to 1 x;
@@ -385,6 +385,12 @@ scenario('reader-webtoon', async (s) => {
         await expectCodes(s, ev, view);
         ev = await readerAfter(s, tap(s, view.at({ x: 360, y: 150 })), { mode: 'strip' });
         expect(near(ev.top, top), `a top tap: back to ${top}: ${ev.top}`).toBe(true);
+        // Quick taps count every one (the owner's try, WP-13d): a second bottom tap while the first one's glide runs adds
+        // another glide (as a second button press does), and two quick top taps go back as far.
+        ev = await readerAfter(s, doubleTap(s, { x: 360, y: 1100 }, view.at), { mode: 'strip' });
+        expect(near(ev.top, top + 1920), `two quick bottom taps: top ${top} -> ${ev.top}`).toBe(true);
+        ev = await readerAfter(s, doubleTap(s, { x: 360, y: 150 }, view.at), { mode: 'strip' });
+        expect(near(ev.top, top), `two quick top taps: back to ${top}: ${ev.top}`).toBe(true);
         ev = await readerAfter(s, tap(s, view.at({ x: 360, y: 640 })), { mode: 'strip', menu: true });
         expect(near(ev.top, top)).toBe(true);
         ev = await readerAfter(s, tap(s, view.at({ x: 360, y: 640 })), { mode: 'strip', menu: false });

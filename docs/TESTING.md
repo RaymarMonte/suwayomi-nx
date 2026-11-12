@@ -301,13 +301,15 @@ Initial list, grown per UI WP:
 6f. `reader-webtoon` (WP-13b, D49; zoom WP-13d, D50) – Gamma Webtoon ch1 opens as a strip by itself (`auto` shape), turned left on a fresh
     config, 720 wide, its first page's top at the screen's top; config.json then has Gamma as `vertical`. A played drag
     moves `top` by the drag; a flick carries on past the finger and stops; a touch during a flick stops it (no glide); a
-    bottom tap glides on 960, a top tap back, a middle tap opens the menu (after the double tap's 250 ms wait). Zoom (WP-13d,
+    bottom tap glides on 960, a top tap back, two quick bottom taps (the second during the first glide) 1920 and two quick
+    top taps back (D50), a middle tap opens the menu (after the double tap's 250 ms wait). Zoom (WP-13d,
     D50): a double tap at (200, 640) → `zoom` 2, `x` −200 (the strip's left edge), `top` + 320, `sharp` with `sharpPages` 0
     (Gamma's decode is full size: nothing decodes again); a zoomed sideways drag of 150 → `x` −50, `top` stays; a pinch
     around the middle from 200 to 300 apart → 3 × (`x` ≈ −255), from 300 to 200 → 2 × (`x` ≈ −50); a 400 drag at 2 × moves
     `top` 200; a double tap → 1 ×, `x` 0, `top` − 320. The Switch adds ZR / ZL (1.5, 2: `x` −360; a D-pad glide sideways
-    to the strip's edge, `top` stays; back to 1). After the moves the page codes on screen are where
-    the event's page and spot put them (within 3 px). At rest the strip sits on whole units (D50), so its goldens repeat. Goldens: the seam of pages 1 and 2 at the middle line (`webtoon-seam`,
+    to the strip's edge, `top` stays; back to 1). After the moves the page codes on screen are where the event's page and
+    spot put them (within 3 px). At rest the strip sits on whole units (D50), so its goldens repeat. Goldens: the seam of
+    pages 1 and 2 at the middle line (`webtoon-seam`,
     no gap), the band at the end of ch1 (`webtoon-band`); in page 2 the server has `lastPageRead` 1 and the spot note; ch1 is
     read on the server, then ch2 is the chapter read; back up shows ch1's last segment; closed half way down ch2's page 2,
     Continue puts the same segment at the same place. Alpha ch1 meanwhile opens paged in landscape (each reader keeps its
