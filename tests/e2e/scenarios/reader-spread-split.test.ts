@@ -129,7 +129,7 @@ scenario('reader-spread-split', async (s) => {
 
         // Left to right (entry 0, choice 0 of 2): the left half comes first, the right half next (the right edge).
         mark = s.events.mark();
-        await chooseSetting(s, 0, 0, 2, { shown: 'page', direction: 'ltr', split: true, half: 0, menu: true });
+        await chooseSetting(s, 0, 0, 3, { shown: 'page', direction: 'ltr', split: true, half: 0, menu: true });
         await waitForSave(s, mark);
         await readerAfter(s, tap(s, READER.middle), { shown: 'page', menu: false });
         expect(await pageOnScreen(s), 'left to right starts with the left half (no page code)').toBeNull();

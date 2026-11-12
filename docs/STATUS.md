@@ -1,23 +1,17 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** WP-13b (webtoon reader) **in progress**, then plan WP-18 (order: ROADMAP.md, D47).
+**Phase 3 – Features. Now:** WP-13b (webtoon reader) **in progress** (desktop done, console next), then plan WP-18 (order: ROADMAP.md, D47).
 Done: WP-00a … 13, 13c and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
-## Last session (2026-11-12, WP-13b build, part 1, Opus)
-- **Done, green** (`tools/build.sh tests`, contract 29/29, 0 warnings): `core/StripMath` (layout + anchor/pin, width and
-  boxes, tile window, prefetch window + ends, flick, held/stick scroll, tap zones, spot note, "by itself" rules), config keys
-  `reader.stripWidth` / `stripOrientation`, profile `stripScreensBehind/Ahead`, `ProgressSync` spot, `Chapter::stripSpotNote`,
-  `UpdateStripProgress` + `setProgress(ReadProgress)`, recorded answers refreshed (only `meta: []`). `ui/reader/ProgressSaver`
-  (lifted from ReaderModel, both readers use it). `ui/reader/StripModel` (3 chapters, joins at the ends with the view still,
-  cut of the farthest, reading chapter at the middle line, read at the last page's bottom, spot saves, failed page and list
-  retry, width/screen changes). Tests: `test_core_strip.cpp`, `test_ui_strip.cpp` (12 cases).
-  View: `ui/reader/StripCanvas` draws the strip inside `ReaderView` (`setStrip()`), so portrait/overlay/buttons/touch stay
-  shared. `ReaderActivity` hosts it (paged `model_` parked; by hand, genre, shape; strip controls, 5-entry settings, Strip
-  width, strip events, `progress.spot`). ConfigStore setters, i18n, e2e `flick()` + `codesOnScreen`/`middleCode` done.
-  Zoom in the strip split to **WP-13d** (in ROADMAP); the middle tap opens the menu at once.
-- **Paused at the weekly limit (98 %, resets 2026-11-12 04:00 UTC).** Last commit: the activity wiring, desktop builds with
-  0 warnings, unit tests green, but the strip has **never run yet**. Exact next step: `tools/build.sh run`, open Gamma
-  Webtoon ch1 on the test server, fix what shows; then scenario `reader-webtoon` (desktop), the paged scenarios still green,
-  the console spike (owner wakes it), docs + D49. Gamma has no genres (shape rule), 3 pages per chapter.
-- From WP-13c: `maxDecodeScale` 4 on Full (safe 2, D48). Not released (CHANGELOG "Unreleased"). Console: normal build, asleep.
+## Last session (2026-11-12, WP-13b build, part 2, Opus)
+- **Desktop done, green:** the strip runs (core `StripMath`, `ui/reader/StripModel` + `StripCanvas` inside `ReaderView`,
+  `ProgressSaver`, `ReaderActivity` hosting both readers; zoom in the strip split to **WP-13d**). Scenario `reader-webtoon`
+  (~70 s: by shape, drag, flick, touch stops a flick, taps, page codes at the middle line, goldens seam / band / landscape,
+  progress + spot note on the server, chapter change, Continue to the same spot, orientations, Strip width, Alpha by hand),
+  with a Switch-only part (half push, held D-pad, L, 3 full-push passes: memory, `waitFrames`, frame times, `openMs`).
+  `reader-paged` / `reader-spread-split` now tap the direction menu's row for 3 rows (Vertical strip added). Docs: D49,
+  TESTING 6f, ARCHITECTURE, SUWAYOMI-API, READMEs, CHANGELOG (Unreleased).
+- **Next:** `tools/e2e.sh switch reader-webtoon` + `reader-paged`, `reader-portrait`, `reader-zoom`, `reader-spread-split`
+  (handheld, application mode), the console numbers into D49, safety gate PASS; then the owner tries a real webtoon.
+- From WP-13c: `maxDecodeScale` 4 on Full (safe 2, D48). Not released (CHANGELOG "Unreleased").
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

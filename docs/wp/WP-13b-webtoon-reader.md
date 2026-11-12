@@ -185,7 +185,7 @@ flick ourselves) and how a `Label` draws its text with NanoVG (the font call, fo
       frame intervals and the upload time of one 800 × 2000 tile (6.1 MiB; WP-13c measured ~1 ms per MiB). If a tile upload
       doesn't fit in a frame next to the drawing, plan smaller strip tiles before building the rest, and write what you found
       in STATUS.
-- [ ] core: `StripMath` (layout and anchor, strip width and boxes, tile window across pages, prefetch window by screens,
+- [x] core: `StripMath` (layout and anchor, strip width and boxes, tile window across pages, prefetch window by screens,
       fling and held scroll, strip tap zones, the spot note, the two "by itself" rules), `StripWidth` + config keys, the
       strip orientation key, "has its own direction", `ProgressSync` / `ReadProgress` spot. Unit tests: a height change above
       the middle line keeps the view still, below it moves nothing; chapters added above and below and cut out; `clampTop` at
@@ -193,21 +193,21 @@ flick ourselves) and how a `Label` draws its text with NanoVG (the font call, fo
       across a band; the prefetch order; the flick's distance and stop, the release speed from samples (fast, slow, a finger
       that stopped before lifting); tap zones; spot text round trip and bad text; genre and shape rules; strip width per
       setting × orientation; config round trip and old files; `ProgressSync` saves a moved spot within the throttle
-- [ ] GraphQL/api: `FetchChapterPages` with `meta`, `UpdateStripProgress`, `setProgress` with a spot; contract test green,
+- [x] GraphQL/api: `FetchChapterPages` with `meta`, `UpdateStripProgress`, `setProgress` with a spot; contract test green,
       recorded answers refreshed, a unit test that the spot request carries both fields
-- [ ] `StripModel` (suite `ui`): opens at the spot (and at the page's top when the note's page differs, at the start when
+- [x] `StripModel` (suite `ui`; its zoomed decodes: WP-13d): opens at the spot (and at the page's top when the note's page differs, at the start when
       read); the window loads the pages near the screen and lets the far ones go; the next chapter joins below near the end
       and the previous one above near the start (view still); a fourth chapter cuts the farthest out; the chapter being read
       changes at the middle line, the old one saved at once; `isRead` when the last page's bottom shows; progress with the
       spot; a failed page retries; the zoomed decode only for the pages on screen, let go when they leave; `ReaderModel`'s
       tests unchanged
-- [ ] Views: the shared base (or the session's better shape), `StripView` (tiles, window, uploads, placeholders, bands, the
+- [x] Views (zoom and the sideways pan: WP-13d; strip mode inside `ReaderView` + `StripCanvas`, D49): the shared base (or the session's better shape), `StripView` (tiles, window, uploads, placeholders, bands, the
       failed band, flick, glides, held scroll, zoom and sideways pan), the `touches` entry for tests
-- [ ] `ReaderActivity`: the strip pair, switching by hand and by itself (shape: before the first page is drawn), the strip
+- [x] `ReaderActivity`: the strip pair, switching by hand and by itself (shape: before the first page is drawn), the strip
       controls, the strip's own orientation, the settings menu in strip mode ("Vertical strip" in Reading direction, "Strip
       width"), the new event fields and gesture kinds
-- [ ] Profile: `stripScreensBehind` / `stripScreensAhead` (unit test of the profile table)
-- [ ] Test hooks: `flick()` and the middle-code check in `tests/e2e/lib/` (with vitest tests), TESTING.md says how
+- [x] Profile: `stripScreensBehind` / `stripScreensAhead` (unit test of the profile table)
+- [x] Test hooks: `flick()` and the middle-code check in `tests/e2e/lib/` (with vitest tests), TESTING.md says how
 - [ ] Scenario `reader-webtoon` (desktop and Switch). Desktop: Gamma ch1 from the details screen with no own choice → strip
       by itself (`auto: shape`), held sideways (portrait-left on a fresh config), `stripW` 720, the strip's top at the top,
       config.json then has Gamma as `vertical`; a played drag moves `top` by the drag; a played flick carries on past the

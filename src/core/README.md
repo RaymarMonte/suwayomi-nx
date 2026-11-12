@@ -36,6 +36,15 @@
   `lastPageRead` / `isRead` (at most every `progressSyncMs`, the last page at once, everything when leaving; after a failure
   the wait doubles up to `progressRetryMaxMs`, WP-12). `AppConfig`
   got the reader's background, page number and per-manga direction and fit (`readerSettingsFor`, `rememberReaderSettings`).
+- `StripMath.hpp` (WP-13b, D49): the webtoon strip. `StripLayout` (pages and chapter bands top to bottom, `top`, the middle
+  line's `middle()` place, heights that change keep the middle line or a `pin` still; a scroll unpins), `stripWidth`,
+  `stripPageHeight`, `stripBandHeight`, `stripDecodeBox`, `estimatedPageHeight`, `stripTileWindow` (the tiles to keep),
+  `stripPrefetchOrder` / `stripWindowEnds` (the pages to
+  decode, nearest first), `releaseVelocity` / `flingStartSpeed` / `flingOffset` / `flingDone`, `glideProgress`,
+  `stripHoldScroll` / `stripStickScroll`, `stripTapArea`, the spot note (`stripSpotValue`, `parseStripSpot`, key
+  `snx_strip_spot`), `looksLikeStrip` (genres) and `isStripPage` (shape). `AppConfig`: `reader.stripWidth`,
+  `reader.stripOrientation`; `ReadingDirection::Vertical`; `ProgressSync` carries the spot; `Chapter::stripSpotNote`; profile
+  `stripScreensBehind` / `stripScreensAhead`. Tests: `test_core_strip.cpp`.
 - `LogBuffer.hpp`, `SaveScheduler.hpp` (WP-08): the log file's line format, buffering and rotation; when to save config.json (debounce). WP-08 also added test config keys (server login, `showSetup`, `diagnostics`), test events (`launch_refused`, `mem`, screen params) and profile fields (`logFileBytes`, `logFlushMs`, `configSaveDelayMs`).
 
 **Depends on:** the C++17 standard library and nlohmann/json 3.12.0 (`third_party/`, include `<nlohmann/json.hpp>`).
@@ -47,4 +56,4 @@ are our own documents' answers, `tools/record-fixtures`). Contract: `npm run con
 (`tests/fuzz/`). Coverage ≥ 80% lines (94% after WP-04).
 
 **Status:** WP-04 added models, JSON, GraphQL, config and the runtime profile. WP-10: `Chapter::lastReadAt`, `ChapterPatch`,
-the `UpdateChapters` and `FetchMangaAndChapters` documents, `RuntimeProfile::maxChapters`. WP-11: `ReaderMath`, `ProgressSync`, the reader settings in `AppConfig`, `RuntimeProfile::progressSyncMs` and `readerMangaSettingsMax`.
+the `UpdateChapters` and `FetchMangaAndChapters` documents, `RuntimeProfile::maxChapters`. WP-11: `ReaderMath`, `ProgressSync`, the reader settings in `AppConfig`, `RuntimeProfile::progressSyncMs` and `readerMangaSettingsMax`. WP-13b: `StripMath`, the `UpdateStripProgress` document.

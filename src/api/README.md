@@ -6,7 +6,8 @@
 **Public headers** (include as `"api/<Name>.hpp"`):
 - `SuwayomiClient.hpp`: `SuwayomiClient(http, serverSettings, clientOptionsFrom(profile))` with `serverInfo`, `categories`,
   `library(categoryId, page)`, `manga`, `chapters(mangaId, page)`, `pages(chapterId, PageFormat)`, `setProgress(chapterId, page,
-  isRead)`, `updateChapters(ids, ChapterPatch)` and `refreshManga(mangaId)` (WP-10: chapter actions, refresh from source), `login`, `logout`, `configure`, `settings`, `absoluteUrl`. Each call takes a `net::CancelToken` (+ optional `Priority`)
+  isRead)` (WP-13b: `setProgress(ReadProgress)` also saves the strip's spot note in the same request, `UpdateStripProgress`,
+  and counts only when both parts answered), `updateChapters(ids, ChapterPatch)` and `refreshManga(mangaId)` (WP-10: chapter actions, refresh from source), `login`, `logout`, `configure`, `settings`, `absoluteUrl`. Each call takes a `net::CancelToken` (+ optional `Priority`)
   and returns `ApiFuture<T>` = `net::Future<ApiResult<T>>`. Also `basicAuthHeader`, `serverWarning` (D9 minimum version).
 - `ApiError.hpp`: `ApiError{kind, message, detail}`, kinds Offline|Timeout|Auth|Permission|Server|Parse|Cancelled, `userMessage(kind)`,
   `ApiResult<T>` (= `core::Result<T, ApiError>`), and the mapping from core/net errors and HTTP statuses.

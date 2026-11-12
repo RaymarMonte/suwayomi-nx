@@ -94,6 +94,10 @@ Switch: closes the software and goes back to the HOME menu), and the logs land i
    channel (TESTING.md "Drivers") and wait for its `command` event. Reader steps: `lib/reader.ts` (`readerAfter`,
    `chooseSetting`, ...). `expectPage(s, series, chapter, page, way)` reads the fixture page code from a screenshot; in
    portrait pass the reader's `way` (`portrait-left` / `portrait-right`), so it turns the screenshot upright first.
+   The webtoon strip (WP-13b): `flick(s, from, to)` lifts while moving (the strip flicks on); for a drag that must not flick,
+   let the finger rest 100 ms before it lifts (`reader-webtoon`'s `heldDrag`). borealis begins a drag only after 6 px and
+   counts from there. `codesOnScreen(s, way)` gives every page code on screen with its place, `middleCode()` the one at the
+   middle line. The strip's `reader` events come only once it has settled (TESTING.md), so `readerAfter` waits past a flick.
 
 ### Goldens
 

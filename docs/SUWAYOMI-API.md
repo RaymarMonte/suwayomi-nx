@@ -60,6 +60,13 @@ The owner's own server runs the same version (v2.4.2366 Stable, checked 2026-10-
    - the cap is `pageCount` itself (10 for a 10-page chapter), one past the last page index.
    - Fields of one request don't wait for each other: a `fetchChapterPages` and an `updateChapter` in the same document can race.
      Send them as separate requests.
+   - **The webtoon spot (WP-13b, D49):** the strip also saves how far down the page it is, as chapter meta: key
+     `snx_strip_spot`, value `"<page>:<share>"` (4 decimals, e.g. `"2:0.4375"`; other apps ignore it). One request carries
+     both fields (`UpdateStripProgress`): `updateChapter(input:{id, patch})` and `setChapterMeta(input:{meta:{chapterId, key,
+     value}})`; both answer in the same document (they don't depend on each other, so the race above doesn't matter), and a
+     save counts only when both did. Setting it again overwrites it. The app reads it back from `fetchChapterPages`'s
+     `chapter { meta { key value } }` when it opens a chapter; the chapter list and `chapter(id)` have the same field. `deleteChapterMeta(input:{chapterId, key})` removes
+     it (tests). Checked on the test server (v2.4.2366, 2026-11-10).
 4. Downloaded chapters are served from disk, others are fetched from the source on demand. The first load can be slow,
    so use generous timeouts for page requests (≥ 30 s) and show progress.
 

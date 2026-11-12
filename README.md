@@ -5,8 +5,8 @@ manga library. C++17, UI built with [xfangfang/borealis](https://github.com/xfan
 as a desktop app (Linux), so most testing happens on a PC.
 
 **Status:** v0.2: browse your library, see a manga's chapters, read with the paged reader (also held sideways, and zoomed
-in), and your reading progress goes back to the server. Not there yet: the webtoon (long strip) reader, updates, history,
-browsing sources, downloads. What changed: `CHANGELOG.md`. Plans: `docs/ROADMAP.md`.
+in), read webtoons as one long strip, and your reading progress goes back to the server. Not there yet: updates, history,
+browsing sources, downloads, zoom in the webtoon strip. What changed: `CHANGELOG.md`. Plans: `docs/ROADMAP.md`.
 
 ## Using it
 
@@ -37,10 +37,21 @@ hint at the bottom of the screen does what its button does.
 | Library | tap a category, Sort, Refresh or a cover; flick to scroll | L / R category, Y sort, X refresh, A open, − library menu |
 | Manga | tap Continue, a chapter, its "..." menu, Sort, Show, Refresh; tap the description to open it | A open chapter, X read / unread, Y chapter menu, − menu |
 | Reader | tap the left or right side (or swipe) to turn, the middle for the menu; drag a page that is bigger than the screen; pinch or double-tap the middle to zoom | L / R and left / right turn, up / down scroll, ZR / ZL zoom, A menu, X retry, Y rotate, − reader settings |
+| Webtoon strip | drag or flick to scroll; tap the bottom to move on, the top to go back, the middle for the menu | sticks scroll; up / down and L / R move on or back (hold to keep scrolling), A menu, X retry, Y rotate, − reader settings |
 
 The reader turns pages right to left by default (manga). Reader settings (− or the menu): direction, fit (screen, width,
 height), background colour, the page number, the orientation, what a page turn does to the zoom and when to split spreads.
 Direction and fit are remembered per manga.
+
+**Webtoons (one long strip):** a manga the server tags "Long Strip" or "Webtoon", or whose first page is very tall,
+opens as a vertical strip by itself; any other manga can be switched in Reader settings → Reading direction → **Vertical
+strip** (and back), and that choice is remembered per manga. Drag or flick to scroll, or use the sticks; tap the lower part
+of the screen to move on, the upper part to go back, the middle for the menu. At a chapter's end the next one follows
+below a short band, and scrolling up past a chapter's start brings the one before. The app saves how far down the page you
+were (on the server, as a small note on the chapter), so a chapter opens again at that exact spot. In landscape the strip
+is half the screen wide by default (text about as big as held sideways); the setting **Strip width** offers three
+quarters or the full width. The strip remembers its own orientation (Y or Rotate), apart from the page reader's. Zooming
+in the strip comes later.
 
 **Double-page spreads:** held sideways (portrait), a spread shows as two halves that each fill the screen, one page turn
 each: the right half first when reading right to left, the left half first otherwise. Going back onto a spread starts at

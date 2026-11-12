@@ -13,6 +13,12 @@ with 0, any release may change things.
 - **Split spreads:** held sideways (portrait), a double-page spread shows as two halves that each fill the screen, one page
   turn each (the right half first when reading right to left). The new reader setting "Split spreads" offers In portrait
   (the default), Always or Never. Both halves count as the same page for your reading progress.
+- **Webtoon reader:** a long-strip manga opens as one vertical strip by itself (tagged "Long Strip" or "Webtoon" on the
+  server, or a very tall first page); any manga can be switched to it in Reader settings → Reading direction → "Vertical
+  strip". Drag, flick, the sticks, the D-pad, L / R and taps (bottom: on, top: back, middle: the menu) scroll it. Chapters
+  follow one another below a short band. The exact spot in the page is saved on the server with your progress, so a chapter
+  opens where you left it. In landscape the strip is half the screen wide; the new setting "Strip width" offers three
+  quarters or full. The strip keeps its own orientation, apart from the page reader's. (Zoom in the strip comes later.)
 
 ### Changed
 - A single tap in the middle of the page opens the menu a quarter second later (it waits to see if it is a double tap).

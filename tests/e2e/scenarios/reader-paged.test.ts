@@ -53,7 +53,7 @@ scenario('reader-paged', async (s) => {
         // The menu, then reading direction left to right (settings entry 0, choice 0 of 2).
         await readerAfter(s, tap(s, READER.middle), { menu: true });
         await s.expectGolden('menu');
-        await chooseSetting(s, 0, 0, 2, { direction: 'ltr', menu: true });
+        await chooseSetting(s, 0, 0, 3, { direction: 'ltr', menu: true });
         await readerAfter(s, tap(s, READER.middle), { menu: false });
 
         // Pages 2..10: three by the D-pad, three by taps on the right edge (one that slides a little, like a quick finger),

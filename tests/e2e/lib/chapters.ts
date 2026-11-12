@@ -33,3 +33,23 @@ export async function mangaIds(client: SuwayomiClient): Promise<Map<string, numb
         '{ mangas(condition: { inLibrary: true }) { nodes { id title } } }');
     return new Map(data.mangas.nodes.map((m) => [m.title, m.id]));
 }
+
+/** WP-13b: the webtoon strip's spot notes of a manga's chapters (chapter meta "snx_strip_spot", "<page>:<share>"), by id. */
+export async function stripSpots(client: SuwayomiClient, mangaId: number): Promise<Map<number, string>> {
+    const data = await client.query<{ chapters: { nodes: { id: number; meta: { key: string; value: string }[] }[] } }>(
+        `query S($m: Int!) { chapters(condition: { mangaId: $m }) { nodes { id meta { key value } } } }`, { m: mangaId });
+    const spots = new Map<number, string>();
+    for (const chapter of data.chapters.nodes) {
+        const note = chapter.meta.find((m) => m.key === 'snx_strip_spot');
+        if (note) spots.set(chapter.id, note.value);
+    }
+    return spots;
+}
+
+/** Deletes the spot notes of a manga's chapters (resetChapters leaves the chapters' meta alone). */
+export async function clearStripSpots(client: SuwayomiClient, mangaId: number): Promise<void> {
+    for (const id of (await stripSpots(client, mangaId)).keys()) {
+        await client.query(`mutation D($id: Int!) { deleteChapterMeta(input: { chapterId: $id, key: "snx_strip_spot" }) {
+            clientMutationId } }`, { id });
+    }
+}

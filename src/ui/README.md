@@ -48,7 +48,11 @@ press, one page) and, 150 ms after the zoom settles, asks `ReaderModel::setPageZ
 that splits ("Split spreads") is two steps in `ReaderModel` (`half()`, a step back lands on the last half; progress and the
 window still count pages), decodes twice as wide once it is known to be a spread (`ReaderPage::reloading` meanwhile), and
 `ReaderView::showPage(..., half)` draws only that half of the page's tiles; the settings menu makes borealis's Dropdown tall
-enough for its 7 entries), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
+enough for its 7 entries; WP-13b, D49: the webtoon strip: `StripModel` holds up to three chapters' pages, the decode
+window, the chapter being read (under the middle line) and its progress with the spot; `StripCanvas` draws it inside
+`ReaderView` (`setStrip()`, so portrait, the menu, the buttons and touch are shared) from GPU tiles and runs the flick and
+glides; `ReaderActivity` hosts both readers, parks `ReaderModel` while the strip shows, and switches by hand or by itself;
+`ProgressSaver` sends both readers' progress), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
 `crash/CrashActivity` (the crash screen, S1), `diagnostics/DiagnosticsActivity` (test builds only: WP-05's server check + request
 burst, WP-07's image benchmark).
 
@@ -67,11 +71,11 @@ the app is never `idle`), so turn `setAutoAnimate(false)` on for labels that sit
 A box skips drawing a leaf child that lies outside any parent's `getCullingBounds` (WP-22: the turned reader widens its own).
 borealis reads the mouse button once a frame, so a desktop tap shorter than a stalled frame (a config save) is lost.
 
-**Tests:** models in `tests/unit/test_ui.cpp`, `test_ui_library.cpp`, `test_ui_manga.cpp` and `test_ui_reader.cpp` (suite
+**Tests:** models in `tests/unit/test_ui.cpp`, `test_ui_library.cpp`, `test_ui_manga.cpp`, `test_ui_reader.cpp` and `test_ui_strip.cpp` (suite
 `ui`; the reader's with a real `ImageLoader`, `tests/unit/MainQueue.hpp` plays the main thread); screens by E2E scenarios
 (`smoke`, `setup-first-run`, `auth-matrix`, `low-memory`, `library-browse`, `manga-details`, `reader-paged`,
 `reader-rtl-spread`, `resume-progress`, `broken-images`, WP-12: `offline-errors`, `soak`, `touch-pass`, WP-22:
-`reader-portrait`, WP-13: `reader-zoom`). Touch coordinates for the
+`reader-portrait`, WP-13: `reader-zoom`, `reader-spread-split`, WP-13b: `reader-webtoon`). Touch coordinates for the
 scenarios: `tests/e2e/lib/screens.ts`.
 
 **Status:** WP-11. Updates, History and Browse are placeholder tabs until their WPs.

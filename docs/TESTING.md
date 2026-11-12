@@ -87,6 +87,17 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
   `frames`, `p90Ms`/`maxMs` = frame intervals while it ran, `zoom`, `x`, `y`); `command` (a played touch command is done:
   `id`, `ok`, `error`). The reader also counts as busy for `idle` while it settles by itself (a middle tap waiting for a
   second one, the zoom about to decode, a glide, a pinch, a stick push).
+- WP-13b (D49): in the webtoon strip, `reader` has `mode` "strip" (the page reader's say `mode` "paged"), `chapterId` and
+  `chapter` of the chapter being read (the one under the middle line), `page` (0-based) and `of`, `shown` strip or
+  chapter_error, `spot` (the middle line's share of that page, 4 decimals), `top` (the strip's y at the screen's top, whole
+  units), `stripW` (units) and `stripWidth` half/three-quarters/full, `auto` (genre/shape: the rule that picked the strip by
+  itself, only then), `direction` vertical, `read`, `chapters` (the chapter ids in the strip, top to bottom), `pagesHeld`,
+  `tiles` (textures kept), `waitFrames` (frames since the last event that showed a page or tile still loading), once
+  `openMs` (the reader opening to the first settled strip), `retries`, `texUsed`, `memUsed`, and the common menu,
+  orientation and screen fields. It writes once the strip has settled somewhere new (no finger, flick, glide or held scroll
+  under way, nothing on screen loading) and on every chapter change. `progress` adds `spot` in the strip; `gesture` adds the
+  kinds `fling`, `glide` and `scroll` (held D-pad, sticks) and `top`. The strip counts as busy for `idle` while it moves or a
+  page on screen loads.
 - `idle` is emitted when there are no pending net/decode jobs (`http.inFlight()`, `images.activeJobs()`, WP-08) and no running animations (borealis's running tickings) for 3 frames in a row,
   once per quiet spell: again only after something was busy, a new `screen` came, or (WP-10) any other event a screen
   writes (`library`, `manga`, `chapter_action`, ...: on the console an answer can arrive within one frame, so the app never
@@ -172,8 +183,10 @@ interface Driver {
   the frames (one per app frame once its `ms` is due; a finger down is touched every frame, a finger missing from the next
   frame lifts, all lift after the last), deletes the file and writes `{"ev":"command","id":n,"ok":true}`. Each finger gets
   the same hit test and gesture recognizers as a real one. A file that doesn't parse yet is read again (50 tries). Helpers:
-  `pinch()`, `doubleTap()`, `drag()` and `playTouches()` in `tests/e2e/lib/touches.ts` (`map` = `portraitPoint` for
-  portrait). The real two-finger path is checked by the owner's hands on the console.
+  `pinch()`, `doubleTap()`, `drag()`, `flick()` (lifted while moving, WP-13b) and `playTouches()` in
+  `tests/e2e/lib/touches.ts` (`map` = `portraitPoint` for portrait). The strip's page codes: `codesOnScreen()` (every code
+  on screen with its place, the screenshot turned upright) and `middleCode()` (the one nearest the middle line) in
+  `lib/reader.ts`. The real two-finger path is checked by the owner's hands on the console.
   Checked in WP-00 with the borealis demo (Xvfb, and the owner's mouse in WSLg):
   - Start it from its build folder (it loads `./resources`). Under Xvfb set `XDG_SESSION_TYPE=x11` and unset `WAYLAND_DISPLAY`: GLFW tries
     Wayland first and otherwise opens on the WSLg screen even with `DISPLAY=:99`. Mesa renders in software there, which is fine at 1280×720.
@@ -283,6 +296,18 @@ Initial list, grown per UI WP:
     in portrait shows it whole (720 × 540). The Switch adds the `maxDecodeScale` measurement: ZR to 4 × on the split half,
     logging the decoded size, `sharpMs`, `uploadMs`, the zoom steps' frames, memory and `texUsed`; run it at another cap
     with `SNX_MAX_DECODE_SCALE=2` (the test config's `"maxDecodeScale"`; the profile has 4, D48). ~30 s on desktop
+6f. `reader-webtoon` (WP-13b, D49) – Gamma Webtoon ch1 opens as a strip by itself (`auto` shape), turned left on a fresh
+    config, 720 wide, its first page's top at the screen's top; config.json then has Gamma as `vertical`. A played drag
+    moves `top` by the drag; a flick carries on past the finger and stops; a touch during a flick stops it (no glide); a
+    bottom tap glides on 960, a top tap back, a middle tap opens the menu. After the moves the page codes on screen are where
+    the event's page and spot put them (within 3 px). Goldens: the seam of pages 1 and 2 at the middle line (`webtoon-seam`,
+    no gap), the band at the end of ch1 (`webtoon-band`); in page 2 the server has `lastPageRead` 1 and the spot note; ch1 is
+    read on the server, then ch2 is the chapter read; back up shows ch1's last segment; closed half way down ch2's page 2,
+    Continue puts the same segment at the same place. Alpha ch1 meanwhile opens paged in landscape (each reader keeps its
+    orientation); Rotate in the strip → landscape, 640 wide, centred (`webtoon-landscape`); "Strip width: Full" → 1280,
+    and Gamma opens like that next time; Alpha switched to "Vertical strip" by hand is a strip at the same page, back to
+    "Left to right" shows it. `texUsed` ≤ 64 MiB, no `mem_pressure` or `error`. Scrolling to an exact place uses held drags
+    (the finger rests before it lifts: no flick). Zoom in the strip: WP-13d. ~70 s on desktop
 7. `resume-progress` – Alpha ch3 to page 5, B: the server has lastPageRead 4, Continue opens page 5 (colour code), and again after a restart (WP-11)
 8. `offline-errors` (WP-12) – the test server stops and starts again four times while the app runs, with `"diskCache": false`: at start-up
    (the Library tab shows the error + Retry, a tap on Retry connects once it is back); in the reader (prefetched pages still

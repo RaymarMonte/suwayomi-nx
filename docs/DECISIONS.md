@@ -875,3 +875,53 @@ an Opus plan); server-side "Download" only (no reading away from home).
 Rejected: patching borealis for two fingers (a submodule change, D1); saving the zoom per manga; B zooming out before it
 closes; double-tap on the edges (it would delay every edge tap); decoding while a pinch runs (the decode waits until the
 zoom has settled).
+
+**D49 The webtoon strip: the rules as built** (WP-13b, 2026-11-12; owner's answers 2026-11-10 in
+`docs/wp/WP-13b-webtoon-reader.md`). Reading direction gets a third choice, **Vertical strip**: the chapter's pages one
+under the other, scrolled up and down. **Changes D46:** the strip keeps its own orientation (`reader.stripOrientation`), the
+page reader its own; the strip starts the way the console was turned last (`lastPortrait`), Y flips either one.
+- **Opens as a strip by itself** for a manga without its own reading direction yet, by the genre rule (a tag that is
+  "Long Strip", "Webtoon" or "Webtoons", any case, the whole tag; not "Manhwa"/"Manhua") or the shape rule (the first page
+  decoded for the reader is more than 2.5 × as tall as wide: checked once, before that page is drawn). The choice is saved
+  as the manga's own (`reader.manga`), so it never flips while reading; the `reader` event's `auto` says which rule.
+- **The strip:** pages touch with no gap, each at the strip's width. Portrait: the whole width (720). Landscape: "Strip
+  width" Half (640, default) / Three quarters / Full (`reader.stripWidth`, for all manga), centred on the reader's
+  background colour. A page not loaded yet is as tall as its chapter's last known page shape (1.5 × the width before any)
+  with the spinner; a failed page is one screen tall with the reason and "Tap or press X to retry". Between chapters a band a
+  third of the screen tall ("Finished: <chapter>" / "Next: <chapter>"; "No previous chapter", "No more chapters" at the ends;
+  "Loading …" or the error while a neighbour's page list loads). Any height that changes keeps the middle line (or a place
+  a test pinned) still on screen.
+- **Chapters:** at most three in the strip. A neighbour joins only when the chapter at that end is the one being read and the
+  decode window reaches the end; a fourth cuts the farthest one out (its pages let go). The decode window is the profile's
+  `stripScreensBehind` / `stripScreensAhead` screens (Full 1 / 3; safe mode and applet 0 / 1); the textures kept are the
+  tiles on screen plus `webtoonTilesAround` rows above and below (Full 4, else 1). Tiles on screen upload at once, the
+  others at most one per frame, nearest first; if the texture budget (S7) refuses one, the farthest go first.
+- **Where you are:** the page under the middle line is the page read (page number, `lastPageRead`), and its chapter is the
+  chapter read. Moving into another chapter saves the old one at once (D44's "leaving"); a band under the middle line changes
+  nothing. A chapter is read when the bottom of its last page is on screen (and its height is known, not estimated).
+- **The spot** (how far down that page the middle line is, 0..1) goes with every progress save of the strip in one request:
+  `updateChapter` + `setChapterMeta` (`snx_strip_spot` = `"<page>:<share>"`, 4 decimals); the save counts only when both
+  answer. Opening a strip (D44's "Continue" or a row): if the note's page is the server's `lastPageRead` and the chapter
+  isn't read, that spot goes under the middle line; else the page's top goes to the screen's top. Switching from the page
+  reader also puts the page's top at the top; switching back opens the page under the middle line.
+- **Touch:** a drag scrolls, from where borealis begins it (after 6 px, so it doesn't jump). Let go while moving and it
+  flicks on: the speed of the finger's last 100 ms (0 if it rested 50 ms), halving every 0.25 s, stopping below 20 units/s,
+  at most 5 screens a second. A touch during a flick or glide stops it and is no tap. No swipes. Taps on the reader's
+  screen: top 30 % glide back 0.75 of a screen (0.25 s, eased out), bottom 30 % on, the middle 40 % opens the menu **at
+  once** (no double-tap wait: zoom in the strip is WP-13d).
+- **Controller** (turned with the screen; L/R keep their sides): D-pad up/down and L/R glide 0.75 of a screen; held past
+  0.3 s they scroll on at a screen a second. Either stick scrolls, faster the further pushed (15 % dead zone, a full push
+  crosses a screen in 0.6 s). A the menu, B closes, X retries the failed page or chapter nearest the middle, Y rotates.
+- **Settings in strip mode:** Reading direction, Strip width, Background, Page number, Orientation (5 entries; no Fit, Zoom
+  on page turn or Split spreads). The direction menu now has three rows (Left to right, Right to left, Vertical strip):
+  `reader-paged` and `reader-spread-split` tap their row for three, nothing else in them changed.
+- **How it's built:** `core/StripMath` (layout, anchor, windows, flick, taps, spot note, the rules), `ui/reader/StripModel`
+  (chapters, pages, progress) and `ui/reader/StripCanvas` (tiles, motion), drawn inside `ReaderView` (`setStrip`), so the
+  portrait transform, the menu, the buttons and touch stay one piece of code for both readers. `ProgressSaver` was lifted
+  out of `ReaderModel` for both. `ReaderActivity` hosts both readers and parks the page reader while the strip shows.
+- **Split:** zoom in the strip (pinch, double tap, ZR/ZL, the sideways pan, sharper decodes) moved to **WP-13d**, the WP's
+  planned split point.
+- **Console numbers and the owner's verdict:** (to come with the console run of WP-13b.)
+Rejected: a shared base view for both readers (more moving parts than one view with a strip mode); borealis's own pan
+momentum (it assumes 1/60 s per frame and a fixed slow-down); counting a drag from the touch-down point (a jump of the
+slop when it begins).

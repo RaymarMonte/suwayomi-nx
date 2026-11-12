@@ -31,7 +31,10 @@ That README plus the public headers *is* the contract other sessions read.
   tile slicing plan for tall images, prefetch window selection. Portrait (WP-22, D46): the reader screen with width and height
   swapped, one transform for drawing, and the mapping of touch points, moves and D-pad presses onto it. Zoom (WP-13, D48):
   steps and limits, zooming around a point, the pinch, the double tap, what an arrow or a stick does (move, turn or nothing,
-  with the fresh-press rule), and the zoomed decode box with its cap.
+  with the fresh-press rule), and the zoomed decode box with its cap. The webtoon strip (`core/StripMath`, WP-13b, D49):
+  the strip's layout (pages and chapter bands, kept still at the middle line or a pinned place when heights change), the
+  strip width, the tile and decode windows, the flick, glides and held scrolling, the tap zones, the spot note, and the
+  "by itself" rules (genre and shape).
 - **Policies**: LRU with byte budget (generic), retry/backoff policy, progress sync (`core/ProgressSync`, WP-11: send `lastPageRead` at most every N s, `isRead` at the last page, everything on exit).
 - **RuntimeProfile**: `makeRuntimeProfile(mode, totalMem, usedMem)` → all budgets and limits (see below). Only `Full` is built and used for now (D21).
   Pure and table-tested.
@@ -108,7 +111,8 @@ halves the memory budgets and turns prefetch off.
 | Concurrent HTTP transfers | 2 (matches the socket sessions) | 6 |
 | Decode threads | 1 | 2 |
 | Max decode resolution / zoom | `maxZoom` 2; zoomed, the whole page decodes again at the zoomed box, each side ≤ 2× the screen's longer side | `maxZoom` 4; same box rule, `maxDecodeScale` 4 (WP-13c's console measurement, D48; safe mode 2) |
-| Webtoon tiles kept decoded | screen ±1 tile | screen ±4 tiles |
+| Webtoon tiles kept decoded | screen ±1 row of tiles | screen ±4 rows of tiles (`webtoonTilesAround`; a tile is at most 2048 px a side) |
+| Webtoon pages decoded (WP-13b) | the screen and 1 screen below | 1 screen above, 3 below (`stripScreensBehind` / `stripScreensAhead`; safe mode 0 / 1) |
 | Cover thumbnails | decoded at cell size, small cache | larger cache, prefetch the next row |
 | Background prefetch of next chapter | off | on |
 | Extra fonts / heavy UI effects | off | on |

@@ -269,7 +269,13 @@ void StripLayout::clear() {
 
 namespace {
 
-std::pair<double, double> prefetchWindow(const StripLayout& layout, double screensBehind, double screensAhead) {
+// The strip y range [top, bottom) of the decode window.
+struct Span {
+    double top = 0;
+    double bottom = 0;
+};
+
+Span prefetchWindow(const StripLayout& layout, double screensBehind, double screensAhead) {
     const double screen = layout.viewHeight();
     return {layout.top() - std::max(0.0, screensBehind) * screen, layout.bottom() + std::max(0.0, screensAhead) * screen};
 }
