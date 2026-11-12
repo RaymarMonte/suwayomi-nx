@@ -54,5 +54,19 @@
     "split_spreads_always": "Always",
     "split_spreads_never": "Never",
     "zoom_in": "Zoom in",
-    "zoom_out": "Zoom out"
+    "zoom_out": "Zoom out",
+    "direction_vertical": "Vertical strip",
+    "setting_strip_width": "Strip width: {}",
+    "strip_width": "Strip width",
+    "strip_width_half": "Half",
+    "strip_width_three_quarters": "Three quarters",
+    "strip_width_full": "Full",
+    "strip_finished": "Finished: {}",
+    "strip_next": "Next: {}",
+    "strip_no_previous": "No previous chapter",
+    "strip_no_more": "No more chapters",
+    "strip_loading_next": "Loading {}…",
+    "strip_failed_chapter": "{} couldn't be loaded",
+    "strip_failed_page": "This page couldn't be loaded",
+    "strip_retry": "Tap or press X to retry"
 }

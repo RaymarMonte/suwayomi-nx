@@ -33,7 +33,8 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-13](wp/WP-13-zoom-and-pan.md) | **Zoom & pan** in the paged reader, both orientations: pinch, double-tap (middle) and ZL/ZR zoom up to 4 ×, drag and stick pan, sharper pages when zoomed, the portrait D-pad repeat fix (D48). Spreads moved to WP-13c | 22 | Opus | L | **Yes**: try it in your hands; console | done (2026-11-07; owner tried it 2026-11-10) |
 | WP-13c | **Split spreads**: a double-page spread held sideways shows as two halves that each fill the screen (setting: in portrait / always / never; right half first for right to left), `reader-spread-split`, and the measurement that decides `maxDecodeScale` 2 or 4 (WP-13 doc, D48) | 13 | Opus | M | **Yes**: a spread in portrait; console | done (2026-11-10; owner tried it: "Works well") |
 | [WP-13b](wp/WP-13b-webtoon-reader.md) | **Webtoon reader**: "Vertical strip", one continuous strip that opens by itself for webtoons, smooth stick, D-pad and touch scrolling with flicks, chapters joined on, the exact spot saved on the server, its own orientation, half width in landscape, zoom in the strip (split point: zoom → WP-13d) | 13 | Opus | L | **Yes**: try it in your hands; console | todo (planned 2026-11-10) |
-| WP-18 | **Offline 1: download chapters to the SD card**: a queue on the Switch, a storage limit, delete; the reader reads downloaded pages first | 13b | Opus | L | – | todo |
+| WP-13d | **Zoom in the webtoon strip** (split from WP-13b, 2026-11-12): pinch, the middle double tap and ZR/ZL in the strip, the sideways pan when zoomed, the sharper decodes of the pages on screen (WP-13b doc "Zoom in the strip"); `reader-webtoon` gains its zoom steps | 13b | Opus | M | **Yes**: try it in your hands; console | todo |
+| WP-18 | **Offline 1: download chapters to the SD card**: a queue on the Switch, a storage limit, delete; the reader reads downloaded pages first | 13b, 13d | Opus | L | – | todo |
 | WP-18b | **Offline 2: read away from home**: start without the server, show the downloaded manga, keep offline progress and send it when the server is back | 18 | Opus | M | **Yes**: try it away from home | todo |
 | WP-15 | **Updates + history**: new chapters across the library, "update library" with progress, reading history with continue | 12 | Opus (History screen: Sonnet-safe chunk) | M | – | todo |
 | WP-24 | **Library tools**: search my library, manage categories (create, rename, order, delete), move manga between categories | 12 | Opus | M | – | todo |
@@ -52,7 +53,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 **Stock clocks (D17):** performance is judged at stock clocks only.
 **Application mode only (D21):** every WP builds, tunes and tests for application mode (hold R on a game). Applet mode only gets the
 "can't run from the Album yet" screen (WP-08) until WP-21.
-**Order after WP-22 (owner, 2026-10-30, D47):** WP-13 (zoom) → WP-13c (spreads, split from 13 on 2026-11-07) → WP-13b (webtoon) → WP-18 → WP-18b (offline) → WP-15 (updates,
+**Order after WP-22 (owner, 2026-10-30, D47):** WP-13 (zoom) → WP-13c (spreads, split from 13 on 2026-11-07) → WP-13b (webtoon) → WP-13d (strip zoom) → WP-18 → WP-18b (offline) → WP-15 (updates,
 history) → WP-24 (library tools) → WP-14 (browse) → WP-16 (extensions) → WP-25 (tracking) → WP-19 (polish). WP-23 (test source)
 and WP-20 (user docs) touch no app code and can run alongside; WP-23 must be done before WP-14. Nice to have, when the owner asks:
 WP-17, WP-26, WP-21, WP-08b. Phase 3 is listed in that order, not by number.

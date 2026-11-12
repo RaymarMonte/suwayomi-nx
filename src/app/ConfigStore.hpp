@@ -38,6 +38,9 @@ class ConfigStore {
     void setReaderZoomOnTurn(core::ZoomOnTurn mode);
     // When spreads show as two halves (WP-13c), for every manga.
     void setReaderSplitSpreads(core::SpreadSplit mode);
+    // The webtoon strip's width in landscape and its own orientation (WP-13b), for every manga.
+    void setReaderStripWidth(core::StripWidth width);
+    void setReaderStripOrientation(core::ReaderOrientation orientation);
     // The test config's server (test builds): used as if it had been saved, but not written unless something changes it.
     void useServer(const core::ServerSettings& server);
 

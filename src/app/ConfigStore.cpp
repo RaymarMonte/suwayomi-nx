@@ -108,6 +108,22 @@ void ConfigStore::setReaderSplitSpreads(core::SpreadSplit mode) {
     scheduler_.changed(appClockMs());
 }
 
+void ConfigStore::setReaderStripWidth(core::StripWidth width) {
+    if (width == config_.reader.stripWidth) {
+        return;
+    }
+    config_.reader.stripWidth = width;
+    scheduler_.changed(appClockMs());
+}
+
+void ConfigStore::setReaderStripOrientation(core::ReaderOrientation orientation) {
+    if (config_.reader.stripOrientation == orientation) {
+        return;
+    }
+    config_.reader.stripOrientation = orientation;
+    scheduler_.changed(appClockMs());
+}
+
 void ConfigStore::useServer(const core::ServerSettings& server) {
     config_.server = server;
 }
