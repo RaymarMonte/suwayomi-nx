@@ -34,9 +34,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | WP-13c | **Split spreads**: a double-page spread held sideways shows as two halves that each fill the screen (setting: in portrait / always / never; right half first for right to left), `reader-spread-split`, and the measurement that decides `maxDecodeScale` 2 or 4 (WP-13 doc, D48) | 13 | Opus | M | **Yes**: a spread in portrait; console | done (2026-11-10; owner tried it: "Works well") |
 | [WP-13b](wp/WP-13b-webtoon-reader.md) | **Webtoon reader**: "Vertical strip", one continuous strip that opens by itself for webtoons, smooth stick, D-pad and touch scrolling with flicks, chapters joined on, the exact spot saved on the server, its own orientation, half width in landscape, zoom in the strip (split point: zoom → WP-13d) | 13 | Opus | L | **Yes**: try it in your hands; console | done (2026-11-12; owner tried it: "Feels good") |
 | WP-13d | **Zoom in the webtoon strip** (split from WP-13b, 2026-11-12): pinch, the middle double tap and ZR/ZL in the strip, the sideways pan when zoomed, the sharper decodes of the pages on screen (WP-13b doc "Zoom in the strip"); `reader-webtoon` gains its zoom steps | 13b | Opus | M | **Yes**: try it in your hands; console | done (2026-11-12, D50; owner tried it: quick taps fixed, then "It feels good now") |
-| WP-18 | **Offline 1: download chapters to the SD card**: a queue on the Switch, a storage limit, delete; the reader reads downloaded pages first | 13b, 13d | Opus | L | – | todo |
-| WP-18b | **Offline 2: read away from home**: start without the server, show the downloaded manga, keep offline progress and send it when the server is back | 18 | Opus | M | **Yes**: try it away from home | todo |
-| WP-15 | **Updates + history**: new chapters across the library, "update library" with progress, reading history with continue | 12 | Opus (History screen: Sonnet-safe chunk) | M | – | todo |
+| WP-15 | **Updates + history**: new chapters across the library, "update library" with progress, reading history with continue. **Runs next** (D51) | 12 | Opus (History screen: Sonnet-safe chunk) | M | – | todo |
 | WP-24 | **Library tools**: search my library, manage categories (create, rename, order, delete), move manga between categories | 12 | Opus | M | – | todo |
 | WP-23 | **Test source** for the test server: an offline extension store and a source whose chapters the server can download, so extensions, server downloads and source filters can be tested | 02 ∥ any (not with 15's seed change) | Opus | M | Maybe: install a build tool | todo |
 | WP-14 | **Browse**: sources by language, popular / latest / search, search across sources, filters, preview, add to library with a category | 24, 23 | Opus | M | – | todo |
@@ -47,16 +45,19 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | WP-17 | **Download on server** (nice to have): a chapter action and the server's download queue, like Sorayomi | 15, 23 | **S** (Opus if 15's polling doesn't fit) | S | – | todo |
 | WP-26 | **In-app updates** (nice to have): fetch the new .nro from GitHub Releases, checksum-checked, old one kept | 19 | Opus | M | **Yes**: OK for a safety-rule exception (D15, S11) | todo |
 | WP-21 | Applet mode (Album) support, `Lite` profile, and a crash ending that doesn't take the system down from the Album (D41). **Nice to have** (D21) | 12 | Opus | M | **Yes**: decide if wanted; console | todo |
+| WP-18 | **Offline 1: download chapters to the SD card**: a queue on the Switch, a storage limit, delete; the reader reads downloaded pages first. **Nice to have, lowest** (below WP-21, owner 2026-11-13, D51) | 13b, 13d | Opus | L | – | todo |
+| WP-18b | **Offline 2: read away from home**: start without the server, show the downloaded manga, keep offline progress and send it when the server is back. **Nice to have, lowest** (D51) | 18 | Opus | M | **Yes**: try it away from home | todo |
 
 **Touch first (D16):** every UI WP from WP-08 on ships touch for its own screens, tested on desktop with the mouse
 (plus a test hook for multi-finger gestures) and on the console with the touch-capable sys-autopilot (D19) or a manual checklist.
 **Stock clocks (D17):** performance is judged at stock clocks only.
 **Application mode only (D21):** every WP builds, tunes and tests for application mode (hold R on a game). Applet mode only gets the
 "can't run from the Album yet" screen (WP-08) until WP-21.
-**Order after WP-22 (owner, 2026-10-30, D47):** WP-13 (zoom) → WP-13c (spreads, split from 13 on 2026-11-07) → WP-13b (webtoon) → WP-13d (strip zoom) → WP-18 → WP-18b (offline) → WP-15 (updates,
+**Order after WP-22 (owner, 2026-10-30, D47; changed 2026-11-13, D51):** WP-13 (zoom) → WP-13c (spreads, split from 13 on 2026-11-07) → WP-13b (webtoon) → WP-13d (strip zoom) → WP-15 (updates,
 history) → WP-24 (library tools) → WP-14 (browse) → WP-16 (extensions) → WP-25 (tracking) → WP-19 (polish). WP-23 (test source)
 and WP-20 (user docs) touch no app code and can run alongside; WP-23 must be done before WP-14. Nice to have, when the owner asks:
-WP-17, WP-26, WP-21, WP-08b. Phase 3 is listed in that order, not by number.
+WP-17, WP-26, WP-21, WP-08b, and last of all WP-18 → WP-18b (offline: the owner put it below applet mode on 2026-11-13, D51).
+Phase 3 is listed in that order, not by number.
 
 ### Sonnet / Haiku work outside the WPs
 
@@ -77,7 +78,7 @@ The stubs below are kept short on purpose. Right before a WP runs, a fresh Opus 
 touches, checks the stub's queries on the test server, asks the owner the product questions, updates the stub and the table if the
 plan changes them, and commits `WP-xx: plan ...`. No code. Effort: **max** for WP-13, 13b, 18, 18b, 21 and 26 (GPU, memory, sync,
 safety), **xhigh** for the rest. A planning session only changes docs, so it may run while the previous WP runs, on its own branch
-(a worktree, merged after that WP), when it doesn't depend on that WP's result: WP-15 can be planned during WP-18b, WP-18b can't
+(a worktree, merged after that WP), when it doesn't depend on that WP's result: WP-24 can be planned during WP-15, WP-18b can't
 be planned during WP-18. Then the WP itself runs in its own session, as before.
 
 ## Phase 3 stubs (roadmap pass 2026-10-30, D47)
@@ -106,17 +107,7 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
   server); the strip keeps its own orientation (held sideways at first; amends D46). Zoom in the strip reuses WP-13's math.
   Fixture: Gamma Webtoon (800 × 12000 WebP strips, TESTING.md). Size L: if it runs long, zoom in the strip moves to WP-13d
   (before WP-18). Owner tries it.
-- **WP-18 Offline 1: download to the SD card.** "Download" means to the Switch, like Mihon (owner, D47). The chapter row menu and
-  the bulk actions get Download / Delete download; a queue on the Switch downloads one chapter at a time in the background through
-  the image path (the same page URLs, so the test server's Local source works), stops at sleep, and goes on after a restart. Every
-  write goes through SafeFs, atomic, with the free-space guard and a storage limit from the profile (S5, D14). A downloaded chapter
-  reads from the SD card first, so pages turn without the network. Where downloads show: the planner's default is a new
-  **Downloads** tab (queue, downloaded manga, space used, delete), to confirm while planning.
-- **WP-18b Offline 2: read away from home.** Starting without the server (no network, or it can't be reached) opens the downloaded
-  manga instead of an error. Progress made offline (with the strip's spot note, WP-13b) is kept on the SD card (a small queue, written atomically) and sent once the
-  server answers, with conflict rules (the server moved further meanwhile, a chapter read on another device). The same queue fixes
-  D45's leftover: a save that fails while the reader closes is never tried again. The owner tries it away from home.
-- **WP-15 Updates + history.** Updates tab: new chapters across the library, newest first (`chapters(filter: {inLibrary: {equalTo:
+- **WP-15 Updates + history.** Runs next (D51). Updates tab: new chapters across the library, newest first (`chapters(filter: {inLibrary: {equalTo:
   true}}, order: [{by: FETCHED_AT, byType: DESC}])`, works on the test server), grouped by day; open the chapter or its manga.
   "Update library" (`updateLibrary`, progress by polling `libraryUpdateStatus`) moved here from WP-17: the first screen that polls
   a server job, a pattern WP-17 copies, so Opus. History tab: chapters by `LAST_READ_AT` (filter `lastReadAt > 0`, works), one
@@ -166,8 +157,22 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
 - **WP-21 Applet mode (nice to have, D21).** Only if the owner still wants it after the MVP. Make the app usable when opened from the Album:
   measure applet memory (alone and with a game suspended), build the `Lite` profile (ARCHITECTURE.md "Lite" column, D12), replace the
   refusal screen with a one-time tip on how to open it with R, check the software keyboard, HOME/return and networking with 2 socket sessions,
-  crash drills in applet mode, offline downloads (WP-18) one at a time with small buffers, and run every scenario in both modes (the device
-  test matrix doubles). Background: RESEARCH.md "Applet mode vs application mode". Always Opus (memory, crash safety).
+  crash drills in applet mode, and run every scenario in both modes (the device test matrix doubles). Offline downloads (WP-18) now
+  come after WP-21 (D51), so WP-18 brings their applet-mode limits itself. Background: RESEARCH.md "Applet mode vs application
+  mode". Always Opus (memory, crash safety).
+- **WP-18 Offline 1: download to the SD card (nice to have, lowest: below WP-21, owner 2026-11-13, D51).** "Download" means to
+  the Switch, like Mihon (owner, D47). The chapter row menu and the bulk actions get Download / Delete download; a queue on the
+  Switch downloads one chapter at a time in the background through the image path (the same page URLs, so the test server's
+  Local source works), stops at sleep, and goes on after a restart. Every write goes through SafeFs, atomic, with the free-space
+  guard and a storage limit from the profile (S5, D14). A downloaded chapter reads from the SD card first, so pages turn without
+  the network. Where downloads show: the planner's default is a new **Downloads** tab (queue, downloaded manga, space used,
+  delete), to confirm while planning. If WP-21 is done by then, downloads also run in applet mode, one at a time with small
+  buffers from the `Lite` profile, and its scenarios run in both modes.
+- **WP-18b Offline 2: read away from home (nice to have, lowest, D51).** Starting without the server (no network, or it can't be
+  reached) opens the downloaded manga instead of an error. Progress made offline (with the strip's spot note, WP-13b) is kept on
+  the SD card (a small queue, written atomically) and sent once the server answers, with conflict rules (the server moved
+  further meanwhile, a chapter read on another device). The same queue fixes D45's leftover: a save that fails while the reader
+  closes is never tried again (it waits with WP-18b, D51). The owner tries it away from home.
 
 ## How to start a session (copy-paste prompt)
 

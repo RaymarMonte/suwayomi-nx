@@ -1,6 +1,6 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** WP-18 (order: ROADMAP.md, D47). Done: WP-00a … 13, 13b, 13c, 13d and 22;
-**v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
+**Phase 3 – Features. Now:** WP-15, plan it first (xhigh, ROADMAP.md "How the Phase 3 WPs get their full docs"; order: D47, D51).
+Done: WP-00a … 13, 13b, 13c, 13d, 22; **v0.2.0 released**. Nice to have: WP-08b, 17, 21, 26, last offline 18 / 18b (owner, 2026-11-13, D51).
 ## Last session (2026-11-12/13, WP-13d, Opus)
 - **WP-13d done (D50):** zoom in the strip: pinch, middle double tap (2 ×, again 1), ZR / ZL; zoomed, drags pan both
   ways, D-pad left / right glide sideways, the stick's x pans; Rotate / Strip width go back to 1. Once the view stands

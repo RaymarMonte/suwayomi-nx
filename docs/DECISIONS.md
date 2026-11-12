@@ -91,7 +91,7 @@ Anyone on the same Wi-Fi could read a Basic-auth password sent over HTTP, so use
 Tailscale: there's no Tailscale client for the Switch, so the Switch reaches the server only on the home network. Away from home, the options are,
 in order: offline reading (WP-18, download at home and read anywhere); a travel router with Tailscale built in that lets devices on its Wi-Fi reach
 the tailnet (no app change, but check the router supports it); Tailscale Funnel (a public HTTPS URL, which needs our HTTPS support from WP-19 and a strong password).
-Consequences: the MVP is HTTP + basic auth on the LAN. HTTPS stays optional (WP-19). Offline reading matters more. Tests still never touch this server (D11).
+Consequences: the MVP is HTTP + basic auth on the LAN. HTTPS stays optional (WP-19). Offline reading matters more (no longer: since D51, 2026-11-13, it is the lowest nice to have). Tests still never touch this server (D11).
 **Update 2026-10-26 (owner):** the real server is running. Checked from the PC that day: Suwayomi-Server **v2.4.2366 Stable** (D9's version) on an
 always-on **Linux machine** at home (not the laptop). The owner's address for it is `https://<server-tailnet-name>:4567` (web UI under `/library`):
 Tailscale Serve in front of Suwayomi, a Let's Encrypt certificate (ECDSA, chain YE2 → Root YE → ISRG Root X2, renewed by Tailscale every
@@ -796,6 +796,7 @@ answers 2026-10-30). Stubs and the planning steps: ROADMAP.md.
   WP-14 browse → WP-16 extensions → WP-25 tracking → WP-19 polish. WP-23 (test source) and WP-20 (user docs) run alongside.
   Nice to have: WP-17, WP-26, WP-21, WP-08b. The owner picked zoom before webtoon and offline before the other features;
   offline waits for both reader halves, so downloaded chapters work in every reading mode from the start.
+  **Amended by D51 (2026-11-13): WP-18 / WP-18b are now the lowest nice to have (below WP-21); WP-15 runs next.**
 - **Splits:** WP-13 (L) became zoom/pan/spreads (WP-13) and the webtoon strip (WP-13b). WP-18 (L) became downloading and
   reading from the SD card (WP-18) and starting and syncing without the server (WP-18b).
 - **"Download" means to the Switch's SD card, like Mihon.** Suwayomi's own clients (web UI, Sorayomi, Suwayomi-JUI) only
@@ -994,3 +995,18 @@ open details below in the session)
 Rejected: zooming the bands' text with the strip (it would be cut off at the sides); a zoom that stays across Rotate (the
 strip's width changes, so the same zoom shows a different part); decoding every page in the window sharper (memory: a
 sharper page has up to 4 × the pixels of its plain decode, and strip pages are tall).
+
+**D51 Offline reading moves to the bottom of the nice to haves; WP-15 runs next** (owner, 2026-11-13, a roadmap chore;
+amends D47's order).
+- **Order now:** WP-15 updates and history → WP-24 library tools → WP-14 browse → WP-16 extensions → WP-25 tracking →
+  WP-19 polish, with WP-23 (test source) and WP-20 (user docs) alongside, as in D47. Nice to have, when the owner asks:
+  WP-17, WP-26, WP-21, WP-08b, and last of all WP-18 → WP-18b. The owner's words: WP-18 is now lower priority even than
+  applet mode (WP-21).
+- **WP-18b goes with it:** it needs WP-18's downloads.
+- **What waits with it:** reading away from home without the server (D18's first option; a Tailscale travel router or
+  Funnel + HTTPS, WP-19, stay open), and D45's leftover that WP-18b's queue was to fix (a progress save that fails while
+  the reader closes is never tried again).
+- **If WP-21 is done first:** WP-18 then works in both modes (applet mode: one download at a time with small buffers from
+  the `Lite` profile) and runs its scenarios in both.
+- Nothing built changes: no code exists for WP-18 yet, and WP-13b's strip spot note already lives on the server, so a later
+  offline queue can still carry it.

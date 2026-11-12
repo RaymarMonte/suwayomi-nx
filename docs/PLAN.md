@@ -27,7 +27,7 @@ sources, manage extensions, and read offline.
 | 0. Foundations | WP-00 … WP-03b | Tools installed, a "hello" .nro deployed and screenshotted by a script, repo + CI, test server with fixture manga, E2E harness, **safety layer + crash drills** |
 | 1. Core (no UI) | WP-04 … WP-07 | Models, GraphQL, HTTP, Suwayomi client with auth, image pipeline + caches, all unit/integration-tested on PC |
 | 2. MVP UI | WP-08 … WP-12 | Server setup/login, library, manga details, paged reader with progress sync, hardening. **Release v0.1** |
-| 3. Features | WP-22, WP-13 … WP-26 | **Portrait reader first** (WP-22, console held sideways), then zoom, webtoon, offline reading, updates/history, library tools, browse/search, extensions, tracking, polish, user docs (D47). Nice to have: download on server, in-app updates, applet mode |
+| 3. Features | WP-22, WP-13 … WP-26 | **Portrait reader first** (WP-22, console held sideways), then zoom, webtoon, updates/history, library tools, browse/search, extensions, tracking, polish, user docs (D47, D51). Nice to have: download on server, in-app updates, applet mode, and last offline reading (D51) |
 
 Phase 0 matters most. WP-00 proves the whole loop (build → deploy → launch → screenshot → read log) on *your* console
 before any real app code exists. If something in the chain doesn't work (controller order, memory mode, network),
@@ -75,7 +75,7 @@ we find out on day one, not in week four.
 | Fatal screen during tests | Needs a physical POWER press. sys-autopilot can't reboot | Harness treats any new `atmosphere/fatal_errors` file as a hard failure, stops, and asks you |
 | Touch input | Touch is our main input (D16), but stock sys-autopilot can't inject touch | Desktop: mouse + test-hook gestures. Console: our slim fork with touch (D19), otherwise a manual checklist |
 | **sys-autopilot crashing the console** | Stock v1.5.0 needs ~6.7 MB of the sysmodule memory pool. There are crash reports on FW 22 (at boot, and on `/screenshot`) | D19 slim fork. SETUP.md B.2 has the install and undo steps |
-| Reading away from home | There's no Tailscale client for the Switch | D18: offline reading (WP-18), a Tailscale travel router, or Funnel + HTTPS (WP-19) |
+| Reading away from home | There's no Tailscale client for the Switch | D18: offline reading (WP-18, now the lowest nice to have, D51), a Tailscale travel router, or Funnel + HTTPS (WP-19) |
 
 ## Owner's answers (2026-10-21)
 
