@@ -721,7 +721,7 @@ the server's answer.
 - **Progress saves back off:** after a failed save `due()` waits `progressSyncMs`, doubled for each failure in a row, at most
   `progressRetryMaxMs` (60 s, new in the profile), isRead included. Before, a failed isRead was sent again in the very next
   frame, and with 5 s timeouts a save was always on its way, so the app never went idle. `dueNow()` (leaving a chapter, HOME,
-  closing) doesn't wait. Still open: a save that fails while the reader closes isn't tried again later.
+  closing) doesn't wait. Still open: a save that fails while the reader closes isn't tried again later (WP-15 fixes it, D51).
 - **Profile from the soak:** the image cache (decoded pages in RAM) is capped at **256 MiB** instead of 512. In the soak
   (500 turns, 167 chapters) memory rose by exactly the cache filling up (desktop: 86 -> 518 MiB) with pages the reader never
   came back to; the window is -1/+3 and the SD-card cache serves re-reads. 256 MiB still holds ~180 screen-fit or ~26
@@ -1004,8 +1004,10 @@ amends D47's order).
   applet mode (WP-21).
 - **WP-18b goes with it:** it needs WP-18's downloads.
 - **What waits with it:** reading away from home without the server (D18's first option; a Tailscale travel router or
-  Funnel + HTTPS, WP-19, stay open), and D45's leftover that WP-18b's queue was to fix (a progress save that fails while
-  the reader closes is never tried again).
+  Funnel + HTTPS, WP-19, stay open).
+- **D45's leftover moves to WP-15** (owner, same day): a progress save that fails while the reader closes is never tried
+  again. WP-18b's offline queue was to fix it; now WP-15 keeps the failed save and sends it again once the server answers
+  (its planner decides the details, ROADMAP.md), and WP-18b builds its queue on that.
 - **If WP-21 is done first:** WP-18 then works in both modes (applet mode: one download at a time with small buffers from
   the `Lite` profile) and runs its scenarios in both.
 - Nothing built changes: no code exists for WP-18 yet, and WP-13b's strip spot note already lives on the server, so a later
