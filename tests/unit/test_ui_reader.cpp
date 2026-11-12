@@ -892,3 +892,24 @@ TEST_CASE("reader: leaving the window cancels its loads; a model destroyed while
     h.drain();
 }
 }
+
+TEST_SUITE("ui") {
+
+TEST_CASE("reader: park lets go of everything and saves, reopen opens again (WP-13b's switch to the strip and back)") {
+    Harness h;
+    auto model = h.model();
+    model->open(101, 2);
+    REQUIRE(h.settle(*model));
+    CHECK(model->step(1));
+    model->park();
+    CHECK(model->state() == State::Loading);
+    CHECK(model->pageCount() == 0);
+    CHECK(h.asked("UpdateChapterProgress") == 1);  // the page turned to went out at once
+    model->reopen(101, 5);
+    REQUIRE(model->state() == State::Ready);
+    CHECK(model->position() == 5);
+    REQUIRE(h.settle(*model));
+    CHECK(model->current().state == PageState::Ready);
+}
+
+}  // TEST_SUITE

@@ -93,6 +93,11 @@ class ReaderModel {
     void open(int chapterId, int page);
     void retry();      // after Failed: the page list again
     void retryPage();  // the page on screen failed: loads it again
+    // WP-13b: the reader switched to the webtoon strip. Every load stops and the pages are let go; progress not saved yet
+    // goes out now. The model then shows nothing (Loading) until reopen().
+    void park();
+    // Opens chapter `chapterId` at page `page` again (back from the strip; also after park()).
+    void reopen(int chapterId, int page);
 
     // One step: +1 = next, -1 = previous. Past the "next chapter" screen it opens the next chapter (where it was left, or at
     // the start if it is read); before the "previous chapter" screen the previous chapter at its last page. False when there

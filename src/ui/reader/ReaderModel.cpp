@@ -155,6 +155,26 @@ void ReaderModel::retry() {
     }
 }
 
+void ReaderModel::park() {
+    leaveChapter();
+    nextCancel_.cancel();
+    if (next_) {
+        for (Slot& slot : next_->slots) {
+            slot.cancel.cancel();
+        }
+        next_.reset();
+    }
+    opened_ = true;
+    state_ = State::Loading;
+    changed();
+}
+
+void ReaderModel::reopen(int chapterId, int page) {
+    opened_ = true;
+    load(chapterId, Start{Start::Kind::Page, page});
+    changed();
+}
+
 void ReaderModel::retryPage() {
     if (state_ != State::Ready || !onPage()) {
         return;
