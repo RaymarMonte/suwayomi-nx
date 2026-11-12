@@ -1,19 +1,19 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** WP-13d (zoom in the webtoon strip), then WP-18 (order: ROADMAP.md, D47).
+**Phase 3 – Features. Now:** WP-13d (strip zoom): desktop done, console runs + owner's try left; then WP-18 (ROADMAP, D47).
 Done: WP-00a … 13, 13b, 13c and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
-## Last session (2026-11-12, WP-13b build, part 3, Opus)
-- **WP-13b green on desktop and console:** the strip (`StripMath`, `StripModel` + `StripCanvas` in `ReaderView`,
-  `ProgressSaver`, `ReaderActivity` hosts both readers; strip zoom split to **WP-13d**), scenario `reader-webtoon`. D49's
-  console numbers: open by shape 0.52 s, as a strip 58 ms, worst frame 20 ms, memory flat, `texUsed` ≤ 61.1 MiB.
-- **Console fixes this part:** WebP decodes at full size within the 15 % slack (libwebp's scaler cost 454 ms per strip, now
-  ~180); a held D-pad / L / R counts as moving (the `reader` event came in the gap between the glide and the held scroll);
-  `ConfigStore::postponeSaveThisFrame()` (a save costs 20–33 ms on the SD card: it waits while the reader moves); the
-  `gesture` frame times leave out the test hooks' own SD writes (~8 ms per event, up to ~70 ms; release builds don't write).
-- **Harness:** `test/commands/*` uploads skip the hash check; `reader-zoom`'s `portrait-zoom3` is taken before the swipe.
-- **WP-13b done:** the owner read a real webtoon (2026-11-12): "Feels good", defaults stay; coming back to a re-read chapter
-  stays as it is (Continue skips read chapters, like Suwayomi-WebUI's Resume; D49). **Next: WP-13d**, built from the WP-13b
-  doc's zoom parts (no own plan file, like WP-13c from WP-13). WP-13, 13b, 13c unreleased (CHANGELOG): a version is the
-  owner's call. The console is asleep (2026-11-12): wake it (HOME) before the next device run.
+## Last session (2026-11-12, WP-13d, Opus)
+- **Zoom in the strip (D50):** pinch, middle double tap (2 ×, again 1), ZR / ZL; zoomed, drags pan both ways, D-pad
+  left / right glide sideways, the stick's x pans; Rotate / Strip width go back to 1. Once the view stands still (150 ms)
+  the pages on screen nearest the middle (profile `stripZoomPages`: Full 2, else 1) decode sharper unless already sharp.
+  Code: `StripMath` zoom math, `StripModel::setView` / `sharpenOnScreen`, `StripCanvas` rewritten (per-page textures, swap).
+- **Rest on whole units (D50):** a flick, glide, pinch, zoom or drag ends on whole screen units. `webtoon-seam` had hung
+  on where a touch-stopped flick ended (a fraction of a pixel): desktop `webtoon-seam` / `webtoon-band` refreshed, a
+  second run matched. **The Switch's two goldens likely need the same refresh.**
+- **Green:** `build.sh tests`, `npm test` / `typecheck` / `contract`, full `e2e.sh desktop`, `build.sh switch` (gate PASS).
+  `reader-webtoon`'s new Switch steps (ZR / ZL, a zoomed D-pad glide sideways) haven't run yet.
+- **Next:** console (wake it, HOME): `tools/e2e.sh switch reader-webtoon --update-goldens`, check the two pictures, rerun
+  with `--no-build` to confirm, then `reader-zoom`; console to sleep. Owner's try (`build.sh switch` + `deploy` in
+  `tools/spike/lib.sh`), verdict into D50, ROADMAP WP-13d done. CHANGELOG stays Unreleased (a version is the owner's call).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

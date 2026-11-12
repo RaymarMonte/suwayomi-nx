@@ -44,7 +44,9 @@
   `stripHoldScroll` / `stripStickScroll`, `stripTapArea`, the spot note (`stripSpotValue`, `parseStripSpot`, key
   `snx_strip_spot`), `looksLikeStrip` (genres) and `isStripPage` (shape). `AppConfig`: `reader.stripWidth`,
   `reader.stripOrientation`; `ReadingDirection::Vertical`; `ProgressSync` carries the spot; `Chapter::stripSpotNote`; profile
-  `stripScreensBehind` / `stripScreensAhead`. Tests: `test_core_strip.cpp`.
+  `stripScreensBehind` / `stripScreensAhead`. WP-13d, D50, zoom in the strip: `StripZoomView` (zoom, left edge, top),
+  `clampStripLeft`, `stripZoomAround`, `StripPinchStart` / `stripPinchView`, `isStripDoubleTap`, `stripSharpPages` (the
+  pages on screen that decode again sharper), `stripZoomDecodeBox`; profile `stripZoomPages`. Tests: `test_core_strip.cpp`.
 - `LogBuffer.hpp`, `SaveScheduler.hpp` (WP-08): the log file's line format, buffering and rotation; when to save config.json (debounce). WP-08 also added test config keys (server login, `showSetup`, `diagnostics`), test events (`launch_refused`, `mem`, screen params) and profile fields (`logFileBytes`, `logFlushMs`, `configSaveDelayMs`).
 
 **Depends on:** the C++17 standard library and nlohmann/json 3.12.0 (`third_party/`, include `<nlohmann/json.hpp>`).

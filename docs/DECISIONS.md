@@ -908,7 +908,7 @@ page reader its own; the strip starts the way the console was turned last (`last
   flicks on: the speed of the finger's last 100 ms (0 if it rested 50 ms), halving every 0.25 s, stopping below 20 units/s,
   at most 5 screens a second. A touch during a flick or glide stops it and is no tap. No swipes. Taps on the reader's
   screen: top 30 % glide back 0.75 of a screen (0.25 s, eased out), bottom 30 % on, the middle 40 % opens the menu **at
-  once** (no double-tap wait: zoom in the strip is WP-13d).
+  once** (no double-tap wait: zoom in the strip is WP-13d; since then it waits 250 ms for a double tap, D50).
 - **Controller** (turned with the screen; L/R keep their sides): D-pad up/down and L/R glide 0.75 of a screen; held past
   0.3 s they scroll on at a screen a second. Either stick scrolls, faster the further pushed (15 % dead zone, a full push
   crosses a screen in 0.6 s). A the menu, B closes, X retries the failed page or chapter nearest the middle, Y rotates.
@@ -944,3 +944,41 @@ page reader its own; the strip starts the way the console was turned last (`last
 Rejected: a shared base view for both readers (more moving parts than one view with a strip mode); borealis's own pan
 momentum (it assumes 1/60 s per frame and a fixed slow-down); counting a drag from the touch-down point (a jump of the
 slop when it begins).
+
+**D50 Zoom in the webtoon strip: the rules as built** (WP-13d, 2026-11-12; split from WP-13b, D49; the owner OK'd the six
+open details below in the session)
+- **Zoom 1 is the strip's width**, up to the profile's `maxZoom` (4). ZR / ZL step 1, 1.5, 2, 3, 4 around the screen's
+  middle; a **double tap** in the middle band (the second touch within 250 ms and 40 units of the first, both in the middle
+  40 %) zooms to 2 × around the tapped point, and zoomed it goes back to 1 around it; a **pinch** zooms by the fingers'
+  distance with the point between them staying put, and let go below 1.05 it goes back to 1. A single middle tap now opens
+  the menu after the 250 ms wait, as in the page reader (D49's "at once" was until this WP).
+- **Zoomed, the strip is drawn zoom × its width**; its left edge is centred while it fits, else kept so no gap shows at a
+  side. Scrolling keeps the zoom (and so does a chapter change); Rotate, a strip-width change and closing the reader go
+  back to 1.
+- **Moving zoomed:** a drag moves the strip with the finger both ways at once (a screen unit is 1 / zoom strip units).
+  Flicks, glides, the held D-pad and L/R and the sticks keep their speeds in screen units, so they feel the same zoomed.
+  Zoomed, the D-pad's left / right (turned with the screen) glide sideways 3/4 of a screen, held past 0.3 s they pan on at
+  a screen a second, and the stick's x pans; not zoomed they do nothing.
+- **Bands zoom with the strip**; their text keeps its size, centred in the part that shows (so do a failed page's text and
+  a loading page's spinner).
+- **Sharper pages:** 150 ms after the view (zoom, top line, left edge) stands still, with no finger down, no motion and no
+  held button, the pages on screen nearest the middle line (at most the profile's `stripZoomPages`: Full 2, safe mode and
+  applet 1) decode again for `stripZoomDecodeBox` (the strip's width × the zoom's step, capped at `maxDecodeScale` × the
+  strip's width), unless their own decode already has the detail ("no sharper", WP-13c: Gamma's 800-wide WebP decodes
+  at full size, so it never decodes again; Alpha's 1000 × 1500 pages as a 720-wide strip do at 2 ×). The page's own
+  decode stays drawn until the sharper one has all its tiles on screen uploaded; if the texture budget (S7) has no room
+  for them, the own decode stays. Going back to a smaller decode frees the bigger tiles first. A sharper decode that is
+  still sharp enough stays when zooming out part way; it goes at 1 × or once its page leaves the screen (and with the
+  page when the window cuts it).
+- **At rest on whole units:** when a flick, a glide, a pinch, a zoom step, a held scroll or a drag ends, the strip moves
+  (by less than half a unit) so its top line and left edge sit on whole screen units (pixels in handheld): no blur from a
+  half-pixel offset, and two screenshots of one place are the same (`webtoon-seam` had depended on where a stopped flick
+  ended, to a fraction of a pixel).
+- **How it's built:** `core/StripMath` (`StripZoomView`, `clampStripLeft`, `stripZoomAround`, `stripPinchView`,
+  `isStripDoubleTap`, `stripSharpPages`), `StripModel` (`setView`, `sharpenOnScreen`, `shownImage`), `StripCanvas` (the
+  view's left edge, the textures per page with the swap, the zoom gestures), `ReaderView` (the double tap and pinch in strip
+  mode), `ReaderActivity` (the settle, ZR/ZL, the sideways controls, the test events' `zoom`, `x`, `decW`, `decH`,
+  `sharp`, `sharpPages`, `sharpMs`).
+Rejected: zooming the bands' text with the strip (it would be cut off at the sides); a zoom that stays across Rotate (the
+strip's width changes, so the same zoom shows a different part); decoding every page in the window sharper (memory: a
+sharper page has up to 4 × the pixels of its plain decode, and strip pages are tall).

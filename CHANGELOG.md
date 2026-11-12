@@ -18,7 +18,9 @@ with 0, any release may change things.
   strip". Drag, flick, the sticks, the D-pad, L / R and taps (bottom: on, top: back, middle: the menu) scroll it. Chapters
   follow one another below a short band. The exact spot in the page is saved on the server with your progress, so a chapter
   opens where you left it. In landscape the strip is half the screen wide; the new setting "Strip width" offers three
-  quarters or full. The strip keeps its own orientation, apart from the page reader's. (Zoom in the strip comes later.)
+  quarters or full. The strip keeps its own orientation, apart from the page reader's. Zoom in the strip with a pinch, a double tap in
+  the middle or ZR / ZL; zoomed, drag, the D-pad's left / right or the stick move it sideways, and the pages on screen
+  get sharper once you stop.
 
 ### Changed
 - A single tap in the middle of the page opens the menu a quarter second later (it waits to see if it is a double tap).

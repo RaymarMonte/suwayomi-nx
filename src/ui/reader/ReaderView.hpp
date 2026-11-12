@@ -104,8 +104,9 @@ class ReaderView : public brls::Box {
     void setSpinner(bool on) { spinner_ = on; }  // the page is loading: a turning arc in the middle
 
     // Strip mode (WP-13b): the view draws `strip` instead of a page (nullptr: back to pages; the page shown before is gone).
-    // Touch then drives the strip: a drag scrolls it, a quick lift flicks it on, a touch stops a flick (and is no tap), a tap
-    // reports its strip area (onStripTap). No swipes, pinches or double taps in strip mode (zoom in the strip is WP-13d).
+    // Touch then drives the strip: a drag scrolls it (sideways too when zoomed), a quick lift flicks it on, a touch stops a
+    // flick (and is no tap), a tap reports its strip area (onStripTap). WP-13d: two fingers pinch the strip, a double tap in
+    // its middle band zooms (so a single middle tap waits 250 ms, as for pages). No swipes in strip mode.
     void setStrip(StripCanvas* strip);
     bool stripMode() const { return strip_ != nullptr; }
 
@@ -122,7 +123,8 @@ class ReaderView : public brls::Box {
     void addButton(brls::View* button, std::function<void()> action);
 
     std::function<void(core::TapArea)> onTap;
-    // The webtoon strip (WP-13b): a tap in strip mode reports its area (top, middle, bottom of the reader's screen) at once.
+    // The webtoon strip (WP-13b): a tap in strip mode reports its area (top, middle, bottom of the reader's screen); the top
+    // and bottom at once, the middle after the double tap's wait (WP-13d).
     std::function<void(core::StripTapArea)> onStripTap;
     std::function<void(core::Side)> onSwipe;
     std::function<void()> onFrame;  // before every frame it draws (the activity reads the controller there)

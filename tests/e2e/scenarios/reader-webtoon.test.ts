@@ -1,11 +1,14 @@
 // reader-webtoon (WP-13b, TESTING.md 6f): the webtoon strip, on Gamma Webtoon (Long series: 2 chapters x 3 WebP pages of
 // 800 x 12000, each 8 segments of 1500 px with their own page code; no genres, so the shape rule picks the strip) and Alpha
-// (Reading: 1000 x 1500 JPEG pages, switched to the strip by hand). Zoom in the strip comes with WP-13d. Checks:
+// (Reading: 1000 x 1500 JPEG pages, switched to the strip by hand). Zoom in the strip: WP-13d. Checks:
 // - Gamma ch1 from the details screen opens as a strip by itself (auto "shape"), turned left on a fresh config (the strip's
 //   own orientation), 720 wide, the first page's top at the screen's top; config.json then has Gamma as "vertical";
 // - a played drag moves the strip by the drag; a played flick carries on past the finger and stops; a touch during a flick
 //   stops it (and is no tap); a bottom tap glides on 960 units (3/4 of the screen), a top tap back, a middle tap opens the
-//   menu at once;
+//   menu (after the double tap's 250 ms wait);
+// - zoom (WP-13d): a double tap in the middle zooms to 2 x around the tapped point (Gamma's 800-wide decode is sharp
+//   enough: nothing decodes again); a zoomed drag pans sideways; a pinch goes to 3 x and back, the point between the
+//   fingers staying put; a zoomed drag scrolls half as far (the zoom stays); a double tap goes back to 1 x;
 // - after the moves, the page codes on screen are where the event's page and spot (the middle line) say;
 // - golden "webtoon-seam": the seam of pages 1 and 2 at the middle line (no gap); in page 2 the server gets lastPageRead 1
 //   and the spot note; at the end of ch1 the band (golden "webtoon-band"), ch1 read on the server, then ch2 is the chapter
@@ -27,7 +30,8 @@ import { chooseSetting, codesOnScreen, expectPage, middleCode, openChapter, open
 import { driverName, type Scenario, scenario } from '../lib/scenario.ts';
 import { LIBRARY_MORE, MANGA, type Orientation, PORTRAIT, portraitPoint, READER } from '../lib/screens.ts';
 import { appServerUrl, optionsFromEnv, SuwayomiClient } from '../lib/suwayomi.ts';
-import { dragFrames, flickFrames, FRAME_MS, playTouches, type Point, type TouchFrame } from '../lib/touches.ts';
+import { doubleTap, dragFrames, flickFrames, FRAME_MS, pinch, playTouches, type Point,
+    type TouchFrame } from '../lib/touches.ts';
 
 const MiB = 1024 * 1024;
 
@@ -67,6 +71,20 @@ function heldDrag(s: Scenario, view: View, by: number): () => Promise<void> {
     const frames: TouchFrame[] = [
         { ms: 0, fingers: [{ id: 0, ...view.at(down) }] },
         ...dragFrames(from, { x: from.x, y: from.y - by }, 250, view.at)
+            .map((f) => ({ ms: f.ms + FRAME_MS, fingers: f.fingers })),
+    ];
+    const end = frames[frames.length - 1];
+    frames.push({ ms: end.ms + 100, fingers: end.fingers }, { ms: end.ms + 100 + FRAME_MS, fingers: [] });
+    return async () => { await playTouches(s, frames); };
+}
+
+/** WP-13d: a sideways drag (held at the end, no flick) of `by` units to the right (+) or left (-) across the middle. */
+function sideDrag(s: Scenario, view: View, by: number): () => Promise<void> {
+    const down = { x: by > 0 ? 120 : view.w - 120, y: view.h / 2 };
+    const from = { x: down.x + Math.sign(by) * DRAG_SLOP, y: down.y };
+    const frames: TouchFrame[] = [
+        { ms: 0, fingers: [{ id: 0, ...view.at(down) }] },
+        ...dragFrames(from, { x: from.x + by, y: from.y }, 250, view.at)
             .map((f) => ({ ms: f.ms + FRAME_MS, fingers: f.fingers })),
     ];
     const end = frames[frames.length - 1];
@@ -213,7 +231,8 @@ const STRIP_END = ch2Page(3) + BAND - 1280;
 /**
  * The Switch's part (the desktop can't push a stick or press Y, L or R). From the details screen: Gamma ch1 (read, so it
  * opens at its start) in landscape full width (remembered), Y turns it left. A half stick push, the held D-pad (LEFT points
- * down the strip turned left) and L back; then three passes down and up the whole strip at a full push: memory grows by less
+ * down the strip turned left) and L back; ZR / ZL zoom steps with a sideways
+ * D-pad glide (WP-13d); then three passes down and up the whole strip at a full push: memory grows by less
  * than 16 MiB after the first pass, and from the second pass on nothing waits (`waitFrames` 0). Frame intervals of every
  * gesture with 3 frames or more (drags, flicks, glides, scrolls): p90 <= 17 ms, none over 34 ms.
  */
@@ -241,6 +260,20 @@ async function switchControls(s: Scenario, g1: number): Promise<void> {
     ev = await readerAfter(s, () => s.driver.press('L', 1500), { mode: 'strip' });
     console.log(`[reader-webtoon] L held 1.5 s: ${Number(ev.top) - top}`);
     expect(top - Number(ev.top), 'L held goes back').toBeGreaterThan(1300);
+
+    // WP-13d: ZR / ZL step the zoom around the screen's middle: 1.5, then 2 (the strip 1440 wide, its left edge at
+    // 360 - 2 x 360 = -360). Zoomed, the D-pad's UP (turned left, a sideways arrow) glides 3/4 of a screen sideways and
+    // stops at the strip's edge, 360 away either way; the top stays. ZL twice goes back to 1.
+    ev = await readerAfter(s, () => s.driver.press('ZR'), { mode: 'strip', zoom: 1.5 });
+    ev = await readerAfter(s, () => s.driver.press('ZR'), { mode: 'strip', zoom: 2 });
+    expect(ev).toMatchObject({ x: -360, sharp: true, sharpPages: 0 });
+    top = Number(ev.top);
+    ev = await readerAfter(s, () => s.driver.press('UP'), { mode: 'strip', zoom: 2 });
+    expect(Math.abs(Number(ev.x) + 360), `a zoomed sideways glide: x -360 -> ${ev.x}`).toBe(360);
+    expect(near(ev.top, top), 'and the top stays').toBe(true);
+    ev = await readerAfter(s, () => s.driver.press('ZL'), { mode: 'strip', zoom: 1.5 });
+    ev = await readerAfter(s, () => s.driver.press('ZL'), { mode: 'strip', zoom: 1 });
+    expect(ev).toMatchObject({ x: 0 });
 
     // Three passes down and up at a full push (8 s pushes until the end: ~17,000 units each).
     const memory: number[] = [];
@@ -344,7 +377,8 @@ scenario('reader-webtoon', async (s) => {
         expect(s.events.events.slice(mark).filter((e) => e.ev === 'gesture' && e.kind === 'glide')).toEqual([]);
         expect(ev.menu).toBe(false);
 
-        // Taps: the bottom glides on 3/4 of a screen, the top back, the middle opens the menu at once (and closes it).
+        // Taps: the bottom glides on 3/4 of a screen, the top back, the middle opens the menu after the double tap's wait
+        // (and closes it at once).
         top = Number(ev.top);
         ev = await readerAfter(s, tap(s, view.at({ x: 360, y: 1100 })), { mode: 'strip' });
         expect(near(ev.top, top + 960), `a bottom tap: top ${top} -> ${ev.top}`).toBe(true);
@@ -354,6 +388,36 @@ scenario('reader-webtoon', async (s) => {
         ev = await readerAfter(s, tap(s, view.at({ x: 360, y: 640 })), { mode: 'strip', menu: true });
         expect(near(ev.top, top)).toBe(true);
         ev = await readerAfter(s, tap(s, view.at({ x: 360, y: 640 })), { mode: 'strip', menu: false });
+
+        // Zoom in the strip (WP-13d). A double tap in the middle band: 2 x around the tapped point (200, 640). The strip is
+        // 1440 wide then, wider than the screen: its left edge at 200 - 2 x 200 = -200; the tapped height stays (the top
+        // moves down 640 / 2). Gamma's 800-wide decode has all the detail 2 x wants: sharp, nothing decodes again.
+        top = Number(ev.top);
+        ev = await readerAfter(s, doubleTap(s, { x: 200, y: 640 }, view.at), { mode: 'strip', zoom: 2 });
+        expect(ev).toMatchObject({ x: -200, sharp: true, sharpPages: 0, decW: GAMMA.width, menu: false });
+        expect(near(ev.top, top + 320), `a double tap at 2 x: top ${top} -> ${ev.top}`).toBe(true);
+        // A zoomed drag pans sideways (150 to the right): the left edge follows the finger, the top stays.
+        top = Number(ev.top);
+        ev = await readerAfter(s, sideDrag(s, view, 150), { mode: 'strip', zoom: 2 });
+        expect(near(ev.x, -50), `a sideways drag: x -200 -> ${ev.x}`).toBe(true);
+        expect(near(ev.top, top), 'and the top stays').toBe(true);
+        // A pinch from 200 to 300 apart around the middle: 3 x, the point between the fingers stays (strip x 205 stays at
+        // 360: the left edge at 360 - 3 x 205); then back from 300 to 200: 2 x again.
+        ev = await readerAfter(s, pinch(s, { x: 360, y: 640 }, 200, 300, view.at), { mode: 'strip', zoom: 3 });
+        expect(near(ev.x, -255, 3), `a pinch to 3 x: x ${ev.x}`).toBe(true);
+        ev = await readerAfter(s, pinch(s, { x: 360, y: 640 }, 300, 200, view.at), { mode: 'strip', zoom: 2 });
+        expect(near(ev.x, -50, 3), `and back to 2 x: x ${ev.x}`).toBe(true);
+        // Scrolling keeps the zoom: a 400 drag moves the strip 200 (a screen unit is half a strip unit at 2 x).
+        top = Number(ev.top);
+        ev = await readerAfter(s, heldDrag(s, view, 400), { mode: 'strip', zoom: 2 });
+        expect(near(ev.top, top + 200), `a zoomed 400 drag: top ${top} -> ${ev.top}`).toBe(true);
+        expect(near(ev.x, -50, 3), 'sideways it stays').toBe(true);
+        // A double tap again: back to the strip's width around the tapped point.
+        top = Number(ev.top);
+        ev = await readerAfter(s, doubleTap(s, { x: 360, y: 640 }, view.at), { mode: 'strip', zoom: 1 });
+        expect(ev).toMatchObject({ x: 0, menu: false });
+        expect(near(ev.top, top - 320), `a double tap back to 1: top ${top} -> ${ev.top}`).toBe(true);
+        await expectCodes(s, ev, view);
 
         // The seam of pages 1 and 2 just above the middle line (page 2 is under it): no gap (golden).
         ev = await scrollTo(s, view, ch1Page(1) + 40 - 640);

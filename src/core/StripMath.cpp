@@ -494,6 +494,93 @@ StripTapArea stripTapArea(float y, float height) {
     return StripTapArea::Middle;
 }
 
+// --- Zoom in the strip (WP-13d) ---
+
+double clampStripLeft(double left, double drawnWidth, double screenWidth) {
+    if (drawnWidth <= screenWidth) {
+        return (screenWidth - drawnWidth) / 2;  // it fits: centred, the sides show the reader's background
+    }
+    if (!(left <= 0)) {  // also NaN
+        return 0;
+    }
+    return std::max(left, screenWidth - drawnWidth);
+}
+
+namespace {
+
+// The strip point under a point of the screen, in strip units (x from the strip's left edge, y from its top), and the view
+// that puts strip point (u, v) under screen point `at` at zoom `zoom`.
+struct StripPoint {
+    double u = 0;
+    double v = 0;
+};
+
+StripPoint stripPointAt(const StripZoomView& view, PointF at) {
+    const double zoom = view.zoom > 0 ? view.zoom : 1;
+    return {(at.x - view.left) / zoom, view.top + at.y / zoom};
+}
+
+StripZoomView viewFor(StripPoint point, PointF at, float zoom, double stripWidth, double screenWidth) {
+    StripZoomView view;
+    view.zoom = zoom;
+    view.left = clampStripLeft(at.x - point.u * zoom, stripWidth * zoom, screenWidth);
+    view.top = point.v - at.y / zoom;
+    return view;
+}
+
+double fingerDistance(PointF a, PointF b) {
+    return std::hypot(static_cast<double>(a.x) - b.x, static_cast<double>(a.y) - b.y);
+}
+
+}  // namespace
+
+StripZoomView stripZoomAround(StripZoomView from, float to, PointF anchor, double stripWidth, double screenWidth,
+                              float maxZoom) {
+    return viewFor(stripPointAt(from, anchor), anchor, clampZoom(to, maxZoom), stripWidth, screenWidth);
+}
+
+StripZoomView stripPinchView(const StripPinchStart& start, PointF a, PointF b, double stripWidth, double screenWidth,
+                             float maxZoom) {
+    const double startDistance = fingerDistance(start.a, start.b);
+    const float zoom = startDistance >= 1.0
+                           ? clampZoom(static_cast<float>(start.view.zoom * fingerDistance(a, b) / startDistance), maxZoom)
+                           : clampZoom(start.view.zoom, maxZoom);
+    const PointF from{(start.a.x + start.b.x) / 2, (start.a.y + start.b.y) / 2};
+    const PointF now{(a.x + b.x) / 2, (a.y + b.y) / 2};
+    return viewFor(stripPointAt(start.view, from), now, zoom, stripWidth, screenWidth);
+}
+
+bool isStripDoubleTap(PointF first, std::int64_t firstUpMs, PointF second, std::int64_t secondDownMs, float height,
+                      float maxDistance, int maxGapMs) {
+    const std::int64_t gap = secondDownMs - firstUpMs;
+    return gap >= 0 && gap <= maxGapMs && fingerDistance(first, second) <= maxDistance &&
+           stripTapArea(first.y, height) == StripTapArea::Middle && stripTapArea(second.y, height) == StripTapArea::Middle;
+}
+
+std::vector<int> stripSharpPages(const StripLayout& layout, int count) {
+    const double line = layout.top() + layout.viewHeight() / 2;
+    std::vector<std::pair<double, int>> pages;  // (distance from the middle line, item)
+    const auto [first, last] = layout.overlapping(layout.top(), layout.bottom());
+    for (int item = first; item < last; ++item) {
+        if (layout.item(item).kind != StripItemKind::Page) {
+            continue;
+        }
+        const double top = layout.itemTop(item);
+        const double bottom = layout.itemBottom(item);
+        const double distance = line < top ? top - line : line >= bottom ? line - bottom : 0.0;
+        pages.emplace_back(distance, item);
+    }
+    // Nearest first; at the same distance the lower one (a bigger item index), since reading goes down.
+    std::stable_sort(pages.begin(), pages.end(), [](const auto& a, const auto& b) {
+        return a.first != b.first ? a.first < b.first : a.second > b.second;
+    });
+    std::vector<int> items;
+    for (std::size_t i = 0; i < pages.size() && static_cast<int>(i) < count; ++i) {
+        items.push_back(pages[i].second);
+    }
+    return items;
+}
+
 // --- The spot on the server ---
 
 std::string stripSpotValue(int page, double share) {

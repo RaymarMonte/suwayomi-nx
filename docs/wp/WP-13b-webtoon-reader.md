@@ -196,20 +196,20 @@ flick ourselves) and how a `Label` draws its text with NanoVG (the font call, fo
       setting × orientation; config round trip and old files; `ProgressSync` saves a moved spot within the throttle
 - [x] GraphQL/api: `FetchChapterPages` with `meta`, `UpdateStripProgress`, `setProgress` with a spot; contract test green,
       recorded answers refreshed, a unit test that the spot request carries both fields
-- [x] `StripModel` (suite `ui`; its zoomed decodes: WP-13d): opens at the spot (and at the page's top when the note's page differs, at the start when
+- [x] `StripModel` (suite `ui`; its zoomed decodes: WP-13d, done 2026-11-12, D50): opens at the spot (and at the page's top when the note's page differs, at the start when
       read); the window loads the pages near the screen and lets the far ones go; the next chapter joins below near the end
       and the previous one above near the start (view still); a fourth chapter cuts the farthest out; the chapter being read
       changes at the middle line, the old one saved at once; `isRead` when the last page's bottom shows; progress with the
       spot; a failed page retries; the zoomed decode only for the pages on screen, let go when they leave; `ReaderModel`'s
       tests unchanged
-- [x] Views (zoom and the sideways pan: WP-13d; strip mode inside `ReaderView` + `StripCanvas`, D49): the shared base (or the session's better shape), `StripView` (tiles, window, uploads, placeholders, bands, the
+- [x] Views (zoom and the sideways pan: WP-13d, done, D50; strip mode inside `ReaderView` + `StripCanvas`, D49): the shared base (or the session's better shape), `StripView` (tiles, window, uploads, placeholders, bands, the
       failed band, flick, glides, held scroll, zoom and sideways pan), the `touches` entry for tests
 - [x] `ReaderActivity`: the strip pair, switching by hand and by itself (shape: before the first page is drawn), the strip
       controls, the strip's own orientation, the settings menu in strip mode ("Vertical strip" in Reading direction, "Strip
       width"), the new event fields and gesture kinds
 - [x] Profile: `stripScreensBehind` / `stripScreensAhead` (unit test of the profile table)
 - [x] Test hooks: `flick()` and the middle-code check in `tests/e2e/lib/` (with vitest tests), TESTING.md says how
-- [x] (Its zoom steps: WP-13d.) Scenario `reader-webtoon` (desktop and Switch). Desktop: Gamma ch1 from the details screen with no own choice → strip
+- [x] (Its zoom steps: WP-13d, done, D50.) Scenario `reader-webtoon` (desktop and Switch). Desktop: Gamma ch1 from the details screen with no own choice → strip
       by itself (`auto: shape`), held sideways (portrait-left on a fresh config), `stripW` 720, the strip's top at the top,
       config.json then has Gamma as `vertical`; a played drag moves `top` by the drag; a played flick carries on past the
       finger and stops; a touch during a flick stops it; a bottom tap glides on ~960 units, a top tap back, a middle tap opens
@@ -260,7 +260,8 @@ If the session runs long: the strip itself (core math, `StripModel`, `StripView`
 joined chapters, the spot on the server, "by itself", strip width, the strip's orientation, `reader-webtoon` without its zoom
 steps, the console numbers) lands first, green. Zoom in the strip (the pinch, the double tap, ZR/ZL, the sideways pan and the
 sharper decodes of the pages on screen) then moves to a new **WP-13d** in ROADMAP.md (Needs 13b, before WP-18), and STATUS
-says so. Until then a middle tap in the strip opens the menu at once (no double tap to wait for).
+says so. Until then a middle tap in the strip opens the menu at once (no double tap to wait for). **Split taken** (2026-11-12):
+WP-13d built the zoom (D50); since then the middle tap waits 250 ms for a double tap.
 
 ## Sonnet-safe chunks
 - The docs updates at the end (from a list of facts Opus writes), the i18n strings.

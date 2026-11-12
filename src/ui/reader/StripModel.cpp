@@ -28,6 +28,9 @@ StripOptions stripOptionsFrom(const core::RuntimeProfile& profile, const core::R
     options.width = reader.stripWidth;
     options.screensBehind = profile.stripScreensBehind;
     options.screensAhead = profile.stripScreensAhead;
+    options.maxZoom = profile.maxZoom;
+    options.maxDecodeScale = profile.maxDecodeScale;
+    options.zoomPages = profile.stripZoomPages;
     options.progressSyncMs = profile.progressSyncMs;
     options.progressRetryMaxMs = profile.progressRetryMaxMs;
     options.format = reader.serverConvertsToJpeg ? api::PageFormat::Jpeg : api::PageFormat::AsStored;
@@ -51,6 +54,7 @@ StripModel::~StripModel() {
     for (Part& part : parts_) {
         for (Slot& slot : part.slots) {
             slot.cancel.cancel();
+            slot.sharpCancel.cancel();
         }
     }
     saver_->toModel = nullptr;
@@ -195,6 +199,35 @@ int StripModel::pagesHeld() const {
     return count;
 }
 
+image::ImagePtr StripModel::shownImage(int item) const {
+    const Slot* slot = slotAt(item);
+    if (slot == nullptr || slot->page.state != ReaderPage::State::Ready || !slot->page.image) {
+        return nullptr;
+    }
+    return slot->sharp ? slot->sharp : slot->page.image;
+}
+
+int StripModel::sharpHeld() const {
+    int count = 0;
+    for (const Part& part : parts_) {
+        for (const Slot& slot : part.slots) {
+            count += slot.sharp ? 1 : 0;
+        }
+    }
+    return count;
+}
+
+bool StripModel::sharpLoading() const {
+    for (const Part& part : parts_) {
+        for (const Slot& slot : part.slots) {
+            if (slot.sharpLoading) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 const core::Chapter& StripModel::chapter() const {
     static const core::Chapter kNone;
     const core::Chapter* chapter = chapterById(readingId_);
@@ -216,6 +249,11 @@ double StripModel::stripWidth() const {
 
 core::ImageSize StripModel::decodeBox() const {
     return core::stripDecodeBox(options_.width, options_.orientation, options_.screen);
+}
+
+core::ImageSize StripModel::zoomBox() const {
+    return core::stripZoomDecodeBox(options_.width, options_.orientation, options_.screen, zoom_, options_.maxZoom,
+                                    options_.maxDecodeScale);
 }
 
 std::optional<double> StripModel::noteSpot(const core::Chapter& chapter) const {
@@ -410,6 +448,7 @@ void StripModel::update() {
         again_ = false;
         followMiddle();
         updateWindow();
+        dropSharpOffScreen();
         const core::StripEnds ends = core::stripWindowEnds(layout_, options_.screensBehind, options_.screensAhead);
         if (ends.top) {
             requestEdge(false);
@@ -500,6 +539,7 @@ void StripModel::updateWindow() {
 void StripModel::resetSlot(Slot& slot) {
     slot.cancel.cancel();
     slot.page = ReaderPage{};  // the source size stays: the height doesn't change
+    dropSharp(slot);
 }
 
 void StripModel::startLoad(Part& part, int index, net::Priority priority) {
@@ -747,6 +787,7 @@ void StripModel::cutFarthest() {
     const std::size_t cut = top ? 0 : parts_.size() - 1;
     for (Slot& slot : parts_[cut].slots) {
         slot.cancel.cancel();
+        slot.sharpCancel.cancel();
     }
     if (top) {
         layout_.erase(0, firstItem(1) - 1);  // its band above and its pages; the band below it is the strip's first now
@@ -785,6 +826,7 @@ void StripModel::setScreen(core::ImageSize units, core::ImageSize screen, core::
     options_.units = units;
     options_.screen = screen;
     options_.orientation = orientation;
+    zoom_ = 1;  // rotating (or docking) goes back to the strip's width (WP-13d)
     layout_.setViewHeight(units.height);
     relayout();
     if (decodeBox() != before) {
@@ -800,12 +842,150 @@ void StripModel::setStripWidth(core::StripWidth width) {
     }
     const core::ImageSize before = decodeBox();
     options_.width = width;
+    if (zoom_ != 1) {
+        zoom_ = 1;  // a new strip width goes back to it (WP-13d)
+        layout_.setViewHeight(options_.units.height);
+    }
     relayout();
     if (decodeBox() != before) {
         decodeAgain();
     }
     update();
     changed();
+}
+
+// --- Zoom (WP-13d) ---
+
+void StripModel::setView(float zoom, double top) {
+    const float z = core::clampZoom(zoom, options_.maxZoom);
+    const bool zoomed = std::fabs(z - zoom_) > 0.0001f;
+    if (zoomed) {
+        zoom_ = z;
+        layout_.setViewHeight(options_.units.height / static_cast<double>(zoom_));
+    }
+    const double moved = layout_.scrollTo(top);
+    if (zoomed || moved != 0) {
+        update();
+        if (moved_) {
+            changed();  // the page or the chapter under the middle line changed
+        }
+    }
+}
+
+bool StripModel::dropSharp(Slot& slot) {
+    const bool had = slot.sharp != nullptr || slot.sharpLoading;
+    slot.sharpCancel.cancel();
+    slot.sharpCancel = net::CancelToken();
+    slot.sharp.reset();
+    slot.sharpBox = {};
+    slot.sharpLoading = false;
+    return had;
+}
+
+void StripModel::dropSharpOffScreen() {
+    // A page that left the screen lets its sharper decode go at once (one coming on screen waits for the next settle).
+    const auto [first, last] = layout_.overlapping(layout_.top(), layout_.bottom());
+    for (Part& part : parts_) {
+        for (std::size_t i = 0; i < part.slots.size(); ++i) {
+            Slot& slot = part.slots[i];
+            if (slot.sharp == nullptr && !slot.sharpLoading) {
+                continue;
+            }
+            const int item = layout_.find(part.chapter.id, static_cast<int>(i));
+            if (item < first || item >= last) {
+                dropSharp(slot);
+            }
+        }
+    }
+}
+
+void StripModel::sharpenOnScreen() {
+    if (state_ != State::Ready) {
+        return;
+    }
+    const core::ImageSize box = zoomBox();
+    std::set<std::pair<int, int>> keep;  // (chapter, page)
+    bool any = false;
+    if (core::isZoomed(zoom_)) {
+        for (const int item : core::stripSharpPages(layout_, options_.zoomPages)) {
+            const core::StripItem& it = layout_.item(item);
+            Part* part = partOf(it.chapterId);
+            if (part == nullptr || it.page < 0 || it.page >= static_cast<int>(part->slots.size())) {
+                continue;
+            }
+            Slot& slot = part->slots[static_cast<std::size_t>(it.page)];
+            const image::ImagePtr& own = slot.page.image;
+            if (slot.page.state != ReaderPage::State::Ready || !own || slot.url.empty()) {
+                continue;  // still loading: it is sharpened by a later call (the activity calls this while settled)
+            }
+            const core::ImageSize source = own->sourceSize();
+            if (core::isSharp(own->size(), source, box)) {
+                continue;  // its own decode has all the detail the zoom wants (the source has no more): nothing again
+            }
+            keep.insert({it.chapterId, it.page});
+            if (slot.sharp && core::isSharp(slot.sharp->size(), source, box)) {
+                if (slot.sharpLoading) {
+                    // A decode for another box is on its way, but the one drawn already has the detail: that one stays.
+                    slot.sharpCancel.cancel();
+                    slot.sharpCancel = net::CancelToken();
+                    slot.sharpLoading = false;
+                    slot.sharpBox = {};
+                }
+                continue;
+            }
+            if (slot.sharpLoading && slot.sharpBox == box) {
+                continue;  // on its way
+            }
+            requestSharp(*part, it.page, box);
+            any = true;
+        }
+    }
+    for (Part& part : parts_) {
+        for (std::size_t i = 0; i < part.slots.size(); ++i) {
+            if (keep.count({part.chapter.id, static_cast<int>(i)}) == 0 && dropSharp(part.slots[i])) {
+                any = true;
+            }
+        }
+    }
+    if (any) {
+        changed();
+    }
+}
+
+void StripModel::requestSharp(Part& part, int index, core::ImageSize box) {
+    Slot& slot = part.slots[static_cast<std::size_t>(index)];
+    // A sharper decode already drawn stays until this one is there.
+    slot.sharpCancel.cancel();
+    slot.sharpCancel = net::CancelToken();
+    slot.sharpBox = box;
+    if (image::ImagePtr hit = images_.cached(slot.url, box, image::ImageKind::Page)) {
+        slot.sharp = std::move(hit);
+        slot.sharpLoading = false;
+        return;
+    }
+    slot.sharpLoading = true;
+    const net::CancelToken token = slot.sharpCancel;
+    const int chapterId = part.chapter.id;
+    images_.load(image::LoadRequest{slot.url, box, net::Priority::Reader, image::ImageKind::Page}, token,
+                 [this, token, chapterId, index, box](const image::ImageResult& result) {
+                     if (token.cancelled()) {
+                         return;  // left the screen, zoomed again, or the model is gone
+                     }
+                     Part* part = partOf(chapterId);
+                     if (part == nullptr || index < 0 || index >= static_cast<int>(part->slots.size())) {
+                         return;
+                     }
+                     Slot& slot = part->slots[static_cast<std::size_t>(index)];
+                     if (!slot.sharpLoading || slot.sharpBox != box) {
+                         return;
+                     }
+                     slot.sharpLoading = false;
+                     if (result.ok() && slot.page.state == ReaderPage::State::Ready) {
+                         slot.sharp = result.value();
+                     }
+                     // A failed sharper decode (busy, memory) isn't an error: the page's own decode stays, scaled by the GPU.
+                     changed();
+                 });
 }
 
 void StripModel::decodeAgain() {

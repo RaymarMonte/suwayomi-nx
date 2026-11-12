@@ -27,8 +27,9 @@
 // core::ProgressSync (at most every progressSyncMs; everything of a chapter at once when the middle line leaves it; read once
 // its last page's bottom is on screen). The pages near the screen (RuntimeProfile::stripScreensBehind / Ahead) decode at the
 // strip's width; the others are let go. A page arriving above the screen never moves what you see (the layout's anchor).
-// Without borealis, so it is unit-tested (FakeHttpClient and a real ImageLoader). StripView draws it; ReaderActivity hosts it.
-// Zoom in the strip is WP-13d.
+// Zoom (WP-13d): zoomed by z the screen shows its height / z strip units; once the zoom and the strip have settled, the pages
+// on screen decode again sharper for it (sharpenOnScreen), and a page that leaves the screen lets that decode go.
+// Without borealis, so it is unit-tested (FakeHttpClient and a real ImageLoader). StripCanvas draws it; ReaderActivity hosts it.
 namespace snx::ui {
 
 // What the strip needs from the profile and the config.
@@ -39,6 +40,9 @@ struct StripOptions {
     core::StripWidth width = core::StripWidth::Half;                           // ReaderSettings::stripWidth
     double screensBehind = 1;  // RuntimeProfile::stripScreensBehind
     double screensAhead = 3;   // RuntimeProfile::stripScreensAhead
+    float maxZoom = 4;         // RuntimeProfile::maxZoom (WP-13d)
+    float maxDecodeScale = 4;  // RuntimeProfile::maxDecodeScale: the sharper decode's cap (core::stripZoomDecodeBox)
+    int zoomPages = 2;         // RuntimeProfile::stripZoomPages: at most this many pages on screen decode sharper
     int progressSyncMs = 5000;
     int progressRetryMaxMs = 60000;
     api::PageFormat format = api::PageFormat::AsStored;
@@ -102,6 +106,7 @@ class StripModel {
     void setScreen(core::ImageSize units, core::ImageSize screen, core::ReaderOrientation orientation);
     void setStripWidth(core::StripWidth width);
     core::StripWidth stripWidthSetting() const { return options_.width; }
+    core::ImageSize units() const { return options_.units; }  // the reader's screen in view units
 
     // Once per frame: sends the progress when it's due.
     void onFrame();
@@ -123,6 +128,8 @@ class StripModel {
     const core::Chapter* chapterById(int id) const;  // any of the manga's chapters (as last known), nullptr if unknown
     std::vector<int> chaptersHeld() const;      // the chapters in the strip, top to bottom
     int pagesHeld() const;                      // pages decoded and held (Ready)
+    // The image to draw for a page item: its sharper decode once it is there (WP-13d), else its own; nullptr while it loads.
+    image::ImagePtr shownImage(int item) const;
 
     // Where you are: the chapter being read (the one under the middle line last), its page under the line and the spot.
     const core::Chapter& chapter() const;
@@ -131,12 +138,36 @@ class StripModel {
     int pageCount() const;                  // the chapter being read's pages
     bool chapterRead() const;               // read on the server, or since its last page's bottom showed
 
+    // --- Zoom (WP-13d) ---
+    // The zoom on screen (1 = the strip at its width): the screen shows units.height / zoom strip units. Not saved: a new
+    // screen (rotating, docking) or strip width goes back to 1.
+    float zoom() const { return zoom_; }
+    float maxZoom() const { return options_.maxZoom; }
+    // The zoom and the strip y at the screen's top at once (a zoom around a point, a pinch): the zoom kept within 1..maxZoom,
+    // the top within the strip.
+    void setView(float zoom, double top);
+    // The zoom and the strip have settled (the activity waits 150 ms, D48): the pages on screen (core::stripSharpPages, at
+    // most zoomPages) decode again at the zoom's box (core::stripZoomDecodeBox) at Reader priority, unless the decode they
+    // have already has the detail it wants (a webtoon strip 720 .. 1080 wide has none to give above about 1.1 .. 1.5 x: the
+    // "no sharper" rule, WP-13c). A sharper decode stays drawn until the next one is there. At zoom 1 every sharper decode
+    // goes, and so does that of a page no longer among the pages on screen. Calling it again changes nothing (cheap).
+    void sharpenOnScreen();
+    // The box a page wants at the zoom on screen (its own box at zoom 1): what "sharp" is measured against (test events).
+    core::ImageSize zoomBox() const;
+    bool sharpLoading() const;  // a sharper decode is on its way (the idle check)
+    int sharpHeld() const;      // pages with a sharper decode now
+
   private:
     struct Slot {
         ReaderPage page;
         std::string url;  // full URL; empty: the server listed the page in a form we can't use
         net::CancelToken cancel;
         std::optional<core::ImageSize> source;  // known once decoded; kept when let go, so the height stays
+        // WP-13d: the page decoded again for the zoom (only pages on screen), the box asked for, and that load.
+        image::ImagePtr sharp;
+        core::ImageSize sharpBox;
+        bool sharpLoading = false;
+        net::CancelToken sharpCancel;
     };
     // One chapter in the strip.
     struct Part {
@@ -177,6 +208,9 @@ class StripModel {
     void onLoaded(int chapterId, int index, const image::ImageResult& result);
     void reloadNetworkFailures();
     void resetSlot(Slot& slot);
+    bool dropSharp(Slot& slot);  // true if it had one (or one on its way)
+    void dropSharpOffScreen();
+    void requestSharp(Part& part, int index, core::ImageSize box);
     void relayout();        // every height again (the width, the screen, the estimates)
     void decodeAgain();     // every page again, at the new decode box
     void onSaved(const core::ReadProgress& progress);
@@ -209,6 +243,7 @@ class StripModel {
     int readingId_ = 0;  // the chapter being read
     int page_ = -1;
     double spot_ = 0;
+    float zoom_ = 1;  // WP-13d
     std::shared_ptr<core::ProgressSync> sync_;  // the chapter being read's progress
     bool updating_ = false;                     // update() runs (a join from a synchronous answer waits for it)
     bool again_ = false;                        // ... and something asked for it meanwhile

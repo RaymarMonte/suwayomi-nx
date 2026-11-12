@@ -93,10 +93,13 @@ void ReaderView::setOrientation(core::ReaderOrientation orientation, core::SizeF
     overlay_->setWidth(reader.width);
     overlay_->setHeight(reader.height);
     placed_ = false;
-    setZoomValue(1);  // rotating goes back to the fit
+    setZoomValue(1);  // rotating goes back to the fit (the strip's model goes back to 1 with its new screen)
     glide_.reset();
     pinch_.reset();
     pendingTap_.reset();
+    if (strip_) {
+        strip_->cancelPinch();
+    }
 }
 
 void ReaderView::addButton(brls::View* button, std::function<void()> action) {
@@ -171,8 +174,18 @@ void ReaderView::onTapped(brls::Point position) {
         }
     }
     if (strip_) {
+        // The strip's zones go across (top, middle, bottom). A middle tap waits for a possible second one (WP-13d: a double
+        // tap zooms); the top and bottom glide at once.
+        const core::StripTapArea area = core::stripTapArea(at.y, readerScreen().height);
+        if (area == core::StripTapArea::Middle && doubleTapWait_) {
+            onMiddleTap(at);
+            return;
+        }
+        if (pendingTap_) {
+            firePendingTap();
+        }
         if (onStripTap) {
-            onStripTap(core::stripTapArea(at.y, readerScreen().height));  // at once: no double tap in the strip (WP-13d)
+            onStripTap(area);
         }
         return;
     }
@@ -196,6 +209,15 @@ void ReaderView::onMiddleTap(core::PointF at) {
     }
     // The second tap of a double tap: 2 x at this point, or back to the whole page.
     pendingTap_.reset();
+    if (strip_) {
+        // The strip (WP-13d): 2 x at this point, or back to the strip's width around it (the tapped spot stays put).
+        if (strip_->ready()) {
+            gesture("double_tap", true);
+            strip_->zoomTo(core::isZoomed(strip_->zoom()) ? 1.0f : kDoubleTapZoom, at);
+            gesture("double_tap", false);
+        }
+        return;
+    }
     if (!placed_ || !hasPage()) {
         return;
     }
@@ -210,7 +232,11 @@ void ReaderView::onMiddleTap(core::PointF at) {
 
 void ReaderView::firePendingTap() {
     pendingTap_.reset();
-    if (onTap) {
+    if (strip_) {
+        if (onStripTap) {
+            onStripTap(core::StripTapArea::Middle);
+        }
+    } else if (onTap) {
         onTap(core::TapArea::Middle);
     }
 }
@@ -401,14 +427,18 @@ void ReaderView::onFinger(const brls::TouchState& touch) {
             if (fingers_.size() >= 2) {
                 multiTouch_ = true;  // from now on until every finger has lifted, no tap, drag or swipe counts
                 pendingTap_.reset();
-                if (!pinch_ && fingers_.size() == 2 && placed_ && hasPage()) {
+                if (!pinch_ && fingers_.size() == 2 && (strip_ ? strip_->ready() : placed_ && hasPage())) {
                     startPinch();
                 }
             }
             break;
         case brls::TouchPhase::STAY: {
             fingers_[id] = Finger{at, pass_};
-            if (pinch_ && (id == pinch_->a || id == pinch_->b) && fingers_.count(pinch_->a) && fingers_.count(pinch_->b)) {
+            if (pinch_ && (id == pinch_->a || id == pinch_->b) && fingers_.count(pinch_->a) && fingers_.count(pinch_->b) &&
+                strip_) {
+                strip_->pinchTo(fingers_[pinch_->a].at, fingers_[pinch_->b].at);  // the strip's own pinch (WP-13d)
+            } else if (pinch_ && (id == pinch_->a || id == pinch_->b) && fingers_.count(pinch_->a) &&
+                       fingers_.count(pinch_->b)) {
                 const core::ZoomView view = core::pinchView(pinch_->start, fingers_[pinch_->a].at, fingers_[pinch_->b].at,
                                                             fitSize_, screen_, maxZoom_);
                 setZoomValue(view.zoom);
@@ -431,6 +461,9 @@ void ReaderView::startPinch() {
     if (dragging_) {
         dragging_ = false;
         ++moves_;
+        if (strip_) {
+            strip_->dragCancel();  // the drag ends where it is: no flick
+        }
         gesture("drag", false);
     }
     glide_.reset();
@@ -438,11 +471,20 @@ void ReaderView::startPinch() {
     const auto first = *it++;
     const auto second = *it;
     pinch_ = Pinch{core::PinchStart{zoom_, position_, first.second.at, second.second.at}, first.first, second.first};
+    if (strip_) {
+        strip_->pinchStart(first.second.at, second.second.at);
+    }
     gesture("pinch", true);
 }
 
 void ReaderView::endPinch() {
     pinch_.reset();
+    if (strip_) {
+        strip_->pinchEnd();  // let go just above 1: back to the strip's width
+        ++moves_;
+        gesture("pinch", false);
+        return;
+    }
     if (core::snapsToFit(zoom_)) {
         // Let go just above the fit: the whole page again, centred.
         setZoomValue(1);
@@ -464,8 +506,13 @@ void ReaderView::onPan(const brls::PanGestureStatus& status) {
         swallowTap_ = strip_ != nullptr && strip_->touchDown();  // a touch during a flick stops it and is no tap
         if (pendingTap_) {
             // A middle tap waits: close by and in time this may be the second tap of a double tap; else it was a single tap.
-            if (core::isDoubleTap(pendingTap_->at, pendingTap_->upMs, toReader(status.position), nowMs(),
-                                  readerScreen().width, kTapMaxSlide, kDoubleTapGapMs)) {
+            const core::PointF second = toReader(status.position);
+            const bool twice =
+                strip_ ? core::isStripDoubleTap(pendingTap_->at, pendingTap_->upMs, second, nowMs(),
+                                                readerScreen().height, kTapMaxSlide, kDoubleTapGapMs)
+                       : core::isDoubleTap(pendingTap_->at, pendingTap_->upMs, second, nowMs(), readerScreen().width,
+                                           kTapMaxSlide, kDoubleTapGapMs);
+            if (twice) {
                 pendingTap_->secondDown = true;
             } else {
                 firePendingTap();
@@ -493,7 +540,7 @@ void ReaderView::onPan(const brls::PanGestureStatus& status) {
     const float dy = move.y;
     if (strip_ && (status.state == brls::GestureState::START || status.state == brls::GestureState::STAY ||
                    status.state == brls::GestureState::END)) {
-        strip_->dragTo(dy, nowMs());
+        strip_->dragTo({dx, dy}, nowMs());  // sideways too when zoomed (WP-13d)
     }
     if (placed_ && (status.state == brls::GestureState::START || status.state == brls::GestureState::STAY ||
                     status.state == brls::GestureState::END)) {
@@ -511,19 +558,19 @@ void ReaderView::onPan(const brls::PanGestureStatus& status) {
                 position_ = dragFrom_;  // undo the little move
             }
             if (strip_) {
-                strip_->dragTo(0, nowMs());  // the strip too
+                strip_->dragTo({0, 0}, nowMs());  // the strip too
             }
             onTapped(touchDown_);
             return;
+        }
+        if (pendingTap_ && pendingTap_->secondDown) {
+            pendingTap_.reset();  // the second touch was a drag: neither a double tap nor a menu
         }
         if (strip_) {
             strip_->dragEnd(nowMs());  // it may flick on; no swipes in the strip
             return;
         }
         ++moves_;
-        if (pendingTap_ && pendingTap_->secondDown) {
-            pendingTap_.reset();  // the second touch was a drag: neither a double tap nor a menu
-        }
         const std::optional<core::Side> side = core::swipeSide(dx, dy, kSwipeMinDistance);
         // A page that could still move that way when the swipe began moved instead of turning.
         if (side && onSwipe && !(*side == core::Side::Left ? couldMoveLeft_ : couldMoveRight_)) {

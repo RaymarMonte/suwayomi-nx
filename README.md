@@ -6,7 +6,7 @@ as a desktop app (Linux), so most testing happens on a PC.
 
 **Status:** v0.2: browse your library, see a manga's chapters, read with the paged reader (also held sideways, and zoomed
 in), read webtoons as one long strip, and your reading progress goes back to the server. Not there yet: updates, history,
-browsing sources, downloads, zoom in the webtoon strip. What changed: `CHANGELOG.md`. Plans: `docs/ROADMAP.md`.
+browsing sources, downloads. What changed: `CHANGELOG.md`. Plans: `docs/ROADMAP.md`.
 
 ## Using it
 
@@ -37,7 +37,7 @@ hint at the bottom of the screen does what its button does.
 | Library | tap a category, Sort, Refresh or a cover; flick to scroll | L / R category, Y sort, X refresh, A open, − library menu |
 | Manga | tap Continue, a chapter, its "..." menu, Sort, Show, Refresh; tap the description to open it | A open chapter, X read / unread, Y chapter menu, − menu |
 | Reader | tap the left or right side (or swipe) to turn, the middle for the menu; drag a page that is bigger than the screen; pinch or double-tap the middle to zoom | L / R and left / right turn, up / down scroll, ZR / ZL zoom, A menu, X retry, Y rotate, − reader settings |
-| Webtoon strip | drag or flick to scroll; tap the bottom to move on, the top to go back, the middle for the menu | sticks scroll; up / down and L / R move on or back (hold to keep scrolling), A menu, X retry, Y rotate, − reader settings |
+| Webtoon strip | drag or flick to scroll; tap the bottom to move on, the top to go back, the middle for the menu; pinch or double-tap the middle to zoom | sticks scroll; up / down and L / R move on or back (hold to keep scrolling), ZR / ZL zoom (then left / right move sideways), A menu, X retry, Y rotate, − reader settings |
 
 The reader turns pages right to left by default (manga). Reader settings (− or the menu): direction, fit (screen, width,
 height), background colour, the page number, the orientation, what a page turn does to the zoom and when to split spreads.
@@ -50,8 +50,10 @@ of the screen to move on, the upper part to go back, the middle for the menu. At
 below a short band, and scrolling up past a chapter's start brings the one before. The app saves how far down the page you
 were (on the server, as a small note on the chapter), so a chapter opens again at that exact spot. In landscape the strip
 is half the screen wide by default (text about as big as held sideways); the setting **Strip width** offers three
-quarters or the full width. The strip remembers its own orientation (Y or Rotate), apart from the page reader's. Zooming
-in the strip comes later.
+quarters or the full width. The strip remembers its own orientation (Y or Rotate), apart from the page reader's. To zoom
+in the strip, pinch, double-tap the middle (2 ×; again for the strip's width) or press **ZR** / **ZL**; zoomed in, drag,
+push a stick sideways or press the D-pad's left / right to see the sides, and the pages on screen turn sharp a moment
+after you stop.
 
 **Double-page spreads:** held sideways (portrait), a spread shows as two halves that each fill the screen, one page turn
 each: the right half first when reading right to left, the left half first otherwise. Going back onto a spread starts at

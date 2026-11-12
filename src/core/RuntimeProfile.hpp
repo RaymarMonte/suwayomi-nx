@@ -40,6 +40,7 @@ struct RuntimeProfile {
     int webtoonTilesAround = 4;        // rows of tile textures kept above and below the screen in the webtoon strip (WP-13b)
     int stripScreensBehind = 1;        // WP-13b: the strip decodes the pages within this many screens above the screen
     int stripScreensAhead = 3;         // ... and within this many screens below it
+    int stripZoomPages = 2;            // WP-13d: zoomed, at most this many pages on screen decode again sharper
     bool coverRowPrefetch = true;      // library grid: fetch the next row of covers
 
     // Reader (WP-11).

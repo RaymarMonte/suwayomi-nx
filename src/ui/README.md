@@ -51,7 +51,10 @@ window still count pages), decodes twice as wide once it is known to be a spread
 enough for its 7 entries; WP-13b, D49: the webtoon strip: `StripModel` holds up to three chapters' pages, the decode
 window, the chapter being read (under the middle line) and its progress with the spot; `StripCanvas` draws it inside
 `ReaderView` (`setStrip()`, so portrait, the menu, the buttons and touch are shared) from GPU tiles and runs the flick and
-glides; `ReaderActivity` hosts both readers, parks `ReaderModel` while the strip shows, and switches by hand or by itself;
+glides; WP-13d, D50, zoom in the strip: `StripModel::setView` / `sharpenOnScreen` (the pages on screen decode again
+sharper once the view stands still, and let go off screen), `StripCanvas` keeps each page's tiles from one decode and
+swaps them when a sharper one is ready (only if they all fit the texture budget), draws the strip zoom × wide from its
+left edge and runs the pinch, the double tap, ZR / ZL and the sideways pan; `ReaderActivity` hosts both readers, parks `ReaderModel` while the strip shows, and switches by hand or by itself;
 `ProgressSaver` sends both readers' progress), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
 `crash/CrashActivity` (the crash screen, S1), `diagnostics/DiagnosticsActivity` (test builds only: WP-05's server check + request
 burst, WP-07's image benchmark).

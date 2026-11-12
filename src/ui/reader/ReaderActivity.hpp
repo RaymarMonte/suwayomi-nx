@@ -174,6 +174,17 @@ class ReaderActivity : public brls::Activity {
     std::int64_t holdStartMs_ = -1;
     int holdDirection_ = 0;
     bool stickScrolling_ = false;
+    // WP-13d, zoomed: the D-pad's left / right held (a glide sideways, then a pan), and when the strip's view (zoom, top,
+    // left edge) last changed: 150 ms after it stands still the pages on screen decode again sharper.
+    bool holdSideScrolling_ = false;
+    std::int64_t holdSideStartMs_ = -1;
+    int holdSide_ = 0;
+    std::string stripView_;
+    std::int64_t stripViewMs_ = 0;
+    std::int64_t stripZoomMs_ = 0;      // when the strip's zoom last changed (for sharpMs)
+    unsigned seenStripZoom_ = 0;
+    unsigned seenSwaps_ = 0;
+    std::int64_t stripSharpMs_ = -1;    // from the last zoom change to the frame that swapped in a sharper decode
 };
 
 }  // namespace snx::ui

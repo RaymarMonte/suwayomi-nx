@@ -2,7 +2,8 @@
 // spot note or a page's top, the window of pages near the screen (and letting go of the far ones), the neighbouring chapters
 // joined above and below with the view still (a fourth one cuts the farthest out), the chapter being read following the
 // middle line (the old one saved at once, read once its end showed), the progress with the spot in one request, failed pages
-// and their retry, the strip's width.
+// and their retry, the strip's width; and (WP-13d) the zoom: the sharper decodes of the pages on screen, let go when they
+// leave it, none where the page's own decode has all the detail, back to zoom 1 on a new width or screen.
 // The client answers inside the call (no deliver); the loader's answers come through MainQueue (the test plays the main thread).
 #include <doctest/doctest.h>
 
@@ -160,13 +161,14 @@ struct Harness {
     }
 
     // A landscape strip at half the width: 640 units wide on a 1280 x 720 screen; bands 240 tall.
-    std::unique_ptr<StripModel> model(double behind = 1, double ahead = 3) {
+    std::unique_ptr<StripModel> model(double behind = 1, double ahead = 3, int zoomPages = 2) {
         core::Manga manga;
         manga.id = kMangaId;
         manga.title = "Gamma";
         ui::StripOptions options;
         options.screensBehind = behind;
         options.screensAhead = ahead;
+        options.zoomPages = zoomPages;
         options.clock = [this] { return now; };
         options.onSaved = [this](const core::ReadProgress& p, bool ok) { saved.emplace_back(p, ok); };
         auto made = std::make_unique<StripModel>(*client, *images, manga, chapters(), options);
@@ -486,6 +488,89 @@ TEST_CASE("strip: the width follows the setting and the orientation, the middle 
     REQUIRE(h.settle(*model));
     CHECK(model->pageAt(before.item).state == PageState::Ready);
     CHECK(model->pageAt(before.item).image->size().width <= 720 * 115 / 100);
+}
+
+TEST_CASE("strip: zoomed, the pages on screen decode sharper (two at most), let go when they leave it or at zoom 1") {
+    Harness h;
+    auto model = h.model();
+    model->open(101, 2);
+    REQUIRE(h.settle(*model));
+    const core::StripLayout& layout = model->layout();
+    const int p2 = layout.find(101, 2);
+    const int p3 = layout.find(101, 3);
+    REQUIRE(model->shownImage(p2));
+    CHECK(model->shownImage(p2)->size() == core::ImageSize{640, 960});  // Alpha's 1000 x 1500 at the strip's 640
+    // 2 x: the screen shows 360 units. The seam of pages 2 and 3 at the middle line: both on screen.
+    model->setView(2, layout.itemTop(p3) - 180);
+    CHECK(model->zoom() == doctest::Approx(2));
+    CHECK(layout.viewHeight() == doctest::Approx(360));
+    CHECK(layout.top() == doctest::Approx(layout.itemTop(p3) - 180));
+    CHECK(model->zoomBox() == core::ImageSize{1280, 0});
+    CHECK(model->sharpHeld() == 0);  // nothing decodes again before the zoom has settled
+    CHECK_FALSE(model->sharpLoading());
+    model->sharpenOnScreen();
+    CHECK(model->sharpLoading());
+    REQUIRE(h.main.runUntil([&] { return !model->sharpLoading(); }));
+    CHECK(model->sharpHeld() == 2);
+    CHECK(model->shownImage(p2)->size() == core::ImageSize{1000, 1500});  // all the source has (the box asks for 1280)
+    CHECK(model->shownImage(p3)->size() == core::ImageSize{1000, 1500});
+    CHECK(model->pageAt(p2).image->size() == core::ImageSize{640, 960});  // the page's own decode stays as it is
+    CHECK(model->layout().item(p2).height == doctest::Approx(960));        // and the strip's layout too
+    // Again: nothing changes.
+    const int changes = h.changes;
+    model->sharpenOnScreen();
+    CHECK_FALSE(model->sharpLoading());
+    CHECK(h.changes == changes);
+    // Page 2 leaves the screen: its sharper decode goes at once, page 3 keeps its own.
+    model->setView(2, layout.itemTop(p3) + 10);
+    CHECK(model->sharpHeld() == 1);
+    CHECK(model->shownImage(p2)->size() == core::ImageSize{640, 960});
+    CHECK(model->shownImage(p3)->size() == core::ImageSize{1000, 1500});
+    // Zoomed out a step (1.5 x, box 960): the sharper decode still has the detail wanted, so it stays (no decode again).
+    model->setView(1.5f, layout.top());
+    model->sharpenOnScreen();
+    CHECK_FALSE(model->sharpLoading());
+    CHECK(model->shownImage(p3)->size() == core::ImageSize{1000, 1500});
+    // Back to 1: once settled, every sharper decode goes.
+    model->setView(1, layout.top());
+    CHECK(layout.viewHeight() == doctest::Approx(720));
+    model->sharpenOnScreen();
+    CHECK(model->sharpHeld() == 0);
+    CHECK(model->shownImage(p3)->size() == core::ImageSize{640, 960});
+}
+
+TEST_CASE("strip: zoomed, at most zoomPages pages, none whose own decode has all the detail; a new width goes back to 1") {
+    Harness h;
+    // zoomPages 1 (safe mode): only the page nearest the middle line.
+    auto model = h.model(1, 3, 1);
+    model->open(101, 2);
+    REQUIRE(h.settle(*model));
+    const core::StripLayout& layout = model->layout();
+    const int p2 = layout.find(101, 2);
+    const int p3 = layout.find(101, 3);
+    model->setView(2, layout.itemTop(p3) - 100);  // the middle line 80 into page 3, page 2 still on screen
+    model->sharpenOnScreen();
+    REQUIRE(h.main.runUntil([&] { return !model->sharpLoading(); }));
+    CHECK(model->sharpHeld() == 1);
+    CHECK(model->shownImage(p3)->size() == core::ImageSize{1000, 1500});
+    CHECK(model->shownImage(p2)->size() == core::ImageSize{640, 960});
+    // A new strip width goes back to zoom 1 (the screen shows 720 units again).
+    model->setStripWidth(core::StripWidth::Full);
+    CHECK(model->zoom() == doctest::Approx(1));
+    CHECK(layout.viewHeight() == doctest::Approx(720));
+    REQUIRE(h.settle(*model));
+    // Full width (1280): Alpha's pages decode whole (1000 x 1500), so a zoom has nothing sharper to decode.
+    const int p = layout.middle().item;
+    REQUIRE(model->shownImage(p));
+    CHECK(model->shownImage(p)->size() == core::ImageSize{1000, 1500});
+    model->setView(2, layout.top());
+    model->sharpenOnScreen();
+    CHECK_FALSE(model->sharpLoading());
+    CHECK(model->sharpHeld() == 0);
+    // Rotating (a new screen) goes back to 1 as well.
+    model->setScreen({720, 1280}, {720, 1280}, core::ReaderOrientation::PortraitLeft);
+    CHECK(model->zoom() == doctest::Approx(1));
+    CHECK(layout.viewHeight() == doctest::Approx(1280));
 }
 
 }  // TEST_SUITE

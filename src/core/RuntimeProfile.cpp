@@ -51,6 +51,7 @@ RuntimeProfile makeRuntimeProfile(LaunchMode mode, std::uint64_t totalMem, std::
         p.webtoonTilesAround = 1;
         p.stripScreensBehind = 0;
         p.stripScreensAhead = 1;
+        p.stripZoomPages = 1;
         p.coverRowPrefetch = false;
         p.maxChapters = 3000;
         p.httpConcurrency = 2;
@@ -74,6 +75,7 @@ RuntimeProfile makeRuntimeProfile(LaunchMode mode, std::uint64_t totalMem, std::
         p.webtoonTilesAround = 1;
         p.stripScreensBehind = 0;
         p.stripScreensAhead = 1;
+        p.stripZoomPages = 1;
     }
     return p;
 }

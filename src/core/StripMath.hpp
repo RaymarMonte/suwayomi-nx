@@ -215,6 +215,45 @@ double stripStickScroll(float pushY, double screenHeight, double seconds, float 
 enum class StripTapArea { Back, Middle, On };
 StripTapArea stripTapArea(float y, float height);
 
+// --- Zoom in the strip (WP-13d) ---
+// Zoom 1 = the strip at its width (stripWidth). Zoomed by z (up to RuntimeProfile::maxZoom), everything in the strip is drawn
+// z times as big: it is z x its width wide, and the screen shows its height / z strip units (StripLayout::setViewHeight).
+// Sideways, `left` is where the strip's left edge is on the reader's screen (units): centred while the strip fits the
+// screen's width, else it pans, with no gap at either side. Up and down, `top` as in StripLayout (strip units at the
+// screen's top). A point on the reader's screen (x, y) shows strip point ((x - left) / zoom, top + y / zoom).
+struct StripZoomView {
+    float zoom = 1;
+    double left = 0;
+    double top = 0;
+};
+// The strip's left edge kept on screen: centred when the strip (`drawnWidth` units wide) fits the screen's width, else
+// between screenWidth - drawnWidth and 0 (no gap at either side).
+double clampStripLeft(double left, double drawnWidth, double screenWidth);
+// Zooms from `from` to `to` (kept within 1..maxZoom) around `anchor` (a point on the reader's screen): the strip point under
+// it stays under it. `left` comes back kept on screen (clampStripLeft); `top` as wanted: the layout keeps it within the strip
+// (StripLayout::scrollTo, once its view height is the screen's height / the new zoom).
+StripZoomView stripZoomAround(StripZoomView from, float to, PointF anchor, double stripWidth, double screenWidth,
+                              float maxZoom);
+// A two-finger pinch in the strip: at its start the view and the two fingers (on the reader's screen). The zoom follows the
+// fingers' distance against the distance at the start (kept within 1..maxZoom; fingers that start at one point keep the
+// start's zoom), and the strip point that was between them at the start stays between them as they move (it pans with them,
+// sideways and up or down). `left` and `top` as in stripZoomAround.
+struct StripPinchStart {
+    StripZoomView view;
+    PointF a;
+    PointF b;
+};
+StripZoomView stripPinchView(const StripPinchStart& start, PointF a, PointF b, double stripWidth, double screenWidth,
+                             float maxZoom);
+// A double tap in the strip (D48's rule with the strip's zones): the second touch went down within maxGapMs (250) of the
+// first tap's lift and within maxDistance (40) units of it, and both lie in the middle band (stripTapArea).
+bool isStripDoubleTap(PointF first, std::int64_t firstUpMs, PointF second, std::int64_t secondDownMs, float height,
+                      float maxDistance = 40, int maxGapMs = 250);
+// The pages that decode again for the zoom (sharper): the page items on screen (overlapping [top, bottom)), nearest the
+// middle line first (a page under it first; at the same distance the one below), at most `count`
+// (RuntimeProfile::stripZoomPages). Bands are left out.
+std::vector<int> stripSharpPages(const StripLayout& layout, int count);
+
 // --- The spot on the server ---
 
 // The chapter meta key the strip saves its exact spot under (other apps ignore it).

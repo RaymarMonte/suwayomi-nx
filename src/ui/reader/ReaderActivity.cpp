@@ -345,14 +345,18 @@ void ReaderActivity::build() {
         report();
         // A config save waits while the page or the strip moves: writing to the SD card can cost more than a frame.
         if (view_->gliding() || view_->pinching() || stickPushing_ || !gestureKind_.empty() ||
-            (canvas_ && (canvas_->moving() || holdDirection_ != 0 || stickScrolling_))) {
+            (canvas_ && (canvas_->moving() || holdDirection_ != 0 || holdSide_ != 0 || stickScrolling_))) {
             context_.config.postponeSaveThisFrame();
         }
         // Test builds: not idle while a middle tap waits, a zoom waits to decode, the page moves by itself, or the spread on
         // screen decodes again for its halves; in the strip while it moves, a button that scrolls it is held (also in the
-        // pause between a press's glide and the held scroll) or a page on screen is still loading.
-        const bool stripBusy =
-            canvas_ && (canvas_->moving() || canvas_->waiting() || holdDirection_ != 0 || stickScrolling_);
+        // pause between a press's glide and the held scroll), a page on screen is still loading, or (zoomed, WP-13d) the
+        // pages on screen wait to decode sharper or are decoding.
+        const bool stripSharpening =
+            strip_ && ((core::isZoomed(strip_->zoom()) && app::appClockMs() - stripViewMs_ < kZoomSettleMs) ||
+                       strip_->sharpLoading());
+        const bool stripBusy = canvas_ && (canvas_->moving() || canvas_->waiting() || holdDirection_ != 0 ||
+                                           holdSide_ != 0 || stickScrolling_ || stripSharpening);
         app::testhooks::setUiBusy(seenZoomRevision_ != appliedZoomRevision_ || model_.zoomLoading() || view_->gliding() ||
                                   view_->pinching() || view_->tapWaiting() || stickPushing_ || !gestureKind_.empty() ||
                                   model_.current().reloading || stripBusy);
@@ -446,6 +450,7 @@ void ReaderActivity::pollControls() {
             pollStrip(seconds);
         } else {
             holdDirection_ = 0;  // under the settings menu: a press there is not the strip's
+            holdSide_ = 0;
         }
         return;
     }
@@ -549,6 +554,16 @@ void ReaderActivity::pollStick(float seconds) {
 }
 
 void ReaderActivity::zoomStep(int direction) {
+    if (canvas_) {
+        // The strip (WP-13d): a step around the screen's middle, so the page and spot under the middle line stay.
+        const unsigned before = canvas_->zoomRevision();
+        canvas_->zoomStep(direction);
+        if (canvas_->zoomRevision() != before) {
+            gestureBegin("zoom_step");
+            gestureEndAfter_ = 2;
+        }
+        return;
+    }
     if (!view_->hasPage()) {
         return;
     }
@@ -564,6 +579,29 @@ void ReaderActivity::settleZoom() {
     // The view's zoom changed: once it has stayed for kZoomSettleMs (and no fingers pinch), the page on screen decodes
     // again for it (or goes back to its fit image).
     const std::int64_t now = app::appClockMs();
+    if (strip_) {
+        // The strip (WP-13d): once its view (the zoom, where it is, its left edge) has stood still for kZoomSettleMs with
+        // no finger, glide or held button moving it, the pages on screen decode again for the zoom (or let a sharper
+        // decode go). Asked every frame while it stands still: a page that arrives later is sharpened then too (cheap).
+        const std::string view = std::to_string(std::lround(canvas_->zoom() * 1000)) + "/" +
+                                 std::to_string(std::lround(strip_->layout().top())) + "/" +
+                                 std::to_string(std::lround(canvas_->left()));
+        if (view != stripView_) {
+            stripView_ = view;
+            stripViewMs_ = now;
+        }
+        if (canvas_->zoomRevision() != seenStripZoom_) {
+            seenStripZoom_ = canvas_->zoomRevision();
+            stripZoomMs_ = now;
+            stripSharpMs_ = -1;
+        }
+        const bool still = !view_->pinching() && !canvas_->moving() && holdDirection_ == 0 && holdSide_ == 0 &&
+                           !stickScrolling_ && gestureKind_ != "drag";
+        if (still && now - stripViewMs_ >= kZoomSettleMs) {
+            strip_->sharpenOnScreen();
+        }
+        return;
+    }
     if (view_->zoomRevision() != seenZoomRevision_) {
         seenZoomRevision_ = view_->zoomRevision();
         zoomSeenMs_ = now;
@@ -612,11 +650,15 @@ void ReaderActivity::gestureEnd(const std::string& kind) {
     fields["frames"] = sorted.size();
     fields["p90Ms"] = sorted.empty() ? 0 : sorted[std::min(sorted.size() - 1, sorted.size() * 9 / 10)];
     fields["maxMs"] = sorted.empty() ? 0 : sorted.back();
-    fields["zoom"] = std::round(view_->zoom() * 100) / 100;
-    fields["x"] = static_cast<int>(std::lround(view_->pagePosition().x));
-    fields["y"] = static_cast<int>(std::lround(view_->pagePosition().y));
-    if (strip_) {
-        fields["top"] = std::lround(strip_->layout().top());  // WP-13b
+    if (canvas_) {
+        // The strip: its zoom, its left edge on screen (WP-13d) and where it is (WP-13b).
+        fields["zoom"] = std::round(canvas_->zoom() * 100) / 100;
+        fields["x"] = static_cast<int>(std::lround(canvas_->left()));
+        fields["top"] = std::lround(strip_->layout().top());
+    } else {
+        fields["zoom"] = std::round(view_->zoom() * 100) / 100;
+        fields["x"] = static_cast<int>(std::lround(view_->pagePosition().x));
+        fields["y"] = static_cast<int>(std::lround(view_->pagePosition().y));
     }
     app::testhooks::write("gesture", fields);
     gestureKind_.clear();
@@ -1289,18 +1331,54 @@ void ReaderActivity::pollStrip(float seconds) {
         }
         canvas_->scroll(direction * core::stripHoldScroll(screen, seconds));
     }
-    // Either stick (the one pushed further): up and down on the reader's screen, faster the further pushed.
+    // Zoomed (WP-13d): the D-pad's left / right (turned with the screen) glide sideways; held past kStripHoldMs they pan on
+    // at a screen's width a second. Not zoomed they do nothing (the strip fits the screen's width).
+    const bool zoomed = core::isZoomed(canvas_->zoom());
+    const double screenWidth = strip_->units().width;
+    int side = 0;
+    for (std::size_t i = 0; zoomed && i < std::size(kArrows); ++i) {
+        if (state.buttons[kDpad[i]]) {
+            const core::Arrow arrow = core::readerArrow(view_->orientation(), kArrows[i]);
+            side = arrow == core::Arrow::Left ? -1 : arrow == core::Arrow::Right ? 1 : side;
+        }
+    }
+    if (side != holdSide_) {
+        if (holdSideScrolling_) {
+            holdSideScrolling_ = false;
+            canvas_->finishScroll();
+            gestureEnd("scroll");
+        }
+        holdSide_ = side;
+        holdSideStartMs_ = now;
+        if (side != 0) {
+            canvas_->glideSideways(side);
+        }
+    } else if (side != 0 && now - holdSideStartMs_ >= core::kStripHoldMs) {
+        if (!holdSideScrolling_) {
+            holdSideScrolling_ = true;
+            gestureBegin("scroll");
+        }
+        canvas_->panBy(side * core::stripHoldScroll(screenWidth, seconds));
+    }
+    // Either stick (the one pushed further): up and down on the reader's screen, faster the further pushed; zoomed, left
+    // and right pan sideways the same way.
     const core::PointF left{state.axes[brls::LEFT_X], state.axes[brls::LEFT_Y]};
     const core::PointF right{state.axes[brls::RIGHT_X], state.axes[brls::RIGHT_Y]};
     const core::PointF raw = std::hypot(left.x, left.y) >= std::hypot(right.x, right.y) ? left : right;
     const core::PointF stick = core::readerStick(view_->orientation(), raw);
     const double dy = core::stripStickScroll(stick.y, screen, seconds, kStickDeadZone);
-    if (dy != 0) {
+    const double dx = zoomed ? core::stripStickScroll(stick.x, screenWidth, seconds, kStickDeadZone) : 0.0;
+    if (dy != 0 || dx != 0) {
         if (!stickScrolling_) {
             stickScrolling_ = true;
             gestureBegin("scroll");
         }
-        canvas_->scroll(dy);
+        if (dy != 0) {
+            canvas_->scroll(dy);
+        }
+        if (dx != 0) {
+            canvas_->panBy(dx);
+        }
     } else if (stickScrolling_) {
         stickScrolling_ = false;
         canvas_->finishScroll();
@@ -1362,19 +1440,42 @@ void ReaderActivity::reportStrip() {
     shown = strip_->state() == StripModel::State::Failed ? "chapter_error" : "strip";
     // Not settled while a scrolling button is held: a press's glide ends before the held scroll begins (kStripHoldMs).
     if (shown == "strip" && (canvas_->moving() || canvas_->waiting() || !gestureKind_.empty() || holdDirection_ != 0 ||
-                             stickScrolling_)) {
+                             holdSide_ != 0 || stickScrolling_ || view_->pinching())) {
         return;
     }
     const core::StripLayout& layout = strip_->layout();
     const long top = std::lround(layout.top());
     const double spot = std::round(strip_->spot() * 10000) / 10000;
+    // WP-13d: the zoom, the strip's left edge, and the decodes drawn for the pages that decode sharper when zoomed: "sharp"
+    // = each of them has the detail the zoom wants (as far as the source and the cap allow).
+    const double zoom = std::round(canvas_->zoom() * 100) / 100;
+    const long left = std::lround(canvas_->left());
+    bool sharp = true;
+    std::string drawn;
+    for (const int item : core::stripSharpPages(layout, context_.profile.stripZoomPages)) {
+        const ReaderPage& page = strip_->pageAt(item);
+        const core::ImageSize size = canvas_->drawnSize(item);
+        drawn += std::to_string(size.width) + "x" + std::to_string(size.height) + ",";
+        if (page.state == ReaderPage::State::Ready && page.image &&
+            !core::isSharp(size, page.image->sourceSize(), strip_->zoomBox())) {
+            sharp = false;
+        }
+    }
+    if (canvas_->swapRevision() != seenSwaps_) {
+        seenSwaps_ = canvas_->swapRevision();
+        if (sharp && core::isZoomed(canvas_->zoom())) {
+            stripSharpMs_ = app::appClockMs() - stripZoomMs_;  // from the zoom's change to the sharper decode drawn
+        }
+    }
+    const core::ImageSize middleDrawn = canvas_->drawnSize(layout.middle().item);
     const std::string key = std::to_string(strip_->chapter().id) + "/" + std::to_string(strip_->page()) + "/" +
                             std::to_string(spot) + "/" + std::to_string(top) + "/" + shown + "/" + (menuShown_ ? "m" : "") +
                             (showPageNumber_ ? "n" : "") + std::to_string(static_cast<int>(background_)) +
                             (strip_->chapterRead() ? "r" : "") + "/" + std::to_string(retries_) + "/" +
                             std::to_string(static_cast<int>(view_->orientation())) +
                             std::to_string(static_cast<int>(orientation_)) + "/" +
-                            std::to_string(static_cast<int>(stripWidth_));
+                            std::to_string(static_cast<int>(stripWidth_)) + "/" + std::to_string(zoom) + "/" +
+                            std::to_string(left) + "/" + drawn + (sharp ? "s" : "");
     if (key == reported_) {
         return;
     }
@@ -1390,7 +1491,19 @@ void ReaderActivity::reportStrip() {
     fields["top"] = top;
     fields["stripW"] = std::lround(strip_->stripWidth());
     fields["stripWidth"] = std::string(core::stripWidthName(stripWidth_));
-    fields["zoom"] = 1;  // zoom in the strip: WP-13d
+    // WP-13d: the zoom (1 = the strip's width), the strip's left edge on the reader's screen, the decode drawn for the page
+    // under the middle line, whether the pages on screen have the detail the zoom wants, and how many have a sharper decode.
+    fields["zoom"] = zoom;
+    fields["x"] = left;
+    fields["decW"] = middleDrawn.width;
+    fields["decH"] = middleDrawn.height;
+    fields["sharp"] = sharp;
+    fields["sharpPages"] = strip_->sharpHeld();
+    if (stripSharpMs_ >= 0) {
+        fields["sharpMs"] = stripSharpMs_;  // once, for the sharper decode's first frame (the 150 ms wait included)
+        fields["uploadMs"] = std::round(canvas_->swapUploadMs() * 10) / 10;
+        stripSharpMs_ = -1;
+    }
     if (!stripAuto_.empty()) {
         fields["auto"] = stripAuto_;
     }

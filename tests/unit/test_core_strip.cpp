@@ -349,6 +349,105 @@ TEST_SUITE("core") {
         CHECK(stripTapArea(10, 0) == StripTapArea::Middle);
     }
 
+    TEST_CASE("zoom in the strip: the left edge centred while the strip fits, else no gap at either side") {
+        // Landscape at half width (640 on 1280): 1.5 x is 960 wide, still centred; 2 x fills the screen; 3 x pans.
+        CHECK(clampStripLeft(0, 960, 1280) == doctest::Approx(160));
+        CHECK(clampStripLeft(-500, 1280, 1280) == doctest::Approx(0));
+        CHECK(clampStripLeft(-500, 1920, 1280) == doctest::Approx(-500));
+        CHECK(clampStripLeft(-900, 1920, 1280) == doctest::Approx(-640));
+        // Portrait (720 on 720): any zoom pans; never a gap at the left or right edge.
+        CHECK(clampStripLeft(100, 1440, 720) == doctest::Approx(0));
+        CHECK(clampStripLeft(-1000, 1440, 720) == doctest::Approx(-720));
+        CHECK(clampStripLeft(-300, 1440, 720) == doctest::Approx(-300));
+        CHECK(clampStripLeft(std::nan(""), 1440, 720) == doctest::Approx(0));
+        CHECK(clampStripLeft(-300, 720, 720) == doctest::Approx(0));  // zoom 1: centred
+    }
+
+    TEST_CASE("zoom in the strip: the point under the anchor stays put, and the round trip back to 1") {
+        // Portrait: the strip 720 wide on a 720 x 1280 screen, its top at strip y 1000.
+        const StripZoomView fit{1, 0, 1000};
+        const StripZoomView two = stripZoomAround(fit, 2, {200, 400}, 720, 720, 4);
+        CHECK(two.zoom == doctest::Approx(2));
+        // Strip point (200, 1400) was under (200, 400): it still is.
+        CHECK(two.left == doctest::Approx(-200));
+        CHECK(two.top == doctest::Approx(1200));
+        CHECK((200 - two.left) / two.zoom == doctest::Approx(200));
+        CHECK(two.top + 400 / two.zoom == doctest::Approx(1400));
+        // Back to 1 around the same point: where it was.
+        const StripZoomView back = stripZoomAround(two, 1, {200, 400}, 720, 720, 4);
+        CHECK(back.zoom == doctest::Approx(1));
+        CHECK(back.left == doctest::Approx(0));
+        CHECK(back.top == doctest::Approx(1000));
+        // ZR / ZL zoom around the screen's middle: the middle line's place stays (strip y 1640).
+        const StripZoomView middle = stripZoomAround(fit, 2, {360, 640}, 720, 720, 4);
+        CHECK(middle.left == doctest::Approx(-360));
+        CHECK(middle.top + 640 / middle.zoom == doctest::Approx(1640));
+        // Zooming out at the right while the strip's left edge is at the screen's: the point can't stay sideways, no gap
+        // shows at the left (strip x 350 would need left 175).
+        CHECK(stripZoomAround({2, 0, 1000}, 1.5f, {700, 400}, 720, 720, 4).left == doctest::Approx(0));
+        CHECK(stripZoomAround(fit, 2, {10, 400}, 720, 720, 4).left == doctest::Approx(-10));  // here it can
+        // Kept within 1 .. maxZoom.
+        CHECK(stripZoomAround(fit, 9, {360, 640}, 720, 720, 4).zoom == doctest::Approx(4));
+        CHECK(stripZoomAround(fit, 0.5f, {360, 640}, 720, 720, 4).zoom == doctest::Approx(1));
+        // Landscape at half width: 1.5 x is still centred sideways; up and down the anchor stays.
+        const StripZoomView wide = stripZoomAround({1, 320, 0}, 1.5f, {300, 360}, 640, 1280, 4);
+        CHECK(wide.left == doctest::Approx(160));
+        CHECK(wide.top == doctest::Approx(120));
+    }
+
+    TEST_CASE("zoom in the strip: a pinch keeps the point between the fingers between them, and pans with them") {
+        const StripPinchStart start{{1, 0, 1000}, {260, 640}, {460, 640}};
+        // Twice the distance: 2 x, the point between the fingers (strip 360, 1640) stays at (360, 640).
+        StripZoomView view = stripPinchView(start, {160, 640}, {560, 640}, 720, 720, 4);
+        CHECK(view.zoom == doctest::Approx(2));
+        CHECK(view.left == doctest::Approx(-360));
+        CHECK(view.top == doctest::Approx(1320));
+        // Both fingers 100 lower: the strip follows them down (50 strip units at 2 x).
+        view = stripPinchView(start, {160, 740}, {560, 740}, 720, 720, 4);
+        CHECK(view.top == doctest::Approx(1270));
+        // And 100 to the right: the strip moves right with them.
+        view = stripPinchView(start, {260, 640}, {660, 640}, 720, 720, 4);
+        CHECK(view.left == doctest::Approx(-260));
+        // Kept within 1 .. maxZoom; fingers that start at one point keep the start's zoom.
+        CHECK(stripPinchView(start, {0, 640}, {1600, 640}, 720, 720, 4).zoom == doctest::Approx(4));
+        CHECK(stripPinchView(start, {350, 640}, {370, 640}, 720, 720, 4).zoom == doctest::Approx(1));
+        const StripPinchStart dot{{2, -100, 500}, {300, 300}, {300, 300}};
+        CHECK(stripPinchView(dot, {200, 300}, {400, 300}, 720, 720, 4).zoom == doctest::Approx(2));
+    }
+
+    TEST_CASE("zoom in the strip: a double tap is two taps close by and in time, in the middle band") {
+        // The reader's screen 1280 tall: the middle band is 384 .. 896.
+        CHECK(isStripDoubleTap({360, 640}, 1000, {360, 640}, 1100, 1280));
+        CHECK(isStripDoubleTap({360, 640}, 1000, {400, 640}, 1250, 1280));       // 40 units, 250 ms: still
+        CHECK_FALSE(isStripDoubleTap({360, 640}, 1000, {360, 640}, 1251, 1280));  // too late
+        CHECK_FALSE(isStripDoubleTap({360, 640}, 1000, {401, 640}, 1100, 1280));  // too far
+        CHECK_FALSE(isStripDoubleTap({360, 640}, 1000, {360, 640}, 990, 1280));   // before the first lifted
+        CHECK_FALSE(isStripDoubleTap({360, 200}, 1000, {360, 200}, 1100, 1280));  // the top band glides back
+        CHECK_FALSE(isStripDoubleTap({360, 1100}, 1000, {360, 1100}, 1100, 1280));  // the bottom band glides on
+    }
+
+    TEST_CASE("zoom in the strip: the pages that decode sharper are on screen, nearest the middle line first") {
+        StripLayout layout = gammaLayout();  // 720 on screen: band 240, pages 9600 (items 1 .. 3), band
+        CHECK(stripSharpPages(layout, 2) == std::vector<int>{1});  // the first page's top at the top; the band left out
+        // The seam of pages 1 and 2 at the middle line: both, the one below first.
+        layout.scrollTo(240 + 9600 - 360);
+        CHECK(stripSharpPages(layout, 2) == std::vector<int>{2, 1});
+        CHECK(stripSharpPages(layout, 1) == std::vector<int>{2});
+        CHECK(stripSharpPages(layout, 0).empty());
+        // Zoomed 2 x (360 units on screen), the seam a little above the middle line: page 2 first.
+        layout.setViewHeight(360);
+        layout.scrollTo(240 + 9600 - 100);
+        CHECK(stripSharpPages(layout, 2) == std::vector<int>{2, 1});
+        // Short pages: four on screen, the two nearest the middle line.
+        StripLayout shortPages;
+        shortPages.setViewHeight(720);
+        shortPages.insert(0, {band(), page(1, 0, 200), page(1, 1, 200), page(1, 2, 200), page(1, 3, 200),
+                              page(1, 4, 200), band()});
+        shortPages.scrollTo(240);  // pages 0 .. 3 on screen (240 .. 960), the middle line at 600 (page 1)
+        CHECK(stripSharpPages(shortPages, 2) == std::vector<int>{2, 3});
+        CHECK(stripSharpPages(shortPages, 9).size() == 4);
+    }
+
     TEST_CASE("the spot note: text round trip, bad text gives nothing") {
         CHECK(stripSpotValue(2, 0.4375) == "2:0.4375");
         CHECK(stripSpotValue(0, 0) == "0:0.0000");
