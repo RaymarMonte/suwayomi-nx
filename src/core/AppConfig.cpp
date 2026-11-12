@@ -48,6 +48,11 @@ constexpr std::array<std::pair<SpreadSplit, std::string_view>, 3> kSpreadSplitNa
     {SpreadSplit::Always, "always"},
     {SpreadSplit::Never, "never"},
 }};
+constexpr std::array<std::pair<StripWidth, std::string_view>, 3> kStripWidthNames = {{
+    {StripWidth::Half, "half"},
+    {StripWidth::ThreeQuarters, "three-quarters"},
+    {StripWidth::Full, "full"},
+}};
 constexpr std::array<std::pair<LibrarySort, std::string_view>, 3> kSortNames = {{
     {LibrarySort::Title, "title"},
     {LibrarySort::Unread, "unread"},
@@ -119,19 +124,21 @@ class SectionReader {
     }
 
     template <typename E, std::size_t N>
-    void choice(std::string_view key, const std::array<std::pair<E, std::string_view>, N>& names, E& out) {
+    // True when the key held a known name (out set).
+    bool choice(std::string_view key, const std::array<std::pair<E, std::string_view>, N>& names, E& out) {
         const nlohmann::json* value = present(key);
         if (!value) {
-            return;
+            return false;
         }
         if (value->is_string()) {
             if (const auto parsed = valueOf(names, value->get_ref<const std::string&>())) {
                 out = *parsed;
-                return;
+                return true;
             }
         }
         problem(std::string(section_) + "." + std::string(key) + " has an unknown value " + dumpJson(*value) + ", using \"" +
                 std::string(nameOf(names, out)) + "\"");
+        return false;
     }
 
   private:
@@ -229,6 +236,13 @@ std::optional<SpreadSplit> spreadSplitFromName(std::string_view name) {
     return valueOf(kSpreadSplitNames, name);
 }
 
+std::string_view stripWidthName(StripWidth width) {
+    return nameOf(kStripWidthNames, width);
+}
+std::optional<StripWidth> stripWidthFromName(std::string_view name) {
+    return valueOf(kStripWidthNames, name);
+}
+
 MangaReaderSettings readerSettingsFor(const ReaderSettings& reader, int mangaId) {
     for (const MangaReaderSettings& own : reader.manga) {
         if (own.mangaId == mangaId) {
@@ -240,6 +254,15 @@ MangaReaderSettings readerSettingsFor(const ReaderSettings& reader, int mangaId)
     defaults.direction = reader.direction;
     defaults.fit = reader.fit;
     return defaults;
+}
+
+bool hasOwnReaderSettings(const ReaderSettings& reader, int mangaId) {
+    return std::any_of(reader.manga.begin(), reader.manga.end(),
+                       [mangaId](const MangaReaderSettings& own) { return own.mangaId == mangaId; });
+}
+
+ReaderOrientation stripOrientationFor(const ReaderSettings& reader) {
+    return reader.stripOrientation.value_or(reader.lastPortrait);
 }
 
 void rememberReaderSettings(ReaderSettings& reader, const MangaReaderSettings& choice, std::size_t max) {
@@ -329,6 +352,13 @@ ConfigLoad loadAppConfig(std::string_view text, const JsonLimits& limits, const 
     r.choice("lastPortrait", kPortraitNames, reader.lastPortrait);  // never landscape
     r.choice("zoomOnTurn", kZoomOnTurnNames, reader.zoomOnTurn);
     r.choice("splitSpreads", kSpreadSplitNames, reader.splitSpreads);
+    r.choice("stripWidth", kStripWidthNames, reader.stripWidth);
+    {
+        ReaderOrientation strip = ReaderOrientation::Landscape;
+        if (r.choice("stripOrientation", kOrientationNames, strip)) {
+            reader.stripOrientation = strip;  // missing: none of its own (the portrait way used last)
+        }
+    }
     readMangaReaderSettings(root, reader, problems);
 
     LibrarySettings& library = load.config.library;
@@ -367,8 +397,12 @@ std::string saveAppConfig(const AppConfig& config) {
         {"lastPortrait", readerOrientationName(config.reader.lastPortrait)},
         {"zoomOnTurn", zoomOnTurnName(config.reader.zoomOnTurn)},
         {"splitSpreads", spreadSplitName(config.reader.splitSpreads)},
+        {"stripWidth", stripWidthName(config.reader.stripWidth)},
         {"manga", std::move(manga)},
     };
+    if (config.reader.stripOrientation) {
+        root["reader"]["stripOrientation"] = readerOrientationName(*config.reader.stripOrientation);
+    }
     root["library"] = {
         {"categoryId", config.library.categoryId},
         {"sort", librarySortName(config.library.sort)},

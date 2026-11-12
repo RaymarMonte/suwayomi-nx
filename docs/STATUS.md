@@ -1,20 +1,21 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** WP-13b planned (`docs/wp/WP-13b-webtoon-reader.md`). **Next: do WP-13b** (webtoon reader) in
-a fresh Opus session (effort max), then plan WP-18. Order: ROADMAP.md (D47).
+**Phase 3 – Features. Now:** WP-13b (webtoon reader) **in progress**, then plan WP-18 (order: ROADMAP.md, D47).
 Done: WP-00a … 13, 13c and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
-## Last session (2026-11-10, WP-13b planning, Opus, docs only)
-- Owner's answers: a manga with no direction of its own opens as a "Vertical strip" by itself (tag "Long Strip"/"Webtoon",
-  or a first page over 2.5 × as tall as wide; saved as its own choice); landscape strip half the screen wide (setting);
-  taps top/bottom scroll, middle menu; chapters join on (bands); the exact spot goes to the server as chapter meta next to
-  `lastPageRead`; the strip keeps its own orientation (amends D46, owner's OK). The rest are planner's defaults in the doc.
-  D49 gets written when WP-13b is done.
-- Test server (v2.4.2366): `updateChapter` + `setChapterMeta` work in one mutation request, `chapters { meta }` and
-  `chapter { meta }` read the note back, a second set overwrites. Gamma Webtoon has no genres (the shape rule is the e2e
-  route), 3 pages per chapter. The test server was stopped again.
-- Size L with a split point (zoom in the strip → WP-13d). The doc starts with a short spike: tile uploads while scrolling.
-- From WP-13c (still true): `maxDecodeScale` 4 on Full (safe mode 2, D48); not built: one tile upload per frame for big
-  pages (WP-13b builds it for the strip). Not released (owner's call; CHANGELOG "Unreleased"). The console has a normal
-  (non-test) build and sleeps: wake it first.
+## Last session (2026-11-12, WP-13b build, part 1, Opus)
+- **Done, green** (`tools/build.sh tests`, contract 29/29, 0 warnings): `core/StripMath` (width + decode boxes, `StripLayout`
+  with its anchor/pin rule, tile window across pages, prefetch window by screens + ends, flick math, held/stick scroll,
+  tap zones, the spot note, the two "by itself" rules), `StripWidth` + `reader.stripWidth` / `stripOrientation`,
+  `hasOwnReaderSettings`, `stripOrientationFor`, profile `stripScreensBehind/Ahead` (Full 1/3, safe/applet 0/1),
+  `ReadProgress::spot`, `ProgressSync::shownAt` (spot throttled like the page), `Chapter::stripSpotNote` (from
+  `FetchChapterPages`' new `meta`), `UpdateStripProgress.graphql` + `gql::updateStripProgress` / `readUpdateStripProgress`
+  (needs both answers), `SuwayomiClient::setProgress(ReadProgress)`. Tests: `tests/unit/test_core_strip.cpp`.
+- **Next steps, in order:** refresh the recorded answers (`tools/record-fixtures/record-all.sh`, FetchChapterPages changed);
+  lift `ReaderModel::Saver` into a shared class; `StripModel` + tests; `StripView` (tile textures, one upload per frame,
+  bands, flick, glides); `ReaderActivity` hosting both; test events; e2e `flick()` + `reader-webtoon`; docs and D49.
+  The console spike (frame times, tile upload) waits for a working `StripView` and the owner waking the console.
+  Gamma Webtoon has no genres (e2e takes the shape rule), 3 pages per chapter.
+- From WP-13c (still true): `maxDecodeScale` 4 on Full (safe mode 2, D48). Not released (owner's call; CHANGELOG
+  "Unreleased"). The console has a normal (non-test) build and sleeps: wake it first.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

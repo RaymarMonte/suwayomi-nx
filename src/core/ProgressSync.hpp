@@ -11,16 +11,22 @@
 // time. After a failed one due() waits intervalMs, then twice as long after each further failure, at most retryMaxMs
 // (RuntimeProfile::progressRetryMaxMs), also for isRead (WP-12: a server that is away isn't asked every frame); dueNow()
 // doesn't wait. isRead is only ever sent as true: re-reading never un-reads.
+// WP-13b, the webtoon strip: shownAt() also gives the spot (how far down the page the middle line is); a spot that moved (at the
+// note's 4 decimals) counts as something to save, with the same throttle, and goes out with the page.
 // Pure and not thread-safe: the reader calls it on the main thread with the app's clock. One per opened chapter.
 namespace snx::core {
 
 class ProgressSync {
   public:
     // What the server has for the chapter (fetchChapterPages' answer), and when it opened.
-    ProgressSync(int chapterId, int serverPage, bool serverRead, int intervalMs, int retryMaxMs, std::int64_t nowMs);
+    ProgressSync(int chapterId, int serverPage, bool serverRead, int intervalMs, int retryMaxMs, std::int64_t nowMs,
+                 std::optional<double> serverSpot = std::nullopt);  // serverSpot: the note's share, if it is for serverPage
 
     // A page is on screen. `last`: it is the chapter's last page, so the chapter is read from now on.
     void shown(int page, bool last);
+    // The strip (WP-13b): the page under the middle line, how far down it the line is, and whether the chapter is read now
+    // (its last page's bottom came on screen).
+    void shownAt(int page, double spot, bool read);
 
     // The update to send now, if one is due (see above). nowMs: the same clock as the constructor's.
     std::optional<ReadProgress> due(std::int64_t nowMs) const;
@@ -50,6 +56,8 @@ class ProgressSync {
     bool savedRead_;
     int wantPage_;
     bool wantRead_ = false;
+    std::optional<double> savedSpot_;  // WP-13b: the spot the server has (for savedPage_)
+    std::optional<double> wantSpot_;   // ... and the one on screen
     bool inFlight_ = false;
     std::int64_t lastSendMs_;
     int failures_ = 0;          // failed updates in a row

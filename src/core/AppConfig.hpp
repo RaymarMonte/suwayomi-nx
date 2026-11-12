@@ -56,6 +56,12 @@ enum class SpreadSplit { Portrait, Always, Never };
 std::string_view spreadSplitName(SpreadSplit mode);  // "portrait", "always", "never"
 std::optional<SpreadSplit> spreadSplitFromName(std::string_view name);
 
+// How wide the webtoon strip is in landscape (WP-13b): half the screen (an 800-wide strip at 0.8 x, text about as big as in
+// portrait), three quarters, or all of it. In portrait the strip always fills the width.
+enum class StripWidth { Half, ThreeQuarters, Full };
+std::string_view stripWidthName(StripWidth width);  // "half", "three-quarters", "full"
+std::optional<StripWidth> stripWidthFromName(std::string_view name);
+
 // The library grid's order (WP-09). Title: A to Z, as the server sends it. Unread: most unread chapters first. LastRead: the
 // manga read most recently first, never-read ones last.
 enum class LibrarySort { Title, Unread, LastRead };
@@ -92,6 +98,11 @@ struct ReaderSettings {
     ZoomOnTurn zoomOnTurn = ZoomOnTurn::Reset;
     // WP-13c: when spreads show as two halves, for all manga. A new key: old files don't have it (no migration).
     SpreadSplit splitSpreads = SpreadSplit::Portrait;
+    // WP-13b: the webtoon strip's width in landscape and its own orientation, for all manga. The strip keeps its own
+    // orientation apart from the page reader's (amends D46); missing = lastPortrait, the way the console was turned last.
+    // New keys: old files don't have them (no migration).
+    StripWidth stripWidth = StripWidth::Half;
+    std::optional<ReaderOrientation> stripOrientation;
     // WP-11: the manga with their own direction and fit, the one changed last at the end. A new list in the "reader"
     // section, so old files simply don't have it (no migration).
     std::vector<MangaReaderSettings> manga;
@@ -99,6 +110,11 @@ struct ReaderSettings {
 
 // The direction and fit to read manga `mangaId` with: its own choice, else the defaults above.
 MangaReaderSettings readerSettingsFor(const ReaderSettings& reader, int mangaId);
+// Whether manga `mangaId` has a direction of its own (chosen in the reader, or picked by itself as a strip, WP-13b). Without
+// one a manga that looks like a webtoon opens as a strip by itself.
+bool hasOwnReaderSettings(const ReaderSettings& reader, int mangaId);
+// How the strip is held (WP-13b): its own saved orientation, else the portrait way used last (lastPortrait).
+ReaderOrientation stripOrientationFor(const ReaderSettings& reader);
 // Remembers a manga's own choice (it moves to the end of the list). Keeps at most `max` manga (RuntimeProfile::
 // readerMangaSettingsMax): the ones changed longest ago are dropped first.
 void rememberReaderSettings(ReaderSettings& reader, const MangaReaderSettings& choice, std::size_t max);

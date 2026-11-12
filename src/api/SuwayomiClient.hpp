@@ -103,6 +103,11 @@ class SuwayomiClient {
     // page count). isRead = true marks the chapter read; false leaves the read flag alone. Answers what the server saved.
     ApiFuture<core::ReadProgress> setProgress(int chapterId, int page, bool isRead, const net::CancelToken& cancel,
                                               net::Priority priority = net::Priority::Interactive);
+    // The same from a whole ReadProgress (WP-13b): with a spot (the webtoon strip) the page and the chapter meta note
+    // "snx_strip_spot" go in one request (UpdateStripProgress), and the save counts only when both answered; the answer
+    // carries the spot read back from the note. Without a spot it is the call above.
+    ApiFuture<core::ReadProgress> setProgress(const core::ReadProgress& progress, const net::CancelToken& cancel,
+                                              net::Priority priority = net::Priority::Interactive);
     // The chapter list's actions (WP-10): applies `patch` to every chapter in `ids` (mark read / unread, bookmark) in one
     // request. Answers the changed chapters as the server saved them. No ids: answers an empty list without asking the server.
     ApiFuture<std::vector<core::Chapter>> updateChapters(std::vector<int> ids, core::ChapterPatch patch,

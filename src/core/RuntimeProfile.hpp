@@ -37,7 +37,9 @@ struct RuntimeProfile {
     int prefetchAhead = 3;             // pages fetched after the current one
     int nextChapterPrefetchPages = 2;  // first pages of the next chapter, fetched near the end of a chapter
     bool backgroundPrefetch = true;    // fetch the next chapter in the background
-    int webtoonTilesAround = 4;        // decoded tiles kept above and below the screen in the vertical reader
+    int webtoonTilesAround = 4;        // rows of tile textures kept above and below the screen in the webtoon strip (WP-13b)
+    int stripScreensBehind = 1;        // WP-13b: the strip decodes the pages within this many screens above the screen
+    int stripScreensAhead = 3;         // ... and within this many screens below it
     bool coverRowPrefetch = true;      // library grid: fetch the next row of covers
 
     // Reader (WP-11).

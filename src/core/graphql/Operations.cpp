@@ -5,6 +5,7 @@
 
 #include "core/graphql/Documents.hpp"
 #include "core/models/FromJson.hpp"
+#include "core/StripMath.hpp"
 
 namespace snx::core::gql {
 
@@ -104,6 +105,19 @@ GqlRequest updateChapterProgress(const ReadProgress& progress) {
     return r;
 }
 
+GqlRequest updateStripProgress(const ReadProgress& progress) {
+    GqlRequest r = request("UpdateStripProgress");
+    r.variables["id"] = progress.chapterId;
+    nlohmann::json patch = nlohmann::json::object();
+    patch["lastPageRead"] = std::max(progress.lastPageRead, 0);
+    if (progress.isRead) {
+        patch["isRead"] = true;
+    }
+    r.variables["patch"] = patch;
+    r.variables["spot"] = stripSpotValue(progress.lastPageRead, progress.spot.value_or(0.0));
+    return r;
+}
+
 GqlRequest updateChapters(const std::vector<int>& ids, const ChapterPatch& patch) {
     GqlRequest r = request("UpdateChapters");
     r.variables["ids"] = ids;
@@ -178,6 +192,26 @@ Result<ReadProgress> readUpdateChapterProgress(const GqlResponse& response) {
         return Result<ReadProgress>::fail(ErrorKind::Parse, "updateChapter has no \"chapter\"");
     }
     return fromJson<ReadProgress>(*chapter);
+}
+
+Result<ReadProgress> readUpdateStripProgress(const GqlResponse& response) {
+    Result<ReadProgress> progress = readUpdateChapterProgress(response);
+    if (!progress.ok()) {
+        return progress;
+    }
+    const nlohmann::json* set = json::object(response.data, "setChapterMeta");
+    const nlohmann::json* meta = set ? json::object(*set, "meta") : nullptr;
+    if (!meta) {
+        if (!response.errors.empty()) {
+            return response.firstError();
+        }
+        return Result<ReadProgress>::fail(ErrorKind::Parse, "setChapterMeta has no \"meta\"");
+    }
+    ReadProgress saved = std::move(progress).value();
+    if (const auto spot = parseStripSpot(json::string(*meta, "value").value_or(""))) {
+        saved.spot = spot->share;
+    }
+    return saved;
 }
 
 Result<std::vector<Chapter>> readUpdateChapters(const GqlResponse& response) {

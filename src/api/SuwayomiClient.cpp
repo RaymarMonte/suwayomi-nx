@@ -542,6 +542,17 @@ ApiFuture<core::ReadProgress> SuwayomiClient::setProgress(int chapterId, int pag
                                          core::gql::readUpdateChapterProgress, cancel, priority);
 }
 
+ApiFuture<core::ReadProgress> SuwayomiClient::setProgress(const core::ReadProgress& progress, const net::CancelToken& cancel,
+                                                          net::Priority priority) {
+    if (!progress.spot) {
+        return setProgress(progress.chapterId, progress.lastPageRead, progress.isRead, cancel, priority);
+    }
+    core::ReadProgress sent = progress;
+    sent.lastPageRead = std::max(0, progress.lastPageRead);
+    return startCall<core::ReadProgress>(state_, core::gql::updateStripProgress(sent), core::gql::readUpdateStripProgress,
+                                         cancel, priority);
+}
+
 ApiFuture<std::vector<core::Chapter>> SuwayomiClient::updateChapters(std::vector<int> ids, core::ChapterPatch patch,
                                                                      const net::CancelToken& cancel,
                                                                      net::Priority priority) {

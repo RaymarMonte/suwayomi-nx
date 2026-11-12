@@ -1,0 +1,12 @@
+# Save reading progress from the webtoon strip (WP-13b): the page as UpdateChapterProgress does ($patch is {"lastPageRead": n}
+# plus "isRead": true once the chapter is finished), and in the same request the exact spot as the chapter meta note
+# "snx_strip_spot" ($spot = "<page>:<share>", e.g. "2:0.4375"). Setting the note again overwrites it (checked on the test
+# server, v2.4.2366). Both fields must answer for the save to count.
+mutation UpdateStripProgress($id: Int!, $patch: UpdateChapterPatchInput!, $spot: String!) {
+  updateChapter(input: { id: $id, patch: $patch }) {
+    chapter { id lastPageRead isRead pageCount }
+  }
+  setChapterMeta(input: { meta: { chapterId: $id, key: "snx_strip_spot", value: $spot } }) {
+    meta { key value }
+  }
+}

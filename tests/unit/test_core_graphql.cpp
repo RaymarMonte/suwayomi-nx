@@ -34,7 +34,7 @@ TEST_SUITE("core") {
         const std::vector<std::string> expected = {"AboutServer",       "Categories",           "Chapters",
                                                    "FetchChapterPages", "FetchMangaAndChapters", "LibraryByCategory",
                                                    "Login",             "Manga",                "RefreshToken",
-                                                   "UpdateChapterProgress", "UpdateChapters"};
+                                                   "UpdateChapterProgress", "UpdateChapters", "UpdateStripProgress"};
         REQUIRE(docs.size() == expected.size());
         for (std::size_t i = 0; i < docs.size(); ++i) {
             CAPTURE(expected[i]);

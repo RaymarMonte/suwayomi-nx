@@ -35,6 +35,8 @@ GqlRequest chapters(int mangaId, int first, int offset, bool newestFirst = true)
 GqlRequest fetchChapterPages(int chapterId, std::string_view format = {});
 // Sends lastPageRead (never below 0), plus isRead: true when progress.isRead (false leaves the read flag alone).
 GqlRequest updateChapterProgress(const ReadProgress& progress);
+// WP-13b: the same plus the strip's spot (progress.spot, 0 when missing) as the chapter meta note, in one request.
+GqlRequest updateStripProgress(const ReadProgress& progress);
 // The chapter list's actions (WP-10): the patch's fields that are set, for every id. No ids is still a valid request.
 GqlRequest updateChapters(const std::vector<int>& ids, const ChapterPatch& patch);
 // "Refresh from source": the manga's details and chapter list asked from the source again (WP-10).
@@ -50,6 +52,9 @@ Result<Manga> readManga(const GqlResponse& response);
 Result<NodeList<Chapter>> readChapters(const GqlResponse& response);
 Result<PageList> readFetchChapterPages(const GqlResponse& response);
 Result<ReadProgress> readUpdateChapterProgress(const GqlResponse& response);
+// Needs both answers (the page and the note): a note that wasn't saved fails the save, so it is sent again. The spot is
+// read back from the note.
+Result<ReadProgress> readUpdateStripProgress(const GqlResponse& response);
 Result<std::vector<Chapter>> readUpdateChapters(const GqlResponse& response);  // the changed chapters
 Result<Manga> readFetchMangaAndChapters(const GqlResponse& response);        // the refreshed manga
 Result<LoginTokens> readLogin(const GqlResponse& response);

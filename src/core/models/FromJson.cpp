@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "core/StripMath.hpp"
+
 namespace snx::core {
 
 namespace {
@@ -97,6 +99,13 @@ Result<Chapter> fromJson<Chapter>(const nlohmann::json& node) {
     chapter.lastPageRead = json::int32(node, "lastPageRead").value_or(0);
     chapter.pageCount = json::int32(node, "pageCount").value_or(-1);
     chapter.lastReadAt = json::int64(node, "lastReadAt").value_or(0);
+    if (const nlohmann::json* meta = json::array(node, "meta")) {
+        for (const nlohmann::json& entry : *meta) {
+            if (entry.is_object() && json::string(entry, "key").value_or("") == kStripSpotKey) {
+                chapter.stripSpotNote = json::string(entry, "value").value_or("");
+            }
+        }
+    }
     return chapter;
 }
 

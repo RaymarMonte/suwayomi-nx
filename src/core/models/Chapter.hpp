@@ -22,6 +22,9 @@ struct Chapter {
     int pageCount = -1;          // -1 until the server has fetched the chapter's pages once
     // When it was read last (the server's time stamp, bigger = later; WP-10 "Continue" uses it). 0 = never, or not asked.
     std::int64_t lastReadAt = 0;
+    // WP-13b: the chapter meta note "snx_strip_spot" ("<page>:<share>", core::parseStripSpot), where the webtoon strip was
+    // read. Only fetchChapterPages asks for it; empty if there is none.
+    std::string stripSpotNote;
 };
 
 // A change to one or more chapters (updateChapters, WP-10). Fields left empty stay as they are on the server.

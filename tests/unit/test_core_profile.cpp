@@ -62,6 +62,8 @@ TEST_SUITE("core") {
         CHECK(full.backgroundPrefetch);
         CHECK(full.coverRowPrefetch);
         CHECK(full.webtoonTilesAround == 4);
+        CHECK(full.stripScreensBehind == 1);  // WP-13b
+        CHECK(full.stripScreensAhead == 3);
         CHECK(full.httpConcurrency == 6);
         CHECK(full.decodeThreads == 2);
         CHECK(full.maxDecodeScale == doctest::Approx(4.0));  // D48: WP-13c's console measurement
@@ -99,6 +101,8 @@ TEST_SUITE("core") {
         CHECK_FALSE(safe.backgroundPrefetch);
         CHECK_FALSE(safe.coverRowPrefetch);
         CHECK(safe.webtoonTilesAround == 1);
+        CHECK(safe.stripScreensBehind == 0);
+        CHECK(safe.stripScreensAhead == 1);
         CHECK(safe.maxZoom == doctest::Approx(2.0));
         CHECK(safe.maxDecodeScale == doctest::Approx(2.0));
         CHECK(safe.httpConcurrency == full.httpConcurrency);
@@ -111,6 +115,8 @@ TEST_SUITE("core") {
         CHECK(applet.httpConcurrency == 2);
         CHECK(applet.decodeThreads == 1);
         CHECK(applet.prefetchAhead == 1);
+        CHECK(applet.stripScreensBehind == 0);  // WP-13b
+        CHECK(applet.stripScreensAhead == 1);
         CHECK_FALSE(applet.backgroundPrefetch);
         CHECK(applet.imageCacheBytes <= 64 * kMiB);
         CHECK(applet.maxDecodeBytes <= 64 * kMiB);
