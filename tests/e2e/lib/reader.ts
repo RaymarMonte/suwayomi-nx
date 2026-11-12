@@ -5,7 +5,7 @@ import sharp from 'sharp';
 import { expect } from 'vitest';
 
 import type { AppEvent } from './events.ts';
-import { readPageCode, type PageCode } from './pagecode.ts';
+import { findPageCodes, readPageCode, type FoundPageCode, type PageCode } from './pagecode.ts';
 import type { Scenario } from './scenario.ts';
 import { LIBRARY, MANGA, type Orientation, READER } from './screens.ts';
 
@@ -69,6 +69,29 @@ export async function pageOnScreen(s: Scenario, way: Orientation = 'landscape'):
     const angle = way === 'portrait-left' ? 270 : way === 'portrait-right' ? 90 : 0;
     const { data, info } = await sharp(shot).rotate(angle).removeAlpha().raw().toBuffer({ resolveWithObject: true });
     return readPageCode({ width: info.width, height: info.height, channels: info.channels, data });
+}
+
+/**
+ * Every page code on screen (WP-13b: a webtoon strip shows one or two segments' codes at a time), in the upright reader's
+ * pixels (the screenshot turned like pageOnScreen), top to bottom.
+ */
+export async function codesOnScreen(s: Scenario, way: Orientation = 'landscape'): Promise<{ codes: FoundPageCode[]; height: number }> {
+    const shot = await s.driver.screenshot();
+    const angle = way === 'portrait-left' ? 270 : way === 'portrait-right' ? 90 : 0;
+    const { data, info } = await sharp(shot).rotate(angle).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    return { codes: findPageCodes({ width: info.width, height: info.height, channels: info.channels, data }), height: info.height };
+}
+
+/**
+ * The code nearest the reader screen's middle line (y = height / 2), or null without any. The middle line is where the strip
+ * reads its page and spot, so this is the segment a scenario expects for the strip's `top`.
+ */
+export function middleCode(codes: FoundPageCode[], height: number): FoundPageCode | null {
+    let best: FoundPageCode | null = null;
+    for (const code of codes) {
+        if (best === null || Math.abs(code.y - height / 2) < Math.abs(best.y - height / 2)) best = code;
+    }
+    return best;
 }
 
 /** Expects fixture page `page` (1-based, as printed) of `series`' chapter `chapter` on screen (held `way`). */
