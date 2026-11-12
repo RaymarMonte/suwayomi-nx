@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { EventStream, type EventSource } from './events.ts';
 import type { Scenario } from './scenario.ts';
 import { portraitPoint } from './screens.ts';
-import { doubleTapFrames, dragFrames, FRAME_MS, pinchFrames, playTouches, touchesCommand, type TouchFrame } from './touches.ts';
+import { doubleTapFrames, dragFrames, flickFrames, FRAME_MS, pinchFrames, playTouches, touchesCommand, type TouchFrame } from './touches.ts';
 
 const distance = (f: TouchFrame) => Math.hypot(f.fingers[1].x - f.fingers[0].x, f.fingers[1].y - f.fingers[0].y);
 const midpoint = (f: TouchFrame) => ({ x: (f.fingers[0].x + f.fingers[1].x) / 2, y: (f.fingers[0].y + f.fingers[1].y) / 2 });
@@ -56,6 +56,23 @@ describe('dragFrames', () => {
         expect(frames.at(-1)?.fingers).toEqual([{ id: 0, x: 900, y: 380 }]);
         expect(frames.at(-2)?.fingers).toEqual([{ id: 0, x: 900, y: 380 }]);
         expect(frames.every((f) => f.fingers.length === 1)).toBe(true);
+    });
+});
+
+describe('flickFrames', () => {
+    it('moves one finger fast and lifts it while it is still moving', () => {
+        const frames = flickFrames({ x: 640, y: 600 }, { x: 640, y: 200 }, 120);
+        expect(frames[0].ms).toBe(0);
+        expect(frames[0].fingers).toEqual([{ id: 0, x: 640, y: 600 }]);
+        const lastDown = frames.at(-2);
+        expect(lastDown?.ms).toBe(120);
+        expect(lastDown?.fingers).toEqual([{ id: 0, x: 640, y: 200 }]);
+        expect(frames.at(-1)).toEqual({ ms: 120 + FRAME_MS, fingers: [] });
+        // No two frames in a row at the same place: the finger never rests before the lift.
+        const down = frames.slice(0, -1);
+        for (let i = 1; i < down.length; i++) {
+            expect(down[i].fingers[0].y).toBeLessThan(down[i - 1].fingers[0].y);
+        }
     });
 });
 

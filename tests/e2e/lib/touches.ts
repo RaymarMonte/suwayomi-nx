@@ -69,6 +69,21 @@ export function dragFrames(from: Point, to: Point, ms = 250, map: (p: Point) => 
     return frames;
 }
 
+/**
+ * A flick (WP-13b): one finger from `from` to `to` fast (over `ms`, 120 by default) and lifted while still moving, so the strip
+ * carries on after it (the app measures the speed over the finger's last 100 ms). `map` as in pinchFrames.
+ */
+export function flickFrames(from: Point, to: Point, ms = 120, map: (p: Point) => Point = (p) => p): TouchFrame[] {
+    const steps = Math.max(1, Math.round(ms / FRAME_MS));
+    const frames: TouchFrame[] = [];
+    for (let i = 0; i <= steps; i++) {
+        const p = { x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps };
+        frames.push({ ms: Math.round((ms * i) / steps), fingers: [finger(0, map(p))] });
+    }
+    frames.push({ ms: ms + FRAME_MS, fingers: [] });  // lifted at once: no rest before the lift
+    return frames;
+}
+
 // The next command number per launch (every launch has its own event stream).
 const nextCommand = new WeakMap<EventStream, number>();
 
@@ -92,7 +107,7 @@ export async function playTouches(s: Scenario, frames: TouchFrame[]): Promise<Ap
     return done;
 }
 
-/** Actions for readerAfter(): a played pinch, double tap or drag. */
+/** Actions for readerAfter(): a played pinch, double tap, drag or flick. */
 export function pinch(s: Scenario, center: Point, from: number, to: number, map?: (p: Point) => Point): () => Promise<void> {
     return async () => { await playTouches(s, pinchFrames(center, from, to, 400, map)); };
 }
@@ -103,4 +118,8 @@ export function doubleTap(s: Scenario, at: Point, map?: (p: Point) => Point): ()
 
 export function drag(s: Scenario, from: Point, to: Point, map?: (p: Point) => Point): () => Promise<void> {
     return async () => { await playTouches(s, dragFrames(from, to, 250, map)); };
+}
+
+export function flick(s: Scenario, from: Point, to: Point, map?: (p: Point) => Point): () => Promise<void> {
+    return async () => { await playTouches(s, flickFrames(from, to, 120, map)); };
 }
