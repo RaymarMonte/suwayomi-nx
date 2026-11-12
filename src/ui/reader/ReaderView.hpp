@@ -11,6 +11,7 @@
 
 #include "core/AppConfig.hpp"
 #include "core/ReaderMath.hpp"
+#include "core/StripMath.hpp"
 #include "image/Caches.hpp"
 #include "image/DecodedImage.hpp"
 
@@ -32,6 +33,8 @@
 // treat that half as the page, and each tile is cut to the half's box where that box lies inside the screen.
 // Main thread only.
 namespace snx::ui {
+
+class StripCanvas;
 
 class ReaderView : public brls::Box {
   public:
@@ -100,6 +103,12 @@ class ReaderView : public brls::Box {
 
     void setSpinner(bool on) { spinner_ = on; }  // the page is loading: a turning arc in the middle
 
+    // Strip mode (WP-13b): the view draws `strip` instead of a page (nullptr: back to pages; the page shown before is gone).
+    // Touch then drives the strip: a drag scrolls it, a quick lift flicks it on, a touch stops a flick (and is no tap), a tap
+    // reports its strip area (onStripTap). No swipes, pinches or double taps in strip mode (zoom in the strip is WP-13d).
+    void setStrip(StripCanvas* strip);
+    bool stripMode() const { return strip_ != nullptr; }
+
     // The box the activity's views go into: the reader's screen, laid out upright for the orientation.
     brls::Box* overlay() const { return overlay_; }
     // How the console is held; `screen` = this view's real (landscape) size in units. The page starts again at its start,
@@ -113,6 +122,8 @@ class ReaderView : public brls::Box {
     void addButton(brls::View* button, std::function<void()> action);
 
     std::function<void(core::TapArea)> onTap;
+    // The webtoon strip (WP-13b): a tap in strip mode reports its area (top, middle, bottom of the reader's screen) at once.
+    std::function<void(core::StripTapArea)> onStripTap;
     std::function<void(core::Side)> onSwipe;
     std::function<void()> onFrame;  // before every frame it draws (the activity reads the controller there)
     std::function<void()> onDrawn;  // after every frame it drew (the activity writes its test events there)
@@ -214,6 +225,8 @@ class ReaderView : public brls::Box {
     core::ReaderOrientation orientation_ = core::ReaderOrientation::Landscape;
     core::SizeF real_{1280, 720};
     std::vector<Button> buttons_;
+    StripCanvas* strip_ = nullptr;  // the activity's
+    bool swallowTap_ = false;       // this touch stopped a flick: it is no tap
 };
 
 }  // namespace snx::ui

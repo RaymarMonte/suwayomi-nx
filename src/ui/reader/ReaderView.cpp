@@ -1,5 +1,7 @@
 #include "ui/reader/ReaderView.hpp"
 
+#include "ui/reader/StripCanvas.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -127,6 +129,21 @@ bool ReaderView::shown(brls::View* view) {
     return true;
 }
 
+void ReaderView::setStrip(StripCanvas* strip) {
+    strip_ = strip;
+    freeTextures();
+    image_.reset();
+    pageKey_.clear();
+    half_.reset();
+    placed_ = false;
+    refused_ = false;
+    setZoomValue(1);
+    glide_.reset();
+    pinch_.reset();
+    pendingTap_.reset();
+    swallowTap_ = false;
+}
+
 void ReaderView::setDoubleTapWait(bool on) {
     doubleTapWait_ = on;
     if (!on) {
@@ -138,6 +155,10 @@ void ReaderView::onTapped(brls::Point position) {
     if (multiTouch_) {
         return;  // a finger lifting after a pinch is no tap
     }
+    if (swallowTap_) {
+        swallowTap_ = false;  // this touch stopped a flick
+        return;
+    }
     const core::PointF at = toReader(position);
     // In portrait every tap comes here. In landscape borealis runs a tapped button itself, but a tap that slid a little
     // (onPan) comes here. The overlay's children are laid out in reader units from this view's corner.
@@ -148,6 +169,12 @@ void ReaderView::onTapped(brls::Point position) {
             brls::sync(button.action);  // after the tap is done (the action may close this screen)
             return;
         }
+    }
+    if (strip_) {
+        if (onStripTap) {
+            onStripTap(core::stripTapArea(at.y, readerScreen().height));  // at once: no double tap in the strip (WP-13d)
+        }
+        return;
     }
     const core::TapArea area = core::tapArea(at.x, readerScreen().width);
     if (area == core::TapArea::Middle && doubleTapWait_) {
@@ -434,6 +461,7 @@ void ReaderView::onPan(const brls::PanGestureStatus& status) {
         // The finger just touched down: borealis does not know yet whether this is a tap or a drag.
         touchDown_ = status.position;
         touchDownAt_ = std::chrono::steady_clock::now();
+        swallowTap_ = strip_ != nullptr && strip_->touchDown();  // a touch during a flick stops it and is no tap
         if (pendingTap_) {
             // A middle tap waits: close by and in time this may be the second tap of a double tap; else it was a single tap.
             if (core::isDoubleTap(pendingTap_->at, pendingTap_->upMs, toReader(status.position), nowMs(),
@@ -448,6 +476,9 @@ void ReaderView::onPan(const brls::PanGestureStatus& status) {
     if (status.state == brls::GestureState::START) {
         glide_.reset();
         dragFrom_ = position_;
+        if (strip_) {
+            strip_->dragStart(nowMs());
+        }
         dragging_ = true;
         couldMoveLeft_ = placed_ && core::canMoveToward(position_, drawn_, screen_, core::Side::Left);
         couldMoveRight_ = placed_ && core::canMoveToward(position_, drawn_, screen_, core::Side::Right);
@@ -460,6 +491,10 @@ void ReaderView::onPan(const brls::PanGestureStatus& status) {
         orientation_, {status.position.x - status.startPosition.x, status.position.y - status.startPosition.y});
     const float dx = move.x;
     const float dy = move.y;
+    if (strip_ && (status.state == brls::GestureState::START || status.state == brls::GestureState::STAY ||
+                   status.state == brls::GestureState::END)) {
+        strip_->dragTo(dy, nowMs());
+    }
     if (placed_ && (status.state == brls::GestureState::START || status.state == brls::GestureState::STAY ||
                     status.state == brls::GestureState::END)) {
         position_ = core::clampPosition({dragFrom_.x + dx, dragFrom_.y + dy}, drawn_, screen_);
@@ -475,7 +510,14 @@ void ReaderView::onPan(const brls::PanGestureStatus& status) {
             if (placed_) {
                 position_ = dragFrom_;  // undo the little move
             }
+            if (strip_) {
+                strip_->dragTo(0, nowMs());  // the strip too
+            }
             onTapped(touchDown_);
+            return;
+        }
+        if (strip_) {
+            strip_->dragEnd(nowMs());  // it may flick on; no swipes in the strip
             return;
         }
         ++moves_;
@@ -518,6 +560,9 @@ void ReaderView::tick() {
             gesture("glide", false);
         }
     }
+    if (strip_) {
+        strip_->tick();  // the flick and the glide, from the clock
+    }
     // A single middle tap that no second one followed: the menu now.
     if (pendingTap_ && !pendingTap_->secondDown && nowMs() - pendingTap_->upMs > kDoubleTapGapMs) {
         firePendingTap();
@@ -551,7 +596,11 @@ void ReaderView::draw(NVGcontext* vg, float x, float y, float width, float heigh
         nvgTransform(vg, t.a, t.b, t.c, t.d, t.e, t.f);
         nvgTranslate(vg, -x, -y);
     }
-    drawPage(vg, x, y, screen);
+    if (strip_) {
+        strip_->draw(vg, x, y, screen);
+    } else {
+        drawPage(vg, x, y, screen);
+    }
     if (spinner_) {
         drawSpinner(vg, x + screen.width / 2, y + screen.height / 2);
     }
