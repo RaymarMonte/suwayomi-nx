@@ -10,12 +10,11 @@ Done: WP-00a … 13, 13c and 22; **v0.2.0 released** (v0.1.0 before it). Nice to
   `FetchChapterPages`' new `meta`), `UpdateStripProgress.graphql` + `gql::updateStripProgress` / `readUpdateStripProgress`
   (needs both answers), `SuwayomiClient::setProgress(ReadProgress)`. Tests: `tests/unit/test_core_strip.cpp`.
 - **Next steps, in order:** refresh the recorded answers (`tools/record-fixtures/record-all.sh`, FetchChapterPages changed);
-  lift `ReaderModel::Saver` into a shared class; `StripModel` + tests; `StripView` (tile textures, one upload per frame,
+  (done: only `meta: []` was added) lift `ReaderModel::Saver` into a shared class; `StripModel` + tests; `StripView` (tile textures, one upload per frame,
   bands, flick, glides); `ReaderActivity` hosting both; test events; e2e `flick()` + `reader-webtoon`; docs and D49.
   The console spike (frame times, tile upload) waits for a working `StripView` and the owner waking the console.
   Gamma Webtoon has no genres (e2e takes the shape rule), 3 pages per chapter.
-- From WP-13c (still true): `maxDecodeScale` 4 on Full (safe mode 2, D48). Not released (owner's call; CHANGELOG
-  "Unreleased"). The console has a normal (non-test) build and sleeps: wake it first.
+- From WP-13c: `maxDecodeScale` 4 on Full (safe 2, D48). Not released (CHANGELOG "Unreleased"). Console: normal build, asleep.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
