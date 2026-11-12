@@ -936,7 +936,11 @@ page reader its own; the strip starts the way the console was turned last (`last
   held D-pad and L, three passes down and up both chapters): p90 of their p90s 17 ms, the longest frame 20 ms (≤ 34); memory
   323.1 MiB after each pass (growth 0, < 16 MiB); `waitFrames` 0 from the second pass; `texUsed` at most 61.1 MiB (≤ 64);
   no `mem_pressure`, no error. No smaller strip tiles needed: the frames that upload 800 × 2000 tiles stay within 20 ms.
-- **The owner's verdict:** (to come: a real webtoon in their hands.)
+- **The owner's verdict** (2026-11-12, a real webtoon from their server in both orientations): "Feels good"; the defaults
+  stay. Coming back after scrolling up into an earlier, already read chapter opens the newest unfinished chapter, not the
+  re-read spot: **kept as it is** (D43's Continue skips read chapters; a read chapter opens at its start). Suwayomi-WebUI
+  does the same (its Resume opens the server's `firstUnreadChapter`, the unread chapter lowest in source order; a read
+  chapter opens at its start), and so does Mihon, so Continue and the web UI's Resume agree.
 Rejected: a shared base view for both readers (more moving parts than one view with a strip mode); borealis's own pan
 momentum (it assumes 1/60 s per frame and a fixed slow-down); counting a drag from the touch-down point (a jump of the
 slop when it begins).

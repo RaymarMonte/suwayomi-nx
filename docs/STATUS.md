@@ -1,6 +1,6 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** WP-13b (webtoon reader) **built and green; waits for the owner's hands-on test**, then WP-13d (zoom in the strip), WP-18 (ROADMAP.md, D47).
-Done: WP-00a … 13, 13c and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
+**Phase 3 – Features. Now:** WP-13d (zoom in the webtoon strip), then WP-18 (order: ROADMAP.md, D47).
+Done: WP-00a … 13, 13b, 13c and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
 ## Last session (2026-11-12, WP-13b build, part 3, Opus)
 - **WP-13b green on desktop and console:** the strip (`StripMath`, `StripModel` + `StripCanvas` in `ReaderView`,
   `ProgressSaver`, `ReaderActivity` hosts both readers; strip zoom split to **WP-13d**), scenario `reader-webtoon`. D49's
@@ -10,10 +10,10 @@ Done: WP-00a … 13, 13c and 22; **v0.2.0 released** (v0.1.0 before it). Nice to
   `ConfigStore::postponeSaveThisFrame()` (a save costs 20–33 ms on the SD card: it waits while the reader moves); the
   `gesture` frame times leave out the test hooks' own SD writes (~8 ms per event, up to ~70 ms; release builds don't write).
 - **Harness:** `test/commands/*` uploads skip the hash check; `reader-zoom`'s `portrait-zoom3` is taken before the swipe.
-- **Next:** the owner reads a real webtoon from their server in both orientations (stick, D-pad, a flick, taps, a chapter
-  change, coming back to a chapter) and says whether the strip picks itself for the right manga → D49's verdict, the WP's
-  last box, then WP-13b is done. WP-13, 13c and 13b are unreleased (CHANGELOG): a version is the owner's call.
-  The console was left asleep (2026-11-12): wake it (HOME) before the next device run.
+- **WP-13b done:** the owner read a real webtoon (2026-11-12): "Feels good", defaults stay; coming back to a re-read chapter
+  stays as it is (Continue skips read chapters, like Suwayomi-WebUI's Resume; D49). **Next: WP-13d**, built from the WP-13b
+  doc's zoom parts (no own plan file, like WP-13c from WP-13). WP-13, 13b, 13c unreleased (CHANGELOG): a version is the
+  owner's call. The console is asleep (2026-11-12): wake it (HOME) before the next device run.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

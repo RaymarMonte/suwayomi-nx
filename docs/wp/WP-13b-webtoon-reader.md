@@ -228,7 +228,7 @@ flick ourselves) and how a `Label` draws its text with NanoVG (the font call, fo
       golden now before the console's swipe, which varies by a step.) The existing scenarios stay green and unchanged: `reader-paged`, `reader-rtl-spread`, `reader-portrait`, `reader-zoom`,
       `reader-spread-split`, `resume-progress`, `touch-pass`, `broken-images`, `soak` (and the rest of `tools/e2e.sh desktop`)
 - [x] Console (application mode, handheld, stock clocks, D17): the numbers in Acceptance; the Switch build's safety gate PASS
-- [ ] Owner tries it in their hands: a real webtoon from their server in both orientations (stick, D-pad, a flick, taps, a
+- [x] (2026-11-12: "Feels good"; coming back to a re-read chapter stays as it is, D49.) Owner tries it in their hands: a real webtoon from their server in both orientations (stick, D-pad, a flick, taps, a
       chapter change, coming back to a chapter, zoom), and whether the strip picks itself for the right manga in their library
 - [x] (The owner's verdict goes into D49 after their test.) Docs: D49 (the answers, the defaults as they ended up, the D46 change, the console numbers, the owner's verdict),
       ARCHITECTURE.md (reader math line, the "Webtoon tiles kept decoded" row and the new prefetch fields), TESTING.md
