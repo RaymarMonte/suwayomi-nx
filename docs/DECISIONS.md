@@ -921,7 +921,22 @@ page reader its own; the strip starts the way the console was turned last (`last
   out of `ReaderModel` for both. `ReaderActivity` hosts both readers and parks the page reader while the strip shows.
 - **Split:** zoom in the strip (pinch, double tap, ZR/ZL, the sideways pan, sharper decodes) moved to **WP-13d**, the WP's
   planned split point.
-- **Console numbers and the owner's verdict:** (to come with the console run of WP-13b.)
+- **WebP decodes at full size within the slack** (extends D39's shrink slack to WebP): libwebp scales while it decodes,
+  but on a big picture its scaler costs more than the decode (an 800 × 12000 strip at 720 wide: 454 ms; at full size
+  ~180 ms). So a WebP within `shrinkSlackPercent` (15 %) of the box decodes at full size, as JPEG and PNG already did, and
+  the GPU scales. An 800-wide strip stays 800 in portrait (720) and landscape.
+- **Saves wait while the reader moves:** a config.json save takes 20–33 ms on the console's SD card (main thread, S5's safe
+  write), a hitch when it lands in a scroll. `ConfigStore::postponeSaveThisFrame()`: the reader calls it in every frame in
+  which the page or the strip moves (clears itself each frame); a due save waits for the first still frame. Exit, HOME and
+  sleep still save at once. The test hooks' own SD writes (an event ~8 ms, up to ~70 ms while the harness reads the file)
+  are left out of the `gesture` frame times, since a release build doesn't do them.
+- **Console numbers** (v1, application mode, handheld, stock clocks, 2026-11-12, Gamma's WebP 800 × 12000 strips from the
+  SD-card cache): first opening by shape 0.52 s (≤ 0.8), opened again as a strip 58 ms (≤ 0.5 s); a strip decodes in
+  ~180 ms; a played 400-unit flick carries on to ~1,190; 82 gestures (drags, flicks, glides, a half and full stick push, the
+  held D-pad and L, three passes down and up both chapters): p90 of their p90s 17 ms, the longest frame 20 ms (≤ 34); memory
+  323.1 MiB after each pass (growth 0, < 16 MiB); `waitFrames` 0 from the second pass; `texUsed` at most 61.1 MiB (≤ 64);
+  no `mem_pressure`, no error. No smaller strip tiles needed: the frames that upload 800 × 2000 tiles stay within 20 ms.
+- **The owner's verdict:** (to come: a real webtoon in their hands.)
 Rejected: a shared base view for both readers (more moving parts than one view with a strip mode); borealis's own pan
 momentum (it assumes 1/60 s per frame and a fixed slow-down); counting a drag from the touch-down point (a jump of the
 slop when it begins).

@@ -149,6 +149,24 @@ async function waitForSave(s: Scenario, mark: number): Promise<void> {
     await s.events.waitForEvent('idle', {}, { from: s.events.events.indexOf(saved) });
 }
 
+/**
+ * Reads config.json after each save from `mark` on (up to 3) until `check` passes: an earlier change (the library tab) may
+ * be saved first, about 2 s after it, and the change looked for in the next save.
+ */
+async function waitForConfig(s: Scenario, mark: number, check: (config: { reader: { manga: unknown[] } }) => boolean): Promise<void> {
+    let from = mark;
+    for (let i = 0; i < 3; i++) {
+        const saved = await s.events.waitForEvent('config_saved', {}, { from, timeoutMs: 10_000 });
+        const config = JSON.parse((await s.driver.readFile('config.json')).toString('utf8'));
+        if (check(config)) {
+            await s.events.waitForEvent('idle', {}, { from: s.events.events.indexOf(saved) });
+            return;
+        }
+        from = s.events.events.indexOf(saved) + 1;
+    }
+    throw new Error('config.json never had what the step saved');
+}
+
 /** The strip's settings (5 entries, the reader in landscape): opens the menu unless open, entry `entry`, choice `choice`. */
 async function stripSetting(s: Scenario, entry: number, choice: number, count: number,
     fields: Record<string, unknown>): Promise<AppEvent> {
@@ -293,10 +311,9 @@ scenario('reader-webtoon', async (s) => {
         console.log(`[reader-webtoon] opened by shape in ${ev.openMs} ms`);
         if (s.driver.name === 'switch') expect(Number(ev.openMs), 'openMs, the first time (by shape)').toBeLessThanOrEqual(800);
         await expectCodes(s, ev, view);
-        await waitForSave(s, mark);
-        const config = JSON.parse((await s.driver.readFile('config.json')).toString('utf8'));
-        expect(config.reader.manga, 'config.json: Gamma saved as a strip').toContainEqual(
-            expect.objectContaining({ id: gamma, direction: 'vertical' }));
+        // config.json: Gamma saved as a strip.
+        await waitForConfig(s, mark, (config) => config.reader.manga.some((m) =>
+            (m as { id?: number; direction?: string }).id === gamma && (m as { direction?: string }).direction === 'vertical'));
 
         // A drag moves the strip by the drag: no flick after a finger that rested.
         let top = Number(ev.top);
@@ -377,10 +394,10 @@ scenario('reader-webtoon', async (s) => {
         const closed = ev;
         const closedCode = middleCode(await expectCodes(s, ev, view), 1280);
         expect(closedCode).toBeTruthy();
-        mark = s.events.mark();
+        // Saved by the 5 s sync or by the close (whichever came first after the strip got there).
         await closeReader(s, view);
         await s.events.waitForEvent('progress', { chapterId: g2, page: 1, spot: closed.spot, ok: true },
-            { from: mark, timeoutMs: 15_000 });
+            { from: s.events.events.indexOf(closed), timeoutMs: 15_000 });
         ev = await readerAfter(s, tap(s, MANGA.continue), { mode: 'strip', shown: 'strip' });
         expect(ev).toMatchObject({ chapterId: g2, page: 1, orientation: 'portrait-left' });
         expect(ev.auto, 'Gamma is saved as a strip now: no rule needed').toBeUndefined();

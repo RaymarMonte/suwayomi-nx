@@ -129,7 +129,9 @@ void ConfigStore::useServer(const core::ServerSettings& server) {
 }
 
 void ConfigStore::onFrame() {
-    if (scheduler_.due(appClockMs())) {
+    const bool postponed = postponeThisFrame_;
+    postponeThisFrame_ = false;
+    if (!postponed && scheduler_.due(appClockMs())) {
         save();
     }
 }
@@ -139,6 +141,7 @@ bool ConfigStore::flush() {
 }
 
 bool ConfigStore::save() {
+    const std::int64_t startedMs = appClockMs();
     const std::string text = core::saveAppConfig(config_);
     if (!fs_.writeAtomic(kConfigPath, text, platform::SafeFs::Backup::Keep)) {
         brls::Logger::error("config: couldn't save {}", kConfigPath);
@@ -146,9 +149,11 @@ bool ConfigStore::save() {
         return false;
     }
     scheduler_.saved();
-    brls::Logger::info("config: saved ({} bytes)", text.size());
+    const std::int64_t tookMs = appClockMs() - startedMs;
+    brls::Logger::info("config: saved ({} bytes, {} ms)", text.size(), tookMs);
     nlohmann::ordered_json fields = nlohmann::ordered_json::object();
     fields["bytes"] = text.size();
+    fields["ms"] = tookMs;
     fields["server"] = config_.server.url;
     fields["auth"] = std::string(core::authModeName(config_.server.auth));
     fields["hasToken"] = !config_.server.refreshToken.empty();

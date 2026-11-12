@@ -1,17 +1,19 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** WP-13b (webtoon reader) **in progress** (desktop done, console next), then plan WP-18 (order: ROADMAP.md, D47).
+**Phase 3 – Features. Now:** WP-13b (webtoon reader) **built and green; waits for the owner's hands-on test**, then WP-13d (zoom in the strip), WP-18 (ROADMAP.md, D47).
 Done: WP-00a … 13, 13c and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
-## Last session (2026-11-12, WP-13b build, part 2, Opus)
-- **Desktop done, green:** the strip runs (core `StripMath`, `ui/reader/StripModel` + `StripCanvas` inside `ReaderView`,
-  `ProgressSaver`, `ReaderActivity` hosting both readers; zoom in the strip split to **WP-13d**). Scenario `reader-webtoon`
-  (~70 s: by shape, drag, flick, touch stops a flick, taps, page codes at the middle line, goldens seam / band / landscape,
-  progress + spot note on the server, chapter change, Continue to the same spot, orientations, Strip width, Alpha by hand),
-  with a Switch-only part (half push, held D-pad, L, 3 full-push passes: memory, `waitFrames`, frame times, `openMs`).
-  `reader-paged` / `reader-spread-split` now tap the direction menu's row for 3 rows (Vertical strip added). Docs: D49,
-  TESTING 6f, ARCHITECTURE, SUWAYOMI-API, READMEs, CHANGELOG (Unreleased).
-- **Next:** `tools/e2e.sh switch reader-webtoon` + `reader-paged`, `reader-portrait`, `reader-zoom`, `reader-spread-split`
-  (handheld, application mode), the console numbers into D49, safety gate PASS; then the owner tries a real webtoon.
-- From WP-13c: `maxDecodeScale` 4 on Full (safe 2, D48). Not released (CHANGELOG "Unreleased").
+## Last session (2026-11-12, WP-13b build, part 3, Opus)
+- **WP-13b green on desktop and console:** the strip (`StripMath`, `StripModel` + `StripCanvas` in `ReaderView`,
+  `ProgressSaver`, `ReaderActivity` hosts both readers; strip zoom split to **WP-13d**), scenario `reader-webtoon`. D49's
+  console numbers: open by shape 0.52 s, as a strip 58 ms, worst frame 20 ms, memory flat, `texUsed` ≤ 61.1 MiB.
+- **Console fixes this part:** WebP decodes at full size within the 15 % slack (libwebp's scaler cost 454 ms per strip, now
+  ~180); a held D-pad / L / R counts as moving (the `reader` event came in the gap between the glide and the held scroll);
+  `ConfigStore::postponeSaveThisFrame()` (a save costs 20–33 ms on the SD card: it waits while the reader moves); the
+  `gesture` frame times leave out the test hooks' own SD writes (~8 ms per event, up to ~70 ms; release builds don't write).
+- **Harness:** `test/commands/*` uploads skip the hash check; `reader-zoom`'s `portrait-zoom3` is taken before the swipe.
+- **Next:** the owner reads a real webtoon from their server in both orientations (stick, D-pad, a flick, taps, a chapter
+  change, coming back to a chapter) and says whether the strip picks itself for the right manga → D49's verdict, the WP's
+  last box, then WP-13b is done. WP-13, 13c and 13b are unreleased (CHANGELOG): a version is the owner's call.
+  The console was left asleep (2026-11-12): wake it (HOME) before the next device run.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
@@ -21,7 +23,8 @@ Done: WP-00a … 13, 13c and 22; **v0.2.0 released** (v0.1.0 before it). Nice to
 - Test server: `reset` + `start` ~10 s (desktop e2e needs it running); won't start ("null cannot be cast"): `reset`, start again.
 - WSL can fail to start ("insufficient system resources") when Windows memory is nearly all committed (it reserves up to 12 GB): ask the owner to close apps.
 - Device: e2e `smoke` ~30 s, `net-hello` ~25 s, `manga-details` ~67 s, `reader-paged` ~120 s, `resume-progress` ~50–80 s,
-  `reader-rtl-spread` ~40 s, `broken-images` ~36 s, `auth-matrix` ~110 s, `crash-drills` ~9 min (one drill ~50 s).
+  `reader-rtl-spread` ~40 s, `broken-images` ~36 s, `auth-matrix` ~110 s, `crash-drills` ~9 min (one drill ~50 s),
+  `reader-webtoon` ~7 min, `reader-zoom` ~7 min, `reader-portrait` ~2.4 min, `reader-spread-split` ~1.4 min.
   The desktop text dialog ignores Enter: tap its OK. A start-up crash leaves no log: use breadcrumb writes (WP-03c).
 - Owner's real server (D18 "Update", never in tests): the Switch uses `http://<server-lan-ip>:4568`, no auth. Addresses: `docs/local/`.
 ## Console facts

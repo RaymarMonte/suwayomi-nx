@@ -40,6 +40,7 @@ std::int64_t gBusySinceMs = -1;  // when the app last became busy, for the "busy
 bool gBusyReported = false;
 constexpr std::int64_t kBusyReportMs = 5000;
 bool gUiBusy = false;
+std::int64_t gIoMs = 0;  // main-thread time spent on the SD card since takeIoMs() (WP-13b)
 
 // The touch channel (WP-13).
 constexpr const char* kCommandsDir = "test/commands";
@@ -84,7 +85,10 @@ bool flush() {
     if (gFs == nullptr || gPending.empty()) {
         return true;
     }
-    if (!gFs->append(kEventsPath, gPending)) {
+    const std::int64_t started = nowMs();
+    const bool written = gFs->append(kEventsPath, gPending);
+    gIoMs += nowMs() - started;
+    if (!written) {
         return false;
     }
     gPending.clear();
@@ -436,6 +440,10 @@ void setUiBusy(bool busy) {
     gUiBusy = busy;
 }
 
+std::int64_t takeIoMs() {
+    return std::exchange(gIoMs, 0);
+}
+
 void onFrame() {
     const std::int64_t now = nowMs();
     if (gFs != nullptr) {
@@ -443,6 +451,7 @@ void onFrame() {
         if (!gPlayback && now - gLastCommandPollMs >= kCommandPollMs) {
             gLastCommandPollMs = now;
             readCommand();
+            gIoMs += nowMs() - now;
         }
     }
     if (now - gLastMemMs >= kMemEventMs) {
@@ -534,6 +543,9 @@ void watchImages(image::ImageLoader&) {}
 void steadyScreenshots() {}
 void watchApp(std::function<bool()>) {}
 void setUiBusy(bool) {}
+std::int64_t takeIoMs() {
+    return 0;
+}
 void write(std::string_view, const nlohmann::ordered_json&) {}
 void screen(std::string_view) {}
 void screen(std::string_view, const nlohmann::ordered_json&) {}

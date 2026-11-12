@@ -147,9 +147,13 @@ DecodePlan planDecode(ImageSize image, ImageSize box, DecodeScaling scaling, std
         case DecodeScaling::None:
             return shrinkWithin(image, target, budget, extraBytes, slackPercent);
         case DecodeScaling::Any: {
-            // The decoder scales for free, so no slack is needed: it decodes straight to the target.
+            // The decoder scales straight to the target. But on a big picture libwebp's scaler costs more than the decode
+            // itself (WP-13b, the console: an 800 x 12000 strip at 720 wide 454 ms, at full size 176 ms, WP-07), so within
+            // the slack it decodes at full size, as the other formats keep a decode within the slack (the GPU scales).
             DecodePlan plan;
-            plan.decoded = plan.output = fitDecoded(image, target, budget);
+            plan.decoded = plan.output = withinSlack(image, target, slackPercent) && rgbaBytes(image) <= budget
+                                             ? image
+                                             : fitDecoded(image, target, budget);
             plan.ok = rgbaBytes(plan.output) <= budget;
             plan.workBytes = extraBytes + rgbaBytes(plan.output);
             return plan;

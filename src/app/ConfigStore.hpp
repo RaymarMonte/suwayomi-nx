@@ -44,8 +44,12 @@ class ConfigStore {
     // The test config's server (test builds): used as if it had been saved, but not written unless something changes it.
     void useServer(const core::ServerSettings& server);
 
-    // Once per main-loop iteration: saves when the debounce is over.
+    // Once per main-loop iteration: saves when the debounce is over, unless postponeSaveThisFrame() was called in it.
     void onFrame();
+    // The reader calls this in every frame in which the page or the strip moves: a save that is due then waits for the first
+    // frame without the call (writing to the SD card can take longer than a frame: a hitch in a scroll, WP-13b). It clears
+    // itself each frame, so it can't hold saves back once the reader stops calling it. flush() still saves at once.
+    void postponeSaveThisFrame() { postponeThisFrame_ = true; }
     // Saves now if anything changed. True if nothing needed saving or the save worked.
     bool flush();
 
@@ -57,6 +61,7 @@ class ConfigStore {
     std::size_t mangaReaderMax_;
     core::AppConfig config_;
     core::SaveScheduler scheduler_;
+    bool postponeThisFrame_ = false;
 };
 
 // Milliseconds on a steady clock, the app's one clock for timers (logger, config saves, test events).

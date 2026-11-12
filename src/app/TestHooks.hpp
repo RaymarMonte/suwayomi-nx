@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -84,6 +85,11 @@ void error(std::string_view where, std::string_view kind, std::string_view messa
 // WP-13: a screen that is still settling by itself (the reader: a middle tap waiting for a second one, a zoom about to
 // decode, a glide, a pinch or a stick pan) counts as busy, so "idle" waits for it. Main thread only.
 void setUiBusy(bool busy);
+
+// How long the test hooks kept the main thread waiting on the SD card (writing events, looking for a touch command) since
+// the last call, in ms. The reader leaves it out of its frame times, because a release build doesn't do that work (WP-13b:
+// on the console one event costs ~8 ms, up to ~70 ms while the harness reads the file). Always 0 in release builds.
+std::int64_t takeIoMs();
 
 // Once per main-loop iteration: writes "idle" when nothing has run for a few frames, a "mem" event every 10 s, starts the
 // test config's crash drill the first time the app is idle, and retries lines that couldn't be written yet (on the Switch

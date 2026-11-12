@@ -180,7 +180,8 @@ flick ourselves) and how a `Label` draws its text with NanoVG (the font call, fo
    the clock drives (flick, glide, held scroll) is asserted as a range on the settled event; played drags exactly.
 
 ## Deliverables
-- [ ] **Spike first** (short): on desktop, Gamma ch1's three strips joined and scrolled by the stick, with the tile window
+- [x] (Folded into the build: the console run answered it. Frames that upload 800 × 2000 tiles stay within 20 ms, so no
+      smaller tiles; D49.) **Spike first** (short): on desktop, Gamma ch1's three strips joined and scrolled by the stick, with the tile window
       and one upload per frame; on the console (application mode, handheld, portrait), a full-push stick scroll through it:
       frame intervals and the upload time of one 800 × 2000 tile (6.1 MiB; WP-13c measured ~1 ms per MiB). If a tile upload
       doesn't fit in a frame next to the drawing, plan smaller strip tiles before building the rest, and write what you found
@@ -208,7 +209,7 @@ flick ourselves) and how a `Label` draws its text with NanoVG (the font call, fo
       width"), the new event fields and gesture kinds
 - [x] Profile: `stripScreensBehind` / `stripScreensAhead` (unit test of the profile table)
 - [x] Test hooks: `flick()` and the middle-code check in `tests/e2e/lib/` (with vitest tests), TESTING.md says how
-- [ ] Scenario `reader-webtoon` (desktop and Switch). Desktop: Gamma ch1 from the details screen with no own choice → strip
+- [x] (Its zoom steps: WP-13d.) Scenario `reader-webtoon` (desktop and Switch). Desktop: Gamma ch1 from the details screen with no own choice → strip
       by itself (`auto: shape`), held sideways (portrait-left on a fresh config), `stripW` 720, the strip's top at the top,
       config.json then has Gamma as `vertical`; a played drag moves `top` by the drag; a played flick carries on past the
       finger and stops; a touch during a flick stops it; a bottom tap glides on ~960 units, a top tap back, a middle tap opens
@@ -223,12 +224,13 @@ flick ourselves) and how a `Label` draws its text with NanoVG (the font call, fo
       the page under the middle line; in the strip a double tap zooms to 2 × at the point, a pinch to 3 and back, a zoomed drag
       pans sideways, scrolling keeps the zoom. Switch adds: stick scrolling (`/input/stick`, full and half push), the held
       D-pad and L/R, the frame numbers and the soak below
-- [ ] The existing scenarios stay green and unchanged: `reader-paged`, `reader-rtl-spread`, `reader-portrait`, `reader-zoom`,
+- [x] (Changed only: the direction menu's third row in `reader-paged` / `reader-spread-split`; `reader-zoom`'s portrait
+      golden now before the console's swipe, which varies by a step.) The existing scenarios stay green and unchanged: `reader-paged`, `reader-rtl-spread`, `reader-portrait`, `reader-zoom`,
       `reader-spread-split`, `resume-progress`, `touch-pass`, `broken-images`, `soak` (and the rest of `tools/e2e.sh desktop`)
-- [ ] Console (application mode, handheld, stock clocks, D17): the numbers in Acceptance; the Switch build's safety gate PASS
+- [x] Console (application mode, handheld, stock clocks, D17): the numbers in Acceptance; the Switch build's safety gate PASS
 - [ ] Owner tries it in their hands: a real webtoon from their server in both orientations (stick, D-pad, a flick, taps, a
       chapter change, coming back to a chapter, zoom), and whether the strip picks itself for the right manga in their library
-- [ ] Docs: D49 (the answers, the defaults as they ended up, the D46 change, the console numbers, the owner's verdict),
+- [x] (The owner's verdict goes into D49 after their test.) Docs: D49 (the answers, the defaults as they ended up, the D46 change, the console numbers, the owner's verdict),
       ARCHITECTURE.md (reader math line, the "Webtoon tiles kept decoded" row and the new prefetch fields), TESTING.md
       (scenario 6f, the new events and helpers), SUWAYOMI-API.md (the chapter meta note and the two-field mutation),
       `src/core/README.md`, `src/api/README.md`, `src/ui/README.md`, `tests/e2e/README.md`, the user part of README.md (how to

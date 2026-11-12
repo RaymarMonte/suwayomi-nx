@@ -229,7 +229,12 @@ export class SwitchDriver implements Driver {
     }
 
     async writeFile(path: string, data: Buffer | string): Promise<void> {
-        await this.putVerified(this.sdPath(path), Buffer.isBuffer(data) ? data : Buffer.from(data, 'utf8'));
+        const bytes = Buffer.isBuffer(data) ? data : Buffer.from(data, 'utf8');
+        // The app plays a touch command file and deletes it within about 100 ms of its landing, often before its hash can be
+        // read (the hash then answers 404 or 500, WP-13b). So a command file gets no hash check: the app's "command" event
+        // is the check (playTouches waits for it), and a broken upload never gets one, so the wait fails instead.
+        if (path.startsWith('test/commands/')) await this.autopilot.putFile(this.sdPath(path), bytes);
+        else await this.putVerified(this.sdPath(path), bytes);
     }
 
     events(): EventStream {

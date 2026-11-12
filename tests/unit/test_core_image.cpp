@@ -88,6 +88,11 @@ TEST_SUITE("core") {
         CHECK(planDecode({1000, 1500}, {600, 900}, DecodeScaling::None, 128 * kMiB, 0, 15).output == ImageSize{600, 900});
         CHECK(planDecode({1000, 1500}, {950, 1425}, DecodeScaling::None, 128 * kMiB, 0, 5).output == ImageSize{950, 1425});
         CHECK(planDecode({1000, 1500}, {960, 1440}, DecodeScaling::None, 128 * kMiB, 0, 5).output == ImageSize{1000, 1500});
+        // WebP within the slack: its full size (libwebp's scaler is slow on big strips, WP-13b); beyond it, straight to size.
+        CHECK(planDecode({800, 12000}, {720, 0}, DecodeScaling::Any, 128 * kMiB, 0, 15).output == ImageSize{800, 12000});
+        CHECK(planDecode({800, 12000}, {640, 0}, DecodeScaling::Any, 128 * kMiB, 0, 15).output == ImageSize{640, 9600});
+        CHECK(planDecode({800, 12000}, {720, 0}, DecodeScaling::Any, 128 * kMiB, 0, 0).output == ImageSize{720, 10800});
+        CHECK(planDecode({800, 12000}, {720, 0}, DecodeScaling::Any, 30 * kMiB, 0, 15).output.width <= 720);  // over the budget
         // The squeezed PNG: full size fits, the shrunk copy gets what's left.
         const DecodePlan squeezed = planDecode({2000, 2000}, {1900, 1900}, DecodeScaling::None, 17 * kMiB);
         CHECK(squeezed.ok);

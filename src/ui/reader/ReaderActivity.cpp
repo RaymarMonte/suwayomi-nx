@@ -343,9 +343,16 @@ void ReaderActivity::build() {
             strip_->onFrame();
         }
         report();
+        // A config save waits while the page or the strip moves: writing to the SD card can cost more than a frame.
+        if (view_->gliding() || view_->pinching() || stickPushing_ || !gestureKind_.empty() ||
+            (canvas_ && (canvas_->moving() || holdDirection_ != 0 || stickScrolling_))) {
+            context_.config.postponeSaveThisFrame();
+        }
         // Test builds: not idle while a middle tap waits, a zoom waits to decode, the page moves by itself, or the spread on
-        // screen decodes again for its halves; in the strip while it moves or a page on screen is still loading.
-        const bool stripBusy = canvas_ && (canvas_->moving() || canvas_->waiting() || holdScrolling_ || stickScrolling_);
+        // screen decodes again for its halves; in the strip while it moves, a button that scrolls it is held (also in the
+        // pause between a press's glide and the held scroll) or a page on screen is still loading.
+        const bool stripBusy =
+            canvas_ && (canvas_->moving() || canvas_->waiting() || holdDirection_ != 0 || stickScrolling_);
         app::testhooks::setUiBusy(seenZoomRevision_ != appliedZoomRevision_ || model_.zoomLoading() || view_->gliding() ||
                                   view_->pinching() || view_->tapWaiting() || stickPushing_ || !gestureKind_.empty() ||
                                   model_.current().reloading || stripBusy);
@@ -576,13 +583,17 @@ void ReaderActivity::gestureBegin(const std::string& kind) {
     gestureLastMs_ = app::appClockMs();
     gestureEndAfter_ = 0;
     gestureFrames_.clear();
+    app::testhooks::takeIoMs();  // what came before the gesture doesn't count
 }
 
 void ReaderActivity::gestureFrame(std::int64_t now) {
     if (gestureKind_.empty()) {
         return;
     }
-    gestureFrames_.push_back(static_cast<int>(now - gestureLastMs_));
+    // Test builds: the time the test hooks spent on the SD card (events, the touch channel) is left out. A release build
+    // doesn't do that work, and on the console it can stall a frame (D49).
+    const std::int64_t testIo = app::testhooks::takeIoMs();
+    gestureFrames_.push_back(static_cast<int>(std::max<std::int64_t>(0, now - gestureLastMs_ - testIo)));
     gestureLastMs_ = now;
     if (gestureEndAfter_ > 0 && --gestureEndAfter_ == 0) {
         gestureEnd(gestureKind_);
@@ -1349,7 +1360,8 @@ void ReaderActivity::reportStrip() {
         return;
     }
     shown = strip_->state() == StripModel::State::Failed ? "chapter_error" : "strip";
-    if (shown == "strip" && (canvas_->moving() || canvas_->waiting() || !gestureKind_.empty() || holdScrolling_ ||
+    // Not settled while a scrolling button is held: a press's glide ends before the held scroll begins (kStripHoldMs).
+    if (shown == "strip" && (canvas_->moving() || canvas_->waiting() || !gestureKind_.empty() || holdDirection_ != 0 ||
                              stickScrolling_)) {
         return;
     }

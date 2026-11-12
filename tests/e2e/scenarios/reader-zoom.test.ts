@@ -7,7 +7,7 @@
 // - a pinch in (3 x) and out snaps back to the fit; a double tap in and one out; a single middle tap opens the menu after
 //   the double tap's wait; an edge tap turns at once;
 // - "Zoom on page turn: Keep the zoom": a turn keeps 2 x at the reading start (the top); the setting survives a restart;
-// - turned right (portrait): the same double tap, pinch and drag on the portrait screen (golden "portrait-zoom3").
+// - turned right (portrait): the same double tap, pinch (golden "portrait-zoom3") and drag on the portrait screen.
 // The Switch adds: ZR / ZL steps; a stick pan to the edge and a fresh push there turns; D-pad glides and the edge press;
 // not zoomed, a stick held 2 s turns one page; in portrait the D-pad held turns one page; the frame times while gestures
 // run (p90 <= 17 ms, none over 34 ms) and sharpMs (p90 <= 350 ms); 50 zoom cycles and 100 turns from zoomed pages with
@@ -160,6 +160,9 @@ scenario('reader-zoom', async (s) => {
         // A pinch around the portrait screen's middle (360, 640) to 3 x: x 360 - 1080 = -720, y 640 - 1260 = -620.
         shown = await readerWhere(s, pinch(s, { x: 360, y: 640 }, 200, 300, at), 'zoom 3 in portrait', zoomNear(3));
         expect(shown).toMatchObject({ page, w: 2160, h: 3240, x: -720, y: -620 });
+        // The golden here, where the pinch puts the page exactly: after the console's swipe below the page sits one swipe step
+        // (37.5 units) further or not, so a picture there failed now and then (WP-13b).
+        await s.expectGolden('portrait-zoom3');
         // A drag to the right on the portrait screen (450 units): the page follows, not at an edge yet.
         const right = PORTRAIT.swipeToRight;
         const a = at({ x: right.x1, y: right.y1 });
@@ -171,7 +174,6 @@ scenario('reader-zoom', async (s) => {
         expect(Number(shown.x), 'x after the drag').toBeGreaterThanOrEqual(-720 + 300);
         expect(Number(shown.x), 'x after the drag').toBeLessThanOrEqual(-720 + 451);
         expect(shown).toMatchObject({ page, y: -620 });
-        await s.expectGolden('portrait-zoom3');
         s.expectNoErrorEvents();
 
         if (onSwitch) {

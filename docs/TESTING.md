@@ -54,7 +54,7 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
 - WP-08 (D40) added `launch_refused` (the only event in applet mode), `mem` (`used`, `total`, `free`, every 10 s), `focus`
   (`view`: the focused view's class and id), `error` (`where`, `kind`, `msg`: a screen shows an error), `server_check` (`where`
   main/setup/diagnostics, `ok`, `version` or `kind`), `login` (the client's login changed: `auth`, `hasAccessToken`,
-  `hasRefreshToken`), `login_screen` (`ok`), `config_saved` (`bytes`, `server`, `auth`, `hasToken`), `net_burst` (`sent`, `ok`),
+  `hasRefreshToken`), `login_screen` (`ok`), `config_saved` (`bytes`, `ms`, `server`, `auth`, `hasToken`), `net_burst` (`sent`, `ok`),
   `screen.params` (Setup: `firstRun`, `url`; Settings: `mode`, `profile`, `memUsed`, `memTotal`, `safeMode`, `crashLogs`) and the
   profile's budgets in `app_start` (`imageBudget`, `coverBudget`, `textureBudget`, `maxDecode`, `httpConcurrency`, `decodeThreads`).
 - WP-09 added `library` (the Library tab shows something new: `state` ready/empty/failed, `category` id, `categories` count,
@@ -84,7 +84,9 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
   settle wait included; WP-13c adds `uploadMs`, that decode's texture upload); WP-13c: (always) `splitSpreads`
   portrait/always/never, for a page `split` (it shows as two halves) and `half` (0 = the first in reading order; `w`/`h`
   are the half's then); `gesture` after every pinch, drag, glide (D-pad), stick pan, zoom step and double tap (`kind`,
-  `frames`, `p90Ms`/`maxMs` = frame intervals while it ran, `zoom`, `x`, `y`); `command` (a played touch command is done:
+  `frames`, `p90Ms`/`maxMs` = frame intervals while it ran, without the time the test hooks themselves spent on the SD
+  card in them (writing events, the touch channel: a release build doesn't do that; WP-13b), `zoom`, `x`, `y`);
+  `command` (a played touch command is done:
   `id`, `ok`, `error`). The reader also counts as busy for `idle` while it settles by itself (a middle tap waiting for a
   second one, the zoom about to decode, a glide, a pinch, a stick push).
 - WP-13b (D49): in the webtoon strip, `reader` has `mode` "strip" (the page reader's say `mode` "paged"), `chapterId` and
@@ -281,9 +283,9 @@ Initial list, grown per UI WP:
     to 3 × (x -80, y -180); a drag right stops at the left edge (x 0), the same drag turns (page 2 at the fit); a pinch in and
     out snaps to the fit; double tap in and out; a single middle tap opens the menu after the 250 ms wait; an edge tap turns at
     once (`turnMs` < 100 on desktop) with `texUsed` back at the fit page's; "Zoom on page turn: Keep" → a turn keeps 2 × at
-    the top, and survives a restart; turned right: the same double tap, pinch and drag on the portrait screen (golden
-    `portrait-zoom3`). The Switch adds (green 2026-11-07, ~7 min): ZR/ZL steps, a stick pan and a fresh push at the edge, D-pad
-    glides and the edge press, a held stick and a held portrait D-pad turn one page, 50 zoom cycles (memory growth < 16 MiB
+    the top, and survives a restart; turned right: the same double tap, pinch (golden `portrait-zoom3`, before the drag: the
+    console's swipe varies by a step, WP-13b) and drag on the portrait screen. The Switch adds (green 2026-11-07, ~7 min):
+    ZR/ZL steps, a stick pan and a fresh push at the edge, D-pad glides and the edge press, a held stick and a held portrait D-pad turn one page, 50 zoom cycles (memory growth < 16 MiB
     after the fifth, `texUsed` back to the fit), 100 turns from zoomed pages (p90 < 150 ms), and the gesture frame times
     (p90 ≤ 17 ms, none over 34 ms) and `sharpMs` p90 ≤ 350 ms (console: frames p90 17 / max 17 ms, `sharpMs` p90
     183 ms, zoomed turns p90 18 ms, memory growth 0). ~20 s on desktop

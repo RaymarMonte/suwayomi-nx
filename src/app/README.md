@@ -9,7 +9,8 @@ guard, config, borealis, the HTTP client, the Suwayomi client, the image loader,
 - `Logger.hpp/.cpp`: every `brls::Logger` line goes to stdout, the crash ring (S1) and `logs/app.log` (buffered, at most every
   `logFlushMs`, open -> append -> close, rotates to `app.1.log` at `logFileBytes`). Messages start with a tag: `"setup: ..."`.
 - `ConfigStore.hpp/.cpp`: `config.json` in memory; saves debounced (`core::SaveScheduler`) with `writeAtomic` + `.bak`, `flush()`
-  on HOME/sleep/exit, falls back to the `.bak` when the file is unreadable. `appClockMs()`: the app's steady clock.
+  on HOME/sleep/exit, falls back to the `.bak` when the file is unreadable; a due save waits while the reader moves
+  (`postponeSaveThisFrame()`, D49: a save costs 20–33 ms on the console). `appClockMs()`: the app's steady clock.
 - `AppletGuard.hpp/.cpp`: D21's refusal in applet mode (log line, `launch_refused`, the text console screen, nothing written after).
 - `TestHooks.hpp/.cpp`: test events and the test config (docs/TESTING.md). Release builds compile it to nothing.
 

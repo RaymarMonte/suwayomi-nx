@@ -80,12 +80,13 @@ TEST_SUITE("core") {
         CHECK(pages.variables == nlohmann::json::parse(R"({"chapterId": 6})"));
         CHECK(gql::fetchChapterPages(6, "image/jpeg").variables["format"] == "image/jpeg");
 
-        const auto progress = gql::updateChapterProgress(ReadProgress{3, 4, false, -1});
+        const auto progress = gql::updateChapterProgress(ReadProgress{3, 4, false, -1, std::nullopt});
         CHECK(progress.mutation);
         CHECK(progress.variables == nlohmann::json::parse(R"({"id": 3, "patch": {"lastPageRead": 4}})"));
-        CHECK(gql::updateChapterProgress(ReadProgress{3, 9, true, 10}).variables["patch"] ==
+        CHECK(gql::updateChapterProgress(ReadProgress{3, 9, true, 10, std::nullopt}).variables["patch"] ==
               nlohmann::json::parse(R"({"lastPageRead": 9, "isRead": true})"));
-        CHECK(gql::updateChapterProgress(ReadProgress{3, -2, false, 10}).variables["patch"]["lastPageRead"] == 0);
+        CHECK(gql::updateChapterProgress(ReadProgress{3, -2, false, 10, std::nullopt})
+                  .variables["patch"]["lastPageRead"] == 0);
 
         const auto login = gql::login("snx", "p\"ss");
         CHECK(login.mutation);
