@@ -32,87 +32,6 @@ ReaderOptions readerOptionsFrom(const core::RuntimeProfile& profile, const core:
     return options;
 }
 
-// Sends the progress updates. Shared with the requests it starts, so a save that is on its way when the reader closes
-// finishes (and starts the next one, if pages were turned meanwhile) after the model is gone. Saves are never cancelled:
-// an update cut off half way might or might not have reached the server. Main thread only (the client's deliver).
-struct ReaderModel::Saver {
-    api::SuwayomiClient& client;
-    std::function<std::int64_t()> clock;
-    std::function<void(const core::ReadProgress&, bool)> onSaved;
-    std::function<void(const core::ReadProgress&)> toModel;  // the model, while it exists
-    std::vector<std::shared_ptr<core::ProgressSync>> left;   // chapters left behind with something not saved yet
-    int inFlight = 0;
-    bool closing = false;  // no more retries: send what's left once, then call whenDone
-    std::vector<std::function<void()>> whenDone;
-    net::CancelToken never;
-
-    Saver(api::SuwayomiClient& c, std::function<std::int64_t()> time, std::function<void(const core::ReadProgress&, bool)> saved)
-        : client(c), clock(std::move(time)), onSaved(std::move(saved)) {}
-
-    static void send(const std::shared_ptr<Saver>& self, const std::shared_ptr<core::ProgressSync>& sync,
-                     const core::ReadProgress& progress) {
-        sync->sending(progress, self->clock());
-        ++self->inFlight;
-        self->client.setProgress(progress.chapterId, progress.lastPageRead, progress.isRead, self->never)
-            .then([self, sync, progress](const api::ApiResult<core::ReadProgress>& result) {
-                --self->inFlight;
-                const bool ok = result.ok();
-                if (ok) {
-                    sync->saved(progress);
-                } else {
-                    sync->failed(self->clock());
-                }
-                if (self->onSaved) {
-                    self->onSaved(progress, ok);
-                }
-                if (ok && self->toModel) {
-                    self->toModel(progress);
-                }
-                if (self->closing && ok) {
-                    // Pages turned while this one was on its way.
-                    if (const auto more = sync->dueNow()) {
-                        send(self, sync, *more);
-                    }
-                }
-                self->tidy();
-            });
-    }
-
-    // Sends what is due (now: without waiting for the interval).
-    static void flush(const std::shared_ptr<Saver>& self, const std::shared_ptr<core::ProgressSync>& sync, bool now) {
-        if (!sync) {
-            return;
-        }
-        const auto progress = now ? sync->dueNow() : sync->due(self->clock());
-        if (progress) {
-            send(self, sync, *progress);
-        }
-    }
-
-    static void flushLeft(const std::shared_ptr<Saver>& self, bool now) {
-        const auto chapters = self->left;  // send() may change the list
-        for (const auto& sync : chapters) {
-            flush(self, sync, now);
-        }
-        self->tidy();
-    }
-
-    void tidy() {
-        left.erase(std::remove_if(left.begin(), left.end(),
-                                  [](const auto& sync) { return !sync->pending() && !sync->inFlight(); }),
-                   left.end());
-        if (closing && inFlight == 0) {
-            std::vector<std::function<void()>> callbacks;
-            callbacks.swap(whenDone);
-            for (auto& callback : callbacks) {
-                if (callback) {
-                    callback();
-                }
-            }
-        }
-    }
-};
-
 ReaderModel::ReaderModel(api::SuwayomiClient& client, image::ImageLoader& images, core::Manga manga,
                          std::vector<core::Chapter> chapters, core::MangaReaderSettings settings, ReaderOptions options)
     : client_(client),
@@ -124,7 +43,7 @@ ReaderModel::ReaderModel(api::SuwayomiClient& client, image::ImageLoader& images
     std::stable_sort(chapters_.begin(), chapters_.end(),
                      [](const core::Chapter& a, const core::Chapter& b) { return a.sourceOrder < b.sourceOrder; });
     settings_.mangaId = manga_.id;
-    saver_ = std::make_shared<Saver>(client_, options_.clock, options_.onSaved);
+    saver_ = std::make_shared<ProgressSaver>(client_, options_.clock, options_.onSaved);
     saver_->toModel = [this](const core::ReadProgress& progress) { onSaved(progress); };
 }
 
@@ -257,9 +176,7 @@ void ReaderModel::leaveChapter() {
     }
     slots_.clear();
     if (sync_) {
-        saver_->left.push_back(sync_);
-        Saver::flush(saver_, sync_, true);
-        saver_->tidy();
+        ProgressSaver::leave(saver_, sync_);
         sync_.reset();
     }
 }
@@ -745,21 +662,18 @@ core::ImageSize ReaderModel::boxForZoom(float zoom) const {
 
 void ReaderModel::onFrame() {
     if (!saver_->closing) {
-        Saver::flush(saver_, sync_, false);
-        Saver::flushLeft(saver_, false);
+        ProgressSaver::flush(saver_, sync_, false);
+        ProgressSaver::flushLeft(saver_, false);
     }
 }
 
 void ReaderModel::saveNow() {
-    Saver::flush(saver_, sync_, true);
-    Saver::flushLeft(saver_, true);
+    ProgressSaver::flush(saver_, sync_, true);
+    ProgressSaver::flushLeft(saver_, true);
 }
 
 void ReaderModel::close(std::function<void()> done) {
-    saver_->closing = true;
-    saver_->whenDone.push_back(std::move(done));
-    saveNow();
-    saver_->tidy();
+    ProgressSaver::close(saver_, sync_, std::move(done));
 }
 
 void ReaderModel::onSaved(const core::ReadProgress& progress) {

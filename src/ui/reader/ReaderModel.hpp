@@ -17,6 +17,7 @@
 #include "core/models/PageList.hpp"
 #include "image/ImageLoader.hpp"
 #include "net/CancelToken.hpp"
+#include "ui/reader/ProgressSaver.hpp"
 
 // The paged reader's state (WP-11): the opened chapter's pages, the position (a page, or the "previous chapter" and "next
 // chapter" screens before the first and after the last page), the reading direction and fit, the pages loaded around the
@@ -181,7 +182,6 @@ class ReaderModel {
         enum class Kind { Page, Resume, Last } kind = Kind::Page;
         int page = 0;
     };
-    struct Saver;
     // The page on screen decoded again for its zoom (WP-13), for one half of a split spread (WP-13c).
     struct ZoomLoad {
         int chapterId = 0;
@@ -225,7 +225,7 @@ class ReaderModel {
     core::MangaReaderSettings settings_;
     ReaderOptions options_;
     std::function<void()> listener_;
-    std::shared_ptr<Saver> saver_;
+    std::shared_ptr<ProgressSaver> saver_;
 
     bool opened_ = false;
     State state_ = State::Loading;
