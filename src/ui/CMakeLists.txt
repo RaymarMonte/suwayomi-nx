@@ -7,6 +7,7 @@ add_library(snx_ui_models STATIC
     manga/MangaModel.cpp
     reader/ReaderModel.cpp
     reader/ProgressSaver.cpp
+    reader/StripModel.cpp
     login/LoginModel.cpp
     main/MainModel.cpp
     setup/SetupModel.cpp
