@@ -9,12 +9,13 @@ Done: WP-00a … 13, 13c and 22; **v0.2.0 released** (v0.1.0 before it). Nice to
   (lifted from ReaderModel, both readers use it). `ui/reader/StripModel` (3 chapters, joins at the ends with the view still,
   cut of the farthest, reading chapter at the middle line, read at the last page's bottom, spot saves, failed page and list
   retry, width/screen changes). Tests: `test_core_strip.cpp`, `test_ui_strip.cpp` (12 cases).
-- **Split decided:** zoom in the strip moves to **WP-13d** (the WP's split point; add it to ROADMAP.md at the end). The
-  middle tap opens the menu at once.
-- **Next steps, in order:** `StripView` (tile textures in TextureBudget, one upload per frame, bands, failed band, flick,
-  glides, held scroll; shares touch/portrait code with ReaderView); `ReaderActivity` hosting both + strip controls + settings
-  + i18n; test events; e2e `flick()` + middle-code check + `reader-webtoon`; docs, D49, ROADMAP WP-13d.
-  The console spike (frame times, tile upload) waits for a working `StripView` and the owner waking the console.
+  View shape (instead of a shared base class): `ui/reader/StripCanvas` draws the strip inside `ReaderView`
+  (`setStrip()`: strip mode; drags/flicks/taps go to the canvas, portrait + overlay + buttons stay shared). Desktop builds;
+  **not wired into ReaderActivity yet**, so nothing uses it.
+- **Split decided:** zoom in the strip moves to **WP-13d** (add it to ROADMAP.md at the end); the middle tap opens the menu.
+- **Next steps:** `ReaderActivity` hosts the strip (`model_` paged or `StripModel` + `StripCanvas`; by hand and by itself;
+  strip controls; settings with "Vertical strip" + "Strip width"; i18n; ConfigStore setters); test events; e2e `flick()` +
+  middle-code check + `reader-webtoon`; docs, D49, ROADMAP WP-13d. Console spike after the activity works (owner wakes it).
   Gamma Webtoon has no genres (e2e takes the shape rule), 3 pages per chapter.
 - From WP-13c: `maxDecodeScale` 4 on Full (safe 2, D48). Not released (CHANGELOG "Unreleased"). Console: normal build, asleep.
 ## Known facts about the environment
