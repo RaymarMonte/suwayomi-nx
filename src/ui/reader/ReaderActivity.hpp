@@ -3,6 +3,7 @@
 #include <borealis.hpp>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -11,6 +12,8 @@
 #include "core/models/Manga.hpp"
 #include "ui/reader/ReaderModel.hpp"
 #include "ui/reader/ReaderView.hpp"
+#include "ui/reader/StripCanvas.hpp"
+#include "ui/reader/StripModel.hpp"
 
 // The paged reader (WP-11). Full screen: the page (ReaderView), a message where there is no page (loading, an error with
 // Retry, the "previous chapter" / "next chapter" screens), the page number at the bottom, and a menu (top and bottom bars:
@@ -24,6 +27,10 @@
 // one page. Once the zoom has settled (150 ms), the page on screen decodes again at the zoomed size (ReaderModel::setPageZoom).
 // Spreads (WP-13c): held sideways (setting "Split spreads": in portrait / always / never) a spread shows as two halves, one
 // step each, the right half first for right to left.
+// The webtoon strip (WP-13b): reading direction "Vertical strip" (chosen, or by itself for a manga without its own direction
+// that is tagged Long Strip / Webtoon or whose first page is a tall strip) shows StripModel + StripCanvas in the same view
+// (ReaderView::setStrip); the paged model is parked meanwhile. D-pad up/down and L/R glide, held they scroll on, the sticks
+// scroll, taps at the top / bottom glide, the middle opens the menu. The strip keeps its own orientation and width.
 // The screen stays on while the reader is open. The state lives in ReaderModel; direction and fit are saved per manga.
 namespace snx::ui {
 
@@ -81,8 +88,19 @@ class ReaderActivity : public brls::Activity {
     void gestureFrame(std::int64_t now);
     void report();
     void reportScreen();
+    // WP-13b: the strip.
+    void startStrip(int chapterId, int page, StripModel::Open how, const char* rule);
+    void stopStrip();
+    void checkShape();
+    void stripChanged();
+    void stripTap(core::StripTapArea area);
+    void pollStrip(float seconds);
+    std::vector<std::string> stripText(int item);
+    void chooseStripWidth();
+    void reportStrip();
 
     app::AppContext& context_;
+    std::vector<core::Chapter> chapters_;  // as given (the strip model gets its own copy)
     ReaderModel model_;
     int startChapter_;
     int startPage_;
@@ -140,6 +158,22 @@ class ReaderActivity : public brls::Activity {
     bool turnReady_ = false;
     int retries_ = 0;       // Retry presses, so a retry that fails again is a new "reader" event
     std::string reported_;  // what the last "reader" event described
+
+    // WP-13b: the strip while it is shown (the canvas draws the model: destroyed first), its settings, and the paged
+    // reader's orientation while the strip has its own in orientation_.
+    std::unique_ptr<StripModel> strip_;
+    std::unique_ptr<StripCanvas> canvas_;
+    core::StripWidth stripWidth_;
+    core::ReaderOrientation pagedOrientation_;
+    std::string stripAuto_;       // "genre" or "shape": the strip was chosen by itself
+    bool shapeChecked_ = false;   // the shape rule decides once
+    std::int64_t openStartMs_ = -1;
+    bool openReported_ = false;
+    int waitFramesTotal_ = 0;
+    bool holdScrolling_ = false;  // a held D-pad or L/R scrolls on
+    std::int64_t holdStartMs_ = -1;
+    int holdDirection_ = 0;
+    bool stickScrolling_ = false;
 };
 
 }  // namespace snx::ui

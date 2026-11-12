@@ -367,6 +367,7 @@ void StripCanvas::draw(NVGcontext* vg, float x, float y, core::SizeF screen) {
         const float top = y + static_cast<float>(layout.itemTop(item) - layout.top());
         drawItem(vg, item, left, top, width, static_cast<float>(layout.item(item).height), screen, y, waiting);
     }
+    waitingNow_ = waiting;
     if (waiting) {
         ++waitFrames_;
     }

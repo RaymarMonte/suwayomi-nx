@@ -63,6 +63,7 @@ class StripCanvas {
     int tilesHeld() const { return static_cast<int>(held_.size()); }
     // Frames since the last call in which part of the screen showed a page (or a tile) still loading.
     int takeWaitFrames();
+    bool waiting() const { return waitingNow_; }  // the last frame showed a page (or tile) still loading
     float uploadMs() const { return uploadMs_; }  // the GPU uploads in the last frame that made any
     bool refused() const { return refused_; }     // the budget had no room for a tile on screen in the last frame
     // Goes up with every finished move (drag, flick, glide, scroll stop), like ReaderView::moveRevision.
@@ -118,6 +119,7 @@ class StripCanvas {
     std::optional<Fling> fling_;
     std::optional<Glide> glide_;
     int waitFrames_ = 0;
+    bool waitingNow_ = false;
     float uploadMs_ = 0;
     bool refused_ = false;
     unsigned moves_ = 0;

@@ -44,8 +44,12 @@ const NVGcolor kBarColor = nvgRGBA(16, 16, 16, 225);
 const NVGcolor kBarText = nvgRGB(235, 235, 235);
 const NVGcolor kPageNumberBackground = nvgRGBA(16, 16, 16, 180);
 
-const core::ReadingDirection kDirections[] = {core::ReadingDirection::LeftToRight, core::ReadingDirection::RightToLeft};
-const char* const kDirectionKeys[] = {"reader/direction_ltr", "reader/direction_rtl"};
+const core::ReadingDirection kDirections[] = {core::ReadingDirection::LeftToRight, core::ReadingDirection::RightToLeft,
+                                              core::ReadingDirection::Vertical};
+const char* const kDirectionKeys[] = {"reader/direction_ltr", "reader/direction_rtl", "reader/direction_vertical"};
+const core::StripWidth kStripWidths[] = {core::StripWidth::Half, core::StripWidth::ThreeQuarters, core::StripWidth::Full};
+const char* const kStripWidthKeys[] = {"reader/strip_width_half", "reader/strip_width_three_quarters",
+                                       "reader/strip_width_full"};
 const core::PageFit kFits[] = {core::PageFit::Screen, core::PageFit::Width, core::PageFit::Height};
 const char* const kFitKeys[] = {"reader/fit_screen", "reader/fit_width", "reader/fit_height"};
 const core::ReaderBackground kBackgrounds[] = {core::ReaderBackground::Black, core::ReaderBackground::Gray,
@@ -107,6 +111,23 @@ std::string chapterName(const core::Chapter& chapter) {
     return chapter.name.empty() ? brls::getStr("reader/chapter_number", chapter.sourceOrder) : chapter.name;
 }
 
+// After every progress save, ok or not. No `this`: it also runs for the save that goes out after the reader closed.
+void progressSaved(const core::ReadProgress& progress, bool ok) {
+    if (!ok) {
+        brls::Logger::warning("reader: progress of chapter {} (page {}) wasn't saved", progress.chapterId,
+                              progress.lastPageRead);
+    }
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["chapterId"] = progress.chapterId;
+    fields["page"] = progress.lastPageRead;
+    fields["read"] = progress.isRead;
+    if (progress.spot) {
+        fields["spot"] = std::round(*progress.spot * 10000) / 10000;  // the strip (WP-13b)
+    }
+    fields["ok"] = ok;
+    app::testhooks::write("progress", fields);
+}
+
 ReaderOptions optionsFor(app::AppContext& context) {
     ReaderOptions options = readerOptionsFrom(context.profile, context.config.config().reader);
     const int width = static_cast<int>(brls::Application::windowWidth);
@@ -115,19 +136,7 @@ ReaderOptions optionsFor(app::AppContext& context) {
         options.screen = {width, height};  // real pixels: 1280 x 720 handheld, 1920 x 1080 docked
     }
     options.clock = app::appClockMs;
-    // No `this`: it also runs for the save that goes out after the reader closed.
-    options.onSaved = [](const core::ReadProgress& progress, bool ok) {
-        if (!ok) {
-            brls::Logger::warning("reader: progress of chapter {} (page {}) wasn't saved", progress.chapterId,
-                                  progress.lastPageRead);
-        }
-        nlohmann::ordered_json fields = nlohmann::ordered_json::object();
-        fields["chapterId"] = progress.chapterId;
-        fields["page"] = progress.lastPageRead;
-        fields["read"] = progress.isRead;
-        fields["ok"] = ok;
-        app::testhooks::write("progress", fields);
-    };
+    options.onSaved = progressSaved;
     return options;
 }
 
@@ -171,7 +180,8 @@ brls::Button* makeButton(const std::string& text, std::function<void()> action) 
 ReaderActivity::ReaderActivity(app::AppContext& context, core::Manga manga, std::vector<core::Chapter> chapters,
                                int chapterId, int page, std::function<void()> onClosed)
     : context_(context),
-      model_(context.client, context.images, manga, std::move(chapters),
+      chapters_(std::move(chapters)),
+      model_(context.client, context.images, manga, chapters_,
              core::readerSettingsFor(context.config.config().reader, manga.id), optionsFor(context)),
       startChapter_(chapterId),
       startPage_(page),
@@ -181,7 +191,9 @@ ReaderActivity::ReaderActivity(app::AppContext& context, core::Manga manga, std:
       orientation_(context.config.config().reader.orientation),
       lastPortrait_(context.config.config().reader.lastPortrait),
       zoomOnTurn_(context.config.config().reader.zoomOnTurn),
-      spreadSplit_(context.config.config().reader.splitSpreads) {}
+      spreadSplit_(context.config.config().reader.splitSpreads),
+      stripWidth_(context.config.config().reader.stripWidth),
+      pagedOrientation_(context.config.config().reader.orientation) {}
 
 ReaderActivity::~ReaderActivity() {
     if (subscribed_) {
@@ -193,6 +205,8 @@ ReaderActivity::~ReaderActivity() {
         view_->onFrame = nullptr;
         view_->onDrawn = nullptr;
         view_->onGesture = nullptr;
+        view_->onStripTap = nullptr;
+        view_->setStrip(nullptr);  // the canvas goes with this screen
     }
     app::testhooks::setUiBusy(false);
     model_.setListener({});
@@ -313,6 +327,11 @@ void ReaderActivity::build() {
         }
     };
     view_->onSwipe = [this](core::Side side) { turn(side); };
+    view_->onStripTap = [this](core::StripTapArea area) {
+        if (strip_) {
+            stripTap(area);
+        }
+    };
     view_->onFrame = [this] {
         pollControls();  // before the page is drawn, so a press shows in this frame
         settleZoom();
@@ -320,12 +339,16 @@ void ReaderActivity::build() {
     view_->onDrawn = [this] {
         followScreen();    // docked or undocked, the screen's size
         model_.onFrame();  // progress, when it's due
+        if (strip_) {
+            strip_->onFrame();
+        }
         report();
         // Test builds: not idle while a middle tap waits, a zoom waits to decode, the page moves by itself, or the spread on
-        // screen decodes again for its halves.
+        // screen decodes again for its halves; in the strip while it moves or a page on screen is still loading.
+        const bool stripBusy = canvas_ && (canvas_->moving() || canvas_->waiting() || holdScrolling_ || stickScrolling_);
         app::testhooks::setUiBusy(seenZoomRevision_ != appliedZoomRevision_ || model_.zoomLoading() || view_->gliding() ||
                                   view_->pinching() || view_->tapWaiting() || stickPushing_ || !gestureKind_.empty() ||
-                                  model_.current().reloading);
+                                  model_.current().reloading || stripBusy);
     };
     view_->onGesture = [this](const char* kind, bool started) {
         if (started) {
@@ -361,8 +384,15 @@ void ReaderActivity::followScreen() {
     const int width = static_cast<int>(brls::Application::windowWidth);
     const int height = static_cast<int>(brls::Application::windowHeight);
     if (width > 0 && height > 0) {
-        // Pages decode for it; the orientation also decides whether spreads split (WP-13c).
-        model_.setScreen(core::readerScreen(shown, core::ImageSize{width, height}), shown);
+        // Pages decode for it; the orientation also decides whether spreads split (WP-13c), and the strip's width (WP-13b).
+        const core::ImageSize pixels = core::readerScreen(shown, core::ImageSize{width, height});
+        if (strip_) {
+            const core::SizeF units = view_->readerScreen();
+            strip_->setScreen({static_cast<int>(std::lround(units.width)), static_cast<int>(std::lround(units.height))},
+                              pixels, shown);
+        } else {
+            model_.setScreen(pixels, shown);
+        }
     }
 }
 
@@ -404,6 +434,14 @@ void ReaderActivity::pollControls() {
     gestureFrame(now);
     const brls::ControllerState& state = brls::Application::getControllerState();
     const bool active = !closing_ && readerHasFocus();
+    if (strip_) {
+        if (active) {
+            pollStrip(seconds);
+        } else {
+            holdDirection_ = 0;  // under the settings menu: a press there is not the strip's
+        }
+        return;
+    }
     for (std::size_t i = 0; i < std::size(kArrows); ++i) {
         ArrowHold& hold = dpad_[i];
         const bool pressed = state.buttons[kDpad[i]];
@@ -566,6 +604,9 @@ void ReaderActivity::gestureEnd(const std::string& kind) {
     fields["zoom"] = std::round(view_->zoom() * 100) / 100;
     fields["x"] = static_cast<int>(std::lround(view_->pagePosition().x));
     fields["y"] = static_cast<int>(std::lround(view_->pagePosition().y));
+    if (strip_) {
+        fields["top"] = std::lround(strip_->layout().top());  // WP-13b
+    }
     app::testhooks::write("gesture", fields);
     gestureKind_.clear();
     gestureFrames_.clear();
@@ -584,7 +625,12 @@ void ReaderActivity::setOrientation(core::ReaderOrientation orientation) {
     if (core::isPortrait(orientation)) {
         lastPortrait_ = orientation;
     }
-    context_.config.setReaderOrientation(orientation_, lastPortrait_);
+    if (strip_) {
+        context_.config.setReaderStripOrientation(orientation_);  // the strip's own (WP-13b)
+        context_.config.setReaderOrientation(pagedOrientation_, lastPortrait_);
+    } else {
+        context_.config.setReaderOrientation(orientation_, lastPortrait_);
+    }
     followScreen();
 }
 
@@ -609,14 +655,28 @@ void ReaderActivity::onContentAvailable() {
     focusSubscription_ = brls::Application::getWindowFocusChangedEvent()->subscribe([this](bool focused) {
         if (!focused) {
             model_.saveNow();  // HOME or sleep: the progress goes out now
+            if (strip_) {
+                strip_->saveNow();
+            }
         }
     });
     subscribed_ = true;
     model_.setListener([this] { modelChanged(); });
     followScreen();  // pages decode for the orientation from the start
     brls::Logger::info("reader: manga {} chapter {} page {}", model_.manga().id, startChapter_, startPage_);
-    model_.open(startChapter_, startPage_);
-    modelChanged();
+    openStartMs_ = app::appClockMs();
+    // WP-13b: "Vertical strip" (its own choice), or by itself for a manga without its own direction that is tagged as a
+    // webtoon; else the page reader, and the shape of the first page it decodes may still pick the strip (checkShape).
+    const bool own = core::hasOwnReaderSettings(context_.config.config().reader, model_.manga().id);
+    shapeChecked_ = own;
+    if (model_.direction() == core::ReadingDirection::Vertical) {
+        startStrip(startChapter_, startPage_, StripModel::Open::Resume, nullptr);
+    } else if (!own && core::looksLikeStrip(model_.manga().genre)) {
+        startStrip(startChapter_, startPage_, StripModel::Open::Resume, "genre");
+    } else {
+        model_.open(startChapter_, startPage_);
+        modelChanged();
+    }
     reportScreen();
 }
 
@@ -634,6 +694,13 @@ void ReaderActivity::reportScreen() {
 }
 
 void ReaderActivity::modelChanged() {
+    if (strip_) {
+        return;  // the paged model is parked
+    }
+    checkShape();  // before the page is drawn: a tall strip switches to the strip at once
+    if (strip_) {
+        return;
+    }
     const bool pageReady = model_.state() == ReaderModel::State::Ready && model_.onPage() &&
                            model_.current().state == ReaderPage::State::Ready;
     // The page's key tells the view a sharper decode of the same page (WP-13) from a new page; a split spread's halves
@@ -652,8 +719,17 @@ void ReaderActivity::updateMessage() {
     std::string text;
     bool retry = false;
     bool spinner = false;
-    const std::string name = chapterName(model_.chapter());
-    switch (model_.state()) {
+    const std::string name = chapterName(strip_ ? strip_->chapter() : model_.chapter());
+    if (strip_) {
+        // The strip shows its own placeholders, bands and failed pages; only the chapter it opened at may fail here.
+        if (strip_->state() == StripModel::State::Loading) {
+            spinner = true;
+        } else if (strip_->state() == StripModel::State::Failed) {
+            title = brls::getStr("reader/chapter_failed", name);
+            text = errorText(strip_->error());
+            retry = true;
+        }
+    } else switch (model_.state()) {
         case ReaderModel::State::Loading:
             spinner = true;
             break;
@@ -701,10 +777,14 @@ void ReaderActivity::updateMessage() {
 }
 
 void ReaderActivity::updateBars() {
-    const std::string name = chapterName(model_.chapter());
+    const std::string name = chapterName(strip_ ? strip_->chapter() : model_.chapter());
     barTitle_->setText(model_.manga().title + "  -  " + name);
     std::string counter;
-    if (model_.state() == ReaderModel::State::Ready && model_.onPage()) {
+    if (strip_) {
+        if (strip_->state() == StripModel::State::Ready && strip_->page() >= 0) {
+            counter = brls::getStr("reader/page_of", strip_->page() + 1, strip_->pageCount());  // under the middle line
+        }
+    } else if (model_.state() == ReaderModel::State::Ready && model_.onPage()) {
         counter = brls::getStr("reader/page_of", model_.position() + 1, model_.pageCount());
     }
     pageNumber_->setText(counter);
@@ -729,9 +809,15 @@ void ReaderActivity::applyLook() {
     view_->setBackgroundColor(backgroundColor(background_));
     messageTitle_->setTextColor(textColor(background_));
     messageText_->setTextColor(textColor(background_));
+    if (canvas_) {
+        canvas_->setTextColor(textColor(background_));
+    }
 }
 
 void ReaderActivity::turn(core::Side side) {
+    if (strip_) {
+        return;  // no page turns in the strip: L/R glide and scroll there (pollStrip)
+    }
     step(core::pageStep(side, model_.direction()));
 }
 
@@ -750,6 +836,15 @@ void ReaderActivity::toggleMenu() {
 
 void ReaderActivity::retry() {
     brls::Application::giveFocus(view_);
+    if (strip_) {
+        if (strip_->state() == StripModel::State::Failed) {
+            ++retries_;
+            strip_->retry();
+        } else if (strip_->retryNearest()) {
+            ++retries_;
+        }
+        return;
+    }
     if (model_.state() == ReaderModel::State::Failed) {
         ++retries_;
         model_.retry();
@@ -765,12 +860,46 @@ void ReaderActivity::close() {
     }
     closing_ = true;
     platform::keepScreenOn(false);
-    model_.close(onClosed_);  // the details screen reloads its chapters once the progress is saved
+    if (strip_) {
+        strip_->close(onClosed_);  // the parked page reader saved its part when it parked
+    } else {
+        model_.close(onClosed_);  // the details screen reloads its chapters once the progress is saved
+    }
     brls::Application::popActivity();
 }
 
 void ReaderActivity::openSettings() {
     brls::Application::giveFocus(view_);
+    if (strip_) {
+        // The strip's five entries (WP-13b): no fit, zoom on turn or split spreads there.
+        const std::vector<std::string> entries = {
+            brls::getStr("reader/setting_direction", "reader/direction_vertical"_i18n),
+            brls::getStr("reader/setting_strip_width", brls::getStr(kStripWidthKeys[indexOf(kStripWidths, stripWidth_)])),
+            brls::getStr("reader/setting_background", brls::getStr(kBackgroundKeys[indexOf(kBackgrounds, background_)])),
+            showPageNumber_ ? "reader/setting_page_number_on"_i18n : "reader/setting_page_number_off"_i18n,
+            brls::getStr("reader/setting_orientation", brls::getStr(kOrientationKeys[indexOf(kOrientations, orientation_)])),
+        };
+        auto* dropdown = new brls::Dropdown("reader/settings"_i18n, entries, [this](int selected) {
+            brls::sync([this, selected] {
+                if (selected == 0) {
+                    chooseDirection();
+                } else if (selected == 1) {
+                    chooseStripWidth();
+                } else if (selected == 2) {
+                    chooseBackground();
+                } else if (selected == 3) {
+                    showPageNumber_ = !showPageNumber_;
+                    context_.config.setReaderLook(background_, showPageNumber_);
+                    updateBars();
+                } else if (selected == 4) {
+                    chooseOrientation();
+                }
+            });
+        });
+        showEveryEntry(dropdown, entries.size());
+        brls::Application::pushActivity(new brls::Activity(dropdown));
+        return;
+    }
     const std::vector<std::string> entries = {
         brls::getStr("reader/setting_direction", brls::getStr(kDirectionKeys[indexOf(kDirections, model_.direction())])),
         brls::getStr("reader/setting_fit", brls::getStr(kFitKeys[indexOf(kFits, model_.fit())])),
@@ -827,8 +956,19 @@ void ReaderActivity::chooseDirection() {
         if (selected < 0 || selected >= static_cast<int>(std::size(kDirections))) {
             return;
         }
-        model_.setDirection(kDirections[selected]);
+        const core::ReadingDirection direction = kDirections[selected];
+        if (direction == core::ReadingDirection::Vertical) {
+            if (!strip_) {
+                // The page being read: its top at the screen's top (WP-13b).
+                startStrip(model_.chapter().id, model_.onPage() ? model_.position() : 0, StripModel::Open::PageTop, nullptr);
+            }
+            return;
+        }
+        model_.setDirection(direction);
         context_.config.setMangaReader(model_.settings());
+        if (strip_) {
+            stopStrip();  // the page under the middle line opens in the page reader
+        }
     }, indexOf(kDirections, model_.direction()));
     brls::Application::pushActivity(new brls::Activity(dropdown));
 }
@@ -900,6 +1040,10 @@ void ReaderActivity::report() {
     // One "reader" event whenever what the screen shows has settled into something new: a page drawn or failed, a chapter
     // that failed, the screens before and after the chapter, the menu, the settings. Nothing while something on screen is
     // still loading. Test builds only write it; the check is cheap, the JSON is built only when something may have changed.
+    if (strip_) {
+        reportStrip();
+        return;
+    }
     nlohmann::ordered_json fields = nlohmann::ordered_json::object();
     std::string shown;
     if (model_.state() == ReaderModel::State::Loading) {
@@ -947,6 +1091,7 @@ void ReaderActivity::report() {
     }
     reported_ = key;
 
+    fields["mode"] = "paged";
     fields["chapterId"] = model_.chapter().id;
     fields["chapter"] = model_.chapter().sourceOrder;
     fields["page"] = page;
@@ -1006,6 +1151,260 @@ void ReaderActivity::report() {
     }
     fields["zoomOnTurn"] = std::string(core::zoomOnTurnName(zoomOnTurn_));
     fields["splitSpreads"] = std::string(core::spreadSplitName(spreadSplit_));
+    fields["texUsed"] = context_.textures.used();
+    fields["memUsed"] = platform::runtimeInfo().usedMem;
+    app::testhooks::write("reader", fields);
+}
+
+// --- The webtoon strip (WP-13b) ---
+
+void ReaderActivity::startStrip(int chapterId, int page, StripModel::Open how, const char* rule) {
+    if (strip_) {
+        return;
+    }
+    model_.park();  // its pages go; what it hasn't saved goes out now
+    pagedOrientation_ = orientation_;
+    const core::ReaderSettings& reader = context_.config.config().reader;
+    orientation_ = core::stripOrientationFor(reader);  // the strip's own
+    StripOptions options = stripOptionsFrom(context_.profile, reader);
+    options.width = stripWidth_;
+    options.clock = app::appClockMs;
+    options.onSaved = progressSaved;
+    strip_ = std::make_unique<StripModel>(context_.client, context_.images, model_.manga(), chapters_, options);
+    canvas_ = std::make_unique<StripCanvas>(*strip_, context_.textures, context_.profile.webtoonTilesAround);
+    canvas_->textFor = [this](int item) { return stripText(item); };
+    canvas_->onGesture = [this](const char* kind, bool started) {
+        if (started) {
+            gestureBegin(kind);
+        } else {
+            gestureEnd(kind);
+        }
+    };
+    canvas_->setTextColor(textColor(background_));
+    view_->setStrip(canvas_.get());
+    stripAuto_ = rule != nullptr ? rule : "";
+    if (model_.direction() != core::ReadingDirection::Vertical) {
+        model_.setDirection(core::ReadingDirection::Vertical);
+        context_.config.setMangaReader(model_.settings());  // also by itself: it opens as a strip from now on, never flips
+    }
+    brls::Logger::info("reader: strip, chapter {} page {}{}{}", chapterId, page, rule ? ", by itself: " : "",
+                       rule ? rule : "");
+    strip_->setListener([this] { stripChanged(); });
+    followScreen();  // the strip's orientation and screen
+    strip_->open(chapterId, page, how);
+    stripChanged();
+}
+
+void ReaderActivity::stopStrip() {
+    if (!strip_) {
+        return;
+    }
+    const int chapterId = strip_->chapter().id != 0 ? strip_->chapter().id : startChapter_;
+    const int page = std::max(0, strip_->page());
+    view_->setStrip(nullptr);
+    canvas_.reset();
+    strip_.reset();  // what it hasn't saved still goes out (D44)
+    stripAuto_.clear();
+    orientation_ = pagedOrientation_;
+    followScreen();
+    model_.reopen(chapterId, page);
+    modelChanged();
+}
+
+void ReaderActivity::checkShape() {
+    if (shapeChecked_ || strip_ || model_.state() != ReaderModel::State::Ready || !model_.onPage()) {
+        return;
+    }
+    const ReaderPage& page = model_.current();
+    if (page.state == ReaderPage::State::Loading || page.state == ReaderPage::State::Waiting) {
+        return;
+    }
+    shapeChecked_ = true;  // the first page decoded for the reader decides, once
+    if (page.state == ReaderPage::State::Ready && page.image && core::isStripPage(page.image->sourceSize())) {
+        startStrip(model_.chapter().id, model_.position(), StripModel::Open::Resume, "shape");
+    }
+}
+
+void ReaderActivity::stripChanged() {
+    updateMessage();
+    updateBars();
+}
+
+void ReaderActivity::stripTap(core::StripTapArea area) {
+    if (menuShown_ || area == core::StripTapArea::Middle) {
+        toggleMenu();  // with the menu open any tap closes it
+        return;
+    }
+    if (strip_->retryNearest()) {
+        ++retries_;  // "Tap or press X to retry"
+        return;
+    }
+    canvas_->glide(area == core::StripTapArea::Back ? -1 : 1);
+}
+
+void ReaderActivity::pollStrip(float seconds) {
+    const brls::ControllerState& state = brls::Application::getControllerState();
+    const std::int64_t now = app::appClockMs();
+    const double screen = strip_->layout().viewHeight();
+    // D-pad up/down (turned with the screen) and L/R: a press glides; held past kStripHoldMs the strip scrolls on.
+    int direction = 0;
+    for (std::size_t i = 0; i < std::size(kArrows); ++i) {
+        if (state.buttons[kDpad[i]]) {
+            const core::Arrow arrow = core::readerArrow(view_->orientation(), kArrows[i]);
+            direction = arrow == core::Arrow::Up ? -1 : arrow == core::Arrow::Down ? 1 : direction;
+        }
+    }
+    if (state.buttons[brls::BUTTON_LB]) {
+        direction = -1;
+    }
+    if (state.buttons[brls::BUTTON_RB]) {
+        direction = 1;
+    }
+    if (direction != holdDirection_) {
+        if (holdScrolling_) {
+            holdScrolling_ = false;
+            canvas_->finishScroll();
+            gestureEnd("scroll");
+        }
+        holdDirection_ = direction;
+        holdStartMs_ = now;
+        if (direction != 0) {
+            canvas_->glide(direction);
+        }
+    } else if (direction != 0 && now - holdStartMs_ >= core::kStripHoldMs) {
+        if (!holdScrolling_) {
+            holdScrolling_ = true;
+            gestureBegin("scroll");
+        }
+        canvas_->scroll(direction * core::stripHoldScroll(screen, seconds));
+    }
+    // Either stick (the one pushed further): up and down on the reader's screen, faster the further pushed.
+    const core::PointF left{state.axes[brls::LEFT_X], state.axes[brls::LEFT_Y]};
+    const core::PointF right{state.axes[brls::RIGHT_X], state.axes[brls::RIGHT_Y]};
+    const core::PointF raw = std::hypot(left.x, left.y) >= std::hypot(right.x, right.y) ? left : right;
+    const core::PointF stick = core::readerStick(view_->orientation(), raw);
+    const double dy = core::stripStickScroll(stick.y, screen, seconds, kStickDeadZone);
+    if (dy != 0) {
+        if (!stickScrolling_) {
+            stickScrolling_ = true;
+            gestureBegin("scroll");
+        }
+        canvas_->scroll(dy);
+    } else if (stickScrolling_) {
+        stickScrolling_ = false;
+        canvas_->finishScroll();
+        gestureEnd("scroll");
+    }
+}
+
+std::vector<std::string> ReaderActivity::stripText(int item) {
+    auto name = [this](int id) {
+        const core::Chapter* chapter = strip_->chapterById(id);
+        return chapter != nullptr ? chapterName(*chapter) : brls::getStr("reader/chapter_number", id);
+    };
+    const core::StripLayout& layout = strip_->layout();
+    if (layout.item(item).kind == core::StripItemKind::Page) {
+        const ReaderPage& page = strip_->pageAt(item);
+        return {brls::getStr("reader/page_failed", layout.item(item).page + 1), imageErrorText(page.error),
+                "reader/strip_retry"_i18n};
+    }
+    const StripBand band = strip_->band(item);
+    std::vector<std::string> lines;
+    lines.push_back(band.above == 0 ? "reader/strip_no_previous"_i18n : brls::getStr("reader/strip_finished", name(band.above)));
+    const int waited = item == 0 ? band.above : band.below;  // the strip's first band waits for the chapter above it
+    if (band.edge == StripBand::Edge::Loading) {
+        lines.push_back(brls::getStr("reader/strip_loading_next", name(waited)));
+    } else if (band.edge == StripBand::Edge::Failed) {
+        lines.push_back(brls::getStr("reader/strip_failed_chapter", name(waited)));
+        lines.push_back(errorText(band.error));
+        lines.push_back("reader/strip_retry"_i18n);
+    } else {
+        lines.push_back(band.below == 0 ? "reader/strip_no_more"_i18n : brls::getStr("reader/strip_next", name(band.below)));
+    }
+    return lines;
+}
+
+void ReaderActivity::chooseStripWidth() {
+    std::vector<std::string> names;
+    for (const char* key : kStripWidthKeys) {
+        names.push_back(brls::getStr(key));
+    }
+    auto* dropdown = new brls::Dropdown("reader/strip_width"_i18n, names, [this](int selected) {
+        if (selected < 0 || selected >= static_cast<int>(std::size(kStripWidths)) || !strip_) {
+            return;
+        }
+        stripWidth_ = kStripWidths[selected];
+        context_.config.setReaderStripWidth(stripWidth_);
+        strip_->setStripWidth(stripWidth_);
+    }, indexOf(kStripWidths, stripWidth_));
+    brls::Application::pushActivity(new brls::Activity(dropdown));
+}
+
+void ReaderActivity::reportStrip() {
+    // One "reader" event once the strip has settled somewhere new (no finger, flick, glide or scroll under way, nothing on
+    // screen still loading), and on every chapter change.
+    waitFramesTotal_ += canvas_->takeWaitFrames();
+    std::string shown;
+    if (strip_->state() == StripModel::State::Loading) {
+        return;
+    }
+    shown = strip_->state() == StripModel::State::Failed ? "chapter_error" : "strip";
+    if (shown == "strip" && (canvas_->moving() || canvas_->waiting() || !gestureKind_.empty() || holdScrolling_ ||
+                             stickScrolling_)) {
+        return;
+    }
+    const core::StripLayout& layout = strip_->layout();
+    const long top = std::lround(layout.top());
+    const double spot = std::round(strip_->spot() * 10000) / 10000;
+    const std::string key = std::to_string(strip_->chapter().id) + "/" + std::to_string(strip_->page()) + "/" +
+                            std::to_string(spot) + "/" + std::to_string(top) + "/" + shown + "/" + (menuShown_ ? "m" : "") +
+                            (showPageNumber_ ? "n" : "") + std::to_string(static_cast<int>(background_)) +
+                            (strip_->chapterRead() ? "r" : "") + "/" + std::to_string(retries_) + "/" +
+                            std::to_string(static_cast<int>(view_->orientation())) +
+                            std::to_string(static_cast<int>(orientation_)) + "/" +
+                            std::to_string(static_cast<int>(stripWidth_));
+    if (key == reported_) {
+        return;
+    }
+    reported_ = key;
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["mode"] = "strip";
+    fields["chapterId"] = strip_->chapter().id;
+    fields["chapter"] = strip_->chapter().sourceOrder;
+    fields["page"] = strip_->page();
+    fields["of"] = strip_->pageCount();
+    fields["shown"] = shown;
+    fields["spot"] = spot;
+    fields["top"] = top;
+    fields["stripW"] = std::lround(strip_->stripWidth());
+    fields["stripWidth"] = std::string(core::stripWidthName(stripWidth_));
+    fields["zoom"] = 1;  // zoom in the strip: WP-13d
+    if (!stripAuto_.empty()) {
+        fields["auto"] = stripAuto_;
+    }
+    fields["direction"] = "vertical";
+    fields["menu"] = menuShown_;
+    fields["pageNumber"] = showPageNumber_;
+    fields["background"] = std::string(core::readerBackgroundName(background_));
+    fields["read"] = strip_->chapterRead();
+    fields["orientation"] = std::string(core::readerOrientationName(view_->orientation()));
+    fields["orientationSetting"] = std::string(core::readerOrientationName(orientation_));
+    fields["screenW"] = static_cast<int>(view_->readerScreen().width);
+    fields["screenH"] = static_cast<int>(view_->readerScreen().height);
+    fields["chapters"] = strip_->chaptersHeld();
+    fields["pagesHeld"] = strip_->pagesHeld();
+    fields["tiles"] = canvas_->tilesHeld();
+    fields["waitFrames"] = waitFramesTotal_;
+    waitFramesTotal_ = 0;
+    if (!openReported_ && shown == "strip") {
+        fields["openMs"] = app::appClockMs() - openStartMs_;  // the reader opening to the first settled frame of the strip
+        openReported_ = true;
+    }
+    if (shown == "chapter_error") {
+        fields["error"] = std::string(api::apiErrorKindName(strip_->error().kind));
+        app::testhooks::error("reader", api::apiErrorKindName(strip_->error().kind), strip_->error().message);
+    }
+    fields["retries"] = retries_;
     fields["texUsed"] = context_.textures.used();
     fields["memUsed"] = platform::runtimeInfo().usedMem;
     app::testhooks::write("reader", fields);
