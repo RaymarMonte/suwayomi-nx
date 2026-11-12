@@ -2,16 +2,18 @@
 **Phase 3 – Features. Now:** WP-13b (webtoon reader) **in progress**, then plan WP-18 (order: ROADMAP.md, D47).
 Done: WP-00a … 13, 13c and 22; **v0.2.0 released** (v0.1.0 before it). Nice to have: WP-08b, 17, 21, 26.
 ## Last session (2026-11-12, WP-13b build, part 1, Opus)
-- **Done, green** (`tools/build.sh tests`, contract 29/29, 0 warnings): `core/StripMath` (width + decode boxes, `StripLayout`
-  with its anchor/pin rule, tile window across pages, prefetch window by screens + ends, flick math, held/stick scroll,
-  tap zones, the spot note, the two "by itself" rules), `StripWidth` + `reader.stripWidth` / `stripOrientation`,
-  `hasOwnReaderSettings`, `stripOrientationFor`, profile `stripScreensBehind/Ahead` (Full 1/3, safe/applet 0/1),
-  `ReadProgress::spot`, `ProgressSync::shownAt` (spot throttled like the page), `Chapter::stripSpotNote` (from
-  `FetchChapterPages`' new `meta`), `UpdateStripProgress.graphql` + `gql::updateStripProgress` / `readUpdateStripProgress`
-  (needs both answers), `SuwayomiClient::setProgress(ReadProgress)`. Tests: `tests/unit/test_core_strip.cpp`.
-- **Next steps, in order:** refresh the recorded answers (`tools/record-fixtures/record-all.sh`, FetchChapterPages changed);
-  (done: only `meta: []` was added) lift `ReaderModel::Saver` into a shared class; `StripModel` + tests; `StripView` (tile textures, one upload per frame,
-  bands, flick, glides); `ReaderActivity` hosting both; test events; e2e `flick()` + `reader-webtoon`; docs and D49.
+- **Done, green** (`tools/build.sh tests`, contract 29/29, 0 warnings): `core/StripMath` (layout + anchor/pin, width and
+  boxes, tile window, prefetch window + ends, flick, held/stick scroll, tap zones, spot note, "by itself" rules), config keys
+  `reader.stripWidth` / `stripOrientation`, profile `stripScreensBehind/Ahead`, `ProgressSync` spot, `Chapter::stripSpotNote`,
+  `UpdateStripProgress` + `setProgress(ReadProgress)`, recorded answers refreshed (only `meta: []`). `ui/reader/ProgressSaver`
+  (lifted from ReaderModel, both readers use it). `ui/reader/StripModel` (3 chapters, joins at the ends with the view still,
+  cut of the farthest, reading chapter at the middle line, read at the last page's bottom, spot saves, failed page and list
+  retry, width/screen changes). Tests: `test_core_strip.cpp`, `test_ui_strip.cpp` (12 cases).
+- **Split decided:** zoom in the strip moves to **WP-13d** (the WP's split point; add it to ROADMAP.md at the end). The
+  middle tap opens the menu at once.
+- **Next steps, in order:** `StripView` (tile textures in TextureBudget, one upload per frame, bands, failed band, flick,
+  glides, held scroll; shares touch/portrait code with ReaderView); `ReaderActivity` hosting both + strip controls + settings
+  + i18n; test events; e2e `flick()` + middle-code check + `reader-webtoon`; docs, D49, ROADMAP WP-13d.
   The console spike (frame times, tile upload) waits for a working `StripView` and the owner waking the console.
   Gamma Webtoon has no genres (e2e takes the shape rule), 3 pages per chapter.
 - From WP-13c: `maxDecodeScale` 4 on Full (safe 2, D48). Not released (CHANGELOG "Unreleased"). Console: normal build, asleep.
