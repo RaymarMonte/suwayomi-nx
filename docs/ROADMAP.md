@@ -34,7 +34,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | WP-13c | **Split spreads**: a double-page spread held sideways shows as two halves that each fill the screen (setting: in portrait / always / never; right half first for right to left), `reader-spread-split`, and the measurement that decides `maxDecodeScale` 2 or 4 (WP-13 doc, D48) | 13 | Opus | M | **Yes**: a spread in portrait; console | done (2026-11-10; owner tried it: "Works well") |
 | [WP-13b](wp/WP-13b-webtoon-reader.md) | **Webtoon reader**: "Vertical strip", one continuous strip that opens by itself for webtoons, smooth stick, D-pad and touch scrolling with flicks, chapters joined on, the exact spot saved on the server, its own orientation, half width in landscape, zoom in the strip (split point: zoom → WP-13d) | 13 | Opus | L | **Yes**: try it in your hands; console | done (2026-11-12; owner tried it: "Feels good") |
 | WP-13d | **Zoom in the webtoon strip** (split from WP-13b, 2026-11-12): pinch, the middle double tap and ZR/ZL in the strip, the sideways pan when zoomed, the sharper decodes of the pages on screen (WP-13b doc "Zoom in the strip"); `reader-webtoon` gains its zoom steps | 13b | Opus | M | **Yes**: try it in your hands; console | done (2026-11-12, D50; owner tried it: quick taps fixed, then "It feels good now") |
-| WP-15 | **Updates + history**: new chapters across the library, "update library" with progress, reading history with continue, and a progress save that failed as the reader closed is sent again later (D45's leftover, from 18b, D51). **Runs next** (D51) | 12 | Opus (History screen: Sonnet-safe chunk) | M | – | todo |
+| [WP-15](wp/WP-15-updates-and-history.md) | **Updates + history**: new chapters across the library (new only, last 3 months, like Mihon), "update library" with progress, reading history with continue, and a progress save that failed as the reader closed is sent again later, also after a restart (D45's leftover, from 18b, D51). **Runs next** (D51; planned 2026-11-13; split point: the queue → WP-15b) | 12 | Opus (History screen: Sonnet-safe chunk) | M/L | Optional: try it on your server | todo |
 | WP-24 | **Library tools**: search my library, manage categories (create, rename, order, delete), move manga between categories | 12 | Opus | M | – | todo |
 | WP-23 | **Test source** for the test server: an offline extension store and a source whose chapters the server can download, so extensions, server downloads and source filters can be tested | 02 ∥ any (not with 15's seed change) | Opus | M | Maybe: install a build tool | todo |
 | WP-14 | **Browse**: sources by language, popular / latest / search, search across sources, filters, preview, add to library with a category | 24, 23 | Opus | M | – | todo |
@@ -107,7 +107,14 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
   server); the strip keeps its own orientation (held sideways at first; amends D46). Zoom in the strip reuses WP-13's math.
   Fixture: Gamma Webtoon (800 × 12000 WebP strips, TESTING.md). Size L: if it runs long, zoom in the strip moves to WP-13d
   (before WP-18). Owner tries it.
-- **WP-15 Updates + history.** Runs next (D51). Updates tab: new chapters across the library, newest first (`chapters(filter: {inLibrary: {equalTo:
+- **WP-15 Updates + history.** Planned: full doc `wp/WP-15-updates-and-history.md` (2026-11-13). Owner's answers: Updates
+  lists new chapters only (found after the manga was in the library, last 3 months, like Mihon); a tap opens the reader
+  (Updates: that chapter; History: Continue), the cover the details; a failed save is kept across a restart (a small file,
+  S5); if the server's progress changed meanwhile, the server's newer change wins. Checked on the test server: the queries
+  below work (History needs an explicit `and`), `updateLibrary`'s own answer is the previous job's status, so "done" comes
+  from `lastUpdateTimestamp` + `isRunning`, and the server's default settings skip manga with unread chapters (SUWAYOMI-API.md).
+  Seed: a new Epsilon Weekly with a held-back chapter. Split point: the waiting-save queue → WP-15b. The original stub:
+  Runs next (D51). Updates tab: new chapters across the library, newest first (`chapters(filter: {inLibrary: {equalTo:
   true}}, order: [{by: FETCHED_AT, byType: DESC}])`, works on the test server), grouped by day; open the chapter or its manga.
   "Update library" (`updateLibrary`, progress by polling `libraryUpdateStatus`) moved here from WP-17: the first screen that polls
   a server job, a pattern WP-17 copies, so Opus. History tab: chapters by `LAST_READ_AT` (filter `lastReadAt > 0`, works), one

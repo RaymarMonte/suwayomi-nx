@@ -96,6 +96,33 @@ The owner's own server runs the same version (v2.4.2366 Stable, checked 2026-10-
 - Downloads: `enqueueChapterDownloads(input:{ids})`, `dequeueChapterDownloads(input:{ids})`, `downloadStatus { state queue }`, plus
   `startDownloader`, `stopDownloader`, `deleteDownloadedChapters`. The WebUI uses subscriptions over WebSocket, so we'll poll instead.
 - Library update: `updateLibrary(input:{categories?})`, status `libraryUpdateStatus` (`updateStatus` is deprecated), `updateStop`.
+  Details below.
+
+## Updates, history and the library update ✅ (test server v2.4.2366, 2026-11-13, for WP-15)
+- **Units:** `fetchedAt` (when the server first found a chapter), `lastReadAt` and the manga's `inLibraryAt` are seconds;
+  `uploadDate` and `lastUpdateTimestamp` are milliseconds. A Local chapter's `uploadDate` is its folder's file time.
+- **New chapters across the library:** `chapters(filter: {inLibrary: {equalTo: true}}, order: [{by: FETCHED_AT, byType:
+  DESC}, {by: SOURCE_ORDER, byType: DESC}], first, offset)`, with `manga { id title thumbnailUrl inLibraryAt }` per node
+  (50 nodes ~17 KB, ~40 ms). Every chapter counts, also the ones a manga came with when it was added (fetched just before
+  or in the same second as `inLibraryAt`); Mihon-style "new only" = `fetchedAt > manga.inLibraryAt`, decided by the client
+  (a filter can't compare two fields). An update keeps old chapters' `fetchedAt`; a new one gets the update's time.
+- **History:** `chapters(filter: {and: [{lastReadAt: {greaterThan: "0"}}, {or: [{isRead: {equalTo: true}}, {lastPageRead:
+  {greaterThan: 0}}]}]}, order: [{by: LAST_READ_AT, byType: DESC}, {by: SOURCE_ORDER, byType: DESC}])`. **Trap:** fields
+  next to `or` without an `and` are OR'ed with it (that answer listed chapters with `lastReadAt` 0); plain fields side by
+  side are AND'ed. A bulk "mark unread" (`lastPageRead: 0`) stamps `lastReadAt` on all its chapters, so the "read or with
+  progress" part keeps them out.
+- **`updateLibrary(input: {})` answers with the previous job's status** (finished-looking, or all zero before the first
+  update): don't trust it. `lastUpdateTimestamp { timestamp }` changes when an update starts (also when every manga is
+  skipped) and stays the same during it; `libraryUpdateStatus { jobsInfo { isRunning totalJobs finishedJobs
+  skippedMangasCount skippedCategoriesCount } }` counts up while it runs and keeps the last job's numbers afterwards.
+  Done = the timestamp differs from the one read before starting and `isRunning` is false. `mangaUpdates { status manga
+  { id title } }` lists only the manga that ran (`PENDING RUNNING COMPLETE FAILED SKIPPED`); skipped ones are only
+  counted. 156 Local manga took ~0.6 s.
+- **The server skips by its settings** (`settings { excludeEntryWithUnreadChapters excludeNotStarted excludeCompleted
+  excludeUnreadChapters }`, all true by default, like Mihon): a manga with unread chapters, one never started, a completed
+  one. A fresh library with nothing read: every manga skipped. Categories have `includeInUpdate` (`UNSET` by default).
+- `fetchMangaAndChapters` needs both `fetchManga` and `fetchChapters` (required, though deprecated). After a chapter's
+  folder is removed it drops that chapter (a test can undo a "new chapter").
 
 The best reference for real query shapes is **Suwayomi-WebUI**'s GraphQL documents (TypeScript). Copy the *shape*, not the code.
 

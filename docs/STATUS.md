@@ -1,19 +1,19 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** WP-15, plan it first (xhigh, ROADMAP.md "How the Phase 3 WPs get their full docs"; order: D47, D51).
-Done: WP-00a … 13, 13b, 13c, 13d, 22; **v0.2.0 released**. Nice to have: WP-08b, 17, 21, 26, last offline 18 / 18b (owner, 2026-11-13, D51).
-## Last session (2026-11-12/13, WP-13d, Opus)
-- **WP-13d done (D50):** zoom in the strip: pinch, middle double tap (2 ×, again 1), ZR / ZL; zoomed, drags pan both
-  ways, D-pad left / right glide sideways, the stick's x pans; Rotate / Strip width go back to 1. Once the view stands
-  still (150 ms) the pages on screen nearest the middle (profile `stripZoomPages`: Full 2, else 1) decode sharper unless
-  already sharp. Code: `StripMath` zoom math, `StripModel::setView` / `sharpenOnScreen`, `StripCanvas` rewritten.
-- **At rest on whole units (D50):** a flick, glide, pinch, zoom or drag ends on whole screen units; `webtoon-seam` had
-  hung on a fraction of a pixel. Goldens `webtoon-seam` / `webtoon-band` (desktop + Switch) and the Switch's
-  `webtoon-landscape` refreshed, each confirmed by a second run.
-- **Owner's try:** quick taps on the touch screen missed half (a touch during a glide stopped it and was swallowed,
-  D49); now a tap adds another glide, a touch still catches a flick. Then "It feels good now". New desktop step for it.
-- **Green:** `build.sh tests`, `npm test` / `typecheck` / `contract`, full `e2e.sh desktop`, Switch `reader-webtoon`
-  (twice) and `reader-zoom`, gate PASS, CI. The quick-tap step ran on desktop only (the owner checked it by hand).
-- **Note:** console's longest strip frame now 31–32 ms (WP-13b 20, limit 34), not looked into. WP-13…13d unreleased.
+**Phase 3 – Features. Now:** WP-15 planned (`docs/wp/WP-15-updates-and-history.md`). **Next: do WP-15** in a fresh Opus
+session, then plan WP-24 (order: D47, D51). Done: WP-00a … 13, 13b, 13c, 13d, 22; **v0.2.0 released**.
+Nice to have: WP-08b, 17, 21, 26, last offline 18 / 18b (owner, 2026-11-13, D51).
+## Last session (2026-11-13, WP-15 planning, Opus, docs only)
+- **Owner's answers:** Updates lists new chapters only (found after the manga was in the library, last 3 months, like
+  Mihon); a tap opens the reader (Updates: that chapter; History: Continue, D43), the cover the details; a save that
+  fails as the reader closes is kept across a restart (`progress-queue.json`, S5); the server's newer change wins over
+  it. The rest are planner's defaults in the doc; D52 gets written when WP-15 is done.
+- **Test server (v2.4.2366), now in SUWAYOMI-API.md:** the Updates and History queries work (History needs an explicit
+  `and`: fields next to `or` are OR'ed); `updateLibrary`'s own answer is the previous job's status, so "done" =
+  `lastUpdateTimestamp` changed + not running; the server's default settings skip manga with unread chapters / not
+  started / completed (a fresh seed: all 156 skipped); a removed chapter folder + `fetchMangaAndChapters` drops the chapter.
+- **Seed change in WP-15:** a new Epsilon Weekly (Reading) with a held-back chapter 3, added after the first browse so
+  every existing id stays (WP-23 must not change the seed meanwhile). Size M/L, split point: the queue → WP-15b.
+- From WP-13d: the console's longest strip frame is 31–32 ms (limit 34), not looked into; WP-13…13d unreleased.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
