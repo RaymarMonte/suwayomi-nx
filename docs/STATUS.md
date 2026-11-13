@@ -3,9 +3,8 @@
 Done: WP-00a … 13, 13b, 13c, 13d, **15** (desktop), 22; **v0.2.0 released** (13…15 unreleased). Nice to have: WP-08b, 17,
 21, 26, last offline 18 / 18b (D51). From WP-13d: the console's longest strip frame is 31–32 ms (limit 34), not looked into.
 ## Last session (2026-11-13, WP-15, Opus) – done on desktop, committed
-- **Built:** Updates and History tabs (D52): one view `ui/updates/ChapterRowsTab` on `ChapterRowsModel`, the day on the first
-  row of each day, Update library / Stop with polling (`LibraryUpdater`, `core::LibraryUpdateWatch`), 5 GraphQL documents,
-  `platform::utcOffsetSeconds` (logged at start), Epsilon Weekly (manga 157) + `addNewChapter` / `removeNewChapter`.
+- **Built (D52):** one view `ui/updates/ChapterRowsTab` (`ChapterRowsModel`) for both tabs, Update library / Stop
+  (`LibraryUpdater`, `core::LibraryUpdateWatch`), `platform::utcOffsetSeconds`, Epsilon Weekly (157) + `addNewChapter`.
 - **Found:** right after `updateLibrary` the timestamp has moved but `jobsInfo` still shows the previous job (SUWAYOMI-API.md).
   The scenario found: History missed reads made from the Library (now the lists reload when a screen on top of the main
   screen closes; a reload waits for a read / unread change on its way); X on a started chapter made it unread (now read, D43).
