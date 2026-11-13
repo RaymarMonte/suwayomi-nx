@@ -3,8 +3,9 @@
 // Same bytes and same file times on every run, so the server reports the same data every time.
 // Prints a digest of all files: two runs with the same digest produced identical files.
 //
-// Usage: node tools/gen-fixtures/gen-fixtures.ts --out <dir> [--sums <file>]
+// Usage: node tools/gen-fixtures/gen-fixtures.ts --out <dir> [--sums <file>] [--extra-out <dir>]
 //   --out   target folder. It must be new, empty, or an earlier output of this tool (then it's replaced).
+//   --extra-out  a second folder, laid out the same way, for the series that must not be in the first one (Epsilon Weekly, see fixtures.ts)
 //   --sums  also write "sha256  path" lines for every file (to compare two runs file by file)
 
 import { createHash } from 'node:crypto';
@@ -14,7 +15,7 @@ import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { isMain } from '../../tests/e2e/lib/cli.ts';
-import { ALL_SERIES, chapterFolder, chapterTime, EPOCH_MS, pageFile, seriesTime } from './fixtures.ts';
+import { ALL_SERIES, chapterFolder, chapterTime, EPOCH_MS, EXTRA_SERIES, pageFile, type SeriesDef, seriesTime } from './fixtures.ts';
 import { coverBytes, pageBytes } from './render.ts';
 
 const MARKER = '.snx-fixtures';
@@ -48,7 +49,8 @@ export interface GenerateResult {
     sums: string; // "sha256  relative/path" lines, sorted by path
 }
 
-export async function generate(out: string): Promise<GenerateResult> {
+/** Writes `list` (default: the pristine fixtures) into `out`. The extra series (Epsilon Weekly) go to a folder of their own. */
+export async function generate(out: string, list: readonly SeriesDef[] = ALL_SERIES): Promise<GenerateResult> {
     await prepareOut(out);
     const hashes = new Map<string, string>();
     let bytes = 0;
@@ -61,7 +63,7 @@ export async function generate(out: string): Promise<GenerateResult> {
     };
 
     await put(MARKER, MARKER_TEXT, new Date(EPOCH_MS));
-    for (const s of ALL_SERIES) {
+    for (const s of list) {
         await mkdir(join(out, s.title));
         if (s.details) await put(`${s.title}/details.json`, JSON.stringify(s.details, null, 2) + '\n', seriesTime(s));
         if (s.cover) await put(`${s.title}/cover.jpg`, await coverBytes(s), seriesTime(s));
@@ -85,9 +87,9 @@ export async function generate(out: string): Promise<GenerateResult> {
 }
 
 async function main(): Promise<void> {
-    const { values } = parseArgs({ options: { out: { type: 'string' }, sums: { type: 'string' } } });
+    const { values } = parseArgs({ options: { out: { type: 'string' }, sums: { type: 'string' }, 'extra-out': { type: 'string' } } });
     if (!values.out) {
-        console.error('usage: node tools/gen-fixtures/gen-fixtures.ts --out <dir> [--sums <file>]');
+        console.error('usage: node tools/gen-fixtures/gen-fixtures.ts --out <dir> [--sums <file>] [--extra-out <dir>]');
         process.exit(2);
     }
     const started = Date.now();
@@ -96,6 +98,11 @@ async function main(): Promise<void> {
     const mb = (result.bytes / 1e6).toFixed(1);
     console.log(`fixtures: ${result.files} files, ${mb} MB in ${((Date.now() - started) / 1000).toFixed(1)} s -> ${values.out}`);
     console.log(`digest: ${result.digest}`);
+    if (values['extra-out']) {
+        const extra = await generate(values['extra-out'], EXTRA_SERIES);
+        console.log(`extra fixtures: ${extra.files} files -> ${values['extra-out']}`);
+        console.log(`extra digest: ${extra.digest}`);
+    }
 }
 
 if (isMain(import.meta.url)) await main();

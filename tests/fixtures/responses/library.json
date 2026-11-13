@@ -59,6 +59,21 @@
           }
         },
         {
+          "id": 157,
+          "title": "Epsilon Weekly",
+          "thumbnailUrl": "/api/v1/manga/157/thumbnail",
+          "status": "ONGOING",
+          "unreadCount": 0,
+          "downloadCount": 0,
+          "categories": {
+            "nodes": [
+              {
+                "id": 1
+              }
+            ]
+          }
+        },
+        {
           "id": 5,
           "title": "Gamma Webtoon",
           "thumbnailUrl": "/api/v1/manga/5/thumbnail",
@@ -2335,7 +2350,7 @@
           }
         }
       ],
-      "totalCount": 156,
+      "totalCount": 157,
       "pageInfo": {
         "hasNextPage": false,
         "endCursor": "156-日本語タイトル テスト"

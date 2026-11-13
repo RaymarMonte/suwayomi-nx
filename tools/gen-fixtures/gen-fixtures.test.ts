@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { ALL_SERIES, chapterFolder, chapterTime, pageFile, SERIES, SHELF, SHELF_CODE, SHELF_COUNT } from './fixtures.ts';
+import { ALL_SERIES, chapterFolder, chapterTime, EPSILON, EXTRA_SERIES, pageFile, SERIES, SHELF, SHELF_CODE, SHELF_COUNT } from './fixtures.ts';
 import { generate } from './gen-fixtures.ts';
 import { encode, pageBytes, renderPage } from './render.ts';
 
@@ -23,6 +23,14 @@ describe('fixture set', () => {
         expect(new Set(ALL_SERIES.map((s) => s.title)).size).toBe(ALL_SERIES.length);
         expect(SHELF[0].title).toBe('Shelf 001');
         expect(await sharp(await pageBytes(SHELF[41], 1, 1)).metadata()).toMatchObject({ format: 'jpeg', width: 400, height: 600 });
+    });
+
+    it('keeps Epsilon Weekly out of the pristine set (it would shift every later id) but gives it its own code', () => {
+        expect(ALL_SERIES.some((s) => s.title === EPSILON.title)).toBe(false);
+        expect(EXTRA_SERIES).toEqual([EPSILON]);
+        expect(ALL_SERIES.some((s) => s.code === EPSILON.code)).toBe(false);
+        expect(EPSILON).toMatchObject({ code: 8, chapters: 3, pages: 3, format: 'jpeg', width: 1000, height: 1500 });
+        expect(EPSILON.details?.status).toBe(1);
     });
 
     it('names chapters and pages so that name order is reading order', () => {
@@ -69,6 +77,11 @@ describe.runIf(process.env.SNX_FULL_FIXTURES === '1')('full fixture set', () => 
             const second = await generate(join(dir, 'b'));
             expect(second.digest).toBe(first.digest);
             expect(second.sums).toBe(first.sums);
+            const extraA = await generate(join(dir, 'ea'), EXTRA_SERIES);
+            const extraB = await generate(join(dir, 'eb'), EXTRA_SERIES);
+            expect(extraB.sums).toBe(extraA.sums);
+            expect((await readdir(join(dir, 'ea', 'Epsilon Weekly'))).sort()).toEqual(['Chapter 1', 'Chapter 2', 'Chapter 3', 'details.json']);
+            expect((await stat(join(dir, 'ea', 'Epsilon Weekly', chapterFolder(3)))).mtimeMs).toBe(chapterTime(EPSILON, 3).getTime());
             const alpha = series('Alpha');
             expect((await stat(join(dir, 'a', 'Alpha', chapterFolder(2)))).mtimeMs).toBe(chapterTime(alpha, 2).getTime());
             expect((await readdir(join(dir, 'a', 'Delta Big'))).length).toBe(300);

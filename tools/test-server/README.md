@@ -19,14 +19,24 @@ Run them in WSL (`wsl.exe -d Ubuntu --exec bash -lc '<repo>/tools/test-server/te
 | `server.json` | pinned server version, jar URL + SHA-256, port, test login (`snx` / `snx-test-only`), JWT expiry 20 s |
 | `test-server.ps1` | Windows side: download the jar, start/stop Java, wipe and refill the data folder. Works on its own in PowerShell too |
 | `test-server.sh` | WSL side: everything above plus fixture generation (`tools/gen-fixtures`) and library setup (`seed.ts`) |
-| `seed.ts` | adds every Local Source manga to the library, loads chapters, creates 2 categories and assigns manga. Safe to run again |
+| `seed.ts` | adds every Local Source manga to the library, loads chapters, creates the categories and assigns manga, then Epsilon Weekly. Safe to run again |
 | `.test-server/jar/` | the downloaded jar (kept between resets) |
 | `.test-server/fixtures/` | pristine fixture manga, re-generated only when the generator changes (`fixtures.stamp`) |
+| `.test-server/fixtures-extra/` | `Epsilon Weekly` incl. the held-back Chapter 3. Kept out of `fixtures/` because `reset` copies that folder whole and the server numbers manga in folder order |
 | `.test-server/root/` | the server's data folder (`rootDir`). `reset` deletes it, but only if it holds the `.snx-test-root` marker |
 | `.test-server/server.out.log`, `server.err.log` | Java's output. The server's own log is in `root/logs/` |
 
 Java is started through WMI (`Win32_Process.Create`), not `Start-Process`: a child of the PowerShell that WSL called would inherit the
 pipe WSL reads from, and WSL would then wait for Java to end. `stop` finds Java by its command line (it names our `root` folder).
+
+## Epsilon Weekly and the new-chapter helpers (WP-15)
+Epsilon Weekly is the manga for "a library update finds a new chapter". The seed adds it last (manga 157, chapters 460-461, in
+Reading, both read) so no older id moves; only its chapters 1 and 2 are copied into the server. In `tests/e2e/lib/suwayomi.ts`:
+- `addNewChapter()` copies the held-back Chapter 3 into `.test-server/root/local/Epsilon Weekly/` (fixed folder time = upload date).
+  The server sees it at the next `updateLibrary(input: {})`, which gives chapter 462.
+- `removeNewChapter()` deletes that folder and runs `fetchMangaAndChapters` for manga 157, so the server forgets chapter 462.
+Both are safe to call when already in that state. A live check: `eval "$(tools/test-server/test-server.sh env)";
+SNX_LIVE_SERVER=1 npx vitest run tools/test-server/epsilon.test.ts`.
 
 ## Settings
 Java gets every setting as `-Dsuwayomi.tachidesk.config.server.<key>=<value>` (keys from the jar's `server-reference.conf`):
@@ -37,7 +47,7 @@ Stopping is a hard stop (there's no clean way to send Ctrl+C to a hidden Java pr
 ## Library after seeding
 | Category | Manga |
 |---|---|
-| Reading | Alpha, Beta RTL |
+| Reading | Alpha, Beta RTL, Epsilon Weekly (manga 157, chapters 460-461 read) |
 | Long series | Gamma Webtoon, Delta Big |
 | (none, i.e. Default) | 日本語タイトル テスト, Broken |
 
