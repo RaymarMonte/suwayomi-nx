@@ -40,6 +40,11 @@ void ChapterRowsModel::start() {
 
 void ChapterRowsModel::reload() {
     started_ = true;
+    if (acting_) {
+        reloadAfterAction_ = true;
+        return;
+    }
+    reloadAfterAction_ = false;
     cancel_.cancel();
     cancel_ = net::CancelToken();
     loading_ = false;
@@ -167,7 +172,7 @@ bool ChapterRowsModel::toggleRead(std::size_t index) {
         return false;
     }
     const core::Chapter& chapter = items_[index].chapter;
-    return setRead(index, !(chapter.isRead || chapter.lastPageRead > 0));
+    return setRead(index, !chapter.isRead);  // as the details screen's X (D43): unread, also with progress, becomes read
 }
 
 bool ChapterRowsModel::setRead(std::size_t index, bool read) {
@@ -201,6 +206,9 @@ bool ChapterRowsModel::setRead(std::size_t index, bool read) {
             acting_ = false;
             if (!result.ok()) {
                 pendingError_ = result.error();
+                if (reloadAfterAction_) {
+                    reload();
+                }
                 changed();
                 return;
             }
@@ -218,6 +226,9 @@ bool ChapterRowsModel::setRead(std::size_t index, bool read) {
                 }
             }
             itemsRevision_ += 1;
+            if (reloadAfterAction_) {
+                reload();  // a reload came meanwhile: now it reads what the server saved
+            }
             changed();
             // The library's unread badge follows: the manga's new unread count.
             if (mangaChanged_) {

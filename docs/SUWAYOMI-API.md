@@ -115,7 +115,10 @@ The owner's own server runs the same version (v2.4.2366 Stable, checked 2026-10-
   update): don't trust it. `lastUpdateTimestamp { timestamp }` changes when an update starts (also when every manga is
   skipped) and stays the same during it; `libraryUpdateStatus { jobsInfo { isRunning totalJobs finishedJobs
   skippedMangasCount skippedCategoriesCount } }` counts up while it runs and keeps the last job's numbers afterwards.
-  Done = the timestamp differs from the one read before starting and `isRunning` is false. `mangaUpdates { status manga
+  Done = the timestamp differs from the one read before starting and `isRunning` is false, **but not right away**
+  (WP-15, D52): for a moment after the start the timestamp has already moved while `jobsInfo` still shows the previous
+  job (not running, all finished), so a poll that soon sees "done" with the old counts. The app also waits until it has
+  seen `isRunning`, or the counts changed, or the same state held for one poll interval. `mangaUpdates { status manga
   { id title } }` lists only the manga that ran (`PENDING RUNNING COMPLETE FAILED SKIPPED`); skipped ones are only
   counted. 156 Local manga took ~0.6 s.
 - **The server skips by its settings** (`settings { excludeEntryWithUnreadChapters excludeNotStarted excludeCompleted

@@ -67,7 +67,7 @@ scenario('reader-zoom', async (s) => {
     try {
         await s.launch({ testConfig: { server: { url } } });
         await waitForLibrary(s);
-        await openManga(s, LIBRARY_MORE.reading, 0, 2);
+        await openManga(s, LIBRARY_MORE.reading, 0, 3);
         let shown = await openChapter(s, 2, { shown: 'page' });
         // At the fit: 480 x 720 in the middle of the screen.
         expect(shown).toMatchObject({ chapterId: ch1, page: 0, orientation: 'landscape', w: 480, h: 720, x: 400, y: 0,
@@ -113,9 +113,9 @@ scenario('reader-zoom', async (s) => {
 
         // A single tap in the middle opens the menu once the double tap's wait (250 ms) is over; with the menu open a tap
         // closes it at once.
-        let started = Date.now();
+        let started = performance.now(); // monotonic: WSL's wall clock can jump back
         await readerAfter(s, tap(s, READER.middle), { menu: true });
-        expect(Date.now() - started, 'the menu opens after the double tap wait').toBeGreaterThanOrEqual(250);
+        expect(performance.now() - started, 'the menu opens after the double tap wait').toBeGreaterThanOrEqual(250);
         await readerAfter(s, tap(s, READER.middle), { menu: false });
         // An edge tap turns without waiting.
         shown = await readerAfter(s, tap(s, READER.left), { shown: 'page', page: 2 });
@@ -137,7 +137,7 @@ scenario('reader-zoom', async (s) => {
 
         // The setting survives a restart; a chapter opens at the fit.
         await s.launch({ testConfig: { server: { url } }, keepConfig: true });
-        await waitForLibrary(s, { items: 2 });
+        await waitForLibrary(s, { items: 3 });
         await openManga(s, null, 0);
         shown = await openChapter(s, 2, { shown: 'page' });
         expect(shown).toMatchObject({ chapterId: ch1, zoomOnTurn: 'keep', zoom: 1 });

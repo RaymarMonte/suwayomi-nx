@@ -5,8 +5,8 @@ manga library. C++17, UI built with [xfangfang/borealis](https://github.com/xfan
 as a desktop app (Linux), so most testing happens on a PC.
 
 **Status:** v0.2: browse your library, see a manga's chapters, read with the paged reader (also held sideways, and zoomed
-in), read webtoons as one long strip, and your reading progress goes back to the server. Not there yet: updates, history,
-browsing sources, downloads. What changed: `CHANGELOG.md`. Plans: `docs/ROADMAP.md`.
+in), read webtoons as one long strip, and your reading progress goes back to the server. New chapters across the library (Updates, with "Update library") and your
+reading history with Continue. Not there yet: browsing sources, downloads. What changed: `CHANGELOG.md`. Plans: `docs/ROADMAP.md`.
 
 ## Using it
 
@@ -36,12 +36,20 @@ hint at the bottom of the screen does what its button does.
 |---|---|---|
 | Library | tap a category, Sort, Refresh or a cover; flick to scroll | L / R category, Y sort, X refresh, A open, − library menu |
 | Manga | tap Continue, a chapter, its "..." menu, Sort, Show, Refresh; tap the description to open it | A open chapter, X read / unread, Y chapter menu, − menu |
+| Updates | tap a row to read that chapter, its cover for the manga, its "..." menu; tap Update library (Stop while it runs) | A read, X read / unread, Y row menu, − menu (Update library, Refresh) |
+| History | tap a row to continue that manga, its cover for the manga | A continue, X refresh, Y manga details, − menu |
 | Reader | tap the left or right side (or swipe) to turn, the middle for the menu; drag a page that is bigger than the screen; pinch or double-tap the middle to zoom | L / R and left / right turn, up / down scroll, ZR / ZL zoom, A menu, X retry, Y rotate, − reader settings |
 | Webtoon strip | drag or flick to scroll; tap the bottom to move on, the top to go back, the middle for the menu; pinch or double-tap the middle to zoom | sticks scroll; up / down and L / R move on or back (hold to keep scrolling), ZR / ZL zoom (then left / right move sideways), A menu, X retry, Y rotate, − reader settings |
 
 The reader turns pages right to left by default (manga). Reader settings (− or the menu): direction, fit (screen, width,
 height), background colour, the page number, the orientation, what a page turn does to the zoom and when to split spreads.
 Direction and fit are remembered per manga.
+
+**Updates and History:** Updates lists the chapters your server found for manga already in your library, from the last
+3 months, newest first, by day ("Today", "Yesterday", "Fri 13 Nov"). **Update library** asks the server to look for new
+chapters now (it follows the server's update settings, set in its web UI; the server also does this on its own schedule)
+and shows how far it got, then how many new chapters it found. History lists each manga you read once, the latest first;
+a tap goes on where you stopped, like Continue on the manga's screen.
 
 **Webtoons (one long strip):** a manga the server tags "Long Strip" or "Webtoon", or whose first page is very tall,
 opens as a vertical strip by itself; any other manga can be switched in Reader settings → Reading direction → **Vertical

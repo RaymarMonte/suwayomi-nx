@@ -84,6 +84,8 @@ Switch: closes the software and goes back to the HOME menu), and the logs land i
    (`SNX_APPLET_CONSOLE=1`, owner watching) and never runs a drill: from the Album any crash is a system fatal (D41).
 7. Fixture manga and the test server: `docs/TESTING.md` "Fixture manga", `tools/test-server/README.md`. Read the page on screen with
    `findPageCodes()` from `lib/pagecode.ts` (decode the screenshot with sharp first), not by looking at the picture.
+   WP-15: `addNewChapter()` / `removeNewChapter()` (`lib/suwayomi.ts`) put Epsilon Weekly's held-back chapter 3 on the
+   server and take it away again (a library update then finds it); the Reading category has 3 titles since.
 8. **WP-08:** every `launch()` removes `config.json` first (a first run) unless `keepConfig: true` (restart tests). On the Switch
    that is the owner's own file: the driver copies it first and puts it back after the scenario (Device safety). Text fields:
    `typeText()` on desktop (tap the field, type, tap the dialog's OK hint, `KEYBOARD_OK`), the test config's `showSetup` on the

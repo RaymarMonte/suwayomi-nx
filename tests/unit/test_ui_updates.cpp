@@ -336,7 +336,10 @@ TEST_CASE("rows: X marks read, again unread at page 0; the row shows the server'
     CHECK(model->items()[0].chapter.isRead);
     CHECK(lastPatch() == nlohmann::json{{"isRead", true}});
     CHECK(changedManga == std::vector<int>{model->items()[0].manga.id});
-    // A chapter with progress toggles to unread (back to page 0, D43).
+    // A chapter with progress becomes read, as on the details screen (D43); X again: unread, back to page 0.
+    REQUIRE(model->toggleRead(1));
+    CHECK(lastPatch() == nlohmann::json{{"isRead", true}});
+    CHECK(model->items()[1].chapter.isRead);
     REQUIRE(model->toggleRead(1));
     CHECK(lastPatch() == nlohmann::json{{"isRead", false}, {"lastPageRead", 0}});
     CHECK(model->items()[1].chapter.lastPageRead == 0);
@@ -346,6 +349,24 @@ TEST_CASE("rows: X marks read, again unread at page 0; the row shows the server'
     CHECK_FALSE(model->setRead(0, true));
     CHECK_FALSE(model->setRead(9, true));
     CHECK(h.asked("UpdateChapters") == asked);
+}
+
+TEST_CASE("rows: a reload while X is on its way waits for the answer, so it reads what the server saved") {
+    Harness h;
+    h.server.rows = updateRows(2, 1);
+    auto model = h.rows(ChapterRowsModel::Kind::Updates, 100, 5, 10);
+    model->start();
+    const int pagesBefore = h.asked("LibraryUpdates");
+    h.http.hold(true);
+    REQUIRE(model->toggleRead(0));
+    model->reload();  // e.g. the menu that sent it closed
+    CHECK(h.asked("LibraryUpdates") == pagesBefore);  // nothing asked yet: it waits
+    REQUIRE(h.http.releaseNext());  // the updateChapters answer
+    h.http.hold(false);
+    h.http.releaseAll();
+    CHECK(h.asked("LibraryUpdates") == pagesBefore + 1);  // then the reload
+    CHECK(model->items()[0].chapter.isRead);
+    CHECK(model->started());
 }
 
 TEST_CASE("library update: start reads the timestamp first, polls while it runs, then the summary") {

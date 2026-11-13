@@ -91,7 +91,7 @@ std::int64_t utcOffsetSeconds(std::int64_t utcSeconds) {
     if (utcSeconds < 0 || R_FAILED(timeToCalendarTimeWithMyRule(static_cast<u64>(utcSeconds), &calendar, &info))) {
         return 0;
     }
-    return info.timezoneOffset;
+    return info.offset;  // seconds east of UTC at that moment (libnx: "relative to UTC for this timezone")
 }
 
 bool showLaunchRefused(const char* text, int timeoutMs, void (*onShown)()) {

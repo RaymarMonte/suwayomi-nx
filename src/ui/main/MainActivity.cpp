@@ -1,6 +1,7 @@
 #include "ui/main/MainActivity.hpp"
 
 #include <chrono>
+#include <initializer_list>
 #include <utility>
 
 #include "app/TestHooks.hpp"
@@ -125,6 +126,25 @@ void MainActivity::reportScreen() {
 void MainActivity::onResume() {
     covered_ = false;
     reportScreen();
+    // A screen on top closed (the details screen, a reader, a menu): chapters may have been read there. The list on
+    // screen reloads now, the other one when its tab opens.
+    listsStale_ = true;
+    if (currentTab_ == kUpdatesTab || currentTab_ == kHistoryTab) {
+        reloadStaleLists();
+    }
+}
+
+void MainActivity::reloadStaleLists() {
+    if (!listsStale_) {
+        return;
+    }
+    listsStale_ = false;
+    // Only lists that have loaded once: one that never showed loads fresh when its tab first opens.
+    for (ChapterRowsModel* list : {updates_.get(), history_.get()}) {
+        if (list != nullptr && list->started()) {
+            list->reload();
+        }
+    }
 }
 
 void MainActivity::startCheck() {
@@ -243,6 +263,7 @@ void MainActivity::ensureLists() {
 
 brls::View* MainActivity::makeRowsTab(bool updates) {
     ensureLists();
+    reloadStaleLists();
     return new ChapterRowsTab(
         context_, updates ? updates_ : history_, updates ? updater_ : nullptr, [this] { listsRead(); },
         [this](const core::Manga& manga) { mangaChanged(manga); });

@@ -208,7 +208,7 @@ actions, `openChapter`), `reader/ProgressSaver.{hpp,cpp}`, `ReaderActivity.hpp`,
 8. **Test hooks and the scenario** (below).
 
 ## Deliverables
-- [ ] core: the models' new fields and `ChapterEntry`, `UpdatesHistory` (new rule, window, day keys and labels, header
+- [x] core: the models' new fields and `ChapterEntry`, `UpdatesHistory` (new rule, window, day keys and labels, header
       rows, history rows, the update's done rule), `ProgressQueue` (entry, add / replace / cap, file round trip and broken
       files, the decision, the take-over), `ProgressSync`'s base, the profile fields. Unit tests: new vs. old by
       `inLibraryAt` (equal = old); the window's end; day labels around midnight and with an offset, "Yesterday" across a
@@ -216,9 +216,9 @@ actions, `openChapter`), `reader/ProgressSaver.{hpp,cpp}`, `ReaderActivity.hpp`,
       answer, a skipped-only update, the 10 s rule and a stop; queue: one entry per chapter, the cap drops the oldest, the
       file round trip, a broken entry, a broken file, the 64 KiB limit; already / send / server moved; the take-over both
       ways; `ProgressSync` keeps the base across saves and failures
-- [ ] GraphQL/api: the six documents, `lastReadAt` in the three answers, the client calls; contract test green, recorded
+- [x] GraphQL/api: the six documents, `lastReadAt` in the three answers, the client calls; contract test green, recorded
       answers refreshed, unit tests of every call, integration tests in all three auth modes
-- [ ] Test server: Epsilon Weekly (TESTING.md's fixture list), the seed's second step, `addNewChapter` /
+- [x] Test server: Epsilon Weekly (TESTING.md's fixture list), the seed's second step, `addNewChapter` /
       `removeNewChapter`, counts fixed, `SNX_FULL_FIXTURES=1 npm test` green
 - [ ] Queue in the app: made in `main()`, the file (read at start, flushed with config.json), the three triggers, the
       hand-off from `ProgressSaver`, the take-over in both readers, the listeners. Unit tests (suite `ui`): a close-save
@@ -226,21 +226,21 @@ actions, `openChapter`), `reader/ProgressSaver.{hpp,cpp}`, `ReaderActivity.hpp`,
       `UpdateStripProgress`); already; server moved; offline keeps it and backs off; three server errors drop it; the
       take-over in `ReaderModel` and `StripModel` (opens at the entry's page and spot, saves it); a restart (a new queue
       on the same folder) still has it. `ReaderModel` / `StripModel` / `ProgressSaver` tests unchanged otherwise
-- [ ] `UpdatesModel`, `HistoryModel`, `ChapterOpener` (suite `ui`): pages with hidden rows fill up to a screen and stop
+- [x] `UpdatesModel`, `HistoryModel`, `ChapterOpener` (suite `ui`): pages with hidden rows fill up to a screen and stop
       after 5; the window and the cap end the list; a chapter on two pages shows once; header rows; the update's start,
       progress, done (new count, reload, library reload), nothing to update, stop, a failed poll; History's one row per
       manga, the waiting note; the opener loads all pages and can be cancelled
-- [ ] Views: `UpdatesTab` (header, status line, bar, rows, day headers, row menu, screen menu), `HistoryTab`, both by touch
+- [x] Views: `UpdatesTab` (header, status line, bar, rows, day headers, row menu, screen menu), `HistoryTab`, both by touch
       and controller (D16), opening from a row ("Opening…", B cancels), the reload after the reader closes
-- [ ] Platform: `utcOffsetSeconds` (both), in `app_start`; the Switch build's safety gate PASS
-- [ ] Test events: `updates` (state, rows, groups, first rows, newest, hidden, pages, end), `library_update` (phase
+- [x] Platform: `utcOffsetSeconds` (both), in `app_start`; the Switch build's safety gate PASS
+- [x] Test events: `updates` (state, rows, groups, first rows, newest, hidden, pages, end), `library_update` (phase
       started / progress / done / stopped / poll_failed, total, finished, skipped, failed, newChapters, ms), `history`
       (state, rows, first rows with page and read, waiting), `chapter_open` (from, chapterId, page, chapters, ms),
       `progress_queue` (added / sent / already / dropped / kept / taken, chapterId, page, read, reason, waiting)
 - [ ] Harness: `progress-queue.json` (+ `.bak`) is removed with config.json before each launch (kept with `keepConfig`),
       so no scenario inherits another's waiting saves; Switch runs back up and put back the owner's copy like their
       config.json (`tests/e2e/out/owner-config/`, `--restore-config`), so a test run never loses or sends the owner's saves
-- [ ] Scenario `updates-history` (desktop and Switch, TESTING.md 17). First a known state through GraphQL: every chapter
+- [x] Scenario `updates-history` (desktop and Switch, TESTING.md 17). First a known state through GraphQL: every chapter
       except Epsilon's marked unread at page 0 (one bulk `updateChapters`; that keeps them out of History, and the
       reads earlier scenarios left behind no longer show or make other manga due for an update), and
       `removeNewChapter()`. The Updates tab by touch: empty, "Last updated" (golden `updates-empty`, the time masked);
@@ -257,18 +257,24 @@ actions, `openChapter`), `reader/ProgressSaver.{hpp,cpp}`, `ReaderActivity.hpp`,
       (ch 150's `fetchChapterPages` first, else the server saves page 0; then `lastPageRead` 1) → its History row
       continues it at page 2 (`chapter_open` ms). The Switch adds the X / Y / MINUS paths, and
       20 tab switches Library ↔ Updates ↔ History with memory flat
-- [ ] The existing scenarios stay green: `tools/e2e.sh desktop` (all), and on the Switch `library-browse`,
+- [x] The existing scenarios stay green: `tools/e2e.sh desktop` (all), and on the Switch `library-browse`,
       `manga-details`, `resume-progress`, `reader-paged`, `reader-webtoon`, `offline-errors`
 - [ ] Console (application mode, handheld, stock clocks, D17): the numbers in Acceptance
 - [ ] (Optional, the owner's call.) Owner tries it on their server: Update library with real sources (progress and the
       skipped count make sense), an update opened, History's continue, a save made while the server is away
-- [ ] Docs: D52 (the answers, the defaults as they ended up, the console numbers, the owner's verdict if they tried it),
+- [x] Docs: D52 (the answers, the defaults as they ended up, the console numbers, the owner's verdict if they tried it),
       ARCHITECTURE.md (Updates / History screens, the queue file in the SD layout D10, the new profile fields),
       TESTING.md (scenario 17, Epsilon, the events and helpers), SUWAYOMI-API.md (anything new found while building),
       SAFETY.md (the queue file in the write-jail list if it names files), `src/core/README.md`, `src/api/README.md`,
       `src/ui/README.md`, `src/platform/README.md`, `tests/e2e/README.md`, `tools/test-server/README.md` (Epsilon, the
       helpers), the user part of README.md ("Not there yet" loses Updates and History), CHANGELOG.md (a version is the
       owner's call)
+
+**Ticked 2026-11-13 (WP-15 without the queue, D52):** the queue's parts of the ticked items (`ProgressQueue`,
+`ProgressSync`'s base, `lastReadAt` in the answers, the `progress_queue` event and History's waiting note, the harness, the
+scenario's two queue steps), B cancelling "Opening...", and the Switch runs of `updates-history` and the listed scenarios
+with the console numbers moved to **WP-15b**. Built as one view and one model for both tabs (`ChapterRowsTab`,
+`ChapterRowsModel`, `LibraryUpdater`; opening uses `MangaModel`), the day on the first row of each day (D52).
 
 ## Acceptance
 `tools/build.sh tests` green with the new unit tests; `npm test`, `npm run typecheck` and `npm run contract` green;

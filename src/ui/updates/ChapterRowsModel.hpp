@@ -52,8 +52,10 @@ class ChapterRowsModel {
 
     void start();   // the first page. Only once; later calls do nothing.
     // The list again from the first page (after reading, after a library update, Refresh). The rows on screen stay until
-    // the new first page is in; if that fails, they stay and takeError() says why.
+    // the new first page is in; if that fails, they stay and takeError() says why. While a read / unread action is on its
+    // way, the reload waits for its answer (else the page could be read before the server saved the change).
     void reload();
+    bool started() const { return started_; }  // start() or reload() was called
     // The view shows rows up to `lastIndex`: near the end of what is loaded, the next pages are asked for.
     void showing(std::size_t lastIndex);
 
@@ -78,7 +80,7 @@ class ChapterRowsModel {
     // updateChapters; the row shows what the server saved. False (no request) for a wrong index, nothing to change, or
     // while another action runs.
     bool setRead(std::size_t index, bool read);
-    bool toggleRead(std::size_t index);  // read -> unread (also for a chapter with progress), else read
+    bool toggleRead(std::size_t index);  // read -> unread, else (also a chapter with progress) read, as the details screen (D43)
     bool busy() const { return acting_; }
     // An action or a reload failed since the last call (empty afterwards): the view tells the user.
     std::optional<api::ApiError> takeError();
@@ -103,6 +105,7 @@ class ChapterRowsModel {
     bool started_ = false;
     bool loading_ = false;
     bool acting_ = false;
+    bool reloadAfterAction_ = false;  // reload() came while an action was on its way
     bool fresh_ = false;     // the page under way starts a new list (reload): replace the rows when it arrives
     State state_ = State::Loading;
     api::ApiError error_;

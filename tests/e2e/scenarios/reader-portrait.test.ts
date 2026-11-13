@@ -57,7 +57,7 @@ scenario('reader-portrait', async (s) => {
     try {
         await s.launch({ testConfig: { server: { url } } });
         await waitForLibrary(s);
-        await openManga(s, LIBRARY_MORE.reading, 0, 2);
+        await openManga(s, LIBRARY_MORE.reading, 0, 3);
         let shown = await openChapter(s, 2, { shown: 'page' });
         expect(shown).toMatchObject({ chapterId: ch1, page: 0, orientation: 'landscape', orientationSetting: 'landscape',
             w: 480, h: 720, screenW: 1280, screenH: 720 });
@@ -148,7 +148,7 @@ scenario('reader-portrait', async (s) => {
 
         // A restart keeps the orientation (config.json).
         await s.launch({ testConfig: { server: { url } }, keepConfig: true });
-        await waitForLibrary(s, { items: 2 });
+        await waitForLibrary(s, { items: 3 });
         await openManga(s, null, 0);
         shown = await openChapter(s, 2, { shown: 'page' });
         expect(shown).toMatchObject({ orientation: 'portrait-left', orientationSetting: 'portrait-left', fit: 'height',
@@ -183,7 +183,7 @@ scenario('reader-portrait', async (s) => {
         if (s.driver.name === 'desktop') {
             // Docked (desktop: --simulate-docked) the reader is landscape; the saved choice stays.
             await s.launch({ testConfig: { server: { url } }, keepConfig: true, args: ['--simulate-docked'] });
-            await waitForLibrary(s, { items: 2 });
+            await waitForLibrary(s, { items: 3 });
             await openManga(s, null, 0);
             shown = await openChapter(s, 2, { shown: 'page' });
             expect(shown).toMatchObject({ orientation: 'landscape', orientationSetting: 'portrait-left', w: 480 });

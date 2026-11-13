@@ -76,6 +76,25 @@ export const LIBRARY_MORE = {
 };
 
 /**
+ * The Updates and History tabs (WP-15): one column of 800 x 96 px rows (8 px apart), a small cover on the left, the day on
+ * the right, Updates rows end in a "..." (the row menu). Updates has a header above the rows: the Update library / Stop
+ * button and the status line with its progress bar.
+ */
+export const UPDATES = {
+    updateButton: { x: 544, y: 136 },
+    /** The middle of row `index` (a tap opens the chapter), while the list is scrolled to the top. */
+    row(index: number, header = true): { x: number; y: number } {
+        return { x: 800, y: (header ? 244 : 148) + 104 * index };
+    },
+    /** The cover of row `index` (a tap opens the details screen). */
+    cover(index: number, header = true): { x: number; y: number } {
+        return { x: 483, y: (header ? 244 : 148) + 104 * index };
+    },
+    /** The status line (its text has the time or how long the update took). */
+    statusMask: { x: 670, y: 100, w: 600, h: 72, why: 'the status line: time, duration' },
+};
+
+/**
  * The manga details screen (WP-10). Left: Continue and the description. Right: the bar (Sort, Show, Refresh) and the
  * chapter list (rows of 800 x 80 px, 4 px apart; with the list at the top the first row's top is at y 167).
  */

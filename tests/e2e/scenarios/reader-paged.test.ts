@@ -35,7 +35,7 @@ scenario('reader-paged', async (s) => {
     try {
         await s.launch({ testConfig: { server: { url } } });
         await waitForLibrary(s);
-        await openManga(s, LIBRARY_MORE.reading, 0, 2);
+        await openManga(s, LIBRARY_MORE.reading, 0, 3);
 
         // Chapter 1 (the third row, newest first) opens at its first page, fit to the screen, right to left (the default).
         let shown = await openChapter(s, 2, { shown: 'page' });
@@ -134,7 +134,7 @@ scenario('reader-paged', async (s) => {
 
         // A restart keeps Alpha's own direction and fit (config.json). The library comes back on the Reading tab (WP-09).
         await s.launch({ testConfig: { server: { url } }, keepConfig: true });
-        await waitForLibrary(s, { items: 2 });
+        await waitForLibrary(s, { items: 3 });
         await openManga(s, null, 0);
         shown = await openChapter(s, 2, { shown: 'page' });
         expect(shown).toMatchObject({ chapterId: ch(1), page: 0, direction: 'ltr', fit: 'width' });

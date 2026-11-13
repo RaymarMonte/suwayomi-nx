@@ -220,7 +220,7 @@ async function switchManga(s: Scenario, category: Point, cover: number): Promise
     const mark = s.events.mark();
     await s.driver.press('B');
     await s.events.waitForEvent('idle', {}, { from: mark });
-    await openManga(s, category, cover, 2);
+    await openManga(s, category, cover, category === LIBRARY_MORE.reading ? 3 : 2); // Reading: Alpha, Beta RTL, Epsilon Weekly
 }
 
 const near = (a: unknown, b: number, within = 2) => Math.abs(Number(a) - b) <= within;

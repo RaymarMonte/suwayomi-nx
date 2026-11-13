@@ -356,6 +356,17 @@ Initial list, grown per UI WP:
 16. `keyboard-wait` (WP-12 regression, Switch only) – the setup screen's address field opens the system keyboard, which
     stays open 15 s (it blocks the main loop, longer than the 10 s watchdog), + confirms, Continue reaches the library, no crash
     record in `logs/`. ~50 s
+17. `updates-history` (WP-15, D52; desktop done, Switch runs with WP-15b) – a known state first (GraphQL: every chapter
+    but Epsilon's unread at page 0, `removeNewChapter()`); Updates empty (golden `updates-empty`); `addNewChapter()`, Update
+    library → `library_update` done (total 1, skipped 156, newChapters 1), the row "Today" + Epsilon Chapter 3 (golden
+    `updates-new`); the row opens it (code 8/3/1), a page on, B → the row and History at page 2; Alpha ch1 → page 3 and ch2
+    → page 2 from the Library → History reloads, one Alpha row with ch2 (golden `history`), a tap continues ch2 page 2; X in
+    Updates read / unread on the server; the cover → details; Delta Big ch150 stamped through GraphQL, X refreshes History,
+    a tap continues it (`chapter_open` ms, desktop ~22 ms). Events: `updates` / `history` (state, rows, groups, `first`
+    rows with chapterId, mangaId, title, chapter, page, read, day; Updates also `newest`; hidden, pages, end),
+    `library_update` (phase started / progress / done / stopped / nothing / poll_failed, total, finished, skipped, failed,
+    newChapters, ms), `chapter_open` (from, chapterId, page, chapters, ms). RIGHT from the tab list onto the rows needs a
+    second press after a touch (borealis's first one only shows the focus): `focusRows()`. The queue steps: WP-15b. ~22 s
 
 ## Golden screenshots
 - Stored per driver: `tests/e2e/goldens/{desktop,switch}/<scenario>/<step>.png`.

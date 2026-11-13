@@ -47,6 +47,14 @@
   `stripScreensBehind` / `stripScreensAhead`. WP-13d, D50, zoom in the strip: `StripZoomView` (zoom, left edge, top),
   `clampStripLeft`, `stripZoomAround`, `StripPinchStart` / `stripPinchView`, `isStripDoubleTap`, `stripSharpPages` (the
   pages on screen that decode again sharper), `stripZoomDecodeBox`; profile `stripZoomPages`. Tests: `test_core_strip.cpp`.
+- `UpdatesHistory.hpp` (WP-15, D52): Updates and History. `isNewChapter` (`fetchedAt` > the manga's `inLibraryAt`),
+  `updatesWindowStart` (90 days), `filterUpdates` (`UpdatesFilter`: window + seen chapters), `historyRows` (one row per
+  manga), days by the console's time zone (`dayKey`, `civilFromDay`, `dayLabel`, `formatDate`, `formatDateTime`,
+  `dayGroups`), `LibraryUpdateWatch` (start → running → done, the stale first answer, D52). Models: `ChapterEntry`
+  (a chapter with its manga), `LibraryUpdateStatus`, `Chapter::fetchedAt`, `Manga::inLibraryAt`. Profile: page sizes,
+  `updatesFillPages`, `maxUpdateRows`, `maxHistoryRows`, `libraryUpdatePollMs`, `libraryUpdateStartWaitMs`. Documents:
+  `LibraryUpdates`, `ReadingHistory`, `UpdateLibrary`, `StopLibraryUpdate`, `LibraryUpdateStatus`. Tests:
+  `test_core_updates.cpp`.
 - `LogBuffer.hpp`, `SaveScheduler.hpp` (WP-08): the log file's line format, buffering and rotation; when to save config.json (debounce). WP-08 also added test config keys (server login, `showSetup`, `diagnostics`), test events (`launch_refused`, `mem`, screen params) and profile fields (`logFileBytes`, `logFlushMs`, `configSaveDelayMs`).
 
 **Depends on:** the C++17 standard library and nlohmann/json 3.12.0 (`third_party/`, include `<nlohmann/json.hpp>`).

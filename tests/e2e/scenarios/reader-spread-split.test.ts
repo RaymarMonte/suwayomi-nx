@@ -58,7 +58,7 @@ scenario('reader-spread-split', async (s) => {
     try {
         await s.launch({ testConfig: { server: { url }, ...(scale ? { maxDecodeScale: scale } : {}) } });
         await waitForLibrary(s);
-        await openManga(s, LIBRARY_MORE.reading, 1, 2);  // "Alpha" < "Beta RTL"
+        await openManga(s, LIBRARY_MORE.reading, 1, 3);  // "Alpha" < "Beta RTL" < "Epsilon Weekly"
         let shown = await openChapter(s, 1, { shown: 'page' });  // chapter 1: the second row (newest first)
         expect(shown).toMatchObject({ chapterId: ch1, page: 0, direction: 'rtl', splitSpreads: 'portrait', split: false });
 

@@ -24,7 +24,7 @@ scenario('reader-rtl-spread', async (s) => {
     try {
         await s.launch({ testConfig: { server: { url } } });
         await waitForLibrary(s);
-        await openManga(s, LIBRARY_MORE.reading, 1, 2);  // "Alpha" < "Beta RTL"
+        await openManga(s, LIBRARY_MORE.reading, 1, 3);  // "Alpha" < "Beta RTL" < "Epsilon Weekly"
 
         // Chapter 1 is the second row (newest first).
         let shown = await openChapter(s, 1, { shown: 'page' });

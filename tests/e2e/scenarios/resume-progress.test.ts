@@ -39,7 +39,7 @@ scenario('resume-progress', async (s) => {
     try {
         await s.launch({ testConfig: { server: { url } } });
         await waitForLibrary(s);
-        await openManga(s, LIBRARY_MORE.reading, 0, 2);
+        await openManga(s, LIBRARY_MORE.reading, 0, 3);
 
         // Chapter 3 (the first row), four pages forward.
         await openChapter(s, 0, { shown: 'page', chapterId: third, page: 0 });
@@ -71,7 +71,7 @@ scenario('resume-progress', async (s) => {
         // After a restart too.
         await s.launch({ testConfig: { server: { url } } });
         await waitForLibrary(s);
-        const details = await openManga(s, LIBRARY_MORE.reading, 0, 2);
+        const details = await openManga(s, LIBRARY_MORE.reading, 0, 3);
         expect(continuesAt(third, 4)(details), 'Continue after a restart').toBe(true);
         shown = await continueReading(s, { shown: 'page', chapterId: third });
         expect(shown.page).toBe(4);

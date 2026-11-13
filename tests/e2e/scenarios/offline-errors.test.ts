@@ -74,7 +74,7 @@ scenario(
             // 2. The reader: Alpha ch1 (the third row, newest first), read right to left (the default: LEFT is forward).
             mark = s.events.mark();
             await s.driver.touch(LIBRARY_MORE.reading.x, LIBRARY_MORE.reading.y);
-            await s.events.waitForEvent('library', { state: 'ready', items: 2 }, { from: mark });
+            await s.events.waitForEvent('library', { state: 'ready', items: 3 }, { from: mark });
             await s.events.waitForEvent('idle', {}, { from: mark });
             mark = s.events.mark();
             await s.driver.touch(LIBRARY.cover(0).x, LIBRARY.cover(0).y);
@@ -149,7 +149,7 @@ scenario(
             startServer();
             mark = s.events.mark();
             await s.driver.touch(STATUS.library.x, STATUS.library.y);
-            await s.events.waitForEvent('library', { state: 'ready', items: 2 }, { from: mark, ...SLOW });
+            await s.events.waitForEvent('library', { state: 'ready', items: 3 }, { from: mark, ...SLOW });
             await s.events.waitForEvent('idle', {}, { from: mark });
 
             // Only the errors this scenario caused.

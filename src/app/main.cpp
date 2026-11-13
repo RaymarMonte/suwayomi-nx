@@ -8,6 +8,7 @@
 #include <borealis.hpp>
 #include <cstdint>
 #include <cstdlib>
+#include <ctime>
 #include <exception>
 #include <functional>
 #include <optional>
@@ -119,6 +120,12 @@ int main(int argc, char* argv[]) {
     brls::Logger::info("app: launch mode {}, memory {} MiB, {} MiB in use, profile {}{}",
                        std::string(snx::core::launchModeName(runtime.mode)), runtime.totalMem / kBytesPerMb,
                        runtime.usedMem / kBytesPerMb, std::string(profile.name), profile.safeMode ? " (safe mode)" : "");
+    {
+        // The console's time zone: Updates and History group their rows by the local day (WP-15).
+        const std::int64_t offset = snx::platform::utcOffsetSeconds(static_cast<std::int64_t>(std::time(nullptr)));
+        const std::int64_t minutes = (offset < 0 ? -offset : offset) / 60;
+        brls::Logger::info("app: time zone UTC{}{:02}:{:02}", offset < 0 ? "-" : "+", minutes / 60, minutes % 60);
+    }
     testhooks::start(fs);
     // Test builds only: the decode cap the console measurement asks for (WP-13c). Nothing reads the profile before this
     // except the logger, which doesn't use it.

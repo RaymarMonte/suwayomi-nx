@@ -67,7 +67,7 @@ scenario('manga-details', async (s) => {
     // Alpha (Reading, the first cover).
     let mark = s.events.mark();
     await s.driver.touch(LIBRARY_MORE.reading.x, LIBRARY_MORE.reading.y);
-    await s.events.waitForEvent('library', { state: 'ready', items: 2 }, { from: mark });
+    await s.events.waitForEvent('library', { state: 'ready', items: 3 }, { from: mark });
     await s.events.waitForEvent('idle', {}, { from: mark });
     mark = s.events.mark();
     await s.driver.touch(LIBRARY.cover(0).x, LIBRARY.cover(0).y);

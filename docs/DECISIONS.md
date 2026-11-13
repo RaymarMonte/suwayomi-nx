@@ -1012,3 +1012,51 @@ amends D47's order).
   the `Lite` profile) and runs its scenarios in both.
 - Nothing built changes: no code exists for WP-18 yet, and WP-13b's strip spot note already lives on the server, so a later
   offline queue can still carry it.
+
+**D52 Updates and History: the owner's answers, the defaults as built** (WP-15, 2026-11-13; the owner can change any
+default after trying it).
+- **The owner's answers:** Updates lists **new chapters only** (found after the manga was already in the library), from
+  the last 3 months, like Mihon. A tap opens the reader: an Updates row opens that chapter, a History row continues the
+  manga (D43's rule); B comes back to the tab; the cover or the row menu opens the details screen. A save that fails as
+  the reader closes is kept across a restart, and the server's newer change wins: that queue is **WP-15b** (split at the
+  WP's planned point, same day).
+- **New** = the chapter's `fetchedAt` later than its manga's `inLibraryAt` (both seconds). **Window:** 90 days back from
+  the newest `fetchedAt` in the list (the server's clock). Only manga in the library.
+- **Loading:** 50 rows per request (`updatesPageSize`, `historyPageSize`), newest first; hidden rows are skipped and the
+  next page loads while less than a screen shows, at most 5 pages in a row (`updatesFillPages`) before it waits for the
+  user to scroll near the end. While **nothing** shows yet it keeps going (else a library of only old chapters would end
+  on "no new chapters" after 5 pages); the window and the server's end still stop it. Caps: `maxUpdateRows` 2000,
+  `maxHistoryRows` 500 manga (applet profile 1000 / 250). A chapter seen twice shows once.
+- **Days:** the local day of `fetchedAt` (Updates) or `lastReadAt` (History) by the console's time zone
+  (`platform::utcOffsetSeconds`, logged at start): "Today", "Yesterday", else "Fri 13 Nov" (with the year when it isn't
+  this year). **As built, the day sits on the right of the first row of each day**, not in a header row of its own (the
+  WP's fallback: CoverGrid has one cell size). No times in rows.
+- **One view and one model for both tabs:** `ui/updates/ChapterRowsTab` (Updates adds its header) on `ChapterRowsModel`
+  (`Kind::Updates` / `History`); `LibraryUpdater` runs the update. MainActivity owns all three (D42), so an update keeps
+  running across tab changes and screens. Opening a row uses `MangaModel` itself (the manga + its whole chapter list,
+  `maxChapters`), the row says "Opening…" meanwhile.
+- **Update library** = `updateLibrary(input: {})`, polled every `libraryUpdatePollMs` (1000) only while it runs, once
+  when the app has the lists (an update started in the web UI shows). **Done** = the timestamp moved and nothing runs,
+  **and** (it was seen running, or the counts differ from before, or the same state held for one poll interval). Found
+  while building: right after the start the timestamp has moved but `jobsInfo` still shows the previous job (not
+  running, all finished) for a moment (SUWAYOMI-API.md). Timestamp unchanged after `libraryUpdateStartWaitMs` (10 s) =
+  "Nothing to update". Stop = `updateStop`, then the same rule. A failed poll: "Can't reach the server", back-off as D45.
+- **When done:** the Updates list reloads; the library reloads if anything is new. "N new chapters" counts the first
+  page's new chapters fetched since the update's timestamp: above 50 new chapters it says 50 (the list itself is right).
+  Failed manga come from one more status read with `mangaUpdates` (titles in the log).
+- **History:** one row per manga (its latest chapter), chapters read or with progress, of any manga. A tap continues
+  (D43), a manga with every chapter read opens the details screen instead.
+- **Controls (D16):** Updates: A / tap opens, X read ↔ unread (unread also sets page 0, as on the details screen), Y /
+  "..." the row menu (Open the manga, Mark read / unread), MINUS the menu (Update library / Stop, Refresh). History: A /
+  tap continues, X refresh, Y details, MINUS the menu (Refresh). X marks an unread chapter read also when it has progress,
+  as the details screen's X (D43; only a read one becomes unread, at page 0).
+- **Reloads:** after the reader opened from a row closes (its progress saved), and whenever another screen on top of the
+  main screen closes (the details screen, a reader, a menu: chapters may have been read there): the list on screen
+  reloads at once, the other one when its tab opens. The old rows stay until the new first page is in; a reload that
+  comes while a read / unread change is on its way waits for its answer. Found by the scenario: without this, History
+  missed what was read from the Library.
+- **Not built (moved to WP-15b):** B cancelling "Opening..." (opening is quick: Delta Big's 300 chapters in ~22 ms on
+  desktop).
+Rejected: a separate UpdatesModel / HistoryModel / ChapterOpener (the same paging and the same opening; one class each is
+less code to keep right); an automatic update from the Switch (the server's own schedule does that); trusting
+`updateLibrary`'s own answer (it is the previous job's).

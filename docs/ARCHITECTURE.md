@@ -69,6 +69,10 @@ That README plus the public headers *is* the contract other sessions read.
 ## ui (borealis)
 - Activities: `SetupActivity` (server URL/auth/test connection), `LoginActivity`, `MainActivity` (tab frame: Library, Updates, History, Browse, Settings),
   `MangaActivity` (details + chapters), `ReaderActivity` (paged/webtoon).
+- Updates and History (WP-15, D52): one view `ChapterRowsTab` on `ChapterRowsModel` (paged rows, the "new" rule and the
+  90-day window from `core/UpdatesHistory`), `LibraryUpdater` runs the server's library update (start, poll every second
+  while it runs, stop, summary). MainActivity owns the models (D42), so an update outlives tab changes; the lists reload
+  after a screen on top of it closes.
 - Lists and grids use borealis recycling views. Covers load lazily through `image` with `Interactive` priority.
 - **Touch first (D16)**: every action can be reached by touch: tap, drag/flick to scroll, reader tap zones and swipe, pinch zoom (WP-13).
   Touch targets ≥ 72 px. Controllers work everywhere too, because docked mode has no touchscreen.

@@ -41,8 +41,8 @@ scenario('touch-pass', async (s) => {
         await touchThen(s, tab('Library'), 'screen', { name: 'Library' });
 
         // Library.
-        await touchThen(s, LIBRARY_MORE.reading, 'library', { state: 'ready', items: 2 });
-        await touchThen(s, LIBRARY.refresh, 'library', { state: 'ready', items: 2 });
+        await touchThen(s, LIBRARY_MORE.reading, 'library', { state: 'ready', items: 3 });
+        await touchThen(s, LIBRARY.refresh, 'library', { state: 'ready', items: 3 });
         await touchThen(s, LIBRARY.cover(0), 'manga', { state: 'ready', complete: true, id: alpha });
 
         // Manga details.

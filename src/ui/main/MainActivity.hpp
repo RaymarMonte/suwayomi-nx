@@ -54,6 +54,7 @@ class MainActivity : public brls::Activity {
     brls::View* makeRowsTab(bool updates);  // WP-15: Updates or History
     void ensureLists();
     void listsRead();             // the reader opened from Updates or History closed
+    void reloadStaleLists();      // after a screen on top closed: the lists that loaded once load again
     void updaterChanged();        // the library update moved on: events, reloads
     void mangaChanged(const core::Manga& manga);
     void reportScreen();
@@ -76,6 +77,7 @@ class MainActivity : public brls::Activity {
     LibraryTab* libraryView_ = nullptr;  // the Library tab's view while it exists
     SettingsTab* settingsView_ = nullptr;
     bool covered_ = false;  // setup or login is on top: tab changes underneath aren't reported as screens
+    bool listsStale_ = false;  // a screen on top closed since the lists last reloaded (reloadStaleLists)
 };
 
 }  // namespace snx::ui
