@@ -1,8 +1,8 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-24** next (Opus, library tools). WP-15 / 15b's console runs wait for the owner (below).
+**Phase 3 – Features. Now:** **WP-15b**: desktop done; its Switch runs next, with the owner (before WP-24).
 Done: WP-00a … 13, 13b, 13c, 13d, **15, 15b** (desktop), 22; **v0.2.0 released** (13…15b unreleased). Nice to have: WP-08b,
 17, 21, 26, last offline 18 / 18b (D51). From WP-13d: the console's longest strip frame is 31–32 ms (limit 34), not looked into.
-## Last session (2026-11-13, WP-15b, Opus) – done on desktop, committed
+## Last session (2026-11-13, WP-15b, Opus) – desktop done, committed; Switch runs open
 - **Built (D53):** the waiting-save queue (`core/ProgressQueue` + `ui/reader/WaitingSaves`, `progress-queue.json` + `.bak`,
   `ChapterState`, `lastReadAt` as the base, the readers' hand-off and take-over, reloads after a send, History's "page N not
   saved yet"), B cancels "Opening…", fuzz `fuzz_progress_queue`; the harness treats the queue files like config.json.
