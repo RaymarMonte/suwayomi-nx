@@ -1,5 +1,5 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-24** next (Opus; a planning session first, the owner answers its questions).
+**Phase 3 – Features. Now:** **WP-24** (Opus): planned 2026-11-13 (`wp/WP-24-library-tools.md`, owner's answers in D54), being built.
 Done: WP-00a … 13, 13b, 13c, 13d, **15, 15b**, 22; **v0.2.0 released** (13…15b unreleased). Nice to have: WP-08b,
 17, 21, 26, last offline 18 / 18b (D51). From WP-13d: the console's longest strip frame is 31–32 ms (limit 34), not looked into.
 ## Last session (2026-11-13, WP-15b, Opus) – done (desktop + Switch), committed
