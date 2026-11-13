@@ -670,3 +670,88 @@ TEST_CASE("client: clientOptionsFrom takes the limits from the profile") {
 }
 
 }  // TEST_SUITE("api")
+
+TEST_CASE("client: the library tools' calls (WP-24, D54): requests as sent, mutations never repeated, answers read") {
+    Harness h(settingsFor(AuthMode::None));
+    h.http.setHandler([](const Request& request) {
+        const std::string operation = operationOf(request);
+        if (operation == "LibraryByCategory") {
+            return FakeHttpClient::answer(200, R"({"data": {"mangas": {"nodes": [{"id": 1, "title": "Alpha"}],
+                "totalCount": 1, "pageInfo": {"hasNextPage": false}}}})");
+        }
+        if (operation == "ManageCategories") {
+            return FakeHttpClient::answer(200, R"({"data": {"categories": {"nodes": [
+                {"id": 0, "name": "Default", "order": 0, "default": true, "mangas": {"totalCount": 2}},
+                {"id": 1, "name": "Reading", "order": 1, "default": false, "mangas": {"totalCount": 3}}]}}})");
+        }
+        if (operation == "CreateCategory") {
+            if (variablesOf(request)["name"] == "Reading") return gqlError("createCategory", "'name' must be unique");
+            return FakeHttpClient::answer(200, R"({"data": {"createCategory": {"category":
+                {"id": 33, "name": "Later", "order": 5, "default": false}}}})");
+        }
+        if (operation == "UpdateCategory") {
+            return FakeHttpClient::answer(200, R"({"data": {"updateCategory": {"category":
+                {"id": 33, "name": "Soon", "order": 5}}}})");
+        }
+        if (operation == "UpdateCategoryOrder") {
+            return FakeHttpClient::answer(200, R"({"data": {"updateCategoryOrder": {"categories": [
+                {"id": 0, "name": "Default", "order": 0}, {"id": 33, "name": "Soon", "order": 1},
+                {"id": 1, "name": "Reading", "order": 2}]}}})");
+        }
+        if (operation == "DeleteCategory") {
+            return FakeHttpClient::answer(200, R"({"data": {"deleteCategory": {"category": {"id": 33},
+                "mangas": [{"id": 1}]}}})");
+        }
+        if (operation == "UpdateMangaCategories") {
+            return FakeHttpClient::answer(200, R"({"data": {"updateMangaCategories": {"manga":
+                {"id": 1, "categories": {"nodes": [{"id": 2, "name": "Long series"}]}}}}})");
+        }
+        return FakeHttpClient::answer(500, "unexpected");
+    });
+    const CancelToken cancel;
+
+    const auto found = h.client->searchLibrary("a_p", 1, cancel).get();
+    REQUIRE(found.ok());
+    CHECK(found.value().nodes.at(0).title == "Alpha");
+    const Request search = h.sent("LibraryByCategory").at(0);
+    CHECK(search.idempotent);
+    CHECK(variablesOf(search)["filter"]["title"]["includesInsensitive"] == "a\\_p");
+    CHECK(variablesOf(search)["first"] == 60);
+    CHECK(variablesOf(search)["offset"] == 60);
+
+    const auto all = h.client->manageCategories(cancel).get();
+    REQUIRE(all.ok());
+    CHECK(all.value().at(1).mangaCount == 3);
+
+    const auto created = h.client->createCategory("Later", cancel).get();
+    REQUIRE(created.ok());
+    CHECK(created.value().id == 33);
+    CHECK_FALSE(h.sent("CreateCategory").at(0).idempotent);
+    const auto taken = h.client->createCategory("Reading", cancel).get();
+    REQUIRE_FALSE(taken.ok());
+    CHECK(taken.error().kind == ApiErrorKind::Server);
+    CHECK(taken.error().detail.find("must be unique") != std::string::npos);
+
+    const auto renamed = h.client->renameCategory(33, "Soon", cancel).get();
+    REQUIRE(renamed.ok());
+    CHECK(renamed.value().name == "Soon");
+    CHECK_FALSE(h.sent("UpdateCategory").at(0).idempotent);
+
+    const auto moved = h.client->moveCategory(33, 1, cancel).get();
+    REQUIRE(moved.ok());
+    CHECK(moved.value().at(1).id == 33);
+    CHECK(variablesOf(h.sent("UpdateCategoryOrder").at(0))["position"] == 1);
+
+    const auto deleted = h.client->deleteCategory(33, cancel).get();
+    REQUIRE(deleted.ok());
+    CHECK(deleted.value() == 1);
+    CHECK_FALSE(h.sent("DeleteCategory").at(0).idempotent);
+
+    const auto set = h.client->setMangaCategories(1, {2}, {1}, cancel).get();
+    REQUIRE(set.ok());
+    REQUIRE(set.value().size() == 1);
+    CHECK(set.value()[0].id == 2);
+    const nlohmann::json vars = variablesOf(h.sent("UpdateMangaCategories").at(0));
+    CHECK(vars["add"] == nlohmann::json::array({2}));
+    CHECK(vars["remove"] == nlohmann::json::array({1}));
+}

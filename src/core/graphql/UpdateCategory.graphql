@@ -1,0 +1,7 @@
+# Renames a category (WP-24). The server checks nothing here (a taken name, even Default's rename, goes through): the app
+# checks the name first and never renames Default (D54).
+mutation UpdateCategory($id: Int!, $name: String!) {
+  updateCategory(input: { id: $id, patch: { name: $name } }) {
+    category { id name order default }
+  }
+}

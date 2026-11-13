@@ -48,6 +48,9 @@ Result<Category> fromJson<Category>(const nlohmann::json& node) {
     category.name = json::string(node, "name").value_or("");
     category.order = json::int32(node, "order").value_or(0);
     category.isDefault = json::boolean(node, "default").value_or(*id == kDefaultCategoryId);
+    if (const nlohmann::json* mangas = json::object(node, "mangas")) {
+        category.mangaCount = json::int32(*mangas, "totalCount").value_or(-1);
+    }
     return category;
 }
 

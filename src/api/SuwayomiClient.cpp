@@ -608,6 +608,51 @@ ApiFuture<core::ServerProgress> SuwayomiClient::chapterState(int chapterId, cons
                                            priority);
 }
 
+ApiFuture<core::NodeList<core::Manga>> SuwayomiClient::searchLibrary(const std::string& text, int page,
+                                                                     const net::CancelToken& cancel,
+                                                                     net::Priority priority) {
+    const int size = state_->options.libraryPageSize;
+    return startCall<core::NodeList<core::Manga>>(state_, core::gql::librarySearch(text, size, offsetOf(page, size)),
+                                                  core::gql::readLibrarySearch, cancel, priority);
+}
+
+ApiFuture<std::vector<core::Category>> SuwayomiClient::manageCategories(const net::CancelToken& cancel,
+                                                                        net::Priority priority) {
+    return startCall<std::vector<core::Category>>(state_, core::gql::manageCategories(), core::gql::readManageCategories,
+                                                  cancel, priority);
+}
+
+ApiFuture<core::Category> SuwayomiClient::createCategory(const std::string& name, const net::CancelToken& cancel,
+                                                         net::Priority priority) {
+    return startCall<core::Category>(state_, core::gql::createCategory(name), core::gql::readCreateCategory, cancel,
+                                     priority);
+}
+
+ApiFuture<core::Category> SuwayomiClient::renameCategory(int categoryId, const std::string& name,
+                                                         const net::CancelToken& cancel, net::Priority priority) {
+    return startCall<core::Category>(state_, core::gql::renameCategory(categoryId, name), core::gql::readRenameCategory,
+                                     cancel, priority);
+}
+
+ApiFuture<std::vector<core::Category>> SuwayomiClient::moveCategory(int categoryId, int position,
+                                                                    const net::CancelToken& cancel,
+                                                                    net::Priority priority) {
+    return startCall<std::vector<core::Category>>(state_, core::gql::moveCategory(categoryId, position),
+                                                  core::gql::readMoveCategory, cancel, priority);
+}
+
+ApiFuture<int> SuwayomiClient::deleteCategory(int categoryId, const net::CancelToken& cancel, net::Priority priority) {
+    return startCall<int>(state_, core::gql::deleteCategory(categoryId), core::gql::readDeleteCategory, cancel, priority);
+}
+
+ApiFuture<std::vector<core::Category>> SuwayomiClient::setMangaCategories(int mangaId, std::vector<int> add,
+                                                                          std::vector<int> remove,
+                                                                          const net::CancelToken& cancel,
+                                                                          net::Priority priority) {
+    return startCall<std::vector<core::Category>>(state_, core::gql::updateMangaCategories(mangaId, add, remove),
+                                                  core::gql::readUpdateMangaCategories, cancel, priority);
+}
+
 ApiFuture<core::LoginTokens> SuwayomiClient::login(std::string username, std::string password,
                                                    const net::CancelToken& cancel, net::Priority priority) {
     net::Promise<ApiResult<core::LoginTokens>> promise;

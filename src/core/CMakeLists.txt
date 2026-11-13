@@ -20,6 +20,7 @@ add_library(snx_core STATIC
     ImageGeometry.cpp
     Json.cpp
     LaunchOptions.cpp
+    LibraryTools.cpp
     LogBuffer.cpp
     MemoryPressure.cpp
     ProgressQueue.cpp

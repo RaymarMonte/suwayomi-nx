@@ -3,6 +3,7 @@
 // library, paged like the real one.
 #include <doctest/doctest.h>
 
+#include <cctype>
 #include <map>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -55,13 +56,42 @@ struct FakeLibrary {
                 return FakeHttpClient::answer(500, "oops");
             }
             const nlohmann::json vars = variablesOf(request);
-            const nlohmann::json& filter = vars["filter"]["categoryId"];
-            const int category = filter.contains("equalTo") ? filter["equalTo"].get<int>() : 0;
             const int first = vars["first"].get<int>();
             const int offset = vars["offset"].get<int>();
-            const auto found = manga.find(category);
-            const std::vector<FakeManga> none;
-            const std::vector<FakeManga>& all = found == manga.end() ? none : found->second;
+            std::vector<FakeManga> all;
+            if (vars["filter"].contains("title")) {
+                // WP-24's search: every category, a title containing the text (any case), each manga once, by title.
+                const std::string escaped = vars["filter"]["title"]["includesInsensitive"].get<std::string>();
+                std::string text;
+                for (std::size_t i = 0; i < escaped.size(); ++i) {
+                    if (escaped[i] == '\\' && i + 1 < escaped.size()) {
+                        ++i;
+                    }
+                    text.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(escaped[i]))));
+                }
+                std::map<std::string, FakeManga> byTitle;
+                for (const auto& [category, list] : manga) {
+                    for (const FakeManga& m : list) {
+                        std::string lower = m.title;
+                        for (char& c : lower) {
+                            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+                        }
+                        if (lower.find(text) != std::string::npos) {
+                            byTitle[m.title] = m;
+                        }
+                    }
+                }
+                for (const auto& [title, m] : byTitle) {
+                    all.push_back(m);
+                }
+            } else {
+                const nlohmann::json& filter = vars["filter"]["categoryId"];
+                const int category = filter.contains("equalTo") ? filter["equalTo"].get<int>() : 0;
+                const auto found = manga.find(category);
+                if (found != manga.end()) {
+                    all = found->second;
+                }
+            }
             nlohmann::json nodes = nlohmann::json::array();
             for (int i = offset; i < offset + first && i < static_cast<int>(all.size()); ++i) {
                 const FakeManga& m = all[static_cast<std::size_t>(i)];
@@ -406,6 +436,142 @@ TEST_CASE("library: updateManga (WP-10) changes the unread count everywhere, sor
     unknown.id = 999;  // not in the library: nothing happens
     model->updateManga(unknown);
     CHECK(model->revision() == revision + 1);
+}
+
+TEST_CASE("library: search (WP-24) shows matches from every category, sorts and pages; clear goes back") {
+    Harness h;
+    h.library.manga[1] = {{10, "Alpha", 1, 0}, {11, "Beta", 0, 0}};
+    h.library.manga[2] = {{20, "alphabet soup", 3, 0}, {21, "Gamma", 0, 0}};
+    h.library.manga[3] = series(30, 6);  // "Manga 100" ... "Manga 105"
+    h.library.categories = {{0, "Default"}, {1, "Reading"}, {2, "Done"}, {3, "Big"}};
+    core::LibrarySettings start;
+    start.categoryId = 2;
+    auto model = h.model(start);
+    model->start();
+    REQUIRE(model->state() == LibraryModel::State::Ready);
+    model->rememberFocus(1);
+
+    model->search("ALPHA");
+    CHECK(model->searching());
+    CHECK(model->searchText() == "ALPHA");
+    REQUIRE(model->state() == LibraryModel::State::Ready);
+    CHECK(ids(model->items()) == std::vector<int>{10, 20});
+    CHECK(model->totalCount() == 2);
+    CHECK(model->category()->id == 2);  // the category waits behind the search
+    CHECK(model->settings().categoryId == 2);
+    CHECK_FALSE(model->libraryEmpty());
+
+    SUBCASE("sorts apply to the results") {
+        model->setSort(LibrarySort::Unread);
+        CHECK(ids(model->items()) == std::vector<int>{20, 10});
+    }
+    SUBCASE("results page in like a category") {
+        model->search("manga");
+        CHECK(model->items().size() == 4);  // one page
+        model->showing(3);
+        CHECK(model->items().size() == 6);
+    }
+    SUBCASE("no match: Empty, but the library isn't empty") {
+        model->search("zzz");
+        CHECK(model->state() == LibraryModel::State::Empty);
+        CHECK_FALSE(model->libraryEmpty());
+    }
+    SUBCASE("% and _ go to the server escaped, and match themselves") {
+        model->search("a_p");
+        CHECK(model->state() == LibraryModel::State::Empty);
+        const nlohmann::json vars = variablesOf(h.http.requests().back());
+        CHECK(vars["filter"]["title"]["includesInsensitive"] == "a\\_p");
+    }
+    SUBCASE("clear: the category and its focus come back") {
+        model->clearSearch();
+        CHECK_FALSE(model->searching());
+        CHECK(ids(model->items()) == std::vector<int>{20, 21});
+        CHECK(model->rememberedFocus() == 1);
+    }
+    SUBCASE("an empty search clears; choosing a category ends the search") {
+        model->search("");
+        CHECK_FALSE(model->searching());
+        model->search("beta");
+        CHECK(ids(model->items()) == std::vector<int>{11});
+        model->selectCategory(0);  // Reading (Default is no tab)
+        CHECK_FALSE(model->searching());
+        CHECK(model->category()->id == 1);
+        CHECK(ids(model->items()) == std::vector<int>{10, 11});
+    }
+    SUBCASE("refresh keeps the search") {
+        model->refresh();
+        CHECK(model->searching());
+        CHECK(ids(model->items()) == std::vector<int>{10, 20});
+    }
+}
+
+TEST_CASE("library: a search typed before the categories are in shows once they are; after a failure it loads them") {
+    Harness h;
+    h.library.manga[1] = {{10, "Alpha", 1, 0}};
+    h.http.hold(true);
+    auto model = h.model();
+    model->start();
+    model->search("alp");
+    CHECK(model->state() == LibraryModel::State::Loading);
+    h.http.hold(false);
+    h.http.releaseAll();
+    CHECK(model->searching());
+    CHECK(ids(model->items()) == std::vector<int>{10});
+
+    h.library.failLibrary = true;
+    auto failing = h.model();
+    failing->start();
+    REQUIRE(failing->state() == LibraryModel::State::Failed);
+    h.library.failLibrary = false;
+    failing->search("alp");
+    CHECK(ids(failing->items()) == std::vector<int>{10});
+}
+
+TEST_CASE("library: mangaCategoriesChanged (WP-24) moves the manga between shelves") {
+    Harness h;
+    h.library.manga[1] = {{10, "Alpha", 1, 0}, {11, "Beta", 0, 0}, {12, "Delta", 0, 0}};
+    h.library.manga[2] = {{20, "Gamma", 0, 0}};
+    core::LibrarySettings start;
+    start.categoryId = 1;
+    auto model = h.model(start);
+    model->start();
+    model->selectCategory(1);  // Done: loaded
+    model->selectCategory(0);  // back to Reading
+    REQUIRE(ids(model->items()) == std::vector<int>{10, 11, 12});
+    model->rememberFocus(1);   // on Beta
+    const int asked = h.pagesAsked();
+    const auto revision = model->revision();
+
+    // Beta moves from Reading to Done (the server first, as the picker saves).
+    h.library.manga[1] = {{10, "Alpha", 1, 0}, {12, "Delta", 0, 0}};
+    h.library.manga[2] = {{11, "Beta", 0, 0}, {20, "Gamma", 0, 0}};
+    core::Category done;
+    done.id = 2;
+    done.name = "Done";
+    model->mangaCategoriesChanged(11, {done});
+    CHECK(model->revision() == revision + 1);
+    CHECK(ids(model->items()) == std::vector<int>{10, 12});  // left the shelf on screen, no request
+    CHECK(model->totalCount() == 2);
+    CHECK(model->rememberedFocus() == 1);  // the same place: Delta now
+    CHECK(h.pagesAsked() == asked);
+    model->selectCategory(1);  // Done was forgotten: it loads again, with Beta
+    CHECK(ids(model->items()) == std::vector<int>{11, 20});
+    CHECK(h.pagesAsked() == asked + 1);
+
+    SUBCASE("in no category while Default isn't a tab: everything loads again and Default appears") {
+        h.library.manga[2] = {{20, "Gamma", 0, 0}};
+        h.library.manga[0] = {{11, "Beta", 0, 0}};
+        model->mangaCategoriesChanged(11, {});
+        REQUIRE(model->categories().size() == 3);
+        CHECK(model->categories()[0].id == 0);
+        CHECK(model->category()->id == 2);  // still on Done
+        CHECK(ids(model->items()) == std::vector<int>{20});
+    }
+    SUBCASE("a change that matches every loaded shelf already does nothing") {
+        const auto now = model->revision();
+        model->mangaCategoriesChanged(11, {done});  // Beta is in Done, as loaded
+        CHECK(model->revision() == now);
+    }
 }
 
 }  // TEST_SUITE

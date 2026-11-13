@@ -15,7 +15,8 @@ list(APPEND SNX_TEST_SOURCES test_core_safety.cpp test_platform_safefs.cpp
     test_ui_manga.cpp
     test_core_reader.cpp test_core_zoom.cpp test_core_spread.cpp test_ui_reader.cpp test_ui_strip.cpp
     test_core_strip.cpp test_core_updates.cpp test_ui_updates.cpp
-    test_core_queue.cpp test_ui_queue.cpp)
+    test_core_queue.cpp test_ui_queue.cpp
+    test_core_library_tools.cpp test_ui_categories.cpp)
 
 add_executable(snx_unit_tests ${SNX_TEST_SOURCES})
 target_link_libraries(snx_unit_tests PRIVATE snx_core snx_net snx_api snx_image snx_platform snx_ui_models third_party_doctest third_party_httplib)

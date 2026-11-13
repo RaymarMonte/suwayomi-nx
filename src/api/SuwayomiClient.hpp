@@ -144,6 +144,29 @@ class SuwayomiClient {
     // queue's check before it sends a save that failed earlier. A chapter that is gone: Server.
     ApiFuture<core::ServerProgress> chapterState(int chapterId, const net::CancelToken& cancel,
                                                  net::Priority priority = net::Priority::Background);
+    // WP-24 (D54), the library tools. One page of the library manga whose title contains `text` (any case; `%` and `_`
+    // match themselves), by title, across every category. page 0 = the first libraryPageSize.
+    ApiFuture<core::NodeList<core::Manga>> searchLibrary(const std::string& text, int page, const net::CancelToken& cancel,
+                                                         net::Priority priority = net::Priority::Interactive);
+    // Every category in the user's order (Default first) with its manga count (Category::mangaCount).
+    ApiFuture<std::vector<core::Category>> manageCategories(const net::CancelToken& cancel,
+                                                            net::Priority priority = net::Priority::Interactive);
+    // The mutations below are never repeated. The server checks almost nothing: check names with core::checkCategoryName.
+    // A new category, at the end. Answers it as the server saved it.
+    ApiFuture<core::Category> createCategory(const std::string& name, const net::CancelToken& cancel,
+                                             net::Priority priority = net::Priority::Interactive);
+    ApiFuture<core::Category> renameCategory(int categoryId, const std::string& name, const net::CancelToken& cancel,
+                                             net::Priority priority = net::Priority::Interactive);
+    // Moves a category to `position` (core::categoryPosition). Answers every category in the new order.
+    ApiFuture<std::vector<core::Category>> moveCategory(int categoryId, int position, const net::CancelToken& cancel,
+                                                        net::Priority priority = net::Priority::Interactive);
+    // Deletes a category; its manga stay in the library. Answers how many manga were in it.
+    ApiFuture<int> deleteCategory(int categoryId, const net::CancelToken& cancel,
+                                  net::Priority priority = net::Priority::Interactive);
+    // Adds and removes one manga's categories in one request (core::categoryChange). Answers its categories now.
+    ApiFuture<std::vector<core::Category>> setMangaCategories(int mangaId, std::vector<int> add, std::vector<int> remove,
+                                                              const net::CancelToken& cancel,
+                                                              net::Priority priority = net::Priority::Interactive);
     // ui_login: logs in (sent without a token: the server refuses a login while logged in), keeps the tokens, username and
     // password for renewing later, and reports them through onSettingsChanged. Wrong password: Auth with the server's words.
     ApiFuture<core::LoginTokens> login(std::string username, std::string password, const net::CancelToken& cancel,

@@ -67,6 +67,10 @@ struct RuntimeProfile {
     int libraryUpdatePollMs = 1000;      // the library update's status is asked this often while it runs
     int libraryUpdateStartWaitMs = 10000;  // an update not seen starting by then (and nothing runs) is "nothing to update"
 
+    // Library tools (WP-24, D54).
+    int searchMaxChars = 64;        // characters a library search keeps (the keyboard stops there too)
+    int categoryNameMaxChars = 64;  // characters of a category name
+
     // Network (net, WP-05). Timeouts are per request. Retries are for GETs only (core/RetryPolicy.hpp).
     int httpConnectTimeoutMs = 5000;                   // a LAN server answers a connect in milliseconds
     int httpTimeoutMs = 30000;                         // one whole JSON request

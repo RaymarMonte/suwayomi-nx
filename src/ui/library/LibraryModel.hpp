@@ -5,6 +5,7 @@
 #include <functional>
 #include <map>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "api/SuwayomiClient.hpp"
@@ -55,6 +56,19 @@ class LibraryModel {
     // The grid shows cells up to `lastIndex` now: near the end of what is loaded, the next page is asked for.
     void showing(std::size_t lastIndex);
 
+    // WP-24 (D54), the search: the library manga whose title contains `text` (trimmed by the caller), from every
+    // category, through the server, paged and sorted like a category. items() shows them until clearSearch(); the
+    // category on screen and its focus wait meanwhile. Empty text = clearSearch(). selectCategory() also ends it.
+    void search(const std::string& text);
+    void clearSearch();
+    bool searching() const { return searching_; }
+    const std::string& searchText() const { return searchText_; }
+
+    // WP-24: a manga's categories changed (the category picker). A shelf whose membership changed is forgotten (it
+    // loads again when shown); on screen the manga simply leaves the category (the focus keeps its place). When the
+    // manga is now in no category while Default isn't a tab, everything loads again (refresh()), so Default appears.
+    void mangaCategoriesChanged(int mangaId, const std::vector<core::Category>& categories);
+
     State state() const { return state_; }
     const std::vector<core::Category>& categories() const { return categories_; }  // empty until they are known
     std::size_t categoryIndex() const { return current_; }
@@ -93,10 +107,15 @@ class LibraryModel {
         std::size_t focus = 0;
     };
 
+    // The search results' shelf in shelves_ (category ids are 0 or more).
+    static constexpr int kSearchShelf = -1;
+
     void loadCategories();
     void onCategories(const api::ApiResult<std::vector<core::Category>>& result);
-    void loadPage(int categoryId);
-    void onPage(int categoryId, const api::ApiResult<core::NodeList<core::Manga>>& result);
+    void loadPage(int shelfId);  // a category id or kSearchShelf
+    void onPage(int shelfId, const api::ApiResult<core::NodeList<core::Manga>>& result);
+    int shownShelf() const;  // kSearchShelf while searching, else the category on screen (-2 while there is none)
+    void endSearch();        // the search's state goes, nothing reloads
     void categoriesReady();
     void showCurrent();  // the shelf on screen -> items_ and state_, loading more if the sort needs it
     void fail(const api::ApiError& error);
@@ -120,6 +139,8 @@ class LibraryModel {
     std::map<int, Shelf> shelves_;  // by category id
     std::vector<core::Manga> items_;
     std::uint64_t revision_ = 0;
+    bool searching_ = false;
+    std::string searchText_;
 };
 
 }  // namespace snx::ui

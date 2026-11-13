@@ -113,28 +113,39 @@ void LibraryModel::categoriesReady() {
     showCurrent();
 }
 
-void LibraryModel::loadPage(int categoryId) {
+void LibraryModel::loadPage(int shelfId) {
     loading_ = true;
-    Shelf& target = shelf(categoryId);
+    Shelf& target = shelf(shelfId);
     const net::CancelToken token = cancel_;
-    client_.library(categoryId, target.nextPage, token)
-        .then([this, token, categoryId](const api::ApiResult<core::NodeList<core::Manga>>& result) {
-            if (token.cancelled()) {
-                return;
-            }
-            onPage(categoryId, result);
-        });
+    auto then = [this, token, shelfId](const api::ApiResult<core::NodeList<core::Manga>>& result) {
+        if (token.cancelled()) {
+            return;
+        }
+        onPage(shelfId, result);
+    };
+    if (shelfId == kSearchShelf) {
+        client_.searchLibrary(searchText_, target.nextPage, token).then(std::move(then));
+    } else {
+        client_.library(shelfId, target.nextPage, token).then(std::move(then));
+    }
 }
 
-void LibraryModel::onPage(int categoryId, const api::ApiResult<core::NodeList<core::Manga>>& result) {
+int LibraryModel::shownShelf() const {
+    if (searching_) {
+        return kSearchShelf;
+    }
+    return categories_.empty() ? -2 : categories_[current_].id;
+}
+
+void LibraryModel::onPage(int shelfId, const api::ApiResult<core::NodeList<core::Manga>>& result) {
     loading_ = false;
-    Shelf& target = shelf(categoryId);
+    Shelf& target = shelf(shelfId);
     if (!result.ok()) {
         if (target.started) {
             target.failed = true;  // keep what is loaded
             changed();
         } else {
-            shelves_.erase(categoryId);
+            shelves_.erase(shelfId);
             fail(result.error());
         }
         return;
@@ -163,17 +174,16 @@ void LibraryModel::onPage(int categoryId, const api::ApiResult<core::NodeList<co
         categoriesReady();
         return;
     }
-    const core::Category* onScreen = category();
-    if (onScreen != nullptr && onScreen->id == categoryId) {
+    if (shownShelf() == shelfId) {
         showCurrent();
     }
 }
 
 void LibraryModel::showCurrent() {
     if (categories_.empty()) {
-        return;
+        return;  // the categories (and with them a search's first page) come first
     }
-    const int id = categories_[current_].id;
+    const int id = shownShelf();
     Shelf& target = shelf(id);
     const bool needsAll = settings_.sort != core::LibrarySort::Title;
     if (!target.started || (needsAll && !target.complete && !target.failed)) {
@@ -199,12 +209,121 @@ void LibraryModel::fail(const api::ApiError& error) {
 }
 
 void LibraryModel::selectCategory(std::size_t index) {
-    if (index >= categories_.size() || index == current_) {
+    if (index >= categories_.size()) {
+        return;
+    }
+    if (searching_) {
+        cancelRunning();
+        endSearch();
+        current_ = index;
+        settings_.categoryId = categories_[current_].id;
+        showCurrent();
+        return;
+    }
+    if (index == current_) {
         return;
     }
     cancelRunning();  // a page of the category left behind: it loads again when the user comes back
     current_ = index;
     settings_.categoryId = categories_[current_].id;
+    showCurrent();
+}
+
+void LibraryModel::search(const std::string& text) {
+    if (text.empty()) {
+        clearSearch();
+        return;
+    }
+    if (searching_ && text == searchText_) {
+        return;
+    }
+    const bool ready = !categories_.empty();  // else the categories are on their way (or failed): don't cancel them
+    if (ready) {
+        cancelRunning();
+    }
+    shelves_.erase(kSearchShelf);
+    searching_ = true;
+    searchText_ = text;
+    if (!ready) {
+        if (state_ == State::Failed) {
+            loadCategories();  // the categories first, then the search shows (categoriesReady)
+        } else {
+            changed();
+        }
+        return;
+    }
+    showCurrent();
+}
+
+void LibraryModel::clearSearch() {
+    if (!searching_) {
+        return;
+    }
+    if (categories_.empty()) {
+        endSearch();
+        changed();
+        return;
+    }
+    cancelRunning();
+    endSearch();
+    showCurrent();
+}
+
+void LibraryModel::endSearch() {
+    searching_ = false;
+    searchText_.clear();
+    shelves_.erase(kSearchShelf);
+}
+
+void LibraryModel::mangaCategoriesChanged(int mangaId, const std::vector<core::Category>& categories) {
+    std::set<int> now;
+    for (const core::Category& c : categories) {
+        if (c.id != core::kDefaultCategoryId) {
+            now.insert(c.id);
+        }
+    }
+    const auto belongs = [&now](int categoryId) {
+        return categoryId == core::kDefaultCategoryId ? now.empty() : now.count(categoryId) > 0;
+    };
+    const bool defaultIsTab = std::any_of(categories_.begin(), categories_.end(),
+                                          [](const core::Category& c) { return c.id == core::kDefaultCategoryId; });
+    if (now.empty() && !defaultIsTab && !categories_.empty()) {
+        refresh();  // Default becomes a tab
+        return;
+    }
+    const int onScreen = categories_.empty() ? -2 : categories_[current_].id;
+    bool shownChanged = false;
+    for (auto it = shelves_.begin(); it != shelves_.end();) {
+        const int id = it->first;
+        Shelf& kept = it->second;
+        const bool has = kept.ids.count(mangaId) > 0;
+        if (id == kSearchShelf || has == belongs(id)) {
+            ++it;
+            continue;
+        }
+        if (id == onScreen && !searching_ && has) {
+            // On screen: the manga leaves; the focus keeps its place (the next manga moves up into it).
+            kept.loaded.erase(std::remove_if(kept.loaded.begin(), kept.loaded.end(),
+                                             [mangaId](const core::Manga& m) { return m.id == mangaId; }),
+                              kept.loaded.end());
+            kept.ids.erase(mangaId);
+            kept.total = std::max(0, kept.total - 1);
+            shownChanged = true;
+            ++it;
+            continue;
+        }
+        if (id == onScreen && !searching_) {
+            cancelRunning();  // a page of it may be on its way
+        }
+        it = shelves_.erase(it);  // loads again when it is shown
+        if (id == onScreen && !searching_) {
+            shownChanged = true;
+        }
+    }
+    if (!shownChanged) {
+        return;
+    }
+    ++revision_;
     showCurrent();
 }
 
@@ -236,12 +355,13 @@ void LibraryModel::showing(std::size_t lastIndex) {
     if (state_ != State::Ready || loading_ || settings_.sort != core::LibrarySort::Title) {
         return;
     }
-    Shelf& target = shelf(categories_[current_].id);
+    const int id = shownShelf();
+    Shelf& target = shelf(id);
     if (target.complete || target.failed) {
         return;
     }
     if (lastIndex + nearEnd_ >= target.loaded.size()) {
-        loadPage(categories_[current_].id);
+        loadPage(id);
         changed();  // loadingMore() is true now
     }
 }
@@ -254,7 +374,7 @@ const LibraryModel::Shelf* LibraryModel::currentShelf() const {
     if (categories_.empty()) {
         return nullptr;
     }
-    const auto it = shelves_.find(categories_[current_].id);
+    const auto it = shelves_.find(shownShelf());
     return it == shelves_.end() ? nullptr : &it->second;
 }
 
@@ -274,12 +394,13 @@ bool LibraryModel::moreFailed() const {
 }
 
 bool LibraryModel::libraryEmpty() const {
-    return state_ == State::Empty && categories_.size() == 1 && categories_[0].id == core::kDefaultCategoryId;
+    return !searching_ && state_ == State::Empty && categories_.size() == 1 &&
+           categories_[0].id == core::kDefaultCategoryId;
 }
 
 void LibraryModel::rememberFocus(std::size_t index) {
     if (!categories_.empty()) {
-        shelf(categories_[current_].id).focus = index;
+        shelf(shownShelf()).focus = index;
     }
 }
 

@@ -1,0 +1,8 @@
+# The Categories screen and the category picker (WP-24): every category in the user's order, with how many library manga it
+# holds (Default: the manga in no category). Default (id 0) comes first; the screens leave it out.
+query ManageCategories {
+  categories(order: [{ by: ORDER }]) {
+    nodes { id name order default mangas { totalCount } }
+    totalCount
+  }
+}

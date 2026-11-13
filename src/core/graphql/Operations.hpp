@@ -54,6 +54,15 @@ GqlRequest stopLibraryUpdate();
 GqlRequest libraryUpdateStatus(bool withManga);
 // WP-15b: one chapter's progress on the server now (the waiting-save queue's check before it sends).
 GqlRequest chapterState(int chapterId);
+// WP-24 (D54). The library search: LibraryByCategory with a title filter; `text` is sent escaped (core::likeEscape).
+GqlRequest librarySearch(std::string_view text, int first, int offset);
+GqlRequest manageCategories();  // every category with its manga count
+GqlRequest createCategory(std::string_view name);
+GqlRequest renameCategory(int categoryId, std::string_view name);
+GqlRequest moveCategory(int categoryId, int position);  // position: core::categoryPosition (1-based, after Default)
+GqlRequest deleteCategory(int categoryId);
+// One manga's categories: add and remove in one request (no Default; empty lists are fine).
+GqlRequest updateMangaCategories(int mangaId, const std::vector<int>& add, const std::vector<int>& remove);
 
 // --- answers ---
 Result<ServerInfo> readAboutServer(const GqlResponse& response);
@@ -78,5 +87,14 @@ Result<bool> readStopLibraryUpdate(const GqlResponse& response);
 Result<LibraryUpdateStatus> readLibraryUpdateStatus(const GqlResponse& response);
 // The page, read flag, stamp and the strip's note. A chapter that is gone: the server's error (no data).
 Result<ServerProgress> readChapterState(const GqlResponse& response);
+// WP-24. The search answer has the shape of readLibraryByCategory's.
+Result<NodeList<Manga>> readLibrarySearch(const GqlResponse& response);
+Result<std::vector<Category>> readManageCategories(const GqlResponse& response);  // with mangaCount
+Result<Category> readCreateCategory(const GqlResponse& response);                 // the new category
+Result<Category> readRenameCategory(const GqlResponse& response);                 // the renamed category
+Result<std::vector<Category>> readMoveCategory(const GqlResponse& response);      // every category, the new order
+// The number of manga that were in it. A delete that did nothing (category: null) is a Server error.
+Result<int> readDeleteCategory(const GqlResponse& response);
+Result<std::vector<Category>> readUpdateMangaCategories(const GqlResponse& response);  // the manga's categories now
 
 }  // namespace snx::core::gql

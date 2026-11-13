@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "core/LibraryTools.hpp"
 #include "core/graphql/Documents.hpp"
 #include "core/models/FromJson.hpp"
 #include "core/StripMath.hpp"
@@ -188,6 +189,64 @@ GqlRequest chapterState(int chapterId) {
     return r;
 }
 
+GqlRequest librarySearch(std::string_view text, int first, int offset) {
+    GqlRequest r = request("LibraryByCategory");
+    r.variables["filter"] = nlohmann::json{{"title", {{"includesInsensitive", likeEscape(text)}}}};
+    r.variables["first"] = std::max(first, 1);
+    r.variables["offset"] = std::max(offset, 0);
+    return r;
+}
+
+GqlRequest manageCategories() {
+    return request("ManageCategories");
+}
+
+GqlRequest createCategory(std::string_view name) {
+    GqlRequest r = request("CreateCategory");
+    r.variables["name"] = std::string(name);
+    return r;
+}
+
+GqlRequest renameCategory(int categoryId, std::string_view name) {
+    GqlRequest r = request("UpdateCategory");
+    r.variables["id"] = categoryId;
+    r.variables["name"] = std::string(name);
+    return r;
+}
+
+GqlRequest moveCategory(int categoryId, int position) {
+    GqlRequest r = request("UpdateCategoryOrder");
+    r.variables["id"] = categoryId;
+    r.variables["position"] = std::max(position, 1);
+    return r;
+}
+
+GqlRequest deleteCategory(int categoryId) {
+    GqlRequest r = request("DeleteCategory");
+    r.variables["id"] = categoryId;
+    return r;
+}
+
+GqlRequest updateMangaCategories(int mangaId, const std::vector<int>& add, const std::vector<int>& remove) {
+    GqlRequest r = request("UpdateMangaCategories");
+    r.variables["id"] = mangaId;
+    nlohmann::json addList = nlohmann::json::array();
+    nlohmann::json removeList = nlohmann::json::array();
+    for (int id : add) {
+        if (id != kDefaultCategoryId) {
+            addList.push_back(id);
+        }
+    }
+    for (int id : remove) {
+        if (id != kDefaultCategoryId) {
+            removeList.push_back(id);
+        }
+    }
+    r.variables["add"] = addList;
+    r.variables["remove"] = removeList;
+    return r;
+}
+
 Result<ServerInfo> readAboutServer(const GqlResponse& response) {
     return readObject<ServerInfo>(response, "aboutServer");
 }
@@ -321,6 +380,100 @@ Result<ServerProgress> readChapterState(const GqlResponse& response) {
     state.lastReadAt = chapter.value().lastReadAt;
     state.spotNote = chapter.value().stripSpotNote;
     return state;
+}
+
+namespace {
+
+// data.<field>.<inner> as an object (createCategory.category, updateMangaCategories.manga, ...).
+Result<const nlohmann::json*> innerObject(const GqlResponse& response, const char* field, const char* inner) {
+    Result<const nlohmann::json*> node = dataField(response, field);
+    if (!node.ok()) {
+        return node.error();
+    }
+    if (const nlohmann::json* object = json::object(*node.value(), inner)) {
+        return object;
+    }
+    if (!response.errors.empty()) {
+        return response.firstError();
+    }
+    return Result<const nlohmann::json*>::fail(ErrorKind::Parse,
+                                               std::string(field) + " has no \"" + inner + "\"");
+}
+
+// The categories of an array (updateCategoryOrder.categories); broken entries are left out.
+std::vector<Category> categoryArray(const nlohmann::json& list) {
+    std::vector<Category> categories;
+    for (const nlohmann::json& entry : list) {
+        if (auto parsed = fromJson<Category>(entry)) {
+            categories.push_back(std::move(parsed.value()));
+        }
+    }
+    std::stable_sort(categories.begin(), categories.end(),
+                     [](const Category& a, const Category& b) { return a.order < b.order; });
+    return categories;
+}
+
+}  // namespace
+
+Result<NodeList<Manga>> readLibrarySearch(const GqlResponse& response) {
+    return readList<Manga>(response, "mangas");
+}
+
+Result<std::vector<Category>> readManageCategories(const GqlResponse& response) {
+    return readCategories(response);
+}
+
+Result<Category> readCreateCategory(const GqlResponse& response) {
+    Result<const nlohmann::json*> node = innerObject(response, "createCategory", "category");
+    if (!node.ok()) {
+        return node.error();
+    }
+    return fromJson<Category>(*node.value());
+}
+
+Result<Category> readRenameCategory(const GqlResponse& response) {
+    Result<const nlohmann::json*> node = innerObject(response, "updateCategory", "category");
+    if (!node.ok()) {
+        return node.error();
+    }
+    return fromJson<Category>(*node.value());
+}
+
+Result<std::vector<Category>> readMoveCategory(const GqlResponse& response) {
+    Result<const nlohmann::json*> node = dataField(response, "updateCategoryOrder");
+    if (!node.ok()) {
+        return node.error();
+    }
+    const nlohmann::json* list = json::array(*node.value(), "categories");
+    if (!list) {
+        return Result<std::vector<Category>>::fail(ErrorKind::Parse, "updateCategoryOrder has no \"categories\"");
+    }
+    return categoryArray(*list);
+}
+
+Result<int> readDeleteCategory(const GqlResponse& response) {
+    Result<const nlohmann::json*> node = innerObject(response, "deleteCategory", "category");
+    if (!node.ok()) {
+        if (node.error().kind == ErrorKind::Parse && response.errors.empty()) {
+            // category: null without an error: the server deleted nothing (Default, or a category already gone).
+            return Result<int>::fail(ErrorKind::Server, "the server deleted no category");
+        }
+        return node.error();
+    }
+    const nlohmann::json* mangas = json::array(*dataField(response, "deleteCategory").value(), "mangas");
+    return mangas ? static_cast<int>(mangas->size()) : 0;
+}
+
+Result<std::vector<Category>> readUpdateMangaCategories(const GqlResponse& response) {
+    Result<const nlohmann::json*> node = innerObject(response, "updateMangaCategories", "manga");
+    if (!node.ok()) {
+        return node.error();
+    }
+    Result<Manga> manga = fromJson<Manga>(*node.value());
+    if (!manga.ok()) {
+        return manga.error();
+    }
+    return std::move(manga.value().categories);
 }
 
 Result<LoginTokens> readLogin(const GqlResponse& response) {

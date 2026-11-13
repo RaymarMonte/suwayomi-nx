@@ -1,0 +1,8 @@
+# The category picker's save (WP-24): adds and removes one manga's categories in one request (only the difference the user
+# made, core::categoryChange). Adding Default (0) is ignored by the server; an unknown id fails. Answers the manga's
+# categories after it.
+mutation UpdateMangaCategories($id: Int!, $add: [Int!]!, $remove: [Int!]!) {
+  updateMangaCategories(input: { id: $id, patch: { addToCategories: $add, removeFromCategories: $remove } }) {
+    manga { id categories { nodes { id name order } } }
+  }
+}

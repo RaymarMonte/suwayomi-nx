@@ -1,0 +1,7 @@
+# Adds a category at the end (WP-24). The server refuses an exact duplicate name but accepts an empty one and one that
+# differs only in case, so the app checks the name first (core::checkCategoryName, D54).
+mutation CreateCategory($name: String!) {
+  createCategory(input: { name: $name }) {
+    category { id name order default }
+  }
+}

@@ -1,0 +1,8 @@
+# Deletes a category (WP-24). Its manga stay in the library; one in no other category is then in Default (D54).
+# Deleting Default (id 0) answers category: null and does nothing.
+mutation DeleteCategory($id: Int!) {
+  deleteCategory(input: { categoryId: $id }) {
+    category { id }
+    mangas { id }
+  }
+}

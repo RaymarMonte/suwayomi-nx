@@ -12,6 +12,9 @@ struct Category {
     std::string name;
     int order = 0;           // the user's order (categories come sorted by it)
     bool isDefault = false;  // the server's "default" flag
+    // WP-24: the category's library manga (mangas.totalCount; Default: the manga in no category). -1 = not asked (only
+    // ManageCategories asks).
+    int mangaCount = -1;
 };
 
 }  // namespace snx::core
