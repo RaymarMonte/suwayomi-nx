@@ -9,9 +9,10 @@ Done: WP-00a … 13, 13b, 13c, 13d, **15** (desktop), 22; **v0.2.0 released** (1
 - **Found:** right after `updateLibrary` the timestamp has moved but `jobsInfo` still shows the previous job (SUWAYOMI-API.md).
   The scenario found: History missed reads made from the Library (now the lists reload when a screen on top of the main
   screen closes; a reload waits for a read / unread change on its way); X on a started chapter made it unread (now read, D43).
-- **Tests:** unit + contract green; integration green in 3 modes; desktop e2e: `updates-history` green (new, ~22 s, goldens
-  `updates-empty`, `updates-new`, `history`); Reading has 3 titles now (counts fixed in 9 scenarios); `reader-zoom`'s
-  "menu after 250 ms" check uses `performance.now()` (WSL's wall clock jumped back once: -207 ms).
+- **Tests:** unit, contract, integration (3 modes), all desktop e2e green (new `updates-history` ~22 s, 3 goldens); Reading
+  has 3 titles (counts fixed); `reader-zoom`'s 250 ms check uses `performance.now()` (WSL's clock jumped back once).
+- **CI:** the plan commit's run failed once in `test_ui_strip.cpp:488` (`settle`, coverage build: timing; runs before and
+  local green). Check d7c5f75's run; if it repeats, give `settle` more time (WP-13b's test, not WP-15's code).
 - **Not done (→ WP-15b):** the queue; B cancels "Opening…"; Switch runs (`updates-history`, library-browse, manga-details,
   resume-progress, reader-paged, reader-webtoon, offline-errors) + console numbers. Owner, optional: try it on the real server.
 ## Known facts about the environment
