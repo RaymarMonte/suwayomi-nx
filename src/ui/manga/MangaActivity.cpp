@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "app/TestHooks.hpp"
+#include "ui/categories/CategoryPickerActivity.hpp"
 #include "ui/components/TextFit.hpp"
 #include "ui/reader/ReaderActivity.hpp"
 
@@ -220,10 +221,12 @@ class ChapterCell : public GridCell {
 }  // namespace
 
 MangaActivity::MangaActivity(app::AppContext& context, core::Manga manga,
-                             std::function<void(const core::Manga&)> onChanged)
+                             std::function<void(const core::Manga&)> onChanged,
+                             std::function<void(int, const std::vector<core::Category>&)> onCategoriesChanged)
     : context_(context),
       model_(context.client, std::move(manga), static_cast<std::size_t>(std::max(1, context.profile.maxChapters))),
       onChanged_(std::move(onChanged)),
+      onCategoriesChanged_(std::move(onCategoriesChanged)),
       reportedUnread_(model_.manga().unreadCount) {
     // A waiting save of this manga reached the server (or went): the list shows the server's progress, as after the
     // reader closes. Main thread, like the queue's rounds.
@@ -274,6 +277,10 @@ void MangaActivity::onContentAvailable() {
     });
     descriptionBox->registerClickAction([this](brls::View*) {
         toggleDescription();
+        return true;
+    });
+    categoriesButton->registerClickAction([this](brls::View*) {
+        openPicker();
         return true;
     });
     descriptionBox->addGestureRecognizer(new brls::TapGestureRecognizer(descriptionBox));
@@ -332,6 +339,7 @@ void MangaActivity::modelChanged() {
         return;
     }
     showDetails();
+    updateCategories();
     updateBar();
     updateContinue();
 
@@ -688,7 +696,7 @@ void MangaActivity::openFilterMenu() {
 
 void MangaActivity::openMenu() {
     const std::vector<std::string> entries = {"manga/menu_sort"_i18n, "manga/menu_filter"_i18n,
-                                              "manga/menu_refresh"_i18n};
+                                              "manga/menu_refresh"_i18n, "manga/menu_categories"_i18n};
     auto* dropdown = new brls::Dropdown("manga/menu_title"_i18n, entries, [this](int selected) {
         // The menu closes first; the next one opens on the following frame.
         brls::sync([this, selected] {
@@ -698,10 +706,50 @@ void MangaActivity::openMenu() {
                 openFilterMenu();
             } else if (selected == 2) {
                 refresh();
+            } else if (selected == 3) {
+                openPicker();
             }
         });
     });
     brls::Application::pushActivity(new brls::Activity(dropdown));
+}
+
+void MangaActivity::openPicker() {
+    // The details carry the manga's categories; before they are in, the picker asks the server itself.
+    std::optional<std::vector<core::Category>> current;
+    if (model_.detailsLoaded()) {
+        current = model_.manga().categories;
+    }
+    const net::CancelToken alive = alive_;
+    brls::Application::pushActivity(new CategoryPickerActivity(
+        context_, model_.manga(), current, [this, alive](int mangaId, const std::vector<core::Category>& categories) {
+            if (alive.cancelled()) {
+                return;
+            }
+            model_.setCategories(categories);
+            if (onCategoriesChanged_) {
+                onCategoriesChanged_(mangaId, categories);
+            }
+        }));
+}
+
+void MangaActivity::updateCategories() {
+    std::string names;
+    for (const core::Category& c : model_.manga().categories) {
+        if (c.id != core::kDefaultCategoryId) {
+            names += (names.empty() ? "" : ", ") + c.name;
+        }
+    }
+    if (!model_.detailsLoaded()) {
+        names.clear();
+    } else if (names.empty()) {
+        names = "categories/default_name"_i18n;
+    }
+    const std::string text = names.empty() ? "manga/categories"_i18n : brls::getStr("manga/categories_list", names);
+    if (text != shownCategories_) {
+        shownCategories_ = text;
+        categoriesButton->setText(text);
+    }
 }
 
 void MangaActivity::report() {

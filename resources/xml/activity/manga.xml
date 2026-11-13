@@ -75,6 +75,15 @@
                     marginTop="20"
                     text="@i18n/manga/continue" />
 
+                <!-- WP-24: the manga's categories; a tap opens the category picker. -->
+                <brls:Button
+                    id="manga/categories"
+                    style="bordered"
+                    width="auto"
+                    height="72"
+                    marginTop="12"
+                    text="@i18n/manga/categories" />
+
                 <brls:Box
                     id="manga/descriptionBox"
                     width="auto"

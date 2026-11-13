@@ -25,7 +25,9 @@ namespace snx::ui {
 class MangaActivity : public brls::Activity, private GridSource {
   public:
     // onChanged: the manga's unread count changed (chapter actions); the library updates its badge. May be empty.
-    MangaActivity(app::AppContext& context, core::Manga manga, std::function<void(const core::Manga&)> onChanged);
+    // onCategoriesChanged (WP-24): the category picker saved the manga's categories; the library moves it. May be empty.
+    MangaActivity(app::AppContext& context, core::Manga manga, std::function<void(const core::Manga&)> onChanged,
+                  std::function<void(int, const std::vector<core::Category>&)> onCategoriesChanged = {});
     ~MangaActivity() override;
 
     CONTENT_FROM_XML_RES("activity/manga.xml");
@@ -59,6 +61,8 @@ class MangaActivity : public brls::Activity, private GridSource {
     void refresh();
     void report();
     void reportScreen();
+    void openPicker();         // WP-24
+    void updateCategories();   // the Categories button's text
 
     BRLS_BIND(brls::Box, header, "manga/header");
     BRLS_BIND(brls::Label, title, "manga/title");
@@ -66,6 +70,7 @@ class MangaActivity : public brls::Activity, private GridSource {
     BRLS_BIND(brls::Label, status, "manga/status");
     BRLS_BIND(brls::Label, genres, "manga/genres");
     BRLS_BIND(brls::Button, continueButton, "manga/continue");
+    BRLS_BIND(brls::Button, categoriesButton, "manga/categories");
     BRLS_BIND(brls::Box, descriptionBox, "manga/descriptionBox");
     BRLS_BIND(brls::Label, description, "manga/description");
     BRLS_BIND(brls::Label, more, "manga/more");
@@ -78,6 +83,8 @@ class MangaActivity : public brls::Activity, private GridSource {
     app::AppContext& context_;
     MangaModel model_;
     std::function<void(const core::Manga&)> onChanged_;
+    std::function<void(int, const std::vector<core::Category>&)> onCategoriesChanged_;
+    std::string shownCategories_;
     CoverImage* cover_ = nullptr;
     StatusView* statusView_ = nullptr;
     CoverGrid* list_ = nullptr;

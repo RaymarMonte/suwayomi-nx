@@ -1,4 +1,5 @@
-<!-- The Library tab (src/ui/library/LibraryTab, WP-09): a bar with the categories, Sort and Refresh, and below it the cover
+<!-- The Library tab (src/ui/library/LibraryTab, WP-09): a bar with the categories (WP-24: or the search), Sort, Search, Edit
+     (the Categories screen) and Refresh, and below it the cover
      grid or a status (loading, error + Retry, empty). The category buttons, the grid and the status are added in code.
      Touch targets are 72 px high (D16). -->
 <brls:Box
@@ -15,6 +16,37 @@
         paddingLeft="24"
         paddingRight="24"
         visibility="gone">
+
+        <!-- WP-24: while a search shows, this takes the categories' place. -->
+        <brls:Box
+            id="library/searchBox"
+            width="auto"
+            height="72"
+            grow="1.0"
+            shrink="1.0"
+            axis="row"
+            alignItems="center"
+            visibility="gone">
+
+            <brls:Label
+                id="library/searchLabel"
+                width="auto"
+                grow="1.0"
+                shrink="1.0"
+                fontSize="20"
+                singleLine="true"
+                text="" />
+
+            <brls:Button
+                id="library/clear"
+                style="bordered"
+                height="72"
+                marginLeft="16"
+                paddingLeft="12"
+                paddingRight="12"
+                text="@i18n/library/clear" />
+
+        </brls:Box>
 
         <brls:HScrollingFrame
             id="library/categoriesFrame"
@@ -40,6 +72,24 @@
             paddingLeft="12"
             paddingRight="12"
             text="@i18n/library/sort" />
+
+        <brls:Button
+            id="library/search"
+            style="bordered"
+            height="72"
+            marginLeft="16"
+            paddingLeft="12"
+            paddingRight="12"
+            text="@i18n/library/search" />
+
+        <brls:Button
+            id="library/edit"
+            style="bordered"
+            height="72"
+            marginLeft="16"
+            paddingLeft="12"
+            paddingRight="12"
+            text="@i18n/library/edit" />
 
         <brls:Button
             id="library/refresh"

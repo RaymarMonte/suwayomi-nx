@@ -337,6 +337,11 @@ void MangaModel::setSort(ChapterSort sort) {
     changed();
 }
 
+void MangaModel::setCategories(std::vector<core::Category> categories) {
+    manga_.categories = std::move(categories);
+    changed();
+}
+
 void MangaModel::setFilter(ChapterFilter filter) {
     if (filter == filter_) {
         return;

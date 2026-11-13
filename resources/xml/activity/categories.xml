@@ -1,0 +1,52 @@
+<!-- The Categories screen (src/ui/categories/CategoriesActivity, WP-24, D54): a note and Add on top, the categories below
+     (a one-column list, added in code) or a status (loading, error + Retry, none yet). Default isn't listed: it can't be
+     changed. Touch targets are at least 72 px high (D16). -->
+<brls:AppletFrame
+    iconInterpolation="linear"
+    footerHidden="false">
+
+    <brls:Box
+        width="auto"
+        height="auto"
+        axis="column"
+        grow="1.0"
+        paddingLeft="80"
+        paddingRight="80">
+
+        <brls:Box
+            width="auto"
+            height="72"
+            axis="row"
+            alignItems="center"
+            marginTop="12"
+            marginBottom="12">
+
+            <brls:Label
+                id="categories/note"
+                width="auto"
+                grow="1.0"
+                shrink="1.0"
+                fontSize="18"
+                text="@i18n/categories/note" />
+
+            <brls:Button
+                id="categories/add"
+                style="bordered"
+                height="72"
+                marginLeft="16"
+                paddingLeft="12"
+                paddingRight="12"
+                text="@i18n/categories/add" />
+
+        </brls:Box>
+
+        <brls:Box
+            id="categories/body"
+            width="auto"
+            height="auto"
+            grow="1.0"
+            axis="column" />
+
+    </brls:Box>
+
+</brls:AppletFrame>

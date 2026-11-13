@@ -5,6 +5,10 @@
 
 #include "app/TestHooks.hpp"
 #include "image/Caches.hpp"
+#include "core/LibraryTools.hpp"
+#include "ui/categories/CategoriesActivity.hpp"
+#include "ui/categories/CategoryPickerActivity.hpp"
+#include "ui/components/AskText.hpp"
 #include "ui/components/TextFit.hpp"
 #include "ui/manga/MangaActivity.hpp"
 
@@ -197,10 +201,36 @@ LibraryTab::LibraryTab(app::AppContext& context) : context_(context) {
         }
         return true;
     }, true);
-    registerAction("library/sort"_i18n, brls::BUTTON_Y, [this](brls::View*) {
-        openSortMenu();
+    searchButton->registerClickAction([this](brls::View*) {
+        askSearch();
         return true;
     });
+    editButton->registerClickAction([this](brls::View*) {
+        openCategories();
+        return true;
+    });
+    clearButton->registerClickAction([this](brls::View*) {
+        if (model_ != nullptr) {
+            model_->clearSearch();
+        }
+        return true;
+    });
+    // WP-24 (D54, owner OK): Y opens the focused cover's menu; Sort is on the MINUS menu and its button.
+    registerAction("library/cover_menu"_i18n, brls::BUTTON_Y, [this](brls::View*) {
+        if (gridShown_ && inside(brls::Application::getCurrentFocus(), grid_)) {
+            openCoverMenu(grid_->focusIndex());
+        }
+        return true;
+    });
+    // B clears a search; otherwise it does what it always did (available only while a search shows).
+    registerAction("library/clear_search"_i18n, brls::BUTTON_B, [this](brls::View*) {
+        if (model_ == nullptr || !model_->searching()) {
+            return false;
+        }
+        model_->clearSearch();
+        return true;
+    });
+    setActionAvailable(brls::BUTTON_B, false);
     registerAction("library/refresh"_i18n, brls::BUTTON_X, [this](brls::View*) {
         refresh();
         return true;
@@ -287,6 +317,8 @@ void LibraryTab::modelChanged() {
     }
     markCurrentCategory();
     sortButton->setText(brls::getStr("library/sort_button", sortLabel(model.sort())));
+    showSearchBar();
+    const std::string search = model.searching() ? model.searchText() : std::string();
 
     const core::Category* category = model.category();
     const int categoryId = category != nullptr ? category->id : -1;
@@ -304,7 +336,10 @@ void LibraryTab::modelChanged() {
             showGrid(false);
             break;
         case LibraryModel::State::Empty:
-            if (model.libraryEmpty()) {
+            if (model.searching()) {
+                status_->showMessage(brls::getStr("library/search_empty", model.searchText()),
+                                     "library/search_empty_text"_i18n);
+            } else if (model.libraryEmpty()) {
                 status_->showMessage("library/empty_title"_i18n, "library/empty_text"_i18n);
             } else {
                 status_->showMessage(brls::getStr("library/category_empty", category ? category->name : ""),
@@ -315,7 +350,8 @@ void LibraryTab::modelChanged() {
         case LibraryModel::State::Ready: {
             const std::size_t count = model.items().size();
             const bool same = shownState_ == LibraryModel::State::Ready && categoryId == shownCategory_ &&
-                              model.sort() == shownSort_ && count >= shownCount_ && model.revision() == shownRevision_;
+                              search == shownSearch_ && model.sort() == shownSort_ && count >= shownCount_ &&
+                              model.revision() == shownRevision_;
             showGrid(true);
             if (same && count > shownCount_) {
                 grid_->appended();
@@ -333,6 +369,7 @@ void LibraryTab::modelChanged() {
     moreFailedShown_ = model.moreFailed();
     shownState_ = model.state();
     shownCategory_ = categoryId;
+    shownSearch_ = search;
     shownSort_ = model.sort();
     if (model.state() != LibraryModel::State::Ready) {
         shownCount_ = 0;
@@ -359,6 +396,14 @@ void LibraryTab::report() {
     fields["sort"] = std::string(core::librarySortName(model.sort()));
     fields["items"] = model.items().size();
     fields["total"] = model.totalCount();
+    fields["search"] = model.searching() ? nlohmann::ordered_json(model.searchText()) : nlohmann::ordered_json(nullptr);
+    if (model.searching()) {
+        nlohmann::ordered_json titles = nlohmann::ordered_json::array();
+        for (std::size_t i = 0; i < model.items().size() && i < 10; ++i) {
+            titles.push_back(model.items()[i].title);
+        }
+        fields["titles"] = titles;  // the first results, for the scenario
+    }
     const std::string key = fields.dump();
     if (key != reported_) {
         reported_ = key;
@@ -436,6 +481,10 @@ void LibraryTab::select(std::size_t index) {
     brls::Application::pushActivity(new MangaActivity(context_, model_->items()[index], [this, alive](const core::Manga& manga) {
         if (!alive.expired() && model_ != nullptr) {
             model_->updateManga(manga);
+        }
+    }, [this, alive](int mangaId, const std::vector<core::Category>& categories) {
+        if (!alive.expired() && model_ != nullptr) {
+            model_->mangaCategoriesChanged(mangaId, categories);  // WP-24: the details screen's picker
         }
     }));
 }
@@ -529,6 +578,7 @@ void LibraryTab::openMenu() {
         return;
     }
     const std::vector<std::string> entries = {"library/menu_category"_i18n, "library/menu_sort"_i18n,
+                                              "library/menu_search"_i18n, "library/menu_edit"_i18n,
                                               "library/menu_refresh"_i18n};
     auto* dropdown = new brls::Dropdown("library/menu_title"_i18n, entries, [this](int selected) {
         // The menu closes first; the next one opens on the following frame.
@@ -538,11 +588,105 @@ void LibraryTab::openMenu() {
             } else if (selected == 1) {
                 openSortMenu();
             } else if (selected == 2) {
+                askSearch();
+            } else if (selected == 3) {
+                openCategories();
+            } else if (selected == 4) {
                 refresh();
             }
         });
     });
     brls::Application::pushActivity(new brls::Activity(dropdown));
+}
+
+void LibraryTab::askSearch() {
+    if (model_ == nullptr) {
+        return;
+    }
+    askText("library/search_header"_i18n, model_->searchText(), context_.profile.searchMaxChars, [this](std::string text) {
+        if (model_ != nullptr) {
+            const std::string trimmed =
+                core::utf8Cut(core::trimText(text), static_cast<std::size_t>(context_.profile.searchMaxChars));
+            model_->search(trimmed);
+        }
+    });
+}
+
+void LibraryTab::openCategories() {
+    if (model_ == nullptr) {
+        return;
+    }
+    const std::weak_ptr<int> alive = alive_;
+    brls::Application::pushActivity(new CategoriesActivity(context_, [this, alive](bool changed) {
+        if (changed && !alive.expired() && model_ != nullptr) {
+            model_->refresh();  // names, order and tabs may all have changed
+        }
+    }));
+}
+
+void LibraryTab::openCoverMenu(std::size_t index) {
+    if (model_ == nullptr || index >= model_->items().size()) {
+        return;
+    }
+    model_->rememberFocus(index);
+    const int id = model_->items()[index].id;
+    const std::vector<std::string> entries = {"library/cover_open"_i18n, "library/cover_categories"_i18n};
+    auto* dropdown = new brls::Dropdown(model_->items()[index].title, entries, [this, id](int selected) {
+        brls::sync([this, id, selected] {
+            if (model_ == nullptr) {
+                return;
+            }
+            for (std::size_t i = 0; i < model_->items().size(); ++i) {
+                if (model_->items()[i].id == id) {
+                    if (selected == 0) {
+                        select(i);
+                    } else if (selected == 1) {
+                        openPicker(i);
+                    }
+                    return;
+                }
+            }
+        });
+    });
+    brls::Application::pushActivity(new brls::Activity(dropdown));
+}
+
+void LibraryTab::openPicker(std::size_t index) {
+    if (model_ == nullptr || index >= model_->items().size()) {
+        return;
+    }
+    const std::weak_ptr<int> alive = alive_;
+    brls::Application::pushActivity(new CategoryPickerActivity(
+        context_, model_->items()[index], std::nullopt,
+        [this, alive](int mangaId, const std::vector<core::Category>& categories) {
+            if (!alive.expired() && model_ != nullptr) {
+                model_->mangaCategoriesChanged(mangaId, categories);
+            }
+        }));
+}
+
+void LibraryTab::showSearchBar() {
+    const bool searching = model_ != nullptr && model_->searching();
+    if (searching) {
+        searchLabel->setText(brls::getStr("library/search_label", model_->searchText()));
+    }
+    setActionAvailable(brls::BUTTON_B, searching);
+    if (searching == searchBarShown_) {
+        return;
+    }
+    brls::View* focus = brls::Application::getCurrentFocus();
+    const bool hadFocus = inside(focus, categoriesFrame) || inside(focus, searchBox);
+    searchBarShown_ = searching;
+    // First switch the visibility, then move the focus (a hidden view refuses it, D42).
+    categoriesFrame->setVisibility(searching ? brls::Visibility::GONE : brls::Visibility::VISIBLE);
+    searchBox->setVisibility(searching ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
+    if (hadFocus) {
+        if (searching) {
+            brls::Application::giveFocus(clearButton);
+        } else if (!categoryButtons_.empty()) {
+            brls::Application::giveFocus(categoryButtons_[std::min(model_->categoryIndex(), categoryButtons_.size() - 1)]);
+        }
+    }
 }
 
 }  // namespace snx::ui

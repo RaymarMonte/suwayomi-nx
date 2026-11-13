@@ -1,0 +1,60 @@
+<!-- The category picker (src/ui/categories/CategoryPickerActivity, WP-24, D54): a note, New category and Save on top,
+     the checklist below (a one-column list, added in code) or a status. Touch targets are at least 72 px high (D16). -->
+<brls:AppletFrame
+    iconInterpolation="linear"
+    footerHidden="false">
+
+    <brls:Box
+        width="auto"
+        height="auto"
+        axis="column"
+        grow="1.0"
+        paddingLeft="80"
+        paddingRight="80">
+
+        <brls:Box
+            width="auto"
+            height="72"
+            axis="row"
+            alignItems="center"
+            marginTop="12"
+            marginBottom="12">
+
+            <brls:Label
+                id="picker/note"
+                width="auto"
+                grow="1.0"
+                shrink="1.0"
+                fontSize="18"
+                text="@i18n/categories/picker_note" />
+
+            <brls:Button
+                id="picker/new"
+                style="bordered"
+                height="72"
+                marginLeft="16"
+                paddingLeft="12"
+                paddingRight="12"
+                text="@i18n/categories/new" />
+
+            <brls:Button
+                id="picker/save"
+                style="primary"
+                height="72"
+                marginLeft="16"
+                paddingLeft="12"
+                paddingRight="12"
+                text="@i18n/categories/save" />
+
+        </brls:Box>
+
+        <brls:Box
+            id="picker/body"
+            width="auto"
+            height="auto"
+            grow="1.0"
+            axis="column" />
+
+    </brls:Box>
+
+</brls:AppletFrame>

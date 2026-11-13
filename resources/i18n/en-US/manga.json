@@ -56,5 +56,8 @@
     "menu_sort": "Sort by...",
     "menu_filter": "Show...",
     "menu_refresh": "Refresh from source",
+    "menu_categories": "Categories...",
+    "categories": "Categories",
+    "categories_list": "Categories: {}",
     "open": "Read"
 }

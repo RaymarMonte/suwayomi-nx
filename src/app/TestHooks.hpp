@@ -91,6 +91,10 @@ void setUiBusy(bool busy);
 // on the console one event costs ~8 ms, up to ~70 ms while the harness reads the file). Always 0 in release builds.
 std::int64_t takeIoMs();
 
+// WP-24: the text of the last {"cmd":"text","text":"..."} command, once (then empty). ui::askText answers it instead of
+// opening the keyboard. Always empty in release builds.
+std::optional<std::string> takeTypedText();
+
 // Once per main-loop iteration: writes "idle" when nothing has run for a few frames, a "mem" event every 10 s, starts the
 // test config's crash drill the first time the app is idle, and retries lines that couldn't be written yet (on the Switch
 // the file is busy while the harness reads it).

@@ -98,6 +98,8 @@ class MangaModel {
 
     void setSort(ChapterSort sort);
     void setFilter(ChapterFilter filter);
+    // WP-24: the category picker saved the manga's categories (the server's answer).
+    void setCategories(std::vector<core::Category> categories);
 
     // The menu for chapter items()[index], always four entries in this order: MarkRead or MarkUnread, Bookmark or
     // RemoveBookmark, MarkPreviousRead, MarkPreviousUnread. Empty for a wrong index.

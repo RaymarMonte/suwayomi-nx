@@ -15,6 +15,9 @@ set(SNX_APP_SOURCES
     TestHooks.cpp
     crash/Crash.cpp
     crash/Drills.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/categories/CategoriesActivity.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/categories/CategoryPickerActivity.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/components/AskText.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/crash/CrashActivity.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/components/CoverGrid.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/components/CoverImage.cpp

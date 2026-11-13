@@ -72,6 +72,7 @@ int gNextCommand = 1;
 int gUnreadablePolls = 0;
 std::int64_t gLastCommandPollMs = 0;
 std::optional<Playback> gPlayback;
+std::optional<std::string> gTypedText;  // WP-24: the "text" command's text, for the next keyboard request
 
 std::int64_t nowMs() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - gStart).count();
@@ -175,7 +176,19 @@ void readCommand() {
     ++gNextCommand;
     const nlohmann::json& doc = parsed.value();
     std::string error;
-    if (core::json::string(doc, "cmd").value_or("") != "touches") {
+    const std::string cmd = core::json::string(doc, "cmd").value_or("");
+    if (cmd == "text") {
+        // WP-24: the next keyboard request answers this text (the Switch's system keyboard can't be typed into).
+        const std::optional<std::string> typed = core::json::string(doc, "text");
+        if (!typed) {
+            commandDone(id, false, "a text command needs \"text\"");
+            return;
+        }
+        gTypedText = *typed;
+        commandDone(id, true, "");
+        return;
+    }
+    if (cmd != "touches") {
         commandDone(id, false, "unknown command");
         return;
     }
@@ -444,6 +457,12 @@ std::int64_t takeIoMs() {
     return std::exchange(gIoMs, 0);
 }
 
+std::optional<std::string> takeTypedText() {
+    std::optional<std::string> text = std::move(gTypedText);
+    gTypedText.reset();
+    return text;
+}
+
 void onFrame() {
     const std::int64_t now = nowMs();
     if (gFs != nullptr) {
@@ -545,6 +564,9 @@ void watchApp(std::function<bool()>) {}
 void setUiBusy(bool) {}
 std::int64_t takeIoMs() {
     return 0;
+}
+std::optional<std::string> takeTypedText() {
+    return std::nullopt;
 }
 void write(std::string_view, const nlohmann::ordered_json&) {}
 void screen(std::string_view) {}
