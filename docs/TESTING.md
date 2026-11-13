@@ -144,8 +144,15 @@ Fixture set (series code in brackets = the colour code's series number):
   400×600 each (that page is also the cover), in light colours that differ from cover to cover. They give the library grid
   something to scroll, page (60 per request: 60 + 60 + 30) and recycle. They all share code 7: they never test the reader.
   The server numbers manga in folder order, so these take ids 6–155 and `日本語タイトル テスト` is id 156.
+- `Epsilon Weekly` [8] (WP-15) – 2 chapters × 3 pages, JPEG 1000×1500, `details.json` (ongoing). For the Updates tab's "a library
+  update found a new chapter". It is generated into `.test-server/fixtures-extra/`, **not** into the pristine folder that `reset`
+  copies (the server numbers manga in folder order, so Epsilon there would shift every later id). The seed adds it as a second
+  step: manga 157, chapters 460–461, in Reading after Alpha and Beta RTL, both chapters read (`isRead` only, so History stays
+  empty). A held-back **Chapter 3** (3 pages) is generated too: `addNewChapter()` (tests/e2e/lib/suwayomi.ts) copies it into the
+  server's `local/Epsilon Weekly/` with a fixed folder time; after `updateLibrary(input: {})` the server has chapter 462.
+  `removeNewChapter()` deletes it and re-fetches the chapter list, so the server forgets it. Both are safe to call twice.
 
-After seeding (`tools/test-server/seed.ts`): categories `Reading` (Alpha, Beta RTL), `Long series` (Gamma Webtoon, Delta Big),
+After seeding (`tools/test-server/seed.ts`): categories `Reading` (Alpha, Beta RTL, Epsilon Weekly), `Long series` (Gamma Webtoon, Delta Big),
 `Big shelf` (the 150) and `Empty` (none: the "nothing in this category" screen); `Broken` and `日本語タイトル テスト` are in no
 category (the Default category, id 0). Real answers for these are in `tests/fixtures/responses/`.
 

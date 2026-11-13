@@ -54,17 +54,18 @@ ensure_node_modules() {
 
 # Regenerates the pristine fixtures only when the generator, the page code or the package versions changed.
 ensure_fixtures() {
-    local fixtures stampfile stamp
+    local fixtures extra stampfile stamp
     fixtures="$(win_path fixtures)"
+    extra="$(win_path base)/fixtures-extra"   # Epsilon Weekly (WP-15): kept out of $fixtures, which reset copies as it is
     stampfile="$(win_path base)/fixtures.stamp"
     stamp="$(cd "$REPO" && find tools/gen-fixtures tests/e2e/lib/pagecode.ts package-lock.json -name '*.ts' ! -name '*.test.ts' -o -name package-lock.json \
         | sort | xargs sha256sum | sha256sum | cut -c1-64)"
-    if [ -d "$fixtures/Alpha" ] && [ -f "$stampfile" ] && [ "$(cat "$stampfile")" = "$stamp" ]; then
+    if [ -d "$fixtures/Alpha" ] && [ -d "$extra/Epsilon Weekly" ] && [ -f "$stampfile" ] && [ "$(cat "$stampfile")" = "$stamp" ]; then
         return
     fi
     ensure_node_modules
     log "generating fixture manga -> $fixtures"
-    node "$REPO/tools/gen-fixtures/gen-fixtures.ts" --out "$fixtures"
+    node "$REPO/tools/gen-fixtures/gen-fixtures.ts" --out "$fixtures" --extra-out "$extra"
     echo "$stamp" > "$stampfile"
 }
 

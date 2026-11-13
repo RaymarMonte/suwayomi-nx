@@ -16,9 +16,15 @@
             "title": "Beta RTL",
             "thumbnailUrl": "/api/v1/manga/2/thumbnail",
             "unreadCount": 2
+          },
+          {
+            "id": 157,
+            "title": "Epsilon Weekly",
+            "thumbnailUrl": "/api/v1/manga/157/thumbnail",
+            "unreadCount": 0
           }
         ],
-        "totalCount": 2
+        "totalCount": 3
       }
     }
   }

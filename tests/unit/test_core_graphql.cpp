@@ -121,7 +121,7 @@ TEST_SUITE("core") {
 
         auto library = gql::readLibraryByCategory(recorded("library"));
         REQUIRE(library.ok());
-        CHECK(library.value().nodes.size() == 156);  // 6 fixture series + the 150 of the Big shelf
+        CHECK(library.value().nodes.size() == 157);  // 7 fixture series (Epsilon Weekly included, WP-15) + the 150 of the Big shelf
 
         auto manga = gql::readManga(recorded("manga-details"));
         REQUIRE(manga.ok());
@@ -160,11 +160,12 @@ TEST_SUITE("core") {
 
         auto reading = gql::readLibraryByCategory(recorded("app-library-reading"));
         REQUIRE(reading.ok());
-        REQUIRE(reading.value().nodes.size() == 2);
+        REQUIRE(reading.value().nodes.size() == 3);
         CHECK(reading.value().nodes[0].title == "Alpha");
         CHECK(reading.value().nodes[0].status == MangaStatus::Ongoing);
         CHECK(reading.value().nodes[0].unreadCount == 3);
         CHECK(reading.value().nodes[1].title == "Beta RTL");
+        CHECK(reading.value().nodes[2].title == "Epsilon Weekly");  // WP-15: after Alpha and Beta RTL, both chapters read
         CHECK_FALSE(reading.value().hasNextPage);
 
         // The Default category: the manga in no category.

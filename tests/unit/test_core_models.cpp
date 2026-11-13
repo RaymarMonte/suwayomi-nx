@@ -138,10 +138,10 @@ TEST_SUITE("core") {
         auto list = nodeListFromJson<Manga>(recordedData("library")["mangas"]);
         REQUIRE(list.ok());
         const auto& l = list.value();
-        REQUIRE(l.nodes.size() == 156);  // 6 fixture series + the 150 of the Big shelf
-        CHECK(l.totalCount == 156);
+        REQUIRE(l.nodes.size() == 157);  // 7 fixture series (Epsilon Weekly included, WP-15) + the 150 of the Big shelf
+        CHECK(l.totalCount == 157);
         CHECK_FALSE(l.hasNextPage);
-        CHECK(l.endCursor.find("156-") == 0);
+        CHECK(l.endCursor.find("156-") == 0);  // the last one in the list is still the Japanese title (id 156); Epsilon is 157 and sorts earlier
         CHECK(l.nodes[0].title == "Alpha");
         REQUIRE(l.nodes[0].categories.size() == 1);
         CHECK(l.nodes[0].categories[0].id == 1);
@@ -153,7 +153,7 @@ TEST_SUITE("core") {
         auto page = nodeListFromJson<Manga>(recordedData("library-page")["mangas"]);
         REQUIRE(page.ok());
         CHECK(page.value().nodes.size() == 2);
-        CHECK(page.value().totalCount == 156);
+        CHECK(page.value().totalCount == 157);
         CHECK(page.value().hasNextPage);
         CHECK(page.value().endCursor == "4-Delta Big");
     }

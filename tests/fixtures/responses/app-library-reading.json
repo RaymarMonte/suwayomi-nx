@@ -23,12 +23,23 @@
           "lastReadChapter": {
             "lastReadAt": "0"
           }
+        },
+        {
+          "id": 157,
+          "title": "Epsilon Weekly",
+          "thumbnailUrl": "/api/v1/manga/157/thumbnail",
+          "status": "ONGOING",
+          "unreadCount": 0,
+          "downloadCount": 0,
+          "lastReadChapter": {
+            "lastReadAt": "0"
+          }
         }
       ],
-      "totalCount": 2,
+      "totalCount": 3,
       "pageInfo": {
         "hasNextPage": false,
-        "endCursor": "2-Beta RTL"
+        "endCursor": "157-Epsilon Weekly"
       }
     }
   }

@@ -2,8 +2,10 @@
 // and later by the E2E harness to check what the app did (docs/TESTING.md). Handles the three auth modes we test.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, utimesSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { chapterFolder, chapterTime, EPSILON, EPSILON_HELD_BACK_CHAPTER, seriesTime } from '../../../tools/gen-fixtures/fixtures.ts';
 
 export type AuthMode = 'none' | 'basic' | 'ui_login';
 
@@ -196,4 +198,58 @@ export function startServer(auth: AuthMode = 'none'): void {
         execFileSync(SERVER_SCRIPT, ['reset'], { stdio: 'ignore', timeout: 300_000 });
         execFileSync(SERVER_SCRIPT, ['start', '--auth', auth], { stdio: 'ignore', timeout: 120_000 });
     }
+}
+
+// ---- Epsilon Weekly: the manga for "a library update finds a new chapter" (WP-15) ----
+
+/** The test server's files (<repo>/.test-server/, git-ignored). WSL and Windows see the same folder (D29). */
+const TEST_SERVER_DIR = fileURLToPath(new URL('../../../.test-server/', import.meta.url));
+
+/** Epsilon Weekly's manga id after seeding: the seed adds it after the 156 older ones. Its chapters are 460 and 461. */
+export const EPSILON_MANGA_ID = 157;
+
+/** The server's Local Source folder (`<server root>/local`): one folder per manga. */
+export function serverLocalFolder(): string {
+    return join(TEST_SERVER_DIR, 'root', 'local');
+}
+
+/**
+ * Copies one chapter of Epsilon Weekly from the pristine copy (<repo>/.test-server/fixtures-extra, written by gen-fixtures)
+ * into the server's local/ folder, with the fixed folder time: the server uses a chapter folder's time as its upload date.
+ * Also makes the manga folder (with details.json) when it isn't there yet. Does nothing for a chapter that is already there.
+ * The seed uses this for chapters 1 and 2.
+ */
+export function copyEpsilonChapter(chapter: number): void {
+    const from = join(TEST_SERVER_DIR, 'fixtures-extra', EPSILON.title);
+    const to = join(serverLocalFolder(), EPSILON.title);
+    if (!existsSync(from)) throw new Error(`${from} is missing: run tools/test-server/test-server.sh reset (it generates the fixtures)`);
+    if (!existsSync(join(to, 'details.json'))) {
+        mkdirSync(to, { recursive: true });
+        copyFileSync(join(from, 'details.json'), join(to, 'details.json'));
+        utimesSync(join(to, 'details.json'), seriesTime(EPSILON), seriesTime(EPSILON));
+        utimesSync(to, seriesTime(EPSILON), seriesTime(EPSILON));
+    }
+    const target = join(to, chapterFolder(chapter));
+    if (existsSync(target)) return;
+    cpSync(join(from, chapterFolder(chapter)), target, { recursive: true });
+    utimesSync(target, chapterTime(EPSILON, chapter), chapterTime(EPSILON, chapter)); // after the copy: copying changes the time
+}
+
+/**
+ * Puts the held-back chapter 3 of Epsilon Weekly into the server's local/ folder. The server only notices it at the next
+ * library update (`updateLibrary(input: {})`) or chapter fetch. Safe to call when it is already there.
+ */
+export function addNewChapter(): void {
+    copyEpsilonChapter(EPSILON_HELD_BACK_CHAPTER);
+}
+
+/**
+ * Undoes addNewChapter(): deletes chapter 3's folder and asks the server to re-read Epsilon's chapter list, so the server forgets
+ * the chapter (chapter 462 is gone again). Safe to call when the chapter isn't there.
+ */
+export async function removeNewChapter(client: SuwayomiClient = new SuwayomiClient(optionsFromEnv())): Promise<void> {
+    rmSync(join(serverLocalFolder(), EPSILON.title, chapterFolder(EPSILON_HELD_BACK_CHAPTER)), { recursive: true, force: true });
+    await client.query(
+        'mutation F($id: Int!) { fetchMangaAndChapters(input: { id: $id, fetchManga: true, fetchChapters: true }) { manga { id } } }',
+        { id: EPSILON_MANGA_ID });
 }

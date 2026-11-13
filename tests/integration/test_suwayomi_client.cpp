@@ -162,8 +162,8 @@ TEST_CASE("categories and the three library tabs") {
     CHECK(empty.totalCount == 0);
 
     const auto reading = must(live->library(categories[1].id, 0, CancelToken()));
-    CHECK(titles(reading) == std::vector<std::string>{"Alpha", "Beta RTL"});
-    CHECK(reading.totalCount == 2);
+    CHECK(titles(reading) == std::vector<std::string>{"Alpha", "Beta RTL", "Epsilon Weekly"});
+    CHECK(reading.totalCount == 3);
     CHECK_FALSE(reading.hasNextPage);
     const auto longSeries = must(live->library(categories[2].id, 0, CancelToken()));
     CHECK(titles(longSeries) == std::vector<std::string>{"Delta Big", "Gamma Webtoon"});
