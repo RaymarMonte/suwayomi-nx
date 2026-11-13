@@ -1,0 +1,13 @@
+{
+    "loading": "Loading what you read...",
+    "empty_title": "Nothing read yet",
+    "empty_text": "The manga you read show here, the most recent first.",
+    "chapter_page": "{} · page {}",
+    "chapter_read": "{} · read",
+    "all_read": "Every chapter is read",
+    "details": "Details",
+    "refresh": "Refresh",
+    "menu": "Menu",
+    "menu_title": "History",
+    "menu_refresh": "Refresh"
+}

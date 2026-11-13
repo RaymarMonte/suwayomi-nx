@@ -50,6 +50,10 @@ void keepScreenOn(bool on);
 // it from the applet messages, so it is cheap every frame; read-only). Desktop: true unless --simulate-docked. Main thread only.
 bool handheldMode();
 
+// The time zone at `utcSeconds` (WP-15): seconds east of UTC, for the Updates and History day headers ("Today"). Switch:
+// libnx's time service, timeToCalendarTimeWithMyRule (read only: it only converts). Desktop: localtime_r. 0 if unknown.
+std::int64_t utcOffsetSeconds(std::int64_t utcSeconds);
+
 // The applet-mode guard's screen (D21, SAFETY.md S12): shows `text` until any button, a new tap, an exit request or
 // `timeoutMs`, then returns. Switch: libnx's text console (a plain framebuffer: no GPU set-up, no fonts to load). Desktop:
 // prints the text and returns at once. `onShown`, if not nullptr, runs once right after the text is first on screen (test

@@ -384,7 +384,7 @@ TEST_CASE("library update (WP-15): start, poll until done by the timestamp rule,
     MESSAGE("library update: " << elapsedMs() << " ms, total " << status.total << ", skipped " << status.skippedManga);
     CHECK(phase == snx::core::UpdatePhase::Done);  // the timestamp moves even when every manga is skipped
     CHECK(status.lastUpdateMs != before.lastUpdateMs);
-    CHECK(status.total + status.skippedManga >= 156);
+    CHECK(status.total + status.skippedManga >= 157);  // 7 fixture series + the Big shelf
     CHECK(must(live->libraryUpdateStatus(true, CancelToken())).failed.empty());
     CHECK(must(live->stopLibraryUpdate(CancelToken())));  // nothing runs: still fine
 }

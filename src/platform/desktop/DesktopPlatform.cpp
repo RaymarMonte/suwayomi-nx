@@ -1,6 +1,7 @@
 #include <unistd.h>
 
 #include <csignal>
+#include <ctime>
 #include <cstdio>
 
 #include "platform/Platform.hpp"
@@ -92,6 +93,15 @@ void keepScreenOn(bool) {
 
 bool handheldMode() {
     return !gSimulateDocked;
+}
+
+std::int64_t utcOffsetSeconds(std::int64_t utcSeconds) {
+    const std::time_t when = static_cast<std::time_t>(utcSeconds);
+    std::tm local{};
+    if (localtime_r(&when, &local) == nullptr) {
+        return 0;
+    }
+    return local.tm_gmtoff;
 }
 
 bool showLaunchRefused(const char* text, int, void (*onShown)()) {

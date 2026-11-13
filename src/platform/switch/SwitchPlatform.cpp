@@ -85,6 +85,15 @@ bool handheldMode() {
     return appletGetOperationMode() == AppletOperationMode_Handheld;
 }
 
+std::int64_t utcOffsetSeconds(std::int64_t utcSeconds) {
+    TimeCalendarTime calendar;
+    TimeCalendarAdditionalInfo info;
+    if (utcSeconds < 0 || R_FAILED(timeToCalendarTimeWithMyRule(static_cast<u64>(utcSeconds), &calendar, &info))) {
+        return 0;
+    }
+    return info.timezoneOffset;
+}
+
 bool showLaunchRefused(const char* text, int timeoutMs, void (*onShown)()) {
     // S12: this runs in applet mode, where any crash is a system fatal. So: libnx's plain text console (a framebuffer, no
     // GPU set-up, no fonts), nothing that can abort, and if a step fails we skip the screen.
