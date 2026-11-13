@@ -17,6 +17,7 @@
   `gql::readManga(response)`). Documents: `graphql/*.graphql`, embedded at build time (`EmbedGraphql.cmake`), list in `Documents.hpp`.
 - `AppConfig.hpp` (WP-04): settings ↔ config.json text, `schemaVersion` + migration steps; loading never fails (defaults + `problems`).
 - `RuntimeProfile.hpp` (WP-04): `makeRuntimeProfile(mode, totalMem, usedMem, safeMode)` → every budget and limit (D12/D21).
+- `LibraryTools.hpp` (WP-24, D54): `likeEscape` (search text for the server's LIKE filter: `\`, `%`, `_` escaped with `\`), `trimText`, `utf8Length` / `utf8Cut`, `checkCategoryName` (None / Empty / TooLong / Taken, ASCII case and spaces ignored: the server checks almost nothing), `categoryChange(before, after)` (what to add and remove, never Default), `categoryPosition` (the server's 1-based order position). `Category::mangaCount`, `RuntimeProfile::searchMaxChars` / `categoryNameMaxChars`.
 - `RetryPolicy.hpp` (WP-05): `retryDelayMs` (doubling, capped), `shouldRetry` (idempotent + transient + retries left), `isTransientHttpStatus`.
 - `Version.hpp`, `LaunchOptions.hpp`, `RuntimeInfo.hpp`, `TestEvents.hpp` (WP-01/03): version, flags, launch mode, test events.
 - `SafePath.hpp`, `CrashRecord.hpp`, `TestConfig.hpp` (WP-03b): write-jail path rules, crash record format, test config.

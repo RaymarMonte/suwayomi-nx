@@ -1,17 +1,19 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-24** (Opus): planned 2026-11-13 (`wp/WP-24-library-tools.md`, owner's answers in D54), being built.
+**Phase 3 – Features. Now:** **WP-24** (Opus): built, desktop green; **the Switch runs are open** (owner readies the console).
 Done: WP-00a … 13, 13b, 13c, 13d, **15, 15b**, 22; **v0.2.0 released** (13…15b unreleased). Nice to have: WP-08b,
 17, 21, 26, last offline 18 / 18b (D51). From WP-13d: the console's longest strip frame is 31–32 ms (limit 34), not looked into.
-## Last session (2026-11-13, WP-15b, Opus) – done (desktop + Switch), committed
-- **Built (D53):** the waiting-save queue (`core/ProgressQueue` + `ui/reader/WaitingSaves`, `progress-queue.json` + `.bak`,
-  `ChapterState`, `lastReadAt` as the base, the readers' hand-off and take-over, reloads after a send, History's "page N not
-  saved yet"), B cancels "Opening…", fuzz `fuzz_progress_queue`; the harness treats the queue files like config.json.
-- **Tests:** unit, contract, fuzz (4 × 60 s), npm test + typecheck, integration (3 modes), all desktop e2e green
-  (`updates-history` ~107 s with both queue restarts); Switch build + gate PASS. CI for d7c5f75 / e145011 was green.
-- **Switch (owner present):** `updates-history` green (~280 s, 3 Switch goldens new; one run lost a touch to the console's
-  ECONNRESET habit, the rerun passed), and `library-browse`, `manga-details`, `resume-progress`, `reader-paged`,
-  `reader-webtoon`, `offline-errors` green. Numbers (D53): update 2.2 s, opens 47 / 74 ms, 20 tab rounds 59.5 -> 59.5 MiB.
-  Not measured: list scroll frames (no list frame report; 1-3 rows). Owner, optional: a save made while the real server is away.
+## Last session (2026-11-13, WP-24, Opus) – built, desktop green, Switch runs open
+- **Built (D54):** search of the whole library (Search button / MINUS, the search bar in place of the tabs, B or Clear ends
+  it), the Categories screen (Edit / MINUS: add, rename, move, delete with a question; names checked by the app), the
+  category picker (Y on a cover → Categories..., or the details screen's Categories button; saves only the difference),
+  `askText` + the test build's `text` command (`typedText` in the harness). Y on a cover is its menu now (Sort left Y).
+- **Found:** borealis's TabFrame replaces a B on a tab's root view; the clear-search B is on the bar and body (ui README).
+- **Tests:** unit + contract, npm test + typecheck, integration (3 modes, new case: escaping + a category's whole life),
+  all desktop e2e green incl. the new `library-tools` (desktop: actions 0.1–0.4 s, 10 Categories rounds +0.9 MiB).
+  `library-browse` reaches the now hidden Empty tab by Default → RIGHT ×4 → A; goldens updated (looked at).
+- **Open:** Switch runs `library-tools`, `library-browse`, `manga-details`, `touch-pass`, `updates-history` (then D54's
+  console numbers, ROADMAP row done). Known gap: a picker save from a details screen opened from Updates/History doesn't
+  tell the library; it shows after the next refresh (X).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

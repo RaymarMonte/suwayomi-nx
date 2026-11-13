@@ -222,15 +222,7 @@ LibraryTab::LibraryTab(app::AppContext& context) : context_(context) {
         }
         return true;
     });
-    // B clears a search; otherwise it does what it always did (available only while a search shows).
-    registerAction("library/clear_search"_i18n, brls::BUTTON_B, [this](brls::View*) {
-        if (model_ == nullptr || !model_->searching()) {
-            return false;
-        }
-        model_->clearSearch();
-        return true;
-    });
-    setActionAvailable(brls::BUTTON_B, false);
+    // B clears a search: setClearSearchAction (showSearchBar) adds it while a search shows.
     registerAction("library/refresh"_i18n, brls::BUTTON_X, [this](brls::View*) {
         refresh();
         return true;
@@ -422,6 +414,7 @@ void LibraryTab::rebuildCategories() {
     const auto& categories = model_->categories();
     for (std::size_t i = 0; i < categories.size(); ++i) {
         auto* button = new brls::Button();
+        button->setId("library/category-" + std::to_string(categories[i].id));  // named in "focus" test events
         button->setText(categories[i].name);
         button->setHeight(72);
         button->setPaddingLeft(14);
@@ -665,12 +658,45 @@ void LibraryTab::openPicker(std::size_t index) {
         }));
 }
 
+// B = "Clear search" while a search shows, else the TabFrame's "Back". The action sits on the bar and the body, not on this
+// view: the TabFrame registers its own B on the tab's root view after creating it, which replaces any B registered there.
+// Every focusable view of the tab is inside the bar or the body. It is added and removed rather than made unavailable:
+// borealis shows an unavailable action greyed in the hints, in place of "Back".
+void LibraryTab::setClearSearchAction(bool on) {
+    if (on == (clearOnBar_ != ACTION_NONE)) {
+        return;
+    }
+    if (on) {
+        auto clear = [this](brls::View*) {
+            if (model_ == nullptr || !model_->searching()) {
+                return false;  // on to the TabFrame's Back
+            }
+            // On the next frame: clearing removes this very action, and borealis is still running it now.
+            const std::weak_ptr<int> alive = alive_;
+            brls::sync([this, alive] {
+                if (!alive.expired() && model_ != nullptr) {
+                    model_->clearSearch();
+                }
+            });
+            return true;
+        };
+        clearOnBar_ = bar->registerAction("library/clear_search"_i18n, brls::BUTTON_B, clear);
+        clearOnBody_ = body->registerAction("library/clear_search"_i18n, brls::BUTTON_B, clear);
+    } else {
+        bar->unregisterAction(clearOnBar_);
+        body->unregisterAction(clearOnBody_);
+        clearOnBar_ = ACTION_NONE;
+        clearOnBody_ = ACTION_NONE;
+    }
+    brls::Application::getGlobalHintsUpdateEvent()->fire();
+}
+
 void LibraryTab::showSearchBar() {
     const bool searching = model_ != nullptr && model_->searching();
     if (searching) {
         searchLabel->setText(brls::getStr("library/search_label", model_->searchText()));
     }
-    setActionAvailable(brls::BUTTON_B, searching);
+    setClearSearchAction(searching);
     if (searching == searchBarShown_) {
         return;
     }

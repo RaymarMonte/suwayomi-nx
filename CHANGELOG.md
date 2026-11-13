@@ -6,6 +6,14 @@ with 0, any release may change things.
 ## [Unreleased]
 
 ### Added
+- **Search the library:** the new Search button (or MINUS → Search...) finds manga by title in your whole library, any
+  case. The results show in place of the category tabs; B or Clear ends the search.
+- **Manage categories:** Edit (or MINUS → Edit categories...) opens the Categories screen: add, rename, move up or down,
+  and delete categories (a delete asks first; its manga stay in your library). Default can't be changed. A name that is
+  empty, too long or already taken (any case) is refused with a note.
+- **Move a manga to other categories:** Y on a cover (it used to open Sort, which is now on its button and in the MINUS
+  menu) → Categories..., or the Categories button on a manga's page: tick the categories it belongs in and Save. You can
+  make a new category right there.
 - **Updates:** the chapters your server found for manga in your library, from the last 3 months, newest first and by day
   ("Today", "Yesterday", "Fri 13 Nov"). A tap reads the chapter, its cover opens the manga, X marks it read or unread.
   **Update library** asks the server to look for new chapters now, shows how far it got and then how many it found (the

@@ -92,19 +92,33 @@ export function touchesCommand(frames: TouchFrame[]): string {
     return JSON.stringify({ cmd: 'touches', frames });
 }
 
-/** Plays `frames` in the running app and waits until it has (its "command" event, which must say ok). */
-export async function playTouches(s: Scenario, frames: TouchFrame[]): Promise<AppEvent> {
+/** Writes the next command file and waits for its "command" event, which must say ok. */
+async function sendCommand(s: Scenario, body: string, what: string, timeoutMs: number): Promise<AppEvent> {
     const events = s.events;
     const id = nextCommand.get(events) ?? 1;
     nextCommand.set(events, id + 1);
     const mark = events.mark();
-    await s.driver.writeFile(`test/commands/${id}.json`, touchesCommand(frames));
-    const last = frames.at(-1)?.ms ?? 0;
-    const done = await events.waitForEvent('command', { id }, { from: mark, timeoutMs: 10_000 + last });
+    await s.driver.writeFile(`test/commands/${id}.json`, body);
+    const done = await events.waitForEvent('command', { id }, { from: mark, timeoutMs });
     if (done.ok !== true) {
-        throw new Error(`touch command ${id} failed: ${String(done.error ?? 'no reason given')}`);
+        throw new Error(`${what} command ${id} failed: ${String(done.error ?? 'no reason given')}`);
     }
     return done;
+}
+
+/** Plays `frames` in the running app and waits until it has (its "command" event, which must say ok). */
+export async function playTouches(s: Scenario, frames: TouchFrame[]): Promise<AppEvent> {
+    const last = frames.at(-1)?.ms ?? 0;
+    return sendCommand(s, touchesCommand(frames), 'touch', 10_000 + last);
+}
+
+/**
+ * WP-24: the app's next keyboard request (search, category names) answers `text` without opening the keyboard: the
+ * Switch's system keyboard can't be typed into. Send it before the tap that opens the keyboard. The commands share one
+ * numbering with playTouches.
+ */
+export async function typedText(s: Scenario, text: string): Promise<AppEvent> {
+    return sendCommand(s, JSON.stringify({ cmd: 'text', text }), 'text', 10_000);
 }
 
 /** Actions for readerAfter(): a played pinch, double tap, drag or flick. */

@@ -27,6 +27,8 @@ export const FOOTER = { back: { x: 1070, y: 683 } };
 
 /** The footer's clock (bottom left). On the Switch the same corner has battery and Wi-Fi. */
 export const CLOCK_MASK = { x: 0, y: 650, w: 420, h: 70, why: 'clock, battery, Wi-Fi' };
+/** WP-24: the Library's category tabs once scrolled (to Empty): the scroll stops a pixel apart from run to run. */
+export const SCROLLED_TABS_MASK = { x: 410, y: 80, w: 420, h: 92, why: 'category tabs scrolled by the focus' };
 
 /**
  * Desktop only: the "OK" hint of borealis's text dialog (the keyboard on the PC). A tap on it submits. Enter doesn't work
@@ -41,10 +43,13 @@ export const KEYBOARD_OK = { x: 937, y: 218 };
 export const LIBRARY = {
     categories: {
         default: { x: 481, y: 123 },
-        bigShelf: { x: 834, y: 123 },
-        empty: { x: 936, y: 123 },
+        reading: { x: 587, y: 123 },
+        longSeries: { x: 708, y: 123 },
+        bigShelf: { x: 815, y: 123 },  // partly hidden since WP-24 (Search, Edit); Empty is off-screen: RIGHT from here
     },
-    sort: { x: 1090, y: 123 },
+    sort: { x: 918, y: 123 },
+    search: { x: 1032, y: 123 },  // WP-24
+    edit: { x: 1120, y: 123 },  // WP-24: the Categories screen
     refresh: { x: 1211, y: 123 },
     /** The sort menu (borealis dropdown): Title, Unread, Last read. */
     sortMenu: { unread: { x: 640, y: 516 } },
@@ -100,7 +105,8 @@ export const UPDATES = {
  */
 export const MANGA = {
     continue: { x: 228, y: 343 },
-    description: { x: 228, y: 450 },
+    categories: { x: 228, y: 427 },  // WP-24: "Categories: …" opens the category picker
+    description: { x: 228, y: 540 },  // below the Categories button since WP-24
     sort: { x: 942, y: 123 },
     filter: { x: 1100, y: 123 },
     refresh: { x: 1211, y: 123 },
@@ -119,6 +125,33 @@ export const MANGA = {
     menuEntry(index: number, count: number): { x: number; y: number } {
         return { x: 640, y: 576 - 60 * (count - 1 - index) };
     },
+};
+
+/**
+ * WP-24: the Categories screen (Library -> Edit) and the category picker (manga details -> Categories). Both: a note and
+ * buttons on top, then a one-column list; the row menus are borealis dropdowns (MANGA.menuEntry).
+ */
+export const CATEGORIES = {
+    add: { x: 1169, y: 136 },
+    /** The middle of row `index` (a tap opens its menu: Rename, Move up, Move down, Delete). */
+    row(index: number): { x: number; y: number } {
+        return { x: 640, y: 224 + 84 * index };
+    },
+};
+
+export const PICKER = {
+    newCategory: { x: 1041, y: 136 },
+    save: { x: 1167, y: 136 },
+    /** The middle of row `index` (a tap ticks or unticks it). */
+    row(index: number): { x: number; y: number } {
+        return { x: 640, y: 224 + 84 * index };
+    },
+};
+
+/** A borealis dialog with two buttons (WP-24's delete question): Cancel on the left, the action on the right. */
+export const DIALOG = {
+    cancel: { x: 460, y: 456 },
+    confirm: { x: 820, y: 456 },
 };
 
 /**

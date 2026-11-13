@@ -409,6 +409,70 @@ TEST_CASE("library update (WP-15): start, poll until done by the timestamp rule,
     CHECK(must(live->stopLibraryUpdate(CancelToken())));  // nothing runs: still fine
 }
 
+TEST_CASE("library tools (WP-24, D54): search with LIKE characters; a category's whole life; the server's own checks") {
+    Live live;
+    // A run that failed half-way may have left its test category: it goes first.
+    for (const snx::core::Category& c : must(live->manageCategories(CancelToken()))) {
+        if (c.name.rfind("WP-24", 0) == 0) must(live->deleteCategory(c.id, CancelToken()));
+    }
+
+    // Search: the whole library, any case; "%" and "_" are plain characters (escaped), not wildcards.
+    CHECK(titles(must(live->searchLibrary("ALP", 0, CancelToken()))) == std::vector<std::string>{"Alpha"});
+    CHECK(must(live->searchLibrary("a_p", 0, CancelToken())).nodes.empty());  // "_" as a wildcard would find "alp"
+    CHECK(must(live->searchLibrary("%", 0, CancelToken())).nodes.empty());    // "%" as a wildcard would find all
+    CHECK(titles(must(live->searchLibrary("日本語", 0, CancelToken()))) == std::vector<std::string>{"日本語タイトル テスト"});
+    const auto shelf = must(live->searchLibrary("shelf", 0, CancelToken()));  // pages of libraryPageSize, by title
+    CHECK(shelf.totalCount == 150);
+    CHECK(shelf.hasNextPage);
+    REQUIRE(shelf.nodes.size() == 60);
+    CHECK(shelf.nodes.front().title == "Shelf 001");
+    CHECK(must(live->searchLibrary("shelf", 2, CancelToken())).nodes.size() == 30);
+
+    // The Categories screen's list: Default first, then the seed with each one's manga count.
+    const std::vector<snx::core::Category> before = must(live->manageCategories(CancelToken()));
+    REQUIRE(before.size() == kCategories);
+    CHECK(before[0].isDefault);
+    CHECK(before[1].name == "Reading");
+    CHECK(before[1].mangaCount == 3);
+    CHECK(before[3].mangaCount == 150);
+    CHECK(before[4].mangaCount == 0);
+
+    // The server refuses only an exact duplicate (the app checks the rest itself, D54).
+    const ApiError duplicate = mustFail(live->createCategory("Reading", CancelToken()));
+    CHECK(duplicate.kind == ApiErrorKind::Server);
+
+    // Create -> rename -> move to the front -> Alpha into it -> delete: Alpha stays in the library, in Reading.
+    const snx::core::Category made = must(live->createCategory("WP-24 test", CancelToken()));
+    CHECK(made.name == "WP-24 test");
+    CHECK(made.order == 5);
+    const snx::core::Category renamed = must(live->renameCategory(made.id, "WP-24 renamed", CancelToken()));
+    CHECK(renamed.id == made.id);
+    CHECK(renamed.name == "WP-24 renamed");
+    const std::vector<snx::core::Category> moved = must(live->moveCategory(made.id, 1, CancelToken()));
+    std::vector<std::string> order;
+    for (const auto& c : moved) {
+        if (!c.isDefault) order.push_back(c.name);
+    }
+    CHECK(order == std::vector<std::string>{"WP-24 renamed", "Reading", "Long series", "Big shelf", "Empty"});
+
+    const int alpha = libraryId(live, "Alpha");
+    const std::vector<snx::core::Category> in = must(live->setMangaCategories(alpha, {made.id, 0}, {}, CancelToken()));
+    std::vector<int> ids;
+    for (const auto& c : in) ids.push_back(c.id);
+    std::sort(ids.begin(), ids.end());
+    CHECK(ids == std::vector<int>{before[1].id, made.id});  // Reading kept, the new one added, id 0 left out
+
+    CHECK(must(live->deleteCategory(made.id, CancelToken())) == 1);  // it had one manga
+    const std::vector<snx::core::Category> after = must(live->manageCategories(CancelToken()));
+    REQUIRE(after.size() == kCategories);
+    CHECK(after[1].name == "Reading");
+    CHECK(after[1].order == 1);  // the server renumbers after a delete
+    CHECK(titles(must(live->library(before[1].id, 0, CancelToken()))) ==
+          std::vector<std::string>{"Alpha", "Beta RTL", "Epsilon Weekly"});
+    const ApiError gone = mustFail(live->deleteCategory(made.id, CancelToken()));  // already gone: no category deleted
+    CHECK(gone.kind == ApiErrorKind::Server);
+}
+
 TEST_CASE("errors from the real server: unknown id, wrong sub-path, nobody listening") {
     Live live;
     CHECK(mustFail(live->manga(999999, CancelToken())).kind == ApiErrorKind::Server);

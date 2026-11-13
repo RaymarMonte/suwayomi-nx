@@ -60,6 +60,7 @@ class LibraryTab : public brls::Box, private GridSource {
     void openCoverMenu(std::size_t index);
     void openPicker(std::size_t index);
     void showSearchBar();
+    void setClearSearchAction(bool on);  // B = "Clear search" on the bar and the body, only while a search shows
     void report();  // the "library" test event when what the tab shows changed
 
     BRLS_BIND(brls::Box, bar, "library/bar");
@@ -94,6 +95,8 @@ class LibraryTab : public brls::Box, private GridSource {
     bool moreFailedShown_ = false;
     std::string shownSearch_;  // the search on screen ("" = none)
     bool searchBarShown_ = false;
+    brls::ActionIdentifier clearOnBar_ = ACTION_NONE;   // setClearSearchAction's actions (ACTION_NONE = not there)
+    brls::ActionIdentifier clearOnBody_ = ACTION_NONE;
     std::string reported_;
 };
 

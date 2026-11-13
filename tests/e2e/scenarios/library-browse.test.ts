@@ -14,7 +14,7 @@ import { expect } from 'vitest';
 import type { AppEvent } from '../lib/events.ts';
 import { flickUntil, inputInLoop } from '../lib/library.ts';
 import { scenario, type Scenario } from '../lib/scenario.ts';
-import { CLOCK_MASK, LIBRARY } from '../lib/screens.ts';
+import { CLOCK_MASK, LIBRARY, SCROLLED_TABS_MASK } from '../lib/screens.ts';
 import { appServerUrl, optionsFromEnv, SuwayomiClient } from '../lib/suwayomi.ts';
 
 const MiB = 1024 * 1024;
@@ -143,12 +143,27 @@ scenario('library-browse', async (s) => {
     expect(unread).toMatchObject({ category: info.shelf, items: 150, total: 150 });
     await s.events.waitForEvent('idle', {}, { from: mark });
 
-    // Touch: the Empty category.
+    // The Empty category: its tab is off-screen since WP-24 (Search and Edit take the room). A tap on the Default tab (always
+    // in view) opens Default and gives its tab the focus; RIGHT walks to Empty (the tabs scroll along), A opens it. One press
+    // at a time until the Empty tab has the focus: a press during the focus move can get lost (seen once on desktop).
     mark = s.events.mark();
-    await s.driver.touch(LIBRARY.categories.empty.x, LIBRARY.categories.empty.y);
+    await s.driver.touch(LIBRARY.categories.default.x, LIBRARY.categories.default.y);
+    await s.events.waitForEvent('library', { state: 'ready', category: 0 }, { from: mark });
+    await s.events.waitForEvent('idle', {}, { from: mark });
+    const emptyTab = `library/category-${info.empty}`;
+    const focusedView = () => String(s.events.events.filter((e) => e.ev === 'focus').at(-1)?.view ?? '');
+    for (let i = 0; i < 8 && !focusedView().includes(emptyTab); i++) {
+        mark = s.events.mark();
+        if (!(await inputInLoop(s, () => s.driver.press('RIGHT')))) continue;
+        const moved = await s.events.waitForEvent('focus', {}, { from: mark, timeoutMs: 3_000 }).then(() => true, () => false);
+        if (moved) await s.events.waitForEvent('idle', {}, { from: mark });
+    }
+    expect(focusedView(), 'RIGHT reached the Empty tab').toContain(emptyTab);
+    mark = s.events.mark();
+    await s.driver.press('A');
     await s.events.waitForEvent('library', { state: 'empty', category: info.empty }, { from: mark });
     await s.events.waitForEvent('idle', {}, { from: mark });
-    await s.expectGolden('empty', { masks: [CLOCK_MASK] });
+    await s.expectGolden('empty', { masks: [CLOCK_MASK, SCROLLED_TABS_MASK] });
 
     s.expectNoErrorEvents();
     await s.driver.quit();
@@ -163,7 +178,7 @@ scenario('library-browse', async (s) => {
 
 /**
  * The buttons desktop borealis can't press (its keyboard map has only A, B, X and the D-pad), so the Switch only: R and L
- * step through the categories (Big shelf -> Empty -> Big shelf), Y opens the sort menu and MINUS the library menu (the focus
+ * step through the categories (Big shelf -> Empty -> Big shelf), Y opens the cover's menu (WP-24, D54; it was Sort) and MINUS the library menu (the focus
  * leaves the covers), B closes each and the focus is back on a cover. Starts and ends on the Big shelf, focus on a cover.
  */
 async function buttons(s: Scenario, info: ShelfInfo): Promise<void> {

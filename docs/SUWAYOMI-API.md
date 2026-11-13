@@ -131,6 +131,24 @@ The owner's own server runs the same version (v2.4.2366 Stable, checked 2026-10-
 - `fetchMangaAndChapters` needs both `fetchManga` and `fetchChapters` (required, though deprecated). After a chapter's
   folder is removed it drops that chapter (a test can undo a "new chapter").
 
+## Search and categories ✅ (test server v2.4.2366, 2026-11-13, for WP-24, D54)
+- **Search the library:** `LibraryByCategory` with `filter: {title: {includesInsensitive: $q}}` instead of the category
+  filter, so no new document. It works across categories and on non-ASCII titles ("日本" finds the Japanese one). **Trap:**
+  `%` and `_` are SQL wildcards ("%" matched all 157, "a_p" matched Alpha). A backslash escapes them: the app escapes `\`,
+  `%` and `_` (`core::likeEscape`).
+- `createCategory(input: {name})` appends it (order = last + 1). Only an exact duplicate is refused ("'name' must be
+  unique", with a long Java stack trace in the message); **an empty name, one of spaces, or one differing only in case is
+  accepted**. **`updateCategory(input: {id, patch: {name}})` checks nothing**: it accepts a taken name and renames Default
+  (id 0). So the app checks names itself (`core::checkCategoryName`) and never offers Default.
+- `updateCategoryOrder(input: {id, position})` answers every category in the new order. `position` is 1-based among the
+  categories after Default (Default keeps order 0); 0 is refused, past the end moves it to the end, Default doesn't move.
+- `deleteCategory(input: {categoryId})` → `category { id }`, `mangas { id }`. Its manga stay in the library (one in no
+  other category is then in Default); the others' `order` is renumbered 1..n. Deleting id 0 or a gone id answers
+  `category: null` and does nothing.
+- `updateMangaCategories(input: {id, patch: {addToCategories, removeFromCategories, clearCategories}})` → `manga {
+  categories { nodes { id name order } } }`. Adding 0 is ignored; an unknown id fails (a foreign-key error).
+- A category's `mangas { totalCount }` counts its library manga (Default: the ones in no category).
+
 The best reference for real query shapes is **Suwayomi-WebUI**'s GraphQL documents (TypeScript). Copy the *shape*, not the code.
 
 ## Useful for tests ✅

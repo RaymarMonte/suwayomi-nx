@@ -1125,7 +1125,7 @@ another device).
   taken ignoring case): the server accepts empty names and renames to a taken name (checked).
 - **Deleting a category keeps its manga** in the library (the server's own behaviour; a manga in no other category is in
   Default); a confirm box says how many manga it holds.
-- **Y on a cover opens its menu** ("Categories...", "Open"); Sort leaves Y for the MINUS menu and the Sort button. This
+- **Y on a cover opens its menu** ("Open", "Categories..."); Sort leaves Y for the MINUS menu and the Sort button. This
   amends D42's buttons (owner OK, 2026-11-13). One manga at a time: no select mode.
 - **The picker** is a checklist (a manga can be in several categories; none = Default) that saves only the difference in
   one `updateMangaCategories`; WP-14 reuses it to choose categories for a manga it adds.

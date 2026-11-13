@@ -74,26 +74,26 @@ STATUS.md; `src/ui/README.md`; `src/ui/library/*.hpp`, `src/ui/manga/*.hpp`; `sr
 command channel); `tests/e2e/README.md`. The .cpp of the screens it changes (LibraryTab, MangaActivity, MainActivity).
 
 ## Deliverables
-- [ ] core: `LibraryTools.hpp` (`likeEscape`, `trimText`, `utf8Length`, `checkCategoryName` → None / Empty / TooLong /
+- [x] core: `LibraryTools.hpp` (`likeEscape`, `trimText`, `utf8Length`, `checkCategoryName` → None / Empty / TooLong /
       Taken, `categoryChange(before, after)` → add / remove without Default, `categoryPosition(categories, id, step)` → the
       server's 1-based position or 0); `Category::mangaCount`; `RuntimeProfile::searchMaxChars`, `categoryNameMaxChars`.
       Tests `test_core_library_tools.cpp`.
-- [ ] core GraphQL: `gql::librarySearch` (LibraryByCategory with the title filter), documents `ManageCategories` (with
+- [x] core GraphQL: `gql::librarySearch` (LibraryByCategory with the title filter), documents `ManageCategories` (with
       counts), `CreateCategory`, `UpdateCategory`, `UpdateCategoryOrder`, `DeleteCategory`, `UpdateMangaCategories`, their
       builders and readers (the server's long error text is cut as today). Contract test green; recorded answers or
       hand-built ones in the tests.
-- [ ] api: `searchLibrary(text, page)`, `manageCategories()`, `createCategory(name)`, `renameCategory(id, name)`,
+- [x] api: `searchLibrary(text, page)`, `manageCategories()`, `createCategory(name)`, `renameCategory(id, name)`,
       `moveCategory(id, position)`, `deleteCategory(id)`, `setMangaCategories(mangaId, add, remove)` (mutations never
       repeated). Tests in `test_api_client.cpp`.
-- [ ] ui models: `LibraryModel` search + `mangaCategoriesChanged`; `CategoriesModel`; `CategoryPickerModel` (with the choose
+- [x] ui models: `LibraryModel` search + `mangaCategoriesChanged`; `CategoriesModel`; `CategoryPickerModel` (with the choose
       seam). Tests `test_ui_library.cpp`, new `test_ui_categories.cpp` (loading, Failed + retry, every action, busy,
       name problems, destroyed while loading).
-- [ ] ui views: LibraryTab (Search / Edit buttons, the search bar, Y cover menu, B clears, MINUS menu: Go to category, Sort,
+- [x] ui views: LibraryTab (Search / Edit buttons, the search bar, Y cover menu, B clears, MINUS menu: Go to category, Sort,
       Search, Categories, Refresh), CategoriesActivity, CategoryPickerActivity, MangaActivity's Categories button + MINUS
       entry, `AskText`. Layouts in `resources/xml/`, texts in `resources/i18n/en-US/`. Touch targets ≥ 72 px (D16).
-- [ ] Test events: `library` gains `search`; `categories` (the rows); `category_picker` (rows, checked, state);
+- [x] Test events: `library` gains `search`; `categories` (the rows); `category_picker` (rows, checked, state);
       `category_action` (what, ok, problem). The `text` command in TestHooks (test builds only).
-- [ ] Integration (`tests/integration/`, all 3 auth modes): search (escaping), create → rename → move → set a manga's
+- [x] Integration (`tests/integration/`, all 3 auth modes): search (escaping), create → rename → move → set a manga's
       categories → delete, each checked by a query; it cleans up after itself.
 - [ ] Desktop + Switch e2e `library-tools`: a known state first (`lib/categories.ts`: the seed's categories, order and
       memberships back by GraphQL), search "alp" → Alpha (golden `search-results`), "zzz" → empty, Clear; Edit →
@@ -112,6 +112,16 @@ command channel); `tests/e2e/README.md`. The .cpp of the screens it changes (Lib
   `touch-pass`, `updates-history` green. Numbers (D54): search results on screen ≤ 1.5 s after the text is in (157 manga),
   the picker ready ≤ 1 s, each category action answered ≤ 1 s, memory flat (+< 16 MiB) after 10 rounds of Categories
   screen open / close.
+
+## Notes from building (2026-11-13)
+- Not split: the Categories screen is in. The e2e golden is `search` (not `search-results`); B ends the search in the
+  scenario (Clear is the same call). The details screen's button text ("Categories: a, b") has no event; the picker golden
+  and the server checks cover the save. The Long series tab is checked by its count (2 → 3 → 2 on the Switch).
+- borealis's TabFrame registers its own B on a tab's root view after creating it, which replaced LibraryTab's: the
+  clear-search B sits on the bar and the body, added only while a search shows (an unavailable action shows greyed in the
+  hints instead of "Back"), and clears on the next frame (it removes itself).
+- Known gap: a picker save from a details screen opened from Updates or History doesn't tell the library; the library
+  shows it after the next refresh (X).
 
 ## Split point
 If it runs long: **the Categories screen** (add, rename, reorder, delete) moves to WP-24b. Search, the picker and Y on a

@@ -33,7 +33,7 @@
    for those, never for time (`tests/e2e/scenarios/library-browse.test.ts`; touch coordinates in `tests/e2e/lib/screens.ts`).
 
 **Screens:** `main/MainActivity` (tab frame, always the first screen, the connection check, owns the library model; `SettingsTab`,
-`CrashLogsActivity`), `library/LibraryTab` (categories, sort, refresh, the cover grid), `manga/MangaActivity` (details + chapter list, WP-10,
+`CrashLogsActivity`), `library/LibraryTab` (categories, sort, refresh, the cover grid; WP-24, D54: Search (the search bar takes the tabs' place, B or Clear ends it, `LibraryModel::search` shows the results as the shelf `kSearchShelf`), Edit, Y on a cover = its menu (Open, Categories...), `mangaCategoriesChanged` after a picker save), `manga/MangaActivity` (details + chapter list, WP-10,
 D43: `MangaModel` holds the list, sort, filter, Continue and the actions), `reader/ReaderActivity` (the paged reader, WP-11,
 D44: `ReaderModel` holds the pages, the prefetch window, chapter changes and the progress saves; `ReaderView` draws the page
 from its tiles and turns touch into taps, drags and swipes; full screen, the menu on A or a tap in the middle, settings on
@@ -61,7 +61,7 @@ header; `ChapterRowsModel` pages the rows, `LibraryUpdater` starts, polls and st
 all three, D42, and reloads the lists when a screen on top closes; B cancels "Opening...", History notes "page N not saved
 yet", WP-15b), `reader/WaitingSaves` (WP-15b, D53: the waiting-save queue: progress saves that failed as a reader closed,
 `progress-queue.json`, rounds after the main screen's check / any server answer / a back-off timer, the readers' take-over;
-no borealis, its clock, timers and test event come in as hooks; tests `test_ui_queue.cpp`), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
+no borealis, its clock, timers and test event come in as hooks; tests `test_ui_queue.cpp`), `categories/CategoriesActivity` (WP-24, D54: add, rename, move, delete; Default isn't listed; `CategoriesModel`, a delete asks first), `categories/CategoryPickerActivity` (a manga's categories as a checklist; `CategoryPickerModel` saves only the difference, `chosen()` is the seam WP-14 reuses), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
 `crash/CrashActivity` (the crash screen, S1), `diagnostics/DiagnosticsActivity` (test builds only: WP-05's server check + request
 burst, WP-07's image benchmark).
 
@@ -70,7 +70,7 @@ burst, WP-07's image benchmark).
 when the console has none), `checkServer()` (version + categories when a login is configured, D40), `CoverGrid` + `GridCell` +
 `GridSource` (the recycling grid, D42; one column makes it a list, as on the manga screen; `rebind()` redraws rows in place)
 and `GridLayout` (its arithmetic, in `snx_ui_models`), `CoverImage` (a cover of fixed size: cache first, texture lease,
-WP-10), `fitLines()` (`TextFit.hpp`: text cut to N lines with "…").
+WP-10), `fitLines()` (`TextFit.hpp`: text cut to N lines with "…"), `askText()` (WP-24: the keyboard for one line of text, answered on the main thread; a test build takes the text from the `text` command instead, since the Switch keyboard can't be typed into).
 
 **Threading:** main thread only. Results arrive through `brls::sync` (the client's and loader's `deliver`).
 
@@ -78,6 +78,8 @@ WP-10), `fitLines()` (`TextFit.hpp`: text cut to N lines with "…").
 focusable; a `Label` under the focused view scrolls forever when its text is a hair wider than its box (a running animation:
 the app is never `idle`), so turn `setAutoAnimate(false)` on for labels that sit under a focusable full-screen view.
 A box skips drawing a leaf child that lies outside any parent's `getCullingBounds` (WP-22: the turned reader widens its own).
+A TabFrame registers its own B ("Back") on each tab's root view after creating it, which replaces a B the tab registered
+there: register a tab's own B on views inside it (WP-24: `LibraryTab`'s bar and body) and return false to pass B on.
 borealis reads the mouse button once a frame, so a desktop tap shorter than a stalled frame (a config save) is lost.
 
 **Tests:** models in `tests/unit/test_ui.cpp`, `test_ui_library.cpp`, `test_ui_manga.cpp`, `test_ui_reader.cpp` and `test_ui_strip.cpp`, `test_ui_updates.cpp` (suite

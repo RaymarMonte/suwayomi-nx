@@ -100,6 +100,12 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
   under way, nothing on screen loading) and on every chapter change. `progress` adds `spot` in the strip; `gesture` adds the
   kinds `fling`, `glide` and `scroll` (held D-pad, sticks) and `top`. The strip counts as busy for `idle` while it moves or a
   page on screen loads.
+- WP-24 (D54): `library` gains `search` (the search text, or null) and `titles` (the first 10 titles shown); `categories`
+  (the Categories screen shows something new: `state` loading/ready/empty/failed, `rows` [{`id`, `name`, `count`}] without
+  Default, `changed`); `category_action` (`action` add/rename/move/delete, `ok`, `id`, or `problem` empty/too_long/taken
+  when the app refused the name without asking the server); `category_picker` (`state` ready/failed/saving/saved, `manga`,
+  `rows` [{`id`, `name`, `checked`}], once saved `saved` = the ids and `sent` = whether a request went); `dialog` (`text` of
+  a question, e.g. a delete); `screen` `Categories` and `CategoryPicker` (`params.id` = the manga).
 - `idle` is emitted when there are no pending net/decode jobs (`http.inFlight()`, `images.activeJobs()`, WP-08) and no running animations (borealis's running tickings) for 3 frames in a row,
   once per quiet spell: again only after something was busy, a new `screen` came, or (WP-10) any other event a screen
   writes (`library`, `manga`, `chapter_action`, ...: on the console an answer can arrive within one frame, so the app never
@@ -196,6 +202,10 @@ interface Driver {
   `tests/e2e/lib/touches.ts` (`map` = `portraitPoint` for portrait). The strip's page codes: `codesOnScreen()` (every code
   on screen with its place, the screenshot turned upright) and `middleCode()` (the one nearest the middle line) in
   `lib/reader.ts`. The real two-finger path is checked by the owner's hands on the console.
+- **Text command (WP-24, both drivers, test builds only):** the Switch's system keyboard can't be typed into, so
+  `{"cmd":"text","text":"Test shelf"}` on the same channel (same numbering) stores a text, and the app's next keyboard request
+  (search, a category name: `askText`) takes it instead of opening the keyboard. Send it before the tap that asks:
+  `typedText(s, text)` in `lib/touches.ts`. The real keyboard is checked once on desktop (`typeText` + `KEYBOARD_OK`).
   Checked in WP-00 with the borealis demo (Xvfb, and the owner's mouse in WSLg):
   - Start it from its build folder (it loads `./resources`). Under Xvfb set `XDG_SESSION_TYPE=x11` and unset `WAYLAND_DISPLAY`: GLFW tries
     Wayland first and otherwise opens on the WSLg screen even with `DISPLAY=:99`. Mesa renders in software there, which is fine at 1280×720.
@@ -274,8 +284,9 @@ Initial list, grown per UI WP:
 1. `smoke` – app starts with the test server, reaches Library connected (`server_check`), `idle`, golden, Settings by touch, no `error` events, no crash reports (WP-08)
 2. `setup-first-run` – no config → Setup screen → (desktop: tap the field, type the URL; Switch: `showSetup`) → Continue → Library; a restart skips setup (WP-08)
 3. `auth-matrix` – none / basic (+ wrong password → Setup) / ui_login (login, renewal after the 20 s JWT, logout → login screen, restart on saved tokens), restarting the test server per mode (WP-08)
-4. `library-browse` – Default's covers (golden), tap the Big shelf tab (golden), tap a cover → Manga → B back, D-pad to the last row (pages load 60 → 120 → 150) and back, two more passes by flicking; memory flat over the 3 passes (`mem`), no cover downloaded twice, no cover loaded for an item that never had a cell (`image` vs `grid`); X refresh; Sort → Unread by touch; the Empty tab (golden); a restart keeps category and sort (WP-09). The 300-chapter list is WP-10's.
+4. `library-browse` – Default's covers (golden), tap the Big shelf tab (golden; since WP-24 the Empty tab is reached by tapping Default, RIGHT ×4, A), tap a cover → Manga → B back, D-pad to the last row (pages load 60 → 120 → 150) and back, two more passes by flicking; memory flat over the 3 passes (`mem`), no cover downloaded twice, no cover loaded for an item that never had a cell (`image` vs `grid`); X refresh; Sort → Unread by touch; the Empty tab (golden); a restart keeps category and sort (WP-09). The 300-chapter list is WP-10's.
 4b. `manga-details` – Alpha: details + the long description open/closed (goldens), tap a chapter → the reader at the right chapter/page (a stand-in until WP-11), X read/unread, a row's "..." menu read/unread/bookmark, Show bookmarked, each checked on the server via GraphQL; Delta Big: 300 chapters load, Sort oldest, "Mark all before as read" on ch 4 = exactly 1–3 on the server, Show unread (golden), Continue → ch 4, progress saved on the server shows after Refresh and Continue opens that page; Switch: Y and MINUS menus (WP-10)
+4c. `library-tools` (WP-24, D54) – search "alp" → Alpha in the whole library (golden `search`; desktop types into the real dialog once, otherwise the text command), "zzz" → the search-empty message, B ends the search; Edit → Categories (golden `categories`): Add "Test shelf", " reading " refused as taken, Rename, Move up, Delete after its question (golden `dialog`), the server back at the seed; Alpha → Categories: Reading ticked, tick Long series, Save (golden `picker`), the server has both; 10 rounds Categories open / close (memory + < 16 MiB). Switch: Y on a cover → Categories... → untick → Save, MINUS → Search..., and the times (search ≤ 1.5 s, picker ≤ 1 s, actions ≤ 1 s). `lib/categories.ts` puts the seed back at the end, also after a failure.
 5. `reader-paged` – Alpha ch1 (goldens page, menu, end; WP-13: it first waits for the launch's config save): left to right through the settings menu, pages 2–10 by D-pad, taps on the right edge (one slides 20 units: still a tap, D46) and swipes, the colour code confirms each page; the last page marks ch1 read on the server (GraphQL); the "next chapter" screen, ch2 at once (prefetched), back to ch1's last page; fit width (1280 × 1920); 100 page turns with memory flat (growth < 16 MiB after turn 20) and the prefetched turn time (console: 90th percentile < 150 ms, D17); B → the details screen shows the progress; a restart keeps Alpha's direction and fit (WP-11)
 6. `reader-rtl-spread` – Beta RTL ch1, right to left (the default): LEFT, a tap on the left edge and a swipe to the right go forward, RIGHT and the right edge back; page 4 is reported as a spread and shown whole at 960 × 720 (golden); the "next chapter" screen (WP-11)
 6b. `reader-portrait` (WP-22, D46) – Alpha ch1 turned to portrait: Y (desktop: the menu's Rotate, the desktop can't press Y
