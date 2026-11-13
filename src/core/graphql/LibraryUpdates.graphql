@@ -1,0 +1,19 @@
+# The Updates tab (WP-15): the library's chapters, the most recently found first. The app keeps only the new ones
+# (fetchedAt later than the manga's inLibraryAt, core::isNewChapter): a filter can't compare two fields. fetchedAt and
+# inLibraryAt are seconds.
+query LibraryUpdates($first: Int!, $offset: Int!) {
+  chapters(
+    filter: { inLibrary: { equalTo: true } }
+    order: [{ by: FETCHED_AT, byType: DESC }, { by: SOURCE_ORDER, byType: DESC }]
+    first: $first
+    offset: $offset
+  ) {
+    nodes {
+      id mangaId name chapterNumber sourceOrder uploadDate
+      isRead isBookmarked lastPageRead pageCount lastReadAt fetchedAt
+      manga { id title thumbnailUrl inLibraryAt }
+    }
+    totalCount
+    pageInfo { hasNextPage }
+  }
+}

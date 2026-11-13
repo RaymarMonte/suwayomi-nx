@@ -1,0 +1,7 @@
+# "Update library" (WP-15): the server looks for new chapters in the whole library (its categories' include / exclude
+# apply). Its own answer is the previous job's status, so the app asks for nothing in it and polls LibraryUpdateStatus.
+mutation UpdateLibrary {
+  updateLibrary(input: {}) {
+    clientMutationId
+  }
+}

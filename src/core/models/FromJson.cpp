@@ -1,6 +1,7 @@
 #include "core/models/FromJson.hpp"
 
 #include <string>
+#include <utility>
 
 #include "core/StripMath.hpp"
 
@@ -99,6 +100,7 @@ Result<Chapter> fromJson<Chapter>(const nlohmann::json& node) {
     chapter.lastPageRead = json::int32(node, "lastPageRead").value_or(0);
     chapter.pageCount = json::int32(node, "pageCount").value_or(-1);
     chapter.lastReadAt = json::int64(node, "lastReadAt").value_or(0);
+    chapter.fetchedAt = json::int64(node, "fetchedAt").value_or(0);
     if (const nlohmann::json* meta = json::array(node, "meta")) {
         for (const nlohmann::json& entry : *meta) {
             if (entry.is_object() && json::string(entry, "key").value_or("") == kStripSpotKey) {
@@ -148,6 +150,7 @@ Result<Manga> fromJson<Manga>(const nlohmann::json& node) {
     if (const nlohmann::json* chapter = json::object(node, "lastReadChapter")) {
         manga.lastReadAt = json::int64(*chapter, "lastReadAt").value_or(0);
     }
+    manga.inLibraryAt = json::int64(node, "inLibraryAt").value_or(0);
     return manga;
 }
 
@@ -216,6 +219,59 @@ Result<LoginTokens> fromJson<LoginTokens>(const nlohmann::json& node) {
         return Result<LoginTokens>::fail(ErrorKind::Parse, "the login answer has no access token");
     }
     return tokens;
+}
+
+template <>
+Result<ChapterEntry> fromJson<ChapterEntry>(const nlohmann::json& node) {
+    Result<Chapter> chapter = fromJson<Chapter>(node);
+    if (!chapter.ok()) {
+        return chapter.error();
+    }
+    ChapterEntry entry;
+    entry.chapter = std::move(chapter).value();
+    if (const nlohmann::json* manga = json::object(node, "manga")) {
+        if (auto parsed = fromJson<Manga>(*manga)) {
+            entry.manga = std::move(parsed).value();
+        }
+    }
+    if (entry.manga.id == 0) {
+        entry.manga.id = entry.chapter.mangaId;
+    }
+    if (entry.chapter.mangaId == 0) {
+        entry.chapter.mangaId = entry.manga.id;
+    }
+    return entry;
+}
+
+template <>
+Result<LibraryUpdateStatus> fromJson<LibraryUpdateStatus>(const nlohmann::json& node) {
+    if (!node.is_object()) {
+        return notAnObject<LibraryUpdateStatus>("the library update status");
+    }
+    const nlohmann::json* status = json::object(node, "libraryUpdateStatus");
+    const nlohmann::json* jobs = status ? json::object(*status, "jobsInfo") : nullptr;
+    if (!jobs) {
+        return Result<LibraryUpdateStatus>::fail(ErrorKind::Parse, "libraryUpdateStatus has no \"jobsInfo\"");
+    }
+    LibraryUpdateStatus out;
+    out.running = json::boolean(*jobs, "isRunning").value_or(false);
+    out.total = json::int32(*jobs, "totalJobs").value_or(0);
+    out.finished = json::int32(*jobs, "finishedJobs").value_or(0);
+    out.skippedManga = json::int32(*jobs, "skippedMangasCount").value_or(0);
+    out.skippedCategories = json::int32(*jobs, "skippedCategoriesCount").value_or(0);
+    if (const nlohmann::json* last = json::object(node, "lastUpdateTimestamp")) {
+        out.lastUpdateMs = json::int64(*last, "timestamp").value_or(0);
+    }
+    if (const nlohmann::json* updates = json::array(*status, "mangaUpdates")) {
+        for (const nlohmann::json& update : *updates) {
+            if (!update.is_object() || json::string(update, "status").value_or("") != "FAILED") {
+                continue;
+            }
+            const nlohmann::json* manga = json::object(update, "manga");
+            out.failed.push_back(manga ? json::string(*manga, "title").value_or("") : std::string());
+        }
+    }
+    return out;
 }
 
 }  // namespace snx::core

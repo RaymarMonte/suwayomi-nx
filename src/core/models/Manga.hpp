@@ -37,6 +37,9 @@ struct Manga {
     // When the chapter read most recently was read (lastReadChapter.lastReadAt, the server's time stamp: bigger = later).
     // 0 = never read, or the query didn't ask. The library sorts by it (LibrarySort::LastRead).
     std::int64_t lastReadAt = 0;
+    // WP-15: when the manga was added to the library (seconds since 1970, UTC). 0 = unknown, or not asked. A chapter fetched
+    // after it is "new" (core::isNewChapter).
+    std::int64_t inLibraryAt = 0;
 };
 
 }  // namespace snx::core

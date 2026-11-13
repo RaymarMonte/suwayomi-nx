@@ -154,6 +154,34 @@ GqlRequest refreshToken(std::string_view refreshToken) {
     return r;
 }
 
+GqlRequest libraryUpdates(int first, int offset) {
+    GqlRequest r = request("LibraryUpdates");
+    r.variables["first"] = std::max(first, 1);
+    r.variables["offset"] = std::max(offset, 0);
+    return r;
+}
+
+GqlRequest readingHistory(int first, int offset) {
+    GqlRequest r = request("ReadingHistory");
+    r.variables["first"] = std::max(first, 1);
+    r.variables["offset"] = std::max(offset, 0);
+    return r;
+}
+
+GqlRequest updateLibrary() {
+    return request("UpdateLibrary");
+}
+
+GqlRequest stopLibraryUpdate() {
+    return request("StopLibraryUpdate");
+}
+
+GqlRequest libraryUpdateStatus(bool withManga) {
+    GqlRequest r = request("LibraryUpdateStatus");
+    r.variables["withManga"] = withManga;
+    return r;
+}
+
 Result<ServerInfo> readAboutServer(const GqlResponse& response) {
     return readObject<ServerInfo>(response, "aboutServer");
 }
@@ -242,6 +270,38 @@ Result<Manga> readFetchMangaAndChapters(const GqlResponse& response) {
         return Result<Manga>::fail(ErrorKind::Parse, "fetchMangaAndChapters has no \"manga\"");
     }
     return fromJson<Manga>(*manga);
+}
+
+Result<NodeList<ChapterEntry>> readLibraryUpdates(const GqlResponse& response) {
+    return readList<ChapterEntry>(response, "chapters");
+}
+
+Result<NodeList<ChapterEntry>> readReadingHistory(const GqlResponse& response) {
+    return readList<ChapterEntry>(response, "chapters");
+}
+
+Result<bool> readUpdateLibrary(const GqlResponse& response) {
+    Result<const nlohmann::json*> node = dataField(response, "updateLibrary");
+    if (!node.ok()) {
+        return node.error();
+    }
+    return true;
+}
+
+Result<bool> readStopLibraryUpdate(const GqlResponse& response) {
+    Result<const nlohmann::json*> node = dataField(response, "updateStop");
+    if (!node.ok()) {
+        return node.error();
+    }
+    return true;
+}
+
+Result<LibraryUpdateStatus> readLibraryUpdateStatus(const GqlResponse& response) {
+    Result<const nlohmann::json*> node = dataField(response, "libraryUpdateStatus");
+    if (!node.ok()) {
+        return node.error();
+    }
+    return fromJson<LibraryUpdateStatus>(response.data);
 }
 
 Result<LoginTokens> readLogin(const GqlResponse& response) {

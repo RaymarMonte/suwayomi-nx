@@ -1,0 +1,10 @@
+# How far the library update is (WP-15). lastUpdateTimestamp (milliseconds) changes when an update starts and stays during
+# it: done = it differs from the one read before starting and nothing runs. $withManga adds the manga that ran (their
+# status, FAILED among them) for the summary once it is done.
+query LibraryUpdateStatus($withManga: Boolean!) {
+  lastUpdateTimestamp { timestamp }
+  libraryUpdateStatus {
+    jobsInfo { isRunning totalJobs finishedJobs skippedMangasCount skippedCategoriesCount }
+    mangaUpdates @include(if: $withManga) { status manga { id title } }
+  }
+}

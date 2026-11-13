@@ -206,6 +206,65 @@ TEST_CASE("client: pages() and setProgress() are mutations; page format and prog
     CHECK(vars["patch"]["isRead"] == true);
 }
 
+TEST_CASE("client: updates and history read the recorded answers, with their page sizes (WP-15)") {
+    Harness h(settingsFor(AuthMode::None));
+    h.http.setHandler([](const Request& request) {
+        const std::string operation = operationOf(request);
+        if (operation == "LibraryUpdates") return fixture("app-library-updates.json");
+        if (operation == "ReadingHistory") return fixture("app-update-then-reading-history.json");
+        return FakeHttpClient::answer(404);
+    });
+    const CancelToken cancel;
+
+    const auto updates = h.client->updates(2, cancel).get();
+    REQUIRE(updates.ok());
+    REQUIRE(updates.value().nodes.size() == 50);
+    CHECK(updates.value().hasNextPage);
+    const snx::core::ChapterEntry& first = updates.value().nodes[0];
+    CHECK(first.chapter.fetchedAt > 0);
+    CHECK(first.manga.id == first.chapter.mangaId);
+    CHECK_FALSE(first.manga.title.empty());
+    CHECK(first.manga.inLibraryAt > 0);
+    const Request sent = h.sent("LibraryUpdates").at(0);
+    CHECK(sent.idempotent);  // a query
+    CHECK(variablesOf(sent)["first"] == 50);
+    CHECK(variablesOf(sent)["offset"] == 100);
+
+    const auto history = h.client->history(0, cancel).get();
+    REQUIRE(history.ok());
+    REQUIRE(history.value().nodes.size() == 1);
+    CHECK(history.value().nodes[0].manga.title == "Delta Big");
+    CHECK(history.value().nodes[0].chapter.lastPageRead == 2);
+    CHECK(variablesOf(h.sent("ReadingHistory").at(0))["first"] == 50);
+}
+
+TEST_CASE("client: the library update's start and stop are mutations; its status is a query (WP-15)") {
+    Harness h(settingsFor(AuthMode::None));
+    h.http.setHandler([](const Request& request) {
+        const std::string operation = operationOf(request);
+        if (operation == "UpdateLibrary") {
+            return FakeHttpClient::answer(200, R"({"data":{"updateLibrary":{"clientMutationId":null}}})");
+        }
+        if (operation == "StopLibraryUpdate") {
+            return FakeHttpClient::answer(200, R"({"data":{"updateStop":{"clientMutationId":null}}})");
+        }
+        if (operation == "LibraryUpdateStatus") return fixture("app-library-update-status.json");
+        return FakeHttpClient::answer(404);
+    });
+    const CancelToken cancel;
+    CHECK(h.client->startLibraryUpdate(cancel).get().ok());
+    CHECK_FALSE(h.sent("UpdateLibrary").at(0).idempotent);
+    CHECK(h.client->stopLibraryUpdate(cancel).get().ok());
+    CHECK_FALSE(h.sent("StopLibraryUpdate").at(0).idempotent);
+    const auto status = h.client->libraryUpdateStatus(true, cancel).get();
+    REQUIRE(status.ok());
+    CHECK_FALSE(status.value().running);
+    CHECK(status.value().lastUpdateMs == 0);
+    const Request poll = h.sent("LibraryUpdateStatus").at(0);
+    CHECK(poll.idempotent);
+    CHECK(variablesOf(poll)["withManga"] == true);
+}
+
 TEST_CASE("client: absoluteUrl and settings use the normalized base URL, with a sub-path") {
     ServerSettings settings = settingsFor(AuthMode::None);
     settings.url = " https://NAS.local/suwayomi/ ";
@@ -577,10 +636,14 @@ TEST_CASE("client: clientOptionsFrom takes the limits from the profile") {
     snx::core::RuntimeProfile profile;
     profile.libraryPageSize = 24;
     profile.chapterPageSize = 50;
+    profile.updatesPageSize = 20;
+    profile.historyPageSize = 30;
     profile.json.maxBytes = 1234;
     const ClientOptions options = clientOptionsFrom(profile);
     CHECK(options.libraryPageSize == 24);
     CHECK(options.chapterPageSize == 50);
+    CHECK(options.updatesPageSize == 20);
+    CHECK(options.historyPageSize == 30);
     CHECK(options.jsonLimits.maxBytes == 1234);
     CHECK_FALSE(options.deliver);
 }

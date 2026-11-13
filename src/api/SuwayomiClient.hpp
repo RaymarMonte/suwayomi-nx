@@ -14,6 +14,8 @@
 #include "core/models/Auth.hpp"
 #include "core/models/Category.hpp"
 #include "core/models/Chapter.hpp"
+#include "core/models/ChapterEntry.hpp"
+#include "core/models/LibraryUpdate.hpp"
 #include "core/models/Manga.hpp"
 #include "core/models/NodeList.hpp"
 #include "core/models/PageList.hpp"
@@ -39,6 +41,8 @@ struct ClientOptions {
     core::JsonLimits jsonLimits;  // RuntimeProfile::json: size and depth limits for every answer
     int libraryPageSize = 60;     // RuntimeProfile::libraryPageSize: manga per library() page
     int chapterPageSize = 100;    // RuntimeProfile::chapterPageSize: chapters per chapters() page
+    int updatesPageSize = 50;     // RuntimeProfile::updatesPageSize: chapters per updates() page (WP-15)
+    int historyPageSize = 50;     // RuntimeProfile::historyPageSize: chapters per history() page
     Deliver deliver;
     SettingsChanged onSettingsChanged;
 };
@@ -117,6 +121,25 @@ class SuwayomiClient {
     // online source; a local one only reads its folder). Answers the refreshed manga; load chapters() again after it.
     ApiFuture<core::Manga> refreshManga(int mangaId, const net::CancelToken& cancel,
                                         net::Priority priority = net::Priority::Interactive);
+
+    // WP-15, the Updates tab: one page of the library's chapters, the most recently found first, each with its manga (id,
+    // title, cover, inLibraryAt). page 0 = the first updatesPageSize. The tab keeps the new ones (core::filterUpdates).
+    ApiFuture<core::NodeList<core::ChapterEntry>> updates(int page, const net::CancelToken& cancel,
+                                                          net::Priority priority = net::Priority::Interactive);
+    // The History tab: one page of the chapters read or with progress, the most recently read first, each with its manga
+    // (id, title, cover, inLibrary). page 0 = the first historyPageSize. The tab keeps one per manga (core::historyRows).
+    ApiFuture<core::NodeList<core::ChapterEntry>> history(int page, const net::CancelToken& cancel,
+                                                          net::Priority priority = net::Priority::Interactive);
+    // Asks the server to update the whole library (a mutation: never repeated). Answers true once the server took it;
+    // follow it with libraryUpdateStatus() (its own answer is the previous job's status, so it isn't handed out).
+    ApiFuture<bool> startLibraryUpdate(const net::CancelToken& cancel,
+                                       net::Priority priority = net::Priority::Interactive);
+    // Stops the library update that runs (a mutation).
+    ApiFuture<bool> stopLibraryUpdate(const net::CancelToken& cancel,
+                                      net::Priority priority = net::Priority::Interactive);
+    // How far the library update is, and when the last one started. withManga: also the titles of the manga that failed.
+    ApiFuture<core::LibraryUpdateStatus> libraryUpdateStatus(bool withManga, const net::CancelToken& cancel,
+                                                             net::Priority priority = net::Priority::Interactive);
     // ui_login: logs in (sent without a token: the server refuses a login while logged in), keeps the tokens, username and
     // password for renewing later, and reports them through onSettingsChanged. Wrong password: Auth with the server's words.
     ApiFuture<core::LoginTokens> login(std::string username, std::string password, const net::CancelToken& cancel,

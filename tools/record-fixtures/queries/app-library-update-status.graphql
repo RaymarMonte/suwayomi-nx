@@ -1,0 +1,4 @@
+# document: LibraryUpdateStatus
+# vars: {"withManga": true}
+# Before any library update ran: nothing runs, the timestamp is "0", no manga updates. (UpdateLibrary and
+# StopLibraryUpdate aren't recorded: they would change what this shows; the C++ tests build their answers.)

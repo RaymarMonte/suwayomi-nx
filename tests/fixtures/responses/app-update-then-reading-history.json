@@ -1,0 +1,32 @@
+{
+  "data": {
+    "chapters": {
+      "nodes": [
+        {
+          "id": 7,
+          "mangaId": 4,
+          "name": "Chapter 1",
+          "chapterNumber": 1,
+          "sourceOrder": 1,
+          "uploadDate": "1767571260000",
+          "isRead": false,
+          "isBookmarked": false,
+          "lastPageRead": 2,
+          "pageCount": 2,
+          "lastReadAt": "1794531586",
+          "fetchedAt": "1794531580",
+          "manga": {
+            "id": 4,
+            "title": "Delta Big",
+            "thumbnailUrl": "/api/v1/manga/4/thumbnail",
+            "inLibrary": true
+          }
+        }
+      ],
+      "totalCount": 1,
+      "pageInfo": {
+        "hasNextPage": false
+      }
+    }
+  }
+}

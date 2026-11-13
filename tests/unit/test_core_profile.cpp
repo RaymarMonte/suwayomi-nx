@@ -65,6 +65,14 @@ TEST_SUITE("core") {
         CHECK(full.stripScreensBehind == 1);  // WP-13b
         CHECK(full.stripScreensAhead == 3);
         CHECK(full.stripZoomPages == 2);  // WP-13d
+        // WP-15: Updates and History.
+        CHECK(full.updatesPageSize == 50);
+        CHECK(full.historyPageSize == 50);
+        CHECK(full.updatesFillPages == 5);
+        CHECK(full.maxUpdateRows == 2000);
+        CHECK(full.maxHistoryRows == 500);
+        CHECK(full.libraryUpdatePollMs == 1000);
+        CHECK(full.libraryUpdateStartWaitMs == 10000);
         CHECK(full.httpConcurrency == 6);
         CHECK(full.decodeThreads == 2);
         CHECK(full.maxDecodeScale == doctest::Approx(4.0));  // D48: WP-13c's console measurement
@@ -120,6 +128,9 @@ TEST_SUITE("core") {
         CHECK(applet.stripScreensBehind == 0);  // WP-13b
         CHECK(applet.stripScreensAhead == 1);
         CHECK(applet.stripZoomPages == 1);  // WP-13d
+        CHECK(applet.maxUpdateRows == 1000);  // WP-15: the row caps halved
+        CHECK(applet.maxHistoryRows == 250);
+        CHECK(applet.updatesPageSize == 50);
         CHECK_FALSE(applet.backgroundPrefetch);
         CHECK(applet.imageCacheBytes <= 64 * kMiB);
         CHECK(applet.maxDecodeBytes <= 64 * kMiB);

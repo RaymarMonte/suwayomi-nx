@@ -9,6 +9,7 @@
 #include "core/graphql/Documents.hpp"
 #include "core/graphql/Gql.hpp"
 #include "core/graphql/Operations.hpp"
+#include "core/UpdatesHistory.hpp"
 
 using namespace snx::core;
 
@@ -31,10 +32,11 @@ GqlResponse answer(const char* body) {
 TEST_SUITE("core") {
     TEST_CASE("every .graphql file is embedded, named after its operation, without comment lines") {
         const auto& docs = gql::documents();
-        const std::vector<std::string> expected = {"AboutServer",       "Categories",           "Chapters",
-                                                   "FetchChapterPages", "FetchMangaAndChapters", "LibraryByCategory",
-                                                   "Login",             "Manga",                "RefreshToken",
-                                                   "UpdateChapterProgress", "UpdateChapters", "UpdateStripProgress"};
+        const std::vector<std::string> expected = {
+            "AboutServer",       "Categories",     "Chapters",          "FetchChapterPages",     "FetchMangaAndChapters",
+            "LibraryByCategory", "LibraryUpdateStatus", "LibraryUpdates", "Login",              "Manga",
+            "ReadingHistory",    "RefreshToken",   "StopLibraryUpdate", "UpdateChapterProgress", "UpdateChapters",
+            "UpdateLibrary",     "UpdateStripProgress"};
         REQUIRE(docs.size() == expected.size());
         for (std::size_t i = 0; i < docs.size(); ++i) {
             CAPTURE(expected[i]);
@@ -385,5 +387,78 @@ TEST_SUITE("core") {
         REQUIRE(recordedManga.ok());
         CHECK(recordedManga.value().title == "Broken");
         CHECK(gql::readChapters(recorded("app-chapters")).value().nodes[0].lastReadAt == 0);  // never read
+    }
+    TEST_CASE("WP-15: Updates and History requests, and their recorded answers") {
+        const GqlRequest updates = gql::libraryUpdates(50, 100);
+        CHECK(updates.variables["first"] == 50);
+        CHECK(updates.variables["offset"] == 100);
+        CHECK(gql::readingHistory(0, -1).variables["first"] == 1);  // at least one
+        CHECK(gql::readingHistory(0, -1).variables["offset"] == 0);
+        CHECK(gql::libraryUpdateStatus(false).variables["withManga"] == false);
+        CHECK(gql::updateLibrary().mutation);
+        CHECK(gql::stopLibraryUpdate().mutation);
+        CHECK_FALSE(gql::libraryUpdateStatus(true).mutation);
+
+        // A fresh seed: every chapter came with its manga, so Updates shows none of them.
+        const auto page = gql::readLibraryUpdates(recorded("app-library-updates"));
+        REQUIRE(page.ok());
+        REQUIRE(page.value().nodes.size() == 50);
+        CHECK(page.value().totalCount >= 459);
+        for (const ChapterEntry& entry : page.value().nodes) {
+            CAPTURE(entry.chapter.id);
+            CHECK(entry.chapter.fetchedAt > 0);
+            CHECK(entry.manga.inLibraryAt > 0);
+            CHECK_FALSE(isNewChapter(entry));
+        }
+        UpdatesFilter filter;
+        const UpdatesPage shown = filterUpdates(page.value().nodes, filter);
+        CHECK(shown.rows.empty());
+        CHECK(shown.hidden == 50);
+
+        const auto history = gql::readReadingHistory(recorded("app-update-then-reading-history"));
+        REQUIRE(history.ok());
+        REQUIRE(history.value().nodes.size() == 1);
+        const ChapterEntry& read = history.value().nodes[0];
+        CHECK(read.manga.title == "Delta Big");
+        CHECK(read.manga.inLibrary);
+        CHECK(read.manga.thumbnailUrl == "/api/v1/manga/4/thumbnail");
+        CHECK(read.chapter.lastPageRead == 2);
+        CHECK(read.chapter.lastReadAt > 0);
+    }
+
+    TEST_CASE("WP-15: the library update's status, start and stop answers") {
+        const auto fresh = gql::readLibraryUpdateStatus(recorded("app-library-update-status"));
+        REQUIRE(fresh.ok());
+        CHECK_FALSE(fresh.value().running);
+        CHECK(fresh.value().lastUpdateMs == 0);
+        CHECK(fresh.value().total == 0);
+        CHECK(fresh.value().failed.empty());
+
+        const auto running = gql::readLibraryUpdateStatus(answer(R"({"data":{
+            "lastUpdateTimestamp":{"timestamp":"1763044320000"},
+            "libraryUpdateStatus":{"jobsInfo":{"isRunning":true,"totalJobs":40,"finishedJobs":12,
+                "skippedMangasCount":140,"skippedCategoriesCount":1},
+              "mangaUpdates":[{"status":"COMPLETE","manga":{"id":1,"title":"Alpha"}},
+                              {"status":"FAILED","manga":{"id":2,"title":"Beta"}},
+                              {"status":"FAILED","manga":{"id":3}},
+                              "junk"]}}})"));
+        REQUIRE(running.ok());
+        CHECK(running.value().running);
+        CHECK(running.value().total == 40);
+        CHECK(running.value().finished == 12);
+        CHECK(running.value().skippedManga == 140);
+        CHECK(running.value().skippedCategories == 1);
+        CHECK(running.value().lastUpdateMs == 1763044320000LL);
+        REQUIRE(running.value().failed.size() == 2);
+        CHECK(running.value().failed[0] == "Beta");
+        CHECK(running.value().failed[1].empty());  // a failed manga without a title still counts
+
+        CHECK_FALSE(gql::readLibraryUpdateStatus(answer(R"({"data":{"libraryUpdateStatus":{}}})")).ok());
+        CHECK(gql::readUpdateLibrary(answer(R"({"data":{"updateLibrary":{"clientMutationId":null}}})")).ok());
+        CHECK(gql::readStopLibraryUpdate(answer(R"({"data":{"updateStop":{"clientMutationId":null}}})")).ok());
+        const auto refused = gql::readUpdateLibrary(answer(
+            R"({"data":null,"errors":[{"message":"Exception while fetching data (/updateLibrary) : no\r\n\r\nat x"}]})"));
+        REQUIRE_FALSE(refused.ok());
+        CHECK(refused.error().message == "no");
     }
 }

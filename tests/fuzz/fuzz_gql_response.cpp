@@ -23,6 +23,8 @@ void everyModel(const nlohmann::json& node) {
     (void)fromJson<PageList>(node);
     (void)fromJson<ReadProgress>(node);
     (void)fromJson<LoginTokens>(node);
+    (void)fromJson<ChapterEntry>(node);
+    (void)fromJson<LibraryUpdateStatus>(node);
     (void)nodeListFromJson<Manga>(node);
     (void)nodeListFromJson<Chapter>(node);
     (void)nodeListFromJson<Category>(node);
@@ -60,8 +62,16 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size
     (void)gql::readChapters(response);
     (void)gql::readFetchChapterPages(response);
     (void)gql::readUpdateChapterProgress(response);
+    (void)gql::readUpdateStripProgress(response);
+    (void)gql::readUpdateChapters(response);
+    (void)gql::readFetchMangaAndChapters(response);
     (void)gql::readLogin(response);
     (void)gql::readRefreshToken(response);
+    (void)gql::readLibraryUpdates(response);
+    (void)gql::readReadingHistory(response);
+    (void)gql::readUpdateLibrary(response);
+    (void)gql::readStopLibraryUpdate(response);
+    (void)gql::readLibraryUpdateStatus(response);
     int budget = 5000;
     walk(response.data, budget);
     return 0;

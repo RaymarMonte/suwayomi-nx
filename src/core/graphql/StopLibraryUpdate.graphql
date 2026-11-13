@@ -1,0 +1,6 @@
+# "Stop" while a library update runs (WP-15).
+mutation StopLibraryUpdate {
+  updateStop(input: {}) {
+    clientMutationId
+  }
+}

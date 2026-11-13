@@ -1,0 +1,24 @@
+# The History tab (WP-15): the chapters read or with progress, the one read most recently first (the app keeps one row per
+# manga). The "and" matters: fields written next to "or" without it are OR'ed with it (SUWAYOMI-API.md). A bulk "mark
+# unread" stamps lastReadAt with lastPageRead 0, hence "read or with progress".
+query ReadingHistory($first: Int!, $offset: Int!) {
+  chapters(
+    filter: {
+      and: [
+        { lastReadAt: { greaterThan: "0" } }
+        { or: [{ isRead: { equalTo: true } }, { lastPageRead: { greaterThan: 0 } }] }
+      ]
+    }
+    order: [{ by: LAST_READ_AT, byType: DESC }, { by: SOURCE_ORDER, byType: DESC }]
+    first: $first
+    offset: $offset
+  ) {
+    nodes {
+      id mangaId name chapterNumber sourceOrder uploadDate
+      isRead isBookmarked lastPageRead pageCount lastReadAt fetchedAt
+      manga { id title thumbnailUrl inLibrary }
+    }
+    totalCount
+    pageInfo { hasNextPage }
+  }
+}

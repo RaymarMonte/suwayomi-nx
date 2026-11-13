@@ -1,0 +1,4 @@
+# document: LibraryUpdates
+# vars: {"first": 50, "offset": 0}
+# The Updates tab's first page on a fresh seed: every chapter came with its manga (fetchedAt <= inLibraryAt), so the app
+# shows none of them (core::isNewChapter). fetchedAt and inLibraryAt are the seed's times: re-recording changes them.

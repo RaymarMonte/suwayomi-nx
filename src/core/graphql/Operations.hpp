@@ -9,6 +9,8 @@
 #include "core/models/Auth.hpp"
 #include "core/models/Category.hpp"
 #include "core/models/Chapter.hpp"
+#include "core/models/ChapterEntry.hpp"
+#include "core/models/LibraryUpdate.hpp"
 #include "core/models/Manga.hpp"
 #include "core/models/NodeList.hpp"
 #include "core/models/PageList.hpp"
@@ -43,6 +45,13 @@ GqlRequest updateChapters(const std::vector<int>& ids, const ChapterPatch& patch
 GqlRequest fetchMangaAndChapters(int mangaId);
 GqlRequest login(std::string_view username, std::string_view password);
 GqlRequest refreshToken(std::string_view refreshToken);
+// WP-15, Updates and History. first = page size (RuntimeProfile::updatesPageSize / historyPageSize).
+GqlRequest libraryUpdates(int first, int offset);  // the library's chapters, most recently found first
+GqlRequest readingHistory(int first, int offset);  // chapters read or with progress, most recently read first
+GqlRequest updateLibrary();                        // start a library update (the whole library)
+GqlRequest stopLibraryUpdate();
+// withManga: also the manga that ran and their status (the failed ones for the summary).
+GqlRequest libraryUpdateStatus(bool withManga);
 
 // --- answers ---
 Result<ServerInfo> readAboutServer(const GqlResponse& response);
@@ -59,5 +68,11 @@ Result<std::vector<Chapter>> readUpdateChapters(const GqlResponse& response);  /
 Result<Manga> readFetchMangaAndChapters(const GqlResponse& response);        // the refreshed manga
 Result<LoginTokens> readLogin(const GqlResponse& response);
 Result<std::string> readRefreshToken(const GqlResponse& response);  // the new access token
+Result<NodeList<ChapterEntry>> readLibraryUpdates(const GqlResponse& response);
+Result<NodeList<ChapterEntry>> readReadingHistory(const GqlResponse& response);
+// Both only check that the server took it (its own status answer is the previous job's, never used).
+Result<bool> readUpdateLibrary(const GqlResponse& response);
+Result<bool> readStopLibraryUpdate(const GqlResponse& response);
+Result<LibraryUpdateStatus> readLibraryUpdateStatus(const GqlResponse& response);
 
 }  // namespace snx::core::gql

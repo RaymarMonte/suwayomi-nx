@@ -55,6 +55,15 @@ struct RuntimeProfile {
     int chapterPageSize = 100;  // chapters per Chapters request
     int maxChapters = 10000;    // chapters of one manga kept in memory: the details screen stops loading there (S6, WP-10)
 
+    // Updates and History (WP-15).
+    int updatesPageSize = 50;            // chapters per LibraryUpdates request
+    int historyPageSize = 50;            // chapters per ReadingHistory request
+    int updatesFillPages = 5;            // pages in a row Updates loads to fill a screen before it waits for the user to scroll
+    int maxUpdateRows = 2000;            // rows the Updates list holds at most (S6)
+    int maxHistoryRows = 500;            // manga the History list holds at most (S6)
+    int libraryUpdatePollMs = 1000;      // the library update's status is asked this often while it runs
+    int libraryUpdateStartWaitMs = 10000;  // an update not seen starting by then (and nothing runs) is "nothing to update"
+
     // Network (net, WP-05). Timeouts are per request. Retries are for GETs only (core/RetryPolicy.hpp).
     int httpConnectTimeoutMs = 5000;                   // a LAN server answers a connect in milliseconds
     int httpTimeoutMs = 30000;                         // one whole JSON request

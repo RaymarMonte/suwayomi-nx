@@ -1,0 +1,17 @@
+{
+  "data": {
+    "lastUpdateTimestamp": {
+      "timestamp": "0"
+    },
+    "libraryUpdateStatus": {
+      "jobsInfo": {
+        "isRunning": false,
+        "totalJobs": 0,
+        "finishedJobs": 0,
+        "skippedMangasCount": 0,
+        "skippedCategoriesCount": 0
+      },
+      "mangaUpdates": []
+    }
+  }
+}

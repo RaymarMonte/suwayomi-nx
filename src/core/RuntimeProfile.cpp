@@ -54,6 +54,8 @@ RuntimeProfile makeRuntimeProfile(LaunchMode mode, std::uint64_t totalMem, std::
         p.stripZoomPages = 1;
         p.coverRowPrefetch = false;
         p.maxChapters = 3000;
+        p.maxUpdateRows = 1000;
+        p.maxHistoryRows = 250;
         p.httpConcurrency = 2;
         p.decodeThreads = 1;
         p.heavyUiEffects = false;

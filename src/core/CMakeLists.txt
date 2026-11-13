@@ -23,6 +23,7 @@ add_library(snx_core STATIC
     LogBuffer.cpp
     MemoryPressure.cpp
     ProgressSync.cpp
+    UpdatesHistory.cpp
     ReaderMath.cpp
     StripMath.cpp
     RuntimeInfo.cpp

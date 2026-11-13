@@ -7,6 +7,8 @@
 #include "core/models/Auth.hpp"
 #include "core/models/Category.hpp"
 #include "core/models/Chapter.hpp"
+#include "core/models/ChapterEntry.hpp"
+#include "core/models/LibraryUpdate.hpp"
 #include "core/models/Manga.hpp"
 #include "core/models/NodeList.hpp"
 #include "core/models/PageList.hpp"
@@ -34,6 +36,10 @@ template <> Result<SyncConflict> fromJson<SyncConflict>(const nlohmann::json& no
 template <> Result<PageList> fromJson<PageList>(const nlohmann::json& node);  // needs "pages" (a list)
 template <> Result<ReadProgress> fromJson<ReadProgress>(const nlohmann::json& node);
 template <> Result<LoginTokens> fromJson<LoginTokens>(const nlohmann::json& node);  // needs a non-empty accessToken
+// WP-15: a chapters node with its manga part (the manga falls back to the chapter's mangaId); needs the chapter's id.
+template <> Result<ChapterEntry> fromJson<ChapterEntry>(const nlohmann::json& node);
+// WP-15: data itself ({lastUpdateTimestamp, libraryUpdateStatus}); needs libraryUpdateStatus.jobsInfo.
+template <> Result<LibraryUpdateStatus> fromJson<LibraryUpdateStatus>(const nlohmann::json& node);
 
 // A GraphQL node list ({nodes, totalCount, pageInfo {hasNextPage endCursor}}). Entries that fail fromJson<T> are left out and
 // counted in `skipped`, so one broken manga doesn't hide the whole library. Fails only when `list` has no "nodes" list.

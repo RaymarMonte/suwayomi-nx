@@ -414,6 +414,8 @@ ClientOptions clientOptionsFrom(const core::RuntimeProfile& profile) {
     options.jsonLimits = profile.json;
     options.libraryPageSize = profile.libraryPageSize;
     options.chapterPageSize = profile.chapterPageSize;
+    options.updatesPageSize = profile.updatesPageSize;
+    options.historyPageSize = profile.historyPageSize;
     return options;
 }
 
@@ -570,6 +572,34 @@ ApiFuture<std::vector<core::Chapter>> SuwayomiClient::updateChapters(std::vector
 ApiFuture<core::Manga> SuwayomiClient::refreshManga(int mangaId, const net::CancelToken& cancel, net::Priority priority) {
     return startCall<core::Manga>(state_, core::gql::fetchMangaAndChapters(mangaId), core::gql::readFetchMangaAndChapters,
                                   cancel, priority);
+}
+
+ApiFuture<core::NodeList<core::ChapterEntry>> SuwayomiClient::updates(int page, const net::CancelToken& cancel,
+                                                                      net::Priority priority) {
+    const int size = state_->options.updatesPageSize;
+    return startCall<core::NodeList<core::ChapterEntry>>(state_, core::gql::libraryUpdates(size, offsetOf(page, size)),
+                                                         core::gql::readLibraryUpdates, cancel, priority);
+}
+
+ApiFuture<core::NodeList<core::ChapterEntry>> SuwayomiClient::history(int page, const net::CancelToken& cancel,
+                                                                      net::Priority priority) {
+    const int size = state_->options.historyPageSize;
+    return startCall<core::NodeList<core::ChapterEntry>>(state_, core::gql::readingHistory(size, offsetOf(page, size)),
+                                                         core::gql::readReadingHistory, cancel, priority);
+}
+
+ApiFuture<bool> SuwayomiClient::startLibraryUpdate(const net::CancelToken& cancel, net::Priority priority) {
+    return startCall<bool>(state_, core::gql::updateLibrary(), core::gql::readUpdateLibrary, cancel, priority);
+}
+
+ApiFuture<bool> SuwayomiClient::stopLibraryUpdate(const net::CancelToken& cancel, net::Priority priority) {
+    return startCall<bool>(state_, core::gql::stopLibraryUpdate(), core::gql::readStopLibraryUpdate, cancel, priority);
+}
+
+ApiFuture<core::LibraryUpdateStatus> SuwayomiClient::libraryUpdateStatus(bool withManga, const net::CancelToken& cancel,
+                                                                         net::Priority priority) {
+    return startCall<core::LibraryUpdateStatus>(state_, core::gql::libraryUpdateStatus(withManga),
+                                                core::gql::readLibraryUpdateStatus, cancel, priority);
 }
 
 ApiFuture<core::LoginTokens> SuwayomiClient::login(std::string username, std::string password,

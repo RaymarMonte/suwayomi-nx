@@ -1,0 +1,4 @@
+# document: ReadingHistory
+# vars: {"first": 50, "offset": 0}
+# The History tab. Named so it sorts after app-update-chapter-progress, which leaves Delta Big's chapter 1 at page 2 (no
+# other recording shows that chapter): the answer lists that one chapter. Its lastReadAt is the recording's time.
