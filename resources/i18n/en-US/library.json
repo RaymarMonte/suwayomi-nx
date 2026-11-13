@@ -22,14 +22,14 @@
     "search": "Search",
     "edit": "Edit",
     "clear": "Clear",
-    "clear_search": "Clear search",
+    "clear_search": "Clear",
     "search_header": "Search my library",
     "search_label": "Search: \"{}\"",
     "search_empty": "No manga match \"{}\"",
     "search_empty_text": "Try another part of the title, or press B to go back to your categories.",
     "menu_search": "Search...",
     "menu_edit": "Edit categories...",
-    "cover_menu": "Manga menu",
+    "cover_menu": "More",
     "cover_open": "Open",
     "cover_categories": "Categories..."
 }

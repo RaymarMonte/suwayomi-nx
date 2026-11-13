@@ -108,10 +108,15 @@ void runGuardDrill() {
     drills::run(core::testconfig::Drill::NullWrite, *gFs);
 }
 
-void commandDone(int id, bool ok, const std::string& error) {
+// startedMs (WP-24): when a touches command began playing (its first finger down), in the events' clock, so a scenario can
+// time the app's answer to a played tap without the harness's own delays. -1 = not a played command.
+void commandDone(int id, bool ok, const std::string& error, std::int64_t startedMs = -1) {
     nlohmann::ordered_json fields = nlohmann::ordered_json::object();
     fields["id"] = id;
     fields["ok"] = ok;
+    if (startedMs >= 0) {
+        fields["started"] = startedMs;
+    }
     if (!error.empty()) {
         fields["error"] = error;
     }
@@ -266,8 +271,9 @@ void playTouches(std::int64_t now) {
     }
     if (p.next >= p.frames.size() && p.down.empty()) {
         const int id = p.id;
+        const std::int64_t started = p.startMs;
         gPlayback.reset();
-        commandDone(id, true, "");
+        commandDone(id, true, "", started);
     }
 }
 

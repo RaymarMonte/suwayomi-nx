@@ -196,7 +196,7 @@ interface Driver {
   (`n` = 1, 2, ... in every launch, ≤ 64 KiB): `{"cmd":"touches","frames":[{"ms":0,"fingers":[{"id":0,"x":590,"y":360},
   {"id":1,"x":690,"y":360}]}, ...]}` in landscape screen units. About every 100 ms the app looks for the next number, plays
   the frames (one per app frame once its `ms` is due; a finger down is touched every frame, a finger missing from the next
-  frame lifts, all lift after the last), deletes the file and writes `{"ev":"command","id":n,"ok":true}`. Each finger gets
+  frame lifts, all lift after the last), deletes the file and writes `{"ev":"command","id":n,"ok":true,"started":t}` (`started`, WP-24: the first finger down, in the events' clock: `library-tools` times a played tap from it). Each finger gets
   the same hit test and gesture recognizers as a real one. A file that doesn't parse yet is read again (50 tries). Helpers:
   `pinch()`, `doubleTap()`, `drag()`, `flick()` (lifted while moving, WP-13b) and `playTouches()` in
   `tests/e2e/lib/touches.ts` (`map` = `portraitPoint` for portrait). The strip's page codes: `codesOnScreen()` (every code

@@ -80,6 +80,8 @@ the app is never `idle`), so turn `setAutoAnimate(false)` on for labels that sit
 A box skips drawing a leaf child that lies outside any parent's `getCullingBounds` (WP-22: the turned reader widens its own).
 A TabFrame registers its own B ("Back") on each tab's root view after creating it, which replaces a B the tab registered
 there: register a tab's own B on views inside it (WP-24: `LibraryTab`'s bar and body) and return false to pass B on.
+On the Switch the hint bar shares the bottom line with the clock, battery and Wi-Fi: when the hints don't fit, borealis
+cuts every label ("Refr…"), and how much moves with the clock. Keep hint texts short (WP-24: "More", "Clear").
 borealis reads the mouse button once a frame, so a desktop tap shorter than a stalled frame (a config save) is lost.
 
 **Tests:** models in `tests/unit/test_ui.cpp`, `test_ui_library.cpp`, `test_ui_manga.cpp`, `test_ui_reader.cpp` and `test_ui_strip.cpp`, `test_ui_updates.cpp` (suite
@@ -89,4 +91,4 @@ borealis reads the mouse button once a frame, so a desktop tap shorter than a st
 `reader-portrait`, WP-13: `reader-zoom`, `reader-spread-split`, WP-13b: `reader-webtoon`, WP-15: `updates-history`). Touch coordinates for the
 scenarios: `tests/e2e/lib/screens.ts`.
 
-**Status:** WP-15b. Browse is a placeholder tab until WP-14.
+**Status:** WP-24. Browse is a placeholder tab until WP-14.

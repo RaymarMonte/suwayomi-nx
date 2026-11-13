@@ -95,13 +95,13 @@ command channel); `tests/e2e/README.md`. The .cpp of the screens it changes (Lib
       `category_action` (what, ok, problem). The `text` command in TestHooks (test builds only).
 - [x] Integration (`tests/integration/`, all 3 auth modes): search (escaping), create → rename → move → set a manga's
       categories → delete, each checked by a query; it cleans up after itself.
-- [ ] Desktop + Switch e2e `library-tools`: a known state first (`lib/categories.ts`: the seed's categories, order and
+- [x] Desktop + Switch e2e `library-tools`: a known state first (`lib/categories.ts`: the seed's categories, order and
       memberships back by GraphQL), search "alp" → Alpha (golden `search-results`), "zzz" → empty, Clear; Edit →
       Categories (golden `categories`), Add "Test shelf" (the real desktop dialog once), Rename, a taken name refused, Move up,
       Delete with its confirm; back → the Library has the tabs again; Alpha's details → Categories → check Long series →
       Save → the button shows both, the Long series tab has Alpha (golden `picker`). Switch only: Y on a cover → Categories...
       → uncheck → Save; MINUS → Search; the numbers below. The known state again at the end.
-- [ ] Docs: SUWAYOMI-API.md (the facts above), ui / core / api READMEs, TESTING.md (scenario, the `text` command),
+- [x] Docs: SUWAYOMI-API.md (the facts above), ui / core / api READMEs, TESTING.md (scenario, the `text` command),
       `tests/e2e/README.md` (typing on the Switch), CHANGELOG.md, D54, ROADMAP (row done), STATUS.
 
 ## Acceptance

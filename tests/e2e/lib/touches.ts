@@ -57,6 +57,17 @@ export function doubleTapFrames(at: Point, map: (p: Point) => Point = (p) => p):
     ];
 }
 
+/**
+ * WP-24: one tap (down 50 ms, then up). Played, its `command` event carries `started` (the finger down, in the events'
+ * clock), so `result.t - command.started` times the app's answer without the driver's and the event polling's time.
+ */
+export function tapFrames(at: Point): TouchFrame[] {
+    return [
+        { ms: 0, fingers: [finger(0, at)] },
+        { ms: 50, fingers: [] },
+    ];
+}
+
 /** One finger from `from` to `to` over `ms` (a drag), held at the end for a frame. `map` as in pinchFrames. */
 export function dragFrames(from: Point, to: Point, ms = 250, map: (p: Point) => Point = (p) => p): TouchFrame[] {
     const steps = Math.max(1, Math.round(ms / FRAME_MS));

@@ -1129,5 +1129,9 @@ another device).
   amends D42's buttons (owner OK, 2026-11-13). One manga at a time: no select mode.
 - **The picker** is a checklist (a manga can be in several categories; none = Default) that saves only the difference in
   one `updateMangaCategories`; WP-14 reuses it to choose categories for a manga it adds.
+- **Console numbers** (2026-11-13, `library-tools` on the Switch, the app's clock from the finger touching a played tap,
+  50 ms of it the touch itself): search over the 157 manga 119 ms (limit 1.5 s), the picker ready 123 ms (1 s), add /
+  rename / move 102–159 ms, delete 320 ms with the question closing (1 s), save ≤ 0.27 s from the X press; 10 Categories
+  screen rounds 33.8 → 33.8 MiB (+< 16 MiB). The hints are short ("More", "Clear") so they fit beside the console's clock.
 Rejected: filtering the loaded list (misses unloaded categories and pages), the tools in Settings, removing a deleted
 category's manga from the library, a select mode for several manga.

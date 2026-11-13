@@ -8,7 +8,8 @@
 // - 10 rounds Library -> Categories -> back: the memory in use grows by less than 16 MiB;
 // - Switch only (desktop can't press Y or MINUS): Y on a cover opens its menu -> Categories... opens the picker; MINUS ->
 //   Search... searches.
-// Times (tap -> the app's answer): search <= 1.5 s, picker open <= 1 s, a category action <= 1 s (asserted on the Switch).
+// Times (asserted on the Switch): search <= 1.5 s, picker open <= 1 s, a category action <= 1 s, in the app's own clock from
+// a played tap's finger down (timedTap); Save from the X press in the harness's time (an upper bound).
 // Text goes in through the test build's text command (lib/touches.ts typedText): the Switch's keyboard can't be typed into.
 // The scenario puts the seed back at the end, also after a failure (lib/categories.ts restoreSeed).
 // Needs the test server (tools/test-server/test-server.sh start).
@@ -20,7 +21,7 @@ import type { AppEvent } from '../lib/events.ts';
 import { scenario, type Scenario } from '../lib/scenario.ts';
 import { CATEGORIES, CLOCK_MASK, DIALOG, KEYBOARD_OK, LIBRARY, MANGA, PICKER } from '../lib/screens.ts';
 import { appServerUrl } from '../lib/suwayomi.ts';
-import { typedText } from '../lib/touches.ts';
+import { playTouches, tapFrames, typedText } from '../lib/touches.ts';
 
 const MiB = 1024 * 1024;
 const ROUNDS = 10;
@@ -43,6 +44,21 @@ async function tapUntil(s: Scenario, at: { x: number; y: number }, what: string,
     const ms = Date.now() - started;
     await s.events.waitForEvent('idle', {}, { from: mark });
     return { e, ms };
+}
+
+/**
+ * Like tapUntil, but the tap is played through the test build's touch channel, and the time is the app's own: from the
+ * finger touching (the `command` event's `started`) to the event `match` accepts, so it includes the 50 ms the finger is
+ * down. A driver tap on the Switch adds about 0.9 s of its own (sys-autopilot, the event polling), so the limits are
+ * checked on this time.
+ */
+async function timedTap(s: Scenario, at: { x: number; y: number }, what: string, match: (e: AppEvent) => boolean): Promise<{ e: AppEvent; ms: number }> {
+    const mark = s.events.mark();
+    const played = await playTouches(s, tapFrames(at));
+    const e = await s.events.waitFor(what, match, { from: mark, timeoutMs: 30_000 });
+    await s.events.waitForEvent('idle', {}, { from: mark });
+    const from = played.started !== undefined ? Number(played.started) : Number(played.t);
+    return { e, ms: Math.max(0, Number(e.t) - from) };
 }
 
 const isEv = (name: string, fields: Record<string, unknown>) => (e: AppEvent) =>
@@ -82,7 +98,7 @@ scenario('library-tools', async (s) => {
             await s.driver.touch(KEYBOARD_OK.x, KEYBOARD_OK.y);
         }
         const found = await s.events.waitForEvent('library', { search: 'alp', state: 'ready' }, { from: mark, timeoutMs: 30_000 });
-        times.searchMs = Date.now() - started;
+        times.alpWithHarnessMs = Date.now() - started;  // logged only: includes the driver's tap
         expect(found.titles as string[]).toContain('Alpha');
         expect(found.titles as string[]).not.toContain('Beta');
         await s.events.waitForEvent('idle', {}, { from: mark });
@@ -90,7 +106,8 @@ scenario('library-tools', async (s) => {
 
         // "zzz": nothing; B ends the search and Default's covers come back.
         await typedText(s, 'zzz');
-        await tapUntil(s, LIBRARY.search, 'no results for zzz', isEv('library', { search: 'zzz', state: 'empty' }));
+        const none = await timedTap(s, LIBRARY.search, 'no results for zzz', isEv('library', { search: 'zzz', state: 'empty' }));
+        times.searchMs = none.ms;  // the server's title filter over all 157 manga
         mark = s.events.mark();
         await s.driver.press('B');
         await s.events.waitForEvent('library', { search: null, state: 'ready', category: 0 }, { from: mark });
@@ -104,7 +121,7 @@ scenario('library-tools', async (s) => {
 
         // Add "Test shelf"; a name that is taken (case and spaces don't count) is refused without a request.
         await typedText(s, 'Test shelf');
-        const added = await tapUntil(s, CATEGORIES.add, 'add', isEv('category_action', { action: 'add' }));
+        const added = await timedTap(s, CATEGORIES.add, 'add', isEv('category_action', { action: 'add' }));
         times.addMs = added.ms;
         expect(added.e.ok).toBe(true);
         let list = await s.events.waitFor('the list with Test shelf', (e) => e.ev === 'categories' && names(e).includes('Test shelf'));
@@ -116,7 +133,7 @@ scenario('library-tools', async (s) => {
         // Rename (the row's menu, entry 1 of 4).
         await tapUntil(s, CATEGORIES.row(4), 'the row menu', (e) => e.ev === 'focus');
         await typedText(s, 'Renamed shelf');
-        const renamed = await tapUntil(s, MANGA.menuEntry(0, 4), 'rename', isEv('category_action', { action: 'rename' }));
+        const renamed = await timedTap(s, MANGA.menuEntry(0, 4), 'rename', isEv('category_action', { action: 'rename' }));
         times.renameMs = renamed.ms;
         expect(renamed.e.ok).toBe(true);
         list = await s.events.waitFor('the list with Renamed shelf', (e) => e.ev === 'categories' && names(e).includes('Renamed shelf'));
@@ -124,7 +141,7 @@ scenario('library-tools', async (s) => {
 
         // Move up: before Empty.
         await tapUntil(s, CATEGORIES.row(4), 'the row menu', (e) => e.ev === 'focus');
-        const moved = await tapUntil(s, MANGA.menuEntry(1, 4), 'move', isEv('category_action', { action: 'move' }));
+        const moved = await timedTap(s, MANGA.menuEntry(1, 4), 'move', isEv('category_action', { action: 'move' }));
         times.moveMs = moved.ms;
         expect(moved.e.ok).toBe(true);
         list = await s.events.waitFor('the moved list', (e) => e.ev === 'categories' && names(e)[3] === 'Renamed shelf');
@@ -136,7 +153,7 @@ scenario('library-tools', async (s) => {
         const dialog = await tapUntil(s, MANGA.menuEntry(3, 4), 'the delete question', (e) => e.ev === 'dialog');
         expect(String(dialog.e.text)).toContain('Renamed shelf');
         await s.expectGolden('dialog', { masks: [CLOCK_MASK] });
-        const deleted = await tapUntil(s, DIALOG.confirm, 'delete', isEv('category_action', { action: 'delete' }));
+        const deleted = await timedTap(s, DIALOG.confirm, 'delete', isEv('category_action', { action: 'delete' }));
         times.deleteMs = deleted.ms;
         expect(deleted.e.ok).toBe(true);
         list = await s.events.waitFor('the list without it', (e) => e.ev === 'categories' && !names(e).includes('Renamed shelf'));
@@ -154,7 +171,7 @@ scenario('library-tools', async (s) => {
         const manga = await tapUntil(s, LIBRARY.cover(0), 'Alpha', isEv('screen', { name: 'Manga' }));
         expect(manga.e.params).toMatchObject({ id: alpha, title: 'Alpha' });
         await s.events.waitForEvent('manga', { state: 'ready', id: alpha }, { timeoutMs: 30_000 });
-        const picker = await tapUntil(s, MANGA.categories, 'the picker', isEv('category_picker', { state: 'ready' }));
+        const picker = await timedTap(s, MANGA.categories, 'the picker', isEv('category_picker', { state: 'ready' }));
         times.pickerMs = picker.ms;
         expect(rowsOf(picker.e).map((r) => [r.name, r.checked])).toEqual([
             ['Reading', true], ['Long series', false], ['Big shelf', false], ['Empty', false],
@@ -217,9 +234,16 @@ scenario('library-tools', async (s) => {
  * MINUS -> Search... (3rd of 5) searches, B ends the search.
  */
 async function switchButtons(s: Scenario, alpha: number, reading: number): Promise<void> {
+    // After a touch the first D-pad press only brings the focus frame back (borealis leaves touch mode): press until a
+    // cover has the focus.
     let mark = s.events.mark();
-    await s.driver.press('DOWN');
-    await s.events.waitFor('DOWN: a cover has the focus', (e) => e.ev === 'focus' && String(e.view).includes('cover-0'), { from: mark });
+    const onCover = () => String(s.events.events.filter((e) => e.ev === 'focus').at(-1)?.view ?? '').includes('cover-0');
+    for (let i = 0; i < 3 && !onCover(); i++) {
+        mark = s.events.mark();
+        await s.driver.press('DOWN');
+        await s.events.waitForEvent('focus', {}, { from: mark, timeoutMs: 3_000 }).catch(() => undefined);
+    }
+    expect(onCover(), 'DOWN: Alpha\'s cover has the focus').toBe(true);
     await s.events.waitForEvent('idle', {}, { from: mark });
     mark = s.events.mark();
     await s.driver.press('Y');
