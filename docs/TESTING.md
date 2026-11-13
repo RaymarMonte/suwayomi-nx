@@ -358,7 +358,7 @@ Initial list, grown per UI WP:
 16. `keyboard-wait` (WP-12 regression, Switch only) – the setup screen's address field opens the system keyboard, which
     stays open 15 s (it blocks the main loop, longer than the 10 s watchdog), + confirms, Continue reaches the library, no crash
     record in `logs/`. ~50 s
-17. `updates-history` (WP-15, D52; WP-15b, D53; desktop done, the Switch runs wait for the owner) – a known state first (GraphQL: every chapter
+17. `updates-history` (WP-15, D52; WP-15b, D53; desktop and Switch; the Switch adds 20 tab rounds with memory flat) – a known state first (GraphQL: every chapter
     but Epsilon's unread at page 0, `removeNewChapter()`); Updates empty (golden `updates-empty`); `addNewChapter()`, Update
     library → `library_update` done (total 1, skipped 156, newChapters 1), the row "Today" + Epsilon Chapter 3 (golden
     `updates-new`); the row opens it (code 8/3/1), a page on, B → the row and History at page 2; Alpha ch1 → page 3 and ch2
@@ -374,7 +374,7 @@ Initial list, grown per UI WP:
     5, History shows it. Then ch3 to page 7 the same way, "another device" sets page 2 through GraphQL, the next start →
     `progress_queue` dropped (server moved), the server keeps page 2. Events: `progress_queue` (what added / sent / already /
     dropped / kept / taken, chapterId, page, read, reason, waiting), `history` gains `waiting` (rows with a "not saved yet"
-    note) and `waitingChapterId` / `waitingPage` on such a first row. ~22 s + ~40 s for the queue
+    note) and `waitingChapterId` / `waitingPage` on such a first row. Desktop ~107 s, Switch ~280 s
 
 ## Golden screenshots
 - Stored per driver: `tests/e2e/goldens/{desktop,switch}/<scenario>/<step>.png`.

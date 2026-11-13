@@ -259,7 +259,7 @@ actions, `openChapter`), `reader/ProgressSaver.{hpp,cpp}`, `ReaderActivity.hpp`,
       20 tab switches Library ↔ Updates ↔ History with memory flat
 - [x] The existing scenarios stay green: `tools/e2e.sh desktop` (all), and on the Switch `library-browse`,
       `manga-details`, `resume-progress`, `reader-paged`, `reader-webtoon`, `offline-errors`
-- [ ] Console (application mode, handheld, stock clocks, D17): the numbers in Acceptance
+- [x] Console (application mode, handheld, stock clocks, D17): the numbers in Acceptance (D53; list scroll frames not measured)
 - [ ] (Optional, the owner's call.) Owner tries it on their server: Update library with real sources (progress and the
       skipped count make sense), an update opened, History's continue, a save made while the server is away
 - [x] Docs: D52 (the answers, the defaults as they ended up, the console numbers, the owner's verdict if they tried it),

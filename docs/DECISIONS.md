@@ -1104,6 +1104,12 @@ less code to keep right); an automatic update from the Switch (the server's own 
   queue files as they are).
 - **Server facts** (v2.4.2366, SUWAYOMI-API.md): any `updateChapter` with `lastPageRead` stamps `lastReadAt`, even the
   same page; `fetchChapterPages` and `setChapterMeta` don't; `chapter(id)` of a gone chapter answers only an error.
+- **Console numbers** (v1, application mode, handheld, stock clocks, 2026-11-13, `tools/e2e.sh switch updates-history`, the
+  owner present; WP-15's Acceptance): Update library done in 2.2 s (limit 3 s); a row to its chapter: Epsilon's list in
+  47 ms, Delta Big's 300 chapters from History in 74 ms (limit 2 s); 20 rounds of tab switches: 59.5 -> 59.5 MiB in use
+  (limit +16 MiB); both queue restarts behave as on desktop. Not measured: list scrolling frame times (only the reader
+  reports frame times, and the test server's lists hold 1-3 rows); the Y / MINUS paths aren't in the scenario (desktop
+  borealis can't press them, and they open the same screens as touch).
 Rejected: replaying every waiting save in order (only the last state of a chapter matters); a time limit for entries
 (the cap and "server moved" already end them); sending without asking first (it would overwrite a newer change made on
 another device).

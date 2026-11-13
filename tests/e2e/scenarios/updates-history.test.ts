@@ -105,6 +105,25 @@ async function closeReader(s: Scenario, chapterId: number, page: number, screen:
 }
 
 const OFFLINE_KINDS = ['offline', 'network', 'timeout'];
+const MiB = 1024 * 1024;
+
+/** Waits for the next "mem" event (one every 10 s) and returns its "used" (the allocator's bytes in use). */
+async function memNow(s: Scenario): Promise<number> {
+    const mem = await s.events.waitForEvent('mem', {}, { from: s.events.mark(), timeoutMs: 15_000 });
+    return Number(mem.used);
+}
+
+/** Library -> Updates -> History by touch, `rounds` times, each tab settled (its "screen" event, then idle). */
+async function switchTabs(s: Scenario, rounds: number): Promise<void> {
+    for (let round = 0; round < rounds; round++) {
+        for (const name of ['Library', 'Updates', 'History'] as const) {
+            const at = s.events.mark();
+            await s.driver.touch(tab(name).x, tab(name).y);
+            await s.events.waitForEvent('screen', { name }, { from: at, timeoutMs: 15_000 });
+            await s.events.waitForEvent('idle', {}, { from: at });
+        }
+    }
+}
 
 /**
  * The reader is open at `openedAt` of `chapterId` (the page reader, a 10-page Alpha chapter). Turns to `savedAt` and waits
@@ -270,11 +289,22 @@ scenario('updates-history', async (s) => {
         const deltaOpen = await s.events.waitForEvent('chapter_open', { from: 'history' }, { from: mark });
         expect(deltaOpen).toMatchObject({ chapterId: ch150, page: 1, chapters: 300 });
         console.log(`[updates-history] Delta Big (300 chapters) opened from History in ${deltaOpen.ms} ms`);
+        console.log(`[updates-history] update library done in ${done.ms} ms; Epsilon opened from Updates in ${opened.ms} ms`);
         await expectPage(s, 4, 150, 2);
         mark = s.events.mark();
         await s.driver.press('B');
         await s.events.waitForEvent('screen', { name: 'History' }, { from: mark });
         await s.events.waitForEvent('idle', {}, { from: mark });
+
+        if (s.driver.name === 'switch') {
+            // WP-15's console check: 20 rounds of tab switches keep the memory flat (after the first round, < 16 MiB more).
+            await switchTabs(s, 1);
+            const afterFirst = await memNow(s);
+            await switchTabs(s, 19);
+            const afterAll = await memNow(s);
+            console.log(`[updates-history] memory in use after tab round 1: ${(afterFirst / MiB).toFixed(1)} MiB, after 20: ${(afterAll / MiB).toFixed(1)} MiB`);
+            expect(afterAll - afterFirst, `heap after 20 tab rounds vs 1 (${afterFirst} -> ${afterAll})`).toBeLessThan(16 * MiB);
+        }
 
         s.expectNoErrorEvents();
 
