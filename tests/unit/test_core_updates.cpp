@@ -144,20 +144,22 @@ TEST_SUITE("core") {
         CHECK(dayGroups({}, 0).empty());
     }
 
-    TEST_CASE("Library update: the stale first answer, then running, then done") {
-        LibraryUpdateStatus status;
-        status.lastUpdateMs = 1000;  // the previous update's
-        status.running = false;
-        status.total = 40;  // the previous job's numbers: looks finished
-        status.finished = 40;
-        LibraryUpdateWatch watch = LibraryUpdateWatch::started(1000, 0, 10000);
+    TEST_CASE("Library update: the stale first answers, then running, then done") {
+        LibraryUpdateStatus before;  // the previous update's: looks finished
+        before.lastUpdateMs = 1000;
+        before.total = 40;
+        before.finished = 40;
+        LibraryUpdateWatch watch = LibraryUpdateWatch::started(before, 0, 10000, 1000);
+        LibraryUpdateStatus status = before;
         CHECK(watch.next(status, 100) == UpdatePhase::Starting);  // the old timestamp: not ours yet
+        // The test server's race: the timestamp moved, the counts are still the old job's.
         status.lastUpdateMs = 2000;
+        CHECK(watch.next(status, 150) == UpdatePhase::Starting);
         status.running = true;
         status.finished = 3;
         CHECK(watch.next(status, 1100) == UpdatePhase::Running);
         status.running = false;
-        status.finished = 40;
+        status.finished = 40;  // the same counts as before, but it was seen running
         CHECK(watch.next(status, 2100) == UpdatePhase::Done);
         // Final: a later poll keeps it.
         status.running = true;
@@ -165,18 +167,47 @@ TEST_SUITE("core") {
         CHECK_FALSE(watch.stopped());
     }
 
-    TEST_CASE("Library update: every manga skipped (the timestamp moves, nothing runs) is done at once") {
+    TEST_CASE("Library update: every manga skipped is done once the new counts show, or after the settle time") {
+        LibraryUpdateStatus before;  // a fresh server: all zero
+        LibraryUpdateWatch watch = LibraryUpdateWatch::started(before, 0, 10000, 1000);
         LibraryUpdateStatus status;
         status.lastUpdateMs = 5000;
+        CHECK(watch.next(status, 2) == UpdatePhase::Starting);  // moved, but the old (zero) counts
         status.skippedManga = 156;
-        LibraryUpdateWatch watch = LibraryUpdateWatch::started(4000, 0, 10000);
-        CHECK(watch.next(status, 50) == UpdatePhase::Done);
+        CHECK(watch.next(status, 1000) == UpdatePhase::Done);
+
+        // The same counts as last time (156 skipped both times): done when it stays so for the settle time.
+        before.lastUpdateMs = 5000;
+        before.skippedManga = 156;
+        LibraryUpdateWatch again = LibraryUpdateWatch::started(before, 10000, 10000, 1000);
+        status.lastUpdateMs = 9000;
+        CHECK(again.next(status, 10010) == UpdatePhase::Starting);
+        CHECK(again.next(status, 10900) == UpdatePhase::Starting);
+        CHECK(again.next(status, 11010) == UpdatePhase::Done);
+    }
+
+    TEST_CASE("Library update: jobs not all finished and nothing running isn't done yet (unless stopped)") {
+        LibraryUpdateStatus before;
+        LibraryUpdateWatch watch = LibraryUpdateWatch::started(before, 0, 10000, 1000);
+        LibraryUpdateStatus status;
+        status.lastUpdateMs = 7;
+        status.total = 40;  // new counts, set up but not started yet
+        CHECK(watch.next(status, 10) == UpdatePhase::Starting);
+        CHECK(watch.next(status, 5000) == UpdatePhase::Starting);
+        status.running = true;
+        CHECK(watch.next(status, 6000) == UpdatePhase::Running);
+        watch.stopping();
+        status.running = false;
+        status.finished = 12;  // stopped part way
+        CHECK(watch.next(status, 7000) == UpdatePhase::Done);
+        CHECK(watch.stopped());
     }
 
     TEST_CASE("Library update: nothing seen within the start wait is 'nothing to update'") {
-        LibraryUpdateStatus status;
-        status.lastUpdateMs = 4000;
-        LibraryUpdateWatch watch = LibraryUpdateWatch::started(4000, 1000, 10000);
+        LibraryUpdateStatus before;
+        before.lastUpdateMs = 4000;
+        LibraryUpdateWatch watch = LibraryUpdateWatch::started(before, 1000, 10000, 1000);
+        LibraryUpdateStatus status = before;
         CHECK(watch.next(status, 5000) == UpdatePhase::Starting);
         CHECK(watch.next(status, 10999) == UpdatePhase::Starting);
         CHECK(watch.next(status, 11000) == UpdatePhase::NothingToUpdate);
@@ -184,20 +215,10 @@ TEST_SUITE("core") {
         CHECK(watch.next(status, 12000) == UpdatePhase::NothingToUpdate);  // final
     }
 
-    TEST_CASE("Library update: stopped, the same done rule; somebody else's update ends when nothing runs") {
-        LibraryUpdateStatus status;
-        status.lastUpdateMs = 2;
-        status.running = true;
-        LibraryUpdateWatch watch = LibraryUpdateWatch::started(1, 0, 10000);
-        CHECK(watch.next(status, 10) == UpdatePhase::Running);
-        watch.stopping();
-        CHECK(watch.next(status, 20) == UpdatePhase::Running);
-        status.running = false;
-        CHECK(watch.next(status, 30) == UpdatePhase::Done);
-        CHECK(watch.stopped());
-
+    TEST_CASE("Library update: somebody else's update ends when nothing runs") {
         LibraryUpdateWatch other = LibraryUpdateWatch::alreadyRunning();
         CHECK(other.phase() == UpdatePhase::Running);
+        LibraryUpdateStatus status;
         status.running = true;
         CHECK(other.next(status, 0) == UpdatePhase::Running);
         status.running = false;

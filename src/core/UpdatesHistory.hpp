@@ -89,8 +89,11 @@ std::vector<DayGroup> dayGroups(const std::vector<std::int64_t>& times, std::int
 // --- The library update ---
 
 // Where a library update stands, worked out from the status polls. The server's own answer to updateLibrary is the
-// previous job's status, so it is never used: the update has started once lastUpdateTimestamp differs from the one read
-// before starting, and it is done when that is so and nothing runs (SUWAYOMI-API.md).
+// previous job's status, so it is never used. The update has started once lastUpdateTimestamp differs from the one read
+// before starting. Right after that, for a moment, the job counts can still be the previous job's (seen on the test
+// server: the first poll 2 ms after the start showed the timestamp moved, nothing running and the old counts), so "done"
+// also needs one of: the update was seen running, the counts differ from the ones read before, or it stayed like that
+// for settleMs. And every job finished, unless it was stopped (SUWAYOMI-API.md).
 enum class UpdatePhase {
     Starting,         // asked for, not seen running yet
     Running,          // the server counts up (finished / total)
@@ -100,9 +103,10 @@ enum class UpdatePhase {
 
 class LibraryUpdateWatch {
   public:
-    // An update this app started: `beforeMs` = lastUpdateTimestamp read just before asking, `nowMs` = the app's clock
-    // when it asked, `startWaitMs` = RuntimeProfile::libraryUpdateStartWaitMs.
-    static LibraryUpdateWatch started(std::int64_t beforeMs, std::int64_t nowMs, int startWaitMs);
+    // An update this app started: `before` = the status read just before asking, `nowMs` = the app's clock when it
+    // asked, `startWaitMs` = RuntimeProfile::libraryUpdateStartWaitMs, `settleMs` = RuntimeProfile::libraryUpdatePollMs.
+    static LibraryUpdateWatch started(const LibraryUpdateStatus& before, std::int64_t nowMs, int startWaitMs,
+                                      int settleMs);
     // An update that was already running when the app looked (the web UI's, the server's schedule): done once nothing
     // runs.
     static LibraryUpdateWatch alreadyRunning();
@@ -114,9 +118,13 @@ class LibraryUpdateWatch {
     UpdatePhase phase() const { return phase_; }
 
   private:
-    std::optional<std::int64_t> before_;  // none: an update somebody else started
+    bool ours_ = false;              // false: an update somebody else started
+    LibraryUpdateStatus before_;
     std::int64_t startedAt_ = 0;
+    std::optional<std::int64_t> idleSince_;  // first poll that showed the timestamp moved and nothing running
     int startWaitMs_ = 0;
+    int settleMs_ = 0;
+    bool seenRunning_ = false;
     bool stopped_ = false;
     UpdatePhase phase_ = UpdatePhase::Starting;
 };

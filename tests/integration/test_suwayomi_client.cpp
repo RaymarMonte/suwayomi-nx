@@ -13,6 +13,7 @@
 #include "ApiTestKit.hpp"
 #include "api/SuwayomiClient.hpp"
 #include "core/RuntimeProfile.hpp"
+#include "core/UpdatesHistory.hpp"
 #include "image/ImageLoader.hpp"
 #include "net/CurlHttpClient.hpp"
 
@@ -327,6 +328,65 @@ TEST_CASE("progress round trip: page 5 reads back as 5; beyond the end the serve
 
     CHECK(must(live->setProgress(chapterId, 99, false, CancelToken())).lastPageRead == 10);
     CHECK(must(live->setProgress(chapterId, -1, false, CancelToken())).lastPageRead == 0);  // back to the start
+}
+
+TEST_CASE("Updates and History (WP-15): newest first, a chapter with progress in History") {
+    Live live;
+    const auto updates = must(live->updates(0, CancelToken()));
+    REQUIRE(updates.nodes.size() == 50);
+    CHECK(updates.hasNextPage);
+    for (std::size_t i = 1; i < updates.nodes.size(); ++i) {
+        CHECK(updates.nodes[i - 1].chapter.fetchedAt >= updates.nodes[i].chapter.fetchedAt);
+    }
+    CHECK(updates.nodes[0].manga.inLibraryAt > 0);
+    CHECK_FALSE(updates.nodes[0].manga.title.empty());
+
+    // Alpha's chapter 1 at page 3: History's first row.
+    const int alpha = libraryId(live, "Alpha");
+    const auto chapters = must(live->chapters(alpha, 0, CancelToken()));
+    REQUIRE(chapters.nodes.size() == 3);
+    const int chapterId = chapters.nodes[2].id;  // newest first: chapter 1 is the last
+    REQUIRE_FALSE(must(live->pages(chapterId, PageFormat::AsStored, CancelToken())).pages.empty());
+    CHECK(must(live->setProgress(chapterId, 3, false, CancelToken())).lastPageRead == 3);
+    const auto history = must(live->history(0, CancelToken()));
+    REQUIRE_FALSE(history.nodes.empty());
+    CHECK(history.nodes[0].chapter.id == chapterId);
+    CHECK(history.nodes[0].chapter.lastPageRead == 3);
+    CHECK(history.nodes[0].manga.title == "Alpha");
+    CHECK(history.nodes[0].manga.inLibrary);
+    // Back to the start: page 0 and not read is no history (the "read or with progress" part of the filter).
+    CHECK(must(live->setProgress(chapterId, 0, false, CancelToken())).lastPageRead == 0);
+    for (const snx::core::ChapterEntry& entry : must(live->history(0, CancelToken())).nodes) {
+        CHECK(entry.chapter.id != chapterId);
+    }
+}
+
+TEST_CASE("library update (WP-15): start, poll until done by the timestamp rule, then the summary") {
+    Live live;
+    const snx::core::LibraryUpdateStatus before = must(live->libraryUpdateStatus(false, CancelToken()));
+    CHECK_FALSE(before.running);
+    REQUIRE(must(live->startLibraryUpdate(CancelToken())));
+    const auto started = std::chrono::steady_clock::now();
+    auto elapsedMs = [&] {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count();
+    };
+    snx::core::LibraryUpdateWatch watch = snx::core::LibraryUpdateWatch::started(before, 0, 10000, 1000);
+    snx::core::UpdatePhase phase = snx::core::UpdatePhase::Starting;
+    snx::core::LibraryUpdateStatus status;
+    while (elapsedMs() < 20000) {
+        status = must(live->libraryUpdateStatus(false, CancelToken()));
+        phase = watch.next(status, elapsedMs());
+        if (phase == snx::core::UpdatePhase::Done || phase == snx::core::UpdatePhase::NothingToUpdate) {
+            break;
+        }
+        std::this_thread::sleep_for(200ms);
+    }
+    MESSAGE("library update: " << elapsedMs() << " ms, total " << status.total << ", skipped " << status.skippedManga);
+    CHECK(phase == snx::core::UpdatePhase::Done);  // the timestamp moves even when every manga is skipped
+    CHECK(status.lastUpdateMs != before.lastUpdateMs);
+    CHECK(status.total + status.skippedManga >= 156);
+    CHECK(must(live->libraryUpdateStatus(true, CancelToken())).failed.empty());
+    CHECK(must(live->stopLibraryUpdate(CancelToken())));  // nothing runs: still fine
 }
 
 TEST_CASE("errors from the real server: unknown id, wrong sub-path, nobody listening") {

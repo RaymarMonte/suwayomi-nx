@@ -129,17 +129,30 @@ std::vector<DayGroup> dayGroups(const std::vector<std::int64_t>& times, std::int
     return groups;
 }
 
-LibraryUpdateWatch LibraryUpdateWatch::started(std::int64_t beforeMs, std::int64_t nowMs, int startWaitMs) {
+namespace {
+
+bool sameCounts(const LibraryUpdateStatus& a, const LibraryUpdateStatus& b) {
+    return a.total == b.total && a.finished == b.finished && a.skippedManga == b.skippedManga &&
+           a.skippedCategories == b.skippedCategories;
+}
+
+}  // namespace
+
+LibraryUpdateWatch LibraryUpdateWatch::started(const LibraryUpdateStatus& before, std::int64_t nowMs, int startWaitMs,
+                                               int settleMs) {
     LibraryUpdateWatch watch;
-    watch.before_ = beforeMs;
+    watch.ours_ = true;
+    watch.before_ = before;
     watch.startedAt_ = nowMs;
     watch.startWaitMs_ = startWaitMs;
+    watch.settleMs_ = settleMs;
     return watch;
 }
 
 LibraryUpdateWatch LibraryUpdateWatch::alreadyRunning() {
     LibraryUpdateWatch watch;
     watch.phase_ = UpdatePhase::Running;
+    watch.seenRunning_ = true;
     return watch;
 }
 
@@ -147,22 +160,29 @@ UpdatePhase LibraryUpdateWatch::next(const LibraryUpdateStatus& status, std::int
     if (phase_ == UpdatePhase::Done || phase_ == UpdatePhase::NothingToUpdate) {
         return phase_;
     }
-    if (!before_) {
+    if (!ours_) {
         // Somebody else's update: it ends when nothing runs.
         phase_ = status.running ? UpdatePhase::Running : UpdatePhase::Done;
         return phase_;
     }
-    const bool moved = status.lastUpdateMs != *before_;
-    if (moved && !status.running) {
-        phase_ = UpdatePhase::Done;
-    } else if (status.running) {
-        // Ours (moved), or one that was already running when we asked (the same timestamp): show its progress either way.
+    if (status.running) {
+        // Ours (the timestamp moved), or one that was already running when we asked (the same timestamp): show it.
+        seenRunning_ = true;
+        idleSince_.reset();
         phase_ = UpdatePhase::Running;
-    } else if (nowMs - startedAt_ >= startWaitMs_) {
-        phase_ = UpdatePhase::NothingToUpdate;
-    } else {
-        phase_ = UpdatePhase::Starting;
+        return phase_;
     }
+    const bool moved = status.lastUpdateMs != before_.lastUpdateMs;
+    if (!moved) {
+        phase_ = nowMs - startedAt_ >= startWaitMs_ ? UpdatePhase::NothingToUpdate : UpdatePhase::Starting;
+        return phase_;
+    }
+    if (!idleSince_) {
+        idleSince_ = nowMs;
+    }
+    const bool allFinished = stopped_ || status.finished >= status.total;
+    const bool ownCounts = seenRunning_ || !sameCounts(status, before_) || nowMs - *idleSince_ >= settleMs_;
+    phase_ = allFinished && ownCounts ? UpdatePhase::Done : UpdatePhase::Starting;
     return phase_;
 }
 
