@@ -10,6 +10,8 @@ add_library(snx_ui_models STATIC
     reader/StripModel.cpp
     login/LoginModel.cpp
     main/MainModel.cpp
+    updates/ChapterRowsModel.cpp
+    updates/LibraryUpdater.cpp
     setup/SetupModel.cpp
 )
 target_link_libraries(snx_ui_models PUBLIC snx_api snx_image)
