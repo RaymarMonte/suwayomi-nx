@@ -1,7 +1,7 @@
 # Fuzz targets (SAFETY.md S6, WP-04), built by tools/build.sh fuzz with -DSNX_FUZZ=ON (top-level CMakeLists.txt adds the
 # sanitizer flags to every target). With clang: libFuzzer targets. With GCC: the same targets linked to ReplayMain.cpp, which
 # only replays the seed corpus (GCC has no libFuzzer).
-set(SNX_FUZZ_TARGETS fuzz_gql_response fuzz_app_config fuzz_image_decode)
+set(SNX_FUZZ_TARGETS fuzz_gql_response fuzz_app_config fuzz_image_decode fuzz_progress_queue)
 
 foreach (target ${SNX_FUZZ_TARGETS})
     if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")

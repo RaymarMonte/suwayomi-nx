@@ -94,6 +94,7 @@ class MangaActivity : public brls::Activity, private GridSource {
     bool moreFailedShown_ = false;
     int reportedUnread_;
     net::CancelToken alive_;      // cancelled when this screen goes (the reader's onClosed checks it)
+    int savesListener_ = 0;       // on context_.saves: a waiting save of this manga went, the chapters reload (WP-15b)
     std::string pendingAction_;  // the action under way, for its "chapter_action" test event
     int pendingChapter_ = 0;
     std::string reported_;

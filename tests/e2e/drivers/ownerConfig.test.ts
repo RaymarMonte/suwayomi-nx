@@ -14,6 +14,8 @@ import { OwnerConfigBackup, readPendingOwnerConfig, type ConfigFileApi } from '.
 const CONFIG = `${APP_DIR}/config.json`;
 const BAK = `${APP_DIR}/config.json.bak`;
 const TEST_CONFIG = `${APP_DIR}/test/config.json`;
+const QUEUE = `${APP_DIR}/progress-queue.json`;
+const QUEUE_BAK = `${APP_DIR}/progress-queue.json.bak`;
 
 class FakeConsole implements ConfigFileApi {
     readonly files = new Map<string, Buffer>();
@@ -42,6 +44,8 @@ class FakeConsole implements ConfigFileApi {
 const owner = Buffer.from('{"server":{"url":"http://owner-server:4568"}}\n');
 const ownerBak = Buffer.from('{"server":{"url":"http://owner-server:4568"},"older":true}\n');
 const tests = Buffer.from('{"server":{"url":"http://test-server:4568"}}\n');
+const ownerQueue = Buffer.from('{"version": 1, "entries": [\n  {"server": "http://owner-server:4568", "chapterId": 12, "page": 4}\n]}\n');
+const testsQueue = Buffer.from('{"version": 1, "entries": [\n  {"server": "http://test-server:4568", "chapterId": 3, "page": 4}\n]}\n');
 
 let dir: string;
 let fake: FakeConsole;
@@ -52,10 +56,15 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-/** What a scenario does to the console: removes both files, the app saves the test server, the harness leaves its test config. */
+/**
+ * What a scenario does to the console: removes the files, the app saves the test server (and a waiting save of its own), the
+ * harness leaves its test config.
+ */
 function runTests(): void {
     fake.files.delete(BAK);
+    fake.files.delete(QUEUE_BAK);
     fake.files.set(CONFIG, tests);
+    fake.files.set(QUEUE, testsQueue);
     fake.files.set(TEST_CONFIG, Buffer.from('{"server":{"url":"http://test-server:4568"}}'));
 }
 
@@ -81,12 +90,46 @@ describe('OwnerConfigBackup', () => {
 
     it('deletes what the tests left where the console had no file', async () => {
         const backup = new OwnerConfigBackup(fake, dir);
-        expect((await backup.ensure()).manifest.files).toEqual({ 'config.json': null, 'config.json.bak': null });
+        expect((await backup.ensure()).manifest.files).toEqual({
+            'config.json': null,
+            'config.json.bak': null,
+            'progress-queue.json': null,
+            'progress-queue.json.bak': null,
+        });
         runTests();
         fake.files.set(BAK, tests);
         await backup.restore();
         expect(fake.files.has(CONFIG)).toBe(false);
         expect(fake.files.has(BAK)).toBe(false);
+        expect(fake.files.has(QUEUE)).toBe(false); // the test server's waiting save doesn't stay behind
+    });
+
+    it("puts the owner's waiting progress saves back too (WP-15b), so the tests never lose or send them", async () => {
+        fake.files.set(CONFIG, owner);
+        fake.files.set(QUEUE, ownerQueue);
+        fake.files.set(QUEUE_BAK, ownerQueue);
+        const backup = new OwnerConfigBackup(fake, dir);
+        await backup.ensure();
+        expect(readFileSync(join(dir, 'progress-queue.json'))).toEqual(ownerQueue);
+        runTests();
+        await backup.restore();
+        expect(fake.files.get(QUEUE)).toEqual(ownerQueue);
+        expect(fake.files.get(QUEUE_BAK)).toEqual(ownerQueue);
+    });
+
+    it('leaves the queue files alone when a pending backup from before WP-15b has no key for them', async () => {
+        fake.files.set(CONFIG, owner);
+        await new OwnerConfigBackup(fake, dir).ensure();
+        const file = join(dir, 'pending.json');
+        const manifest = JSON.parse(readFileSync(file, 'utf8'));
+        delete manifest.files['progress-queue.json'];
+        delete manifest.files['progress-queue.json.bak'];
+        writeFileSync(file, JSON.stringify(manifest));
+        fake.files.set(QUEUE, ownerQueue); // the console's own, made after that backup
+        fake.files.set(CONFIG, tests);
+        await new OwnerConfigBackup(fake, dir).restore();
+        expect(fake.files.get(CONFIG)).toEqual(owner);
+        expect(fake.files.get(QUEUE)).toEqual(ownerQueue);
     });
 
     it('keeps a backup a stopped run never put back, instead of copying the tests\' files', async () => {

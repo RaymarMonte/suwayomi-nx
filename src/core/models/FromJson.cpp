@@ -204,6 +204,7 @@ Result<ReadProgress> fromJson<ReadProgress>(const nlohmann::json& node) {
     progress.lastPageRead = json::int32(node, "lastPageRead").value_or(0);
     progress.isRead = json::boolean(node, "isRead").value_or(false);
     progress.pageCount = json::int32(node, "pageCount").value_or(-1);
+    progress.lastReadAt = json::int64(node, "lastReadAt").value_or(0);
     return progress;
 }
 

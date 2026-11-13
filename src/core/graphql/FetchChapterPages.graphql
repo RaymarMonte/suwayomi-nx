@@ -1,11 +1,11 @@
 # Open a chapter: its page URLs (relative to the server). $format is a MIME type ("image/jpeg") when the server should convert
 # the pages (D6, off by default); leave it out to get them as stored. Send it as its own request: the fields of one request
 # don't wait for each other (SUWAYOMI-API.md). The chapter's meta notes carry the webtoon strip's exact spot (WP-13b,
-# key "snx_strip_spot").
+# key "snx_strip_spot"). lastReadAt: the base a waiting save is compared with (WP-15b, core/ProgressQueue.hpp).
 mutation FetchChapterPages($chapterId: Int!, $format: String) {
   fetchChapterPages(input: { chapterId: $chapterId, format: $format }) {
     pages
-    chapter { id mangaId sourceOrder isRead lastPageRead pageCount meta { key value } }
+    chapter { id mangaId sourceOrder isRead lastPageRead pageCount lastReadAt meta { key value } }
     syncConflict { deviceName remotePage }
   }
 }

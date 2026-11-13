@@ -73,6 +73,11 @@ That README plus the public headers *is* the contract other sessions read.
   90-day window from `core/UpdatesHistory`), `LibraryUpdater` runs the server's library update (start, poll every second
   while it runs, stop, summary). MainActivity owns the models (D42), so an update outlives tab changes; the lists reload
   after a screen on top of it closes.
+- The waiting-save queue (WP-15b, D53): `ui/reader/WaitingSaves` (rules in `core/ProgressQueue`), made in `main()` after the
+  client and shared through `AppContext::saves`. The readers hand it a save that fails as they close and take an entry over
+  when they open its chapter; it sends entries after the main screen's check works, when the server answers anything
+  (net's response observer), and on a back-off timer. File `progress-queue.json` (+ `.bak`) in the app's folder (D10);
+  limits `RuntimeProfile::pendingSavesMax` (100) and `progressQueueFileBytes` (64 KiB). History notes "page N not saved yet".
 - Lists and grids use borealis recycling views. Covers load lazily through `image` with `Interactive` priority.
 - **Touch first (D16)**: every action can be reached by touch: tap, drag/flick to scroll, reader tap zones and swipe, pinch zoom (WP-13).
   Touch targets ≥ 72 px. Controllers work everywhere too, because docked mode has no touchscreen.

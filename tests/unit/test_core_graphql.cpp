@@ -33,7 +33,8 @@ TEST_SUITE("core") {
     TEST_CASE("every .graphql file is embedded, named after its operation, without comment lines") {
         const auto& docs = gql::documents();
         const std::vector<std::string> expected = {
-            "AboutServer",       "Categories",     "Chapters",          "FetchChapterPages",     "FetchMangaAndChapters",
+            "AboutServer",       "Categories",     "ChapterState",      "Chapters",              "FetchChapterPages",
+            "FetchMangaAndChapters",
             "LibraryByCategory", "LibraryUpdateStatus", "LibraryUpdates", "Login",              "Manga",
             "ReadingHistory",    "RefreshToken",   "StopLibraryUpdate", "UpdateChapterProgress", "UpdateChapters",
             "UpdateLibrary",     "UpdateStripProgress"};
@@ -224,6 +225,19 @@ TEST_SUITE("core") {
         REQUIRE(progress.ok());
         CHECK(progress.value().lastPageRead == 2);  // capped to pageCount (2) by the server
         CHECK(progress.value().pageCount == 2);
+        CHECK(progress.value().lastReadAt > 0);  // any lastPageRead write stamps it (WP-15b)
+        CHECK(pages.value().chapter.lastReadAt == 0);  // never read; fetchChapterPages doesn't stamp it
+
+        // WP-15b: the waiting-save queue asks for a chapter's state; the answer right after the save above.
+        const auto state = gql::readChapterState(recorded("app-update-then-chapter-state"));
+        REQUIRE(state.ok());
+        CHECK(state.value().page == 2);
+        CHECK_FALSE(state.value().read);
+        CHECK(state.value().lastReadAt == progress.value().lastReadAt);
+        CHECK(state.value().spotNote.empty());
+        const GqlRequest ask = gql::chapterState(7);
+        CHECK_FALSE(ask.mutation);
+        CHECK(ask.variables["id"] == 7);
 
         auto tokens = gql::readLogin(recorded("app-login"));
         REQUIRE(tokens.ok());
@@ -243,6 +257,10 @@ TEST_SUITE("core") {
         REQUIRE_FALSE(manga.ok());
         CHECK(manga.error().kind == ErrorKind::Server);
         CHECK(manga.error().message.find("non null type") != std::string::npos);
+        // A chapter that's gone (deleted on the server): the queue counts it as an error and drops it after three.
+        const auto chapterGone = gql::readChapterState(recorded("error-chapter-not-found"));
+        REQUIRE_FALSE(chapterGone.ok());
+        CHECK(chapterGone.error().kind == ErrorKind::Server);
 
         const auto wrong = recorded("login-wrong-password");
         REQUIRE(wrong.errors.size() == 1);

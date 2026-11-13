@@ -32,5 +32,6 @@
     "mark_unread": "Mark unread",
     "toggle_read": "Read / unread",
     "more_failed": "More chapters couldn't be loaded. Refresh tries again.",
-    "open_failed": "Couldn't open it: {}"
+    "open_failed": "Couldn't open it: {}",
+    "cancel_open": "Cancel"
 }

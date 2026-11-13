@@ -4,13 +4,17 @@
 guard, config, borealis, the HTTP client, the Suwayomi client, the image loader, one `AppContext`, the main screen, the main loop.
 
 **Files:**
-- `main.cpp`: the start-up order (SAFETY.md S1, S12) and the exit order (S5: config, image loader, network, test events, log, crash file).
-- `AppContext.hpp`: what every screen gets (fs, runtime, profile, last run, config, http, client, images). Made once, outlives the screens.
+- `main.cpp`: the start-up order (SAFETY.md S1, S12) and the exit order (S5: config, the waiting-save queue, image loader, network,
+  test events, log, crash file). WP-15b: makes the waiting-save queue after the client (its hooks: `appClockMs`, `brls::delay`,
+  `brls::sync`, the logger, the `progress_queue` event), loads its file, nudges it from net's response observer, saves it in
+  the main loop like config.json and flushes it at HOME / sleep / exit.
+- `AppContext.hpp`: what every screen gets (fs, runtime, profile, last run, config, http, client, images, textures, saves). Made once, outlives the screens.
 - `Logger.hpp/.cpp`: every `brls::Logger` line goes to stdout, the crash ring (S1) and `logs/app.log` (buffered, at most every
   `logFlushMs`, open -> append -> close, rotates to `app.1.log` at `logFileBytes`). Messages start with a tag: `"setup: ..."`.
 - `ConfigStore.hpp/.cpp`: `config.json` in memory; saves debounced (`core::SaveScheduler`) with `writeAtomic` + `.bak`, `flush()`
   on HOME/sleep/exit, falls back to the `.bak` when the file is unreadable; a due save waits while the reader moves
-  (`postponeSaveThisFrame()`, D49: a save costs 20–33 ms on the console). `appClockMs()`: the app's steady clock.
+  (`postponeSaveThisFrame()`, D49: a save costs 20–33 ms on the console; `postponedThisFrame()` tells the queue the same).
+  `appClockMs()`: the app's steady clock.
 - `AppletGuard.hpp/.cpp`: D21's refusal in applet mode (log line, `launch_refused`, the text console screen, nothing written after).
 - `TestHooks.hpp/.cpp`: test events and the test config (docs/TESTING.md). Release builds compile it to nothing.
 

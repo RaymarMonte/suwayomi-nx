@@ -4,7 +4,7 @@
 # server, v2.4.2366). Both fields must answer for the save to count.
 mutation UpdateStripProgress($id: Int!, $patch: UpdateChapterPatchInput!, $spot: String!) {
   updateChapter(input: { id: $id, patch: $patch }) {
-    chapter { id lastPageRead isRead pageCount }
+    chapter { id lastPageRead isRead pageCount lastReadAt }
   }
   setChapterMeta(input: { meta: { chapterId: $id, key: "snx_strip_spot", value: $spot } }) {
     meta { key value }

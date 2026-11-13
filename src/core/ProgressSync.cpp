@@ -23,7 +23,34 @@ ProgressSync::ProgressSync(int chapterId, int serverPage, bool serverRead, int i
       savedRead_(serverRead),
       wantPage_(serverPage),
       savedSpot_(serverSpot),
-      lastSendMs_(nowMs) {}
+      lastSendMs_(nowMs) {
+    base_.page = serverPage;
+    base_.read = serverRead;
+}
+
+void ProgressSync::serverAnswered(const ReadProgress& answer) {
+    base_.page = answer.lastPageRead;
+    base_.read = answer.isRead;
+    base_.lastReadAt = answer.lastReadAt;
+}
+
+std::optional<ProgressSync::NotSaved> ProgressSync::notSaved() const {
+    std::optional<ReadProgress> progress = unsaved();
+    if (!progress) {
+        return std::nullopt;
+    }
+    return NotSaved{*progress, base_};
+}
+
+void ProgressSync::adopt(int page, bool read, std::optional<double> spot) {
+    wantPage_ = page < 0 ? 0 : page;
+    if (read && !savedRead_) {
+        wantRead_ = true;
+    }
+    if (spot) {
+        wantSpot_ = std::clamp(*spot, 0.0, 1.0);
+    }
+}
 
 void ProgressSync::shown(int page, bool last) {
     wantPage_ = page < 0 ? 0 : page;

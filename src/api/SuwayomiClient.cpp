@@ -602,6 +602,12 @@ ApiFuture<core::LibraryUpdateStatus> SuwayomiClient::libraryUpdateStatus(bool wi
                                                 core::gql::readLibraryUpdateStatus, cancel, priority);
 }
 
+ApiFuture<core::ServerProgress> SuwayomiClient::chapterState(int chapterId, const net::CancelToken& cancel,
+                                                             net::Priority priority) {
+    return startCall<core::ServerProgress>(state_, core::gql::chapterState(chapterId), core::gql::readChapterState, cancel,
+                                           priority);
+}
+
 ApiFuture<core::LoginTokens> SuwayomiClient::login(std::string username, std::string password,
                                                    const net::CancelToken& cancel, net::Priority priority) {
     net::Promise<ApiResult<core::LoginTokens>> promise;

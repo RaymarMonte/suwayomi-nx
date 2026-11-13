@@ -52,6 +52,8 @@ GqlRequest updateLibrary();                        // start a library update (th
 GqlRequest stopLibraryUpdate();
 // withManga: also the manga that ran and their status (the failed ones for the summary).
 GqlRequest libraryUpdateStatus(bool withManga);
+// WP-15b: one chapter's progress on the server now (the waiting-save queue's check before it sends).
+GqlRequest chapterState(int chapterId);
 
 // --- answers ---
 Result<ServerInfo> readAboutServer(const GqlResponse& response);
@@ -74,5 +76,7 @@ Result<NodeList<ChapterEntry>> readReadingHistory(const GqlResponse& response);
 Result<bool> readUpdateLibrary(const GqlResponse& response);
 Result<bool> readStopLibraryUpdate(const GqlResponse& response);
 Result<LibraryUpdateStatus> readLibraryUpdateStatus(const GqlResponse& response);
+// The page, read flag, stamp and the strip's note. A chapter that is gone: the server's error (no data).
+Result<ServerProgress> readChapterState(const GqlResponse& response);
 
 }  // namespace snx::core::gql

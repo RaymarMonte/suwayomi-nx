@@ -49,10 +49,17 @@ class LibraryTabView : public LibraryTab {
 }  // namespace
 
 MainActivity::MainActivity(app::AppContext& context)
-    : context_(context), model_(context.config.serverSetUp()), covered_(!context.config.serverSetUp()) {}
+    : context_(context), model_(context.config.serverSetUp()), covered_(!context.config.serverSetUp()) {
+    savesListener_ = context_.saves.addListener([this](WaitingSaves::Change change, const core::WaitingSave& entry) {
+        if (change == WaitingSaves::Change::Gone) {
+            waitingSaveDone(entry);
+        }
+    });
+}
 
 MainActivity::~MainActivity() {
     cancel_.cancel();
+    context_.saves.removeListener(savesListener_);
     if (updater_) {
         updater_->removeListener(updaterListener_);
     }
@@ -175,6 +182,9 @@ void MainActivity::onCheck(const api::ApiResult<core::ServerInfo>& result) {
         fields["kind"] = api::apiErrorKindName(result.error().kind);
     }
     app::testhooks::write("server_check", fields);
+    if (result.ok()) {
+        context_.saves.connected();  // the server is there: saves waiting for it go now (WP-15b)
+    }
     showConnection();
     if (settingsView_ != nullptr) {
         settingsView_->refresh();
@@ -276,6 +286,20 @@ void MainActivity::listsRead() {
     }
     if (history_) {
         history_->reload();
+    }
+}
+
+void MainActivity::waitingSaveDone(const core::WaitingSave& entry) {
+    // A waiting save reached the server, or went (the server had it already, or moved on): History's "not saved yet"
+    // note goes and both lists show the server's state. The list on screen reloads now, the other when its tab opens;
+    // under a screen on top they reload when it closes (onResume). A reload cancels the one still under way, so a round
+    // of many saves ends in one finished reload.
+    listsStale_ = true;
+    if (!covered_ && (currentTab_ == kUpdatesTab || currentTab_ == kHistoryTab)) {
+        reloadStaleLists();
+    }
+    if (entry.read && library_) {
+        library_->refresh();  // a chapter marked read: the manga's unread badge (keeps the category)
     }
 }
 

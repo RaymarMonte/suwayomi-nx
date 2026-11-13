@@ -47,6 +47,9 @@ struct RuntimeProfile {
     int progressSyncMs = 5000;           // reading progress goes to the server at most this often (and when leaving a chapter)
     int progressRetryMaxMs = 60000;      // a failed save waits progressSyncMs, doubled per failure, at most this (WP-12)
     int readerMangaSettingsMax = 500;    // manga whose own direction and fit config.json remembers (S6: the file stays small)
+    // The waiting-save queue (WP-15b): saves that failed as the reader closed, kept in progress-queue.json.
+    int pendingSavesMax = 100;                          // entries it keeps at most (the oldest goes)
+    std::uint64_t progressQueueFileBytes = 64 * 1024;   // the file is read back at most this big (S6) and written to fit
 
     // Work in parallel, and how much to ask for at once.
     int httpConcurrency = 6;  // transfers at once (D5)

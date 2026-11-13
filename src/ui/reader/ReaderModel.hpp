@@ -46,8 +46,12 @@ struct ReaderOptions {
     // Called after every progress save, ok or not, on the client's deliver thread, also after the model is gone (the save
     // when the reader closes). May be empty. The app writes the "progress" test event here.
     std::function<void(const core::ReadProgress& progress, bool ok)> onSaved;
+    // WP-15b, the waiting-save queue (it must outlive the model and its saves; nullptr: none). A save that fails as the
+    // reader closes goes there, and a chapter that opens with an entry still at its base opens at the entry's page and
+    // saves it as its own (the take-over; not when stepping back onto a previous chapter's last page).
+    WaitingSaves* queue = nullptr;
 };
-// Everything above except screen, clock and onSaved.
+// Everything above except screen, clock, onSaved and queue.
 ReaderOptions readerOptionsFrom(const core::RuntimeProfile& profile, const core::ReaderSettings& reader);
 
 // One page of the opened chapter.

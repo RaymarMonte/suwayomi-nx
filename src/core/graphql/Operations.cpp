@@ -182,6 +182,12 @@ GqlRequest libraryUpdateStatus(bool withManga) {
     return r;
 }
 
+GqlRequest chapterState(int chapterId) {
+    GqlRequest r = request("ChapterState");
+    r.variables["id"] = chapterId;
+    return r;
+}
+
 Result<ServerInfo> readAboutServer(const GqlResponse& response) {
     return readObject<ServerInfo>(response, "aboutServer");
 }
@@ -302,6 +308,19 @@ Result<LibraryUpdateStatus> readLibraryUpdateStatus(const GqlResponse& response)
         return node.error();
     }
     return fromJson<LibraryUpdateStatus>(response.data);
+}
+
+Result<ServerProgress> readChapterState(const GqlResponse& response) {
+    Result<Chapter> chapter = readObject<Chapter>(response, "chapter");
+    if (!chapter.ok()) {
+        return chapter.error();
+    }
+    ServerProgress state;
+    state.page = chapter.value().lastPageRead;
+    state.read = chapter.value().isRead;
+    state.lastReadAt = chapter.value().lastReadAt;
+    state.spotNote = chapter.value().stripSpotNote;
+    return state;
 }
 
 Result<LoginTokens> readLogin(const GqlResponse& response) {

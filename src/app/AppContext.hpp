@@ -9,6 +9,7 @@
 #include "image/ImageLoader.hpp"
 #include "net/HttpClient.hpp"
 #include "platform/SafeFs.hpp"
+#include "ui/reader/WaitingSaves.hpp"
 
 // Everything the screens share (WP-08), made once in main() in this order and handed to each screen as `AppContext&`. No
 // globals: a screen gets what it needs from here. Everything in it outlives every screen (borealis deletes the screens
@@ -25,6 +26,7 @@ struct AppContext {
     api::SuwayomiClient& client;       // the server, with the login from config.server
     image::ImageLoader& images;
     image::TextureBudget& textures;    // GPU memory for images on screen (S7, RuntimeProfile::textureBudgetBytes, WP-09)
+    ui::WaitingSaves& saves;           // the waiting-save queue: progress saves that failed as the reader closed (WP-15b)
 };
 
 }  // namespace snx::app

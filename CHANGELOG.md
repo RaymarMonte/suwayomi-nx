@@ -11,7 +11,11 @@ with 0, any release may change things.
   **Update library** asks the server to look for new chapters now, shows how far it got and then how many it found (the
   server's update settings decide which manga it checks).
 - **History:** each manga you read, the latest first, with the chapter and page you stopped at; a tap goes on reading
-  there (like Continue).
+  there (like Continue). While a row's manga opens, B cancels it.
+- **Progress that couldn't be saved waits:** if the server can't be reached as you close the reader, your page is kept
+  (also across a restart) and sent as soon as the server answers again; History shows "page N not saved yet" meanwhile.
+  If the chapter changed on the server in between (read on another device), that newer progress wins and yours is
+  dropped. Opening the chapter again before that picks up where you were.
 - **Zoom:** pinch a page, double-tap its middle, or press ZR / ZL (up to 4 ×). Zoomed in, drag, push either stick or press
   the D-pad to look around; at the edge, a new push or a swipe turns the page. A moment after you stop zooming the page
   turns sharp (it is loaded again at the bigger size, up to 4 × the screen, so large scans stay sharp all the way in). A

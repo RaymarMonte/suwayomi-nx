@@ -9,5 +9,8 @@
     "refresh": "Refresh",
     "menu": "Menu",
     "menu_title": "History",
-    "menu_refresh": "Refresh"
+    "menu_refresh": "Refresh",
+    "waiting_page": "page {} not saved yet",
+    "waiting_read": "read, not saved yet",
+    "waiting_other": "{}: {}"
 }

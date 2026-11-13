@@ -46,6 +46,21 @@ class ProgressSync {
     bool inFlight() const { return inFlight_; }
     bool read() const { return wantRead_ || savedRead_; }  // the chapter is read (on the server, or as soon as saved)
 
+    // WP-15b, the waiting-save queue. The base: the server's page, read flag and stamp as the reader last knew them, from
+    // the open (the constructor's page and read flag, plus setServerLastReadAt) and then from each saved answer.
+    void setServerLastReadAt(std::int64_t lastReadAt) { base_.lastReadAt = lastReadAt; }
+    // A save worked: what the server answered (its page, read flag and stamp become the base).
+    void serverAnswered(const ReadProgress& answer);
+    const ServerProgress& base() const { return base_; }
+    // What isn't saved yet (also while a save is on its way), with the base it was read from. Nothing if all is saved.
+    struct NotSaved {
+        ReadProgress progress;
+        ServerProgress base;
+    };
+    std::optional<NotSaved> notSaved() const;
+    // The reader takes a waiting save over (WP-15b): its page, read flag and spot count as shown, not saved yet.
+    void adopt(int page, bool read, std::optional<double> spot);
+
   private:
     std::optional<ReadProgress> unsaved() const;
 
@@ -62,6 +77,7 @@ class ProgressSync {
     std::int64_t lastSendMs_;
     int failures_ = 0;          // failed updates in a row
     std::int64_t retryAtMs_ = 0;  // after a failure: nothing is due before this
+    ServerProgress base_;         // WP-15b: see base()
 };
 
 }  // namespace snx::core

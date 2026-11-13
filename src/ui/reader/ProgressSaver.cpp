@@ -19,6 +19,7 @@ void ProgressSaver::send(const std::shared_ptr<ProgressSaver>& self, const std::
             const bool ok = result.ok();
             if (ok) {
                 sync->saved(progress);
+                sync->serverAnswered(result.value());  // the base of a later save that fails (WP-15b)
             } else {
                 sync->failed(self->clock());
             }
@@ -34,8 +35,33 @@ void ProgressSaver::send(const std::shared_ptr<ProgressSaver>& self, const std::
                     send(self, sync, *more);
                 }
             }
+            if (self->closing && !ok) {
+                self->handOff(*sync);  // no more retries from here: the queue sends it once the server answers
+            }
             self->tidy();
         });
+}
+
+void ProgressSaver::handOff(const core::ProgressSync& sync) {
+    if (queue == nullptr) {
+        return;
+    }
+    const std::optional<core::ProgressSync::NotSaved> notSaved = sync.notSaved();
+    if (!notSaved) {
+        return;
+    }
+    core::WaitingSave entry;
+    entry.chapterId = sync.chapterId();
+    entry.mangaId = mangaId;
+    entry.page = notSaved->progress.lastPageRead;
+    entry.read = notSaved->progress.isRead;
+    entry.spot = notSaved->progress.spot;
+    entry.base = notSaved->base;
+    entry.mangaTitle = mangaTitle;
+    if (const auto name = chapterNames.find(entry.chapterId); name != chapterNames.end()) {
+        entry.chapterName = name->second;
+    }
+    queue->add(std::move(entry));
 }
 
 void ProgressSaver::flush(const std::shared_ptr<ProgressSaver>& self, const std::shared_ptr<core::ProgressSync>& sync,

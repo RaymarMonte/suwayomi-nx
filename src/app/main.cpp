@@ -51,14 +51,46 @@ void onResumeFromSleep() {
 }
 
 // One main-loop iteration: borealis's frame plus our per-frame work. False once the app is quitting.
-bool runOneFrame(snx::app::ConfigStore& config) {
+bool runOneFrame(snx::app::ConfigStore& config, snx::ui::WaitingSaves& saves) {
     if (!brls::Application::mainLoop()) {
         return false;
     }
     snx::app::testhooks::onFrame();
+    const bool readerMoving = config.postponedThisFrame();  // read before config.onFrame() clears it
     config.onFrame();
+    saves.onFrame(readerMoving);
     snx::app::logger::onFrame();
     return true;
+}
+
+// The waiting-save queue's hooks (WP-15b): the app's clocks, borealis's timers and main thread, the log, the test event.
+snx::ui::WaitingSaves::Hooks waitingSaveHooks() {
+    snx::ui::WaitingSaves::Hooks hooks;
+    hooks.clockMs = snx::app::appClockMs;
+    hooks.nowSeconds = [] { return static_cast<std::int64_t>(std::time(nullptr)); };
+    hooks.later = [](int ms, std::function<void()> fn) { brls::delay(ms, std::move(fn)); };
+    hooks.post = [](std::function<void()> fn) { brls::sync(std::move(fn)); };
+    hooks.log = [](bool warning, const std::string& line) {
+        if (warning) {
+            brls::Logger::warning("{}", line);
+        } else {
+            brls::Logger::info("{}", line);
+        }
+    };
+    hooks.report = [](const char* what, const snx::core::WaitingSave& entry, const std::string& reason,
+                      std::size_t waiting) {
+        nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+        fields["what"] = what;
+        fields["chapterId"] = entry.chapterId;
+        fields["page"] = entry.page;
+        fields["read"] = entry.read;
+        if (!reason.empty()) {
+            fields["reason"] = reason;
+        }
+        fields["waiting"] = waiting;
+        snx::app::testhooks::write("progress_queue", fields);
+    };
+    return hooks;
 }
 
 // Test builds: the diagnostics screen (WP-05's server check and request burst, WP-07's image benchmark) over the main screen.
@@ -180,6 +212,17 @@ int main(int argc, char* argv[]) {
     };
     snx::api::SuwayomiClient client(http, config.config().server, clientOptions);
 
+    // The waiting-save queue (WP-15b): progress saves that failed as the reader closed, from progress-queue.json. Any HTTP
+    // answer from the server (GraphQL or an image) nudges it: the server is there again. The observer runs on the network
+    // thread; serverAnswered() only posts to the main thread, and only while saves wait.
+    snx::ui::WaitingSaves saves(client, &fs, snx::ui::WaitingSaves::optionsFrom(profile), waitingSaveHooks());
+    saves.load();
+    http.addResponseObserver([&saves](const snx::net::Request&, const snx::net::HttpResult& result) {
+        if (result.ok()) {
+            saves.serverAnswered();
+        }
+    });
+
     // The image loader (WP-07, D39): decode threads, the disk cache under cache/images, the memory-pressure guard. Every
     // limit from the profile. Results reach the screens through brls::sync; its log lines too (they come from its threads).
     snx::image::LoaderOptions imageOptions = snx::image::loaderOptionsFrom(profile);
@@ -196,17 +239,18 @@ int main(int argc, char* argv[]) {
     // GPU memory for the images on screen (S7): every texture a screen makes is reserved here first (WP-09).
     snx::image::TextureBudget textures(profile.textureBudgetBytes);
 
-    app::AppContext context{fs, runtime, profile, lastRun, config, http, client, images, textures};
+    app::AppContext context{fs, runtime, profile, lastRun, config, http, client, images, textures, saves};
     // Test builds' idle rule: no network request or image load pending, and no animation (TESTING.md).
     testhooks::watchApp([&http, &images] { return http.inFlight() > 0 || images.activeJobs() > 0; });
 
     // HOME, sleep, another app on top: write what is waiting now (S5), and pause the watchdog (borealis keeps the loop
     // running in the background, but slowly). Waking up from sleep: fresh network connections.
-    brls::Application::getWindowFocusChangedEvent()->subscribe([&config](bool focused) {
+    brls::Application::getWindowFocusChangedEvent()->subscribe([&config, &saves](bool focused) {
         crash::setFocused(focused);
         if (!focused) {
             brls::Logger::info("app: in the background, saving");
             config.flush();
+            saves.flush();
             app::logger::flush();
         }
     });
@@ -227,7 +271,7 @@ int main(int argc, char* argv[]) {
     while (running) {
         // S1: an exception that escapes a frame is a crash too. It gets a record and the crash screen, not a dead app.
         try {
-            running = runOneFrame(config);
+            running = runOneFrame(config, saves);
         } catch (const std::exception& e) {
             crash::recordMainLoopException(e.what());
         } catch (...) {
@@ -250,6 +294,7 @@ int main(int argc, char* argv[]) {
     crash::clearExitSteps();
     brls::Logger::info("app: main loop ended, exiting");
     config.flush();
+    saves.flush();  // the waiting saves, written the safe way like config.json (S5)
     images.shutdown();  // its loads end, its threads stop, no more cache writes (S5)
     snx::platform::setResumeHandler(nullptr);
     gResumeHttp = nullptr;

@@ -12,6 +12,7 @@ add_library(snx_ui_models STATIC
     main/MainModel.cpp
     updates/ChapterRowsModel.cpp
     updates/LibraryUpdater.cpp
+    reader/WaitingSaves.cpp
     setup/SetupModel.cpp
 )
 target_link_libraries(snx_ui_models PUBLIC snx_api snx_image)

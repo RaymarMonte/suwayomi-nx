@@ -1,8 +1,9 @@
 // The owner's own app settings on the test Switch (D11, D18). The console is also the owner's reading console, so its
-// sdmc:/switch/suwayomi-nx/config.json (and the app's config.json.bak) hold the owner's real server. Scenarios need a first-run
-// config: the SwitchDriver removes both before a launch, and the app then saves the test server there. This backup gives the
-// owner's files back exactly:
-// - before the first change, ensure() copies both files into tests/e2e/out/owner-config/ (git-ignored), checks each copy
+// sdmc:/switch/suwayomi-nx/config.json (and the app's config.json.bak) hold the owner's real server, and progress-queue.json
+// (+ .bak, WP-15b) the owner's progress saves still waiting for that server. Scenarios need a first-run config and no waiting
+// saves: the SwitchDriver removes all four before a launch, and the app then saves the test server there. This backup gives
+// the owner's files back exactly (so a test run never loses the owner's waiting saves, nor sends them to the test server):
+// - before the first change, ensure() copies the files into tests/e2e/out/owner-config/ (git-ignored), checks each copy
 //   against the console's SHA-256, and writes pending.json last. pending.json there = the console still has the tests' files.
 // - at the end of every scenario (SwitchDriver.dispose) and once more after the run (tools/e2e.sh, restore-config.ts), restore()
 //   uploads the copies again with a hash check, deletes what the tests left where there was no file, removes the harness's own
@@ -19,8 +20,11 @@ import { APP_DIR, putVerified, type Autopilot } from './autopilot.ts';
 
 export const OWNER_CONFIG_DIR = fileURLToPath(new URL('../out/owner-config/', import.meta.url));
 
-/** The app's settings (src/app/ConfigStore.cpp) and the copy SafeFs keeps of the last good one. */
-export const CONFIG_FILES = ['config.json', 'config.json.bak'] as const;
+/**
+ * The app's settings (src/app/ConfigStore.cpp), its waiting progress saves (src/ui/reader/WaitingSaves.cpp, WP-15b), and the
+ * copy SafeFs keeps of the last good one of each.
+ */
+export const CONFIG_FILES = ['config.json', 'config.json.bak', 'progress-queue.json', 'progress-queue.json.bak'] as const;
 export type ConfigFile = (typeof CONFIG_FILES)[number];
 
 /** The harness's own file. A test build that finds it starts with the test server, so the restore removes it too. */
@@ -31,8 +35,11 @@ export type ConfigFileApi = Pick<Autopilot, 'getFile' | 'sha256' | 'putFile' | '
 
 export interface OwnerConfigManifest {
     takenAt: string;
-    /** SHA-256 of each file as it was on the console; null = it wasn't there. */
-    files: Record<ConfigFile, string | null>;
+    /**
+     * SHA-256 of each file as it was on the console; null = it wasn't there. A file with no key: the backup was made before
+     * the harness knew it (a pending.json from before WP-15b has no queue files), so the restore leaves it as it is.
+     */
+    files: Partial<Record<ConfigFile, string | null>>;
     restoredAt?: string;
 }
 
@@ -45,7 +52,7 @@ export function readPendingOwnerConfig(dir = OWNER_CONFIG_DIR): OwnerConfigManif
     const manifest = JSON.parse(readFileSync(file, 'utf8')) as OwnerConfigManifest;
     for (const name of CONFIG_FILES) {
         const want = manifest.files[name];
-        if (want === null) continue;
+        if (want === null || want === undefined) continue;
         const copy = join(dir, name);
         if (!existsSync(copy) || sha256(readFileSync(copy)) !== want) {
             throw new Error(`the copy ${copy} doesn't match ${file}: the console's own ${name} can't be put back from it. Please tell Claude.`);
@@ -64,7 +71,7 @@ export class OwnerConfigBackup {
     }
 
     /**
-     * Before the tests change config.json: copies the console's config.json and config.json.bak here, unless a backup is still
+     * Before the tests change config.json: copies the console's CONFIG_FILES here, unless a backup is still
      * pending. `earlier` = that pending one was there already (from a run that stopped early). Only while the app is closed.
      */
     async ensure(): Promise<{ manifest: OwnerConfigManifest; earlier: boolean }> {
@@ -106,6 +113,7 @@ export class OwnerConfigBackup {
         for (const name of CONFIG_FILES) {
             const sdPath = `${APP_DIR}/${name}`;
             const want = manifest.files[name];
+            if (want === undefined) continue; // not in this backup (an older one): left as it is
             if (want === null) {
                 await this.api.deleteFile(sdPath);
                 if ((await this.api.sha256(sdPath)) !== null) throw new Error(`${sdPath} is still there after deleting it`);

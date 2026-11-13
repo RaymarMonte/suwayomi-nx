@@ -1,0 +1,4 @@
+{"version": 1, "entries": [
+  {"server": "http://127.0.0.1:4568", "user": "", "chapterId": 3, "mangaId": 1, "page": 4, "read": false, "base": {"page": 2, "read": false, "lastReadAt": 1794544765}, "manga": "Alpha", "chapter": "Chapter 3", "madeAt": 1794544800, "errors": 0},
+  {"server": "http://127.0.0.1:4568", "user": "", "chapterId": 150, "mangaId": 4, "page": 0, "read": true, "spot": 0.375, "base": {"page": 0, "read": false, "lastReadAt": 0}, "manga": "Delta Big", "chapter": "Chapter 150", "madeAt": 1794544801, "errors": 2}
+]}

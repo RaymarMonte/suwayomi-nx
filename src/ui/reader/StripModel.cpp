@@ -45,6 +45,9 @@ StripModel::StripModel(api::SuwayomiClient& client, image::ImageLoader& images, 
     layout_.setViewHeight(options_.units.height);
     saver_ = std::make_shared<ProgressSaver>(client_, options_.clock, options_.onSaved);
     saver_->toModel = [this](const core::ReadProgress& progress) { onSaved(progress); };
+    saver_->queue = options_.queue;
+    saver_->mangaId = manga_.id;
+    saver_->mangaTitle = manga_.title;
 }
 
 StripModel::~StripModel() {
@@ -369,6 +372,7 @@ StripModel::Part StripModel::makePart(int chapterId, const core::PageList& list)
     part.chapter.lastPageRead = list.chapter.lastPageRead;
     part.chapter.pageCount = static_cast<int>(list.pages.size());
     part.chapter.stripSpotNote = list.chapter.stripSpotNote;
+    part.chapter.lastReadAt = list.chapter.lastReadAt;  // the base of a save that fails later (WP-15b)
     part.slots.resize(list.pages.size());
     for (std::size_t i = 0; i < list.pages.size(); ++i) {
         if (!list.pages[i].empty()) {
@@ -390,12 +394,31 @@ void StripModel::onOpened(int page, Open how, const api::ApiResult<core::PageLis
         chapters_[static_cast<std::size_t>(index)] = part.chapter;
     }
     const int count = static_cast<int>(part.slots.size());
+    // WP-15b: a save of this chapter that failed earlier, still at what the server has: the strip opens at its page and
+    // spot and saves it as its own.
+    std::optional<core::WaitingSave> waiting;
+    if (options_.queue != nullptr) {
+        const core::Chapter& c = part.chapter;
+        waiting = options_.queue->takeOver(c.id, core::ServerProgress{c.lastPageRead, c.isRead, c.lastReadAt, c.stripSpotNote});
+        if (waiting) {
+            page = waiting->page;
+        }
+    }
     const int at = count == 0 ? 0 : std::clamp(page, 0, count - 1);
-    std::optional<core::StripSpot> note;
-    if (how == Open::Resume && !part.chapter.isRead) {
-        note = core::parseStripSpot(part.chapter.stripSpotNote);
-        if (note && note->page != at) {
-            note.reset();  // another app moved on: the page's top instead
+    // The spot to open at (how far down page `at`), if any. A plain bool + double: GCC's -Wmaybe-uninitialized misreads an
+    // optional here in the Switch build.
+    bool hasSpot = false;
+    double spotShare = 0;
+    if (waiting) {
+        if (waiting->spot) {
+            hasSpot = true;
+            spotShare = *waiting->spot;
+        }
+    } else if (how == Open::Resume && !part.chapter.isRead) {
+        const std::optional<core::StripSpot> note = core::parseStripSpot(part.chapter.stripSpotNote);
+        if (note && note->page == at) {  // else another app moved on: the page's top instead
+            hasSpot = true;
+            spotShare = note->share;
         }
     }
 
@@ -410,13 +433,16 @@ void StripModel::onOpened(int page, Open how, const api::ApiResult<core::PageLis
     parts_.push_back(std::move(part));
     readingId_ = parts_.front().chapter.id;
     startReading(parts_.front());
+    if (waiting && sync_) {
+        sync_->adopt(waiting->page, waiting->read, waiting->spot);
+    }
 
     page_ = count == 0 ? -1 : at;
-    spot_ = note ? note->share : 0;
+    spot_ = hasSpot ? spotShare : 0;
     if (count > 0) {
         const int item = layout_.find(readingId_, at);
-        if (note) {
-            layout_.pin(core::StripPlace{item, note->share}, layout_.viewHeight() / 2);  // the spot under the middle line
+        if (hasSpot) {
+            layout_.pin(core::StripPlace{item, spotShare}, layout_.viewHeight() / 2);  // the spot under the middle line
         } else {
             layout_.pin(core::StripPlace{item, 0}, 0);  // the page's top at the screen's top
         }
@@ -430,6 +456,8 @@ void StripModel::startReading(Part& part) {
     sync_ = std::make_shared<core::ProgressSync>(part.chapter.id, part.chapter.lastPageRead, part.chapter.isRead,
                                                  options_.progressSyncMs, options_.progressRetryMaxMs, options_.clock(),
                                                  noteSpot(part.chapter));
+    sync_->setServerLastReadAt(part.chapter.lastReadAt);
+    saver_->chapterNames[part.chapter.id] = part.chapter.name;
 }
 
 // --- Following the screen ---

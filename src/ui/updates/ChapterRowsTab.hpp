@@ -25,7 +25,8 @@
 // the chapter, a tap on the cover the details screen, the row's "..." (Updates) the row menu, the header's button.
 // The models live in MainActivity (D42); this view only shows them. Opening a chapter loads the manga and its whole
 // chapter list first (MangaModel, maxChapters), so the reader knows the next and previous chapter (D44); the row says
-// "Opening..." meanwhile.
+// "Opening..." meanwhile; B cancels it. History adds "page N not saved yet" to a manga whose save waits in the queue
+// (WP-15b, ui/reader/WaitingSaves).
 namespace snx::ui {
 
 class ChapterRowsTab : public brls::Box, private GridSource {
@@ -54,11 +55,13 @@ class ChapterRowsTab : public brls::Box, private GridSource {
     void showGrid(bool visible);
     void openRow(std::size_t index);
     void openerChanged();
+    void stopOpening();  // the open under way goes (B, a failure, the reader opening): the row shows its text again
     void openManga(std::size_t index);
     void openRowMenu(std::size_t index);
     void openMenu();
     void report();
     std::string dayText(std::size_t index) const;  // the day label for a row that starts a day, else ""
+    const core::WaitingSave* waitingOf(std::size_t index) const;  // History: the row manga's waiting save, if any
 
     app::AppContext& context_;
     std::shared_ptr<ChapterRowsModel> rowsOwner_;
@@ -68,6 +71,7 @@ class ChapterRowsTab : public brls::Box, private GridSource {
     std::function<void()> onRead_;
     std::function<void(const core::Manga&)> onMangaChanged_;
     int updaterListener_ = 0;
+    int savesListener_ = 0;  // History: on context_.saves, for the waiting note
     brls::Box* header_ = nullptr;
     brls::Button* updateButton_ = nullptr;
     brls::Label* statusLine_ = nullptr;
@@ -89,6 +93,7 @@ class ChapterRowsTab : public brls::Box, private GridSource {
     std::size_t openingIndex_ = 0;
     int openingChapterId_ = 0;  // Updates: the row's chapter; History: 0 (Continue decides)
     std::uint64_t openStartMs_ = 0;
+    std::uint64_t openTicket_ = 0;  // which open a posted step belongs to: one cancelled or replaced meanwhile does nothing
     // Set to false when this view goes: callbacks that arrive later (the reader's onClosed) check it.
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
 };

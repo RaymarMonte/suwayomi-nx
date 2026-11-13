@@ -137,6 +137,7 @@ ReaderOptions optionsFor(app::AppContext& context) {
     }
     options.clock = app::appClockMs;
     options.onSaved = progressSaved;
+    options.queue = &context.saves;  // a save that fails as the reader closes waits there (WP-15b)
     return options;
 }
 
@@ -1223,6 +1224,7 @@ void ReaderActivity::startStrip(int chapterId, int page, StripModel::Open how, c
     options.width = stripWidth_;
     options.clock = app::appClockMs;
     options.onSaved = progressSaved;
+    options.queue = &context_.saves;  // the same waiting-save queue (WP-15b)
     strip_ = std::make_unique<StripModel>(context_.client, context_.images, model_.manga(), chapters_, options);
     canvas_ = std::make_unique<StripCanvas>(*strip_, context_.textures, context_.profile.webtoonTilesAround);
     canvas_->textFor = [this](int item) { return stripText(item); };

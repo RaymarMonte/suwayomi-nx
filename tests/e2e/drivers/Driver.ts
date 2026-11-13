@@ -24,7 +24,8 @@ export interface LaunchOptions {
     args?: string[];
     /**
      * WP-08: keep the app's config.json from the last launch (a restart test). By default every launch removes config.json
-     * and config.json.bak first, so each scenario starts like a first run unless its test config names a server.
+     * and config.json.bak first, so each scenario starts like a first run unless its test config names a server. The waiting
+     * progress saves (progress-queue.json + .bak, WP-15b) go and stay the same way (ownerConfig.ts CONFIG_FILES).
      */
     keepConfig?: boolean;
 }

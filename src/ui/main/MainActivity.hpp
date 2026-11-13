@@ -56,6 +56,7 @@ class MainActivity : public brls::Activity {
     void listsRead();             // the reader opened from Updates or History closed
     void reloadStaleLists();      // after a screen on top closed: the lists that loaded once load again
     void updaterChanged();        // the library update moved on: events, reloads
+    void waitingSaveDone(const core::WaitingSave& entry);  // the queue sent or dropped a save: lists reload (WP-15b)
     void mangaChanged(const core::Manga& manga);
     void reportScreen();
 
@@ -72,6 +73,7 @@ class MainActivity : public brls::Activity {
     std::shared_ptr<ChapterRowsModel> history_;
     std::shared_ptr<LibraryUpdater> updater_;
     int updaterListener_ = 0;
+    int savesListener_ = 0;  // on context_.saves (WP-15b)
     std::uint64_t updaterFinished_ = 0;  // the updater's finishedCount() already handled
     std::string updaterReported_;        // the last library_update event, so a poll with no news writes none
     LibraryTab* libraryView_ = nullptr;  // the Library tab's view while it exists

@@ -220,7 +220,7 @@ actions, `openChapter`), `reader/ProgressSaver.{hpp,cpp}`, `ReaderActivity.hpp`,
       answers refreshed, unit tests of every call, integration tests in all three auth modes
 - [x] Test server: Epsilon Weekly (TESTING.md's fixture list), the seed's second step, `addNewChapter` /
       `removeNewChapter`, counts fixed, `SNX_FULL_FIXTURES=1 npm test` green
-- [ ] Queue in the app: made in `main()`, the file (read at start, flushed with config.json), the three triggers, the
+- [x] Queue in the app: made in `main()`, the file (read at start, flushed with config.json), the three triggers, the
       hand-off from `ProgressSaver`, the take-over in both readers, the listeners. Unit tests (suite `ui`): a close-save
       that fails goes in, a later one for the same chapter replaces it; a round after a nudge sends it (with a spot:
       `UpdateStripProgress`); already; server moved; offline keeps it and backs off; three server errors drop it; the
@@ -237,7 +237,7 @@ actions, `openChapter`), `reader/ProgressSaver.{hpp,cpp}`, `ReaderActivity.hpp`,
       started / progress / done / stopped / poll_failed, total, finished, skipped, failed, newChapters, ms), `history`
       (state, rows, first rows with page and read, waiting), `chapter_open` (from, chapterId, page, chapters, ms),
       `progress_queue` (added / sent / already / dropped / kept / taken, chapterId, page, read, reason, waiting)
-- [ ] Harness: `progress-queue.json` (+ `.bak`) is removed with config.json before each launch (kept with `keepConfig`),
+- [x] Harness: `progress-queue.json` (+ `.bak`) is removed with config.json before each launch (kept with `keepConfig`),
       so no scenario inherits another's waiting saves; Switch runs back up and put back the owner's copy like their
       config.json (`tests/e2e/out/owner-config/`, `--restore-config`), so a test run never loses or sends the owner's saves
 - [x] Scenario `updates-history` (desktop and Switch, TESTING.md 17). First a known state through GraphQL: every chapter
@@ -275,6 +275,10 @@ actions, `openChapter`), `reader/ProgressSaver.{hpp,cpp}`, `ReaderActivity.hpp`,
 scenario's two queue steps), B cancelling "Opening...", and the Switch runs of `updates-history` and the listed scenarios
 with the console numbers moved to **WP-15b**. Built as one view and one model for both tabs (`ChapterRowsTab`,
 `ChapterRowsModel`, `LibraryUpdater`; opening uses `MangaModel`), the day on the first row of each day (D52).
+
+**Ticked 2026-11-13 (WP-15b, D53):** the queue in the app, the harness, and the queue's parts of the other items (the
+`progress_queue` event, History's note, the scenario's two queue steps, B cancelling "Opening..."), on desktop. Still open:
+the Switch runs and the console numbers (the owner and the console; STATUS lists the steps).
 
 ## Acceptance
 `tools/build.sh tests` green with the new unit tests; `npm test`, `npm run typecheck` and `npm run contract` green;

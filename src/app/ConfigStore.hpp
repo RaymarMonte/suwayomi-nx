@@ -50,6 +50,9 @@ class ConfigStore {
     // frame without the call (writing to the SD card can take longer than a frame: a hitch in a scroll, WP-13b). It clears
     // itself each frame, so it can't hold saves back once the reader stops calling it. flush() still saves at once.
     void postponeSaveThisFrame() { postponeThisFrame_ = true; }
+    // The reader called postponeSaveThisFrame() in this frame (read before onFrame(), which clears it): the waiting-save
+    // queue's file waits for a still frame the same way (WP-15b).
+    bool postponedThisFrame() const { return postponeThisFrame_; }
     // Saves now if anything changed. True if nothing needed saving or the save worked.
     bool flush();
 

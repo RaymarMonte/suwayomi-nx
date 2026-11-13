@@ -1060,3 +1060,50 @@ default after trying it).
 Rejected: a separate UpdatesModel / HistoryModel / ChapterOpener (the same paging and the same opening; one class each is
 less code to keep right); an automatic update from the Switch (the server's own schedule does that); trusting
 `updateLibrary`'s own answer (it is the previous job's).
+
+**D53 The waiting-save queue: the rules as built** (WP-15b, 2026-11-13; the owner's answers are in D52 and the WP-15 spec).
+- **What it is:** a progress save that fails after the reader began closing (`ProgressSaver`'s last try, for the chapter
+  closed and the ones left behind) waits in `progress-queue.json` and goes to the server later. A save that fails while
+  the reader is open is still the reader's own (D45). Pure rules in `core/ProgressQueue` (entry, add / replace / cap, the
+  file, the decision); the app's queue is `ui/reader/WaitingSaves` (no borealis: the clock, timers, main thread, log and
+  test event come in as hooks; made in `main()` after the client, in `AppContext::saves`).
+- **An entry** holds the server URL and user ("" without a login), chapter and manga id, page, read, the strip's spot, the
+  **base** (the server's page, read flag and `lastReadAt` as the reader last knew them: `fetchChapterPages`' chapter, then
+  each save's answer; both now ask for `lastReadAt`), the manga's title and chapter name (log, History's note), when it was
+  made (wall clock, log only), and its errors in a row. **One per chapter** (server + user + chapter): a newer one replaces
+  it, keeps the older base and moves to the end. At most `pendingSavesMax` (100), the oldest goes (logged).
+- **The file:** version 1, one entry per line, written like config.json (`writeAtomic` + `.bak`, debounced 2 s by
+  `SaveScheduler`, waits while the reader moves, D49), flushed at HOME / sleep / exit. Read at start: at most
+  `progressQueueFileBytes` (64 KiB, the oldest entries are left out when saving to stay under it), JSON depth 64; a broken
+  entry is skipped, a broken file falls back to the `.bak`, then to empty (logged). Fuzzed (`fuzz_progress_queue`).
+- **The decision** (`decideWaitingSave`), from the server's state now (`ChapterState`: `chapter(id) { lastPageRead isRead
+  lastReadAt meta }`): **already** = same page, read is satisfied (ours unread, or the server's read), and for a strip spot
+  the same spot note (4 decimals) → nothing sent. **Send** = the server still equals the base (page, read, `lastReadAt`) →
+  `setProgress` (with a spot `UpdateStripProgress`), never cancelled (D44). Otherwise **server moved**: ours is dropped
+  (logged with both states). The newer change wins, as the owner asked.
+- **Rounds:** the configured server and user's entries, oldest first, one at a time. A round starts (1) after the main
+  screen's connection check works (start-up, Retry, a new server or login); (2) when any HTTP answer arrives (net's
+  response observer, GraphQL or an image) and no round started within `progressSyncMs`: the observer runs on the network
+  thread, so it only reads two atomics and posts once; (3) after a round that ended for want of the server, `progressSyncMs`
+  later, doubling to `progressRetryMaxMs` (D45's numbers). Offline / Timeout: keep, end the round, back off. Auth: keep,
+  no more rounds until (1). Other errors (Server, Parse, a chapter that is gone): keep and count; the third in a row drops it.
+- **The reader takes over:** opening a chapter (the page reader's `showList`, the strip's first chapter) with an entry
+  asks the same decision against `fetchChapterPages`' answer. Send: it opens at the entry's page (the strip at its spot,
+  too), treats it as its own unsaved progress (saved within `progressSyncMs`), the entry leaves ("taken"). Already: the
+  entry goes. Moved: dropped. Not for "open at the last page" (going back from the next chapter) nor a strip neighbour
+  that joins later. The page reader doesn't keep a strip spot (it would save the wrong one).
+- **Screens:** after a round sends or drops an entry, the main screen reloads Updates / History (the list on screen now,
+  the other when its tab opens; a reload cancels the one under way, so a round of many ends in one finished reload), the
+  library reloads its badges when the chapter was marked read, an open details screen of that manga reloads its chapters.
+  History adds "page N not saved yet" to a row whose manga has a waiting entry ("Chapter 3: page 5 not saved yet" when
+  it's another chapter than the row's: read while the server was away, so the server's history doesn't show it yet).
+- **B cancels "Opening..."** on an Updates / History row (WP-15's leftover): the hint shows only while a row opens;
+  otherwise B does what it did. A step the open had already posted does nothing once it is cancelled.
+- **Harness:** `progress-queue.json` (+ `.bak`) goes with config.json before each launch unless `keepConfig`, and Switch
+  runs back up and put back the owner's copy with their config.json (an older pending backup without the keys leaves the
+  queue files as they are).
+- **Server facts** (v2.4.2366, SUWAYOMI-API.md): any `updateChapter` with `lastPageRead` stamps `lastReadAt`, even the
+  same page; `fetchChapterPages` and `setChapterMeta` don't; `chapter(id)` of a gone chapter answers only an error.
+Rejected: replaying every waiting save in order (only the last state of a chapter matters); a time limit for entries
+(the cap and "server moved" already end them); sending without asking first (it would overwrite a newer change made on
+another device).

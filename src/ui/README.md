@@ -58,7 +58,10 @@ left edge and runs the pinch, the double tap, ZR / ZL and the sideways pan; `Rea
 `ProgressSaver` sends both readers' progress), `updates/ChapterRowsTab` (WP-15, D52: one view for the Updates and
 History tabs, a one-column `CoverGrid` of rows, the day on the first row of each day; Updates adds the Update library / Stop
 header; `ChapterRowsModel` pages the rows, `LibraryUpdater` starts, polls and stops the server's update; MainActivity owns
-all three, D42, and reloads the lists when a screen on top closes), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
+all three, D42, and reloads the lists when a screen on top closes; B cancels "Opening...", History notes "page N not saved
+yet", WP-15b), `reader/WaitingSaves` (WP-15b, D53: the waiting-save queue: progress saves that failed as a reader closed,
+`progress-queue.json`, rounds after the main screen's check / any server answer / a back-off timer, the readers' take-over;
+no borealis, its clock, timers and test event come in as hooks; tests `test_ui_queue.cpp`), `setup/SetupActivity` (server address, login mode, test, warnings), `login/LoginActivity` (ui_login),
 `crash/CrashActivity` (the crash screen, S1), `diagnostics/DiagnosticsActivity` (test builds only: WP-05's server check + request
 burst, WP-07's image benchmark).
 
@@ -84,4 +87,4 @@ borealis reads the mouse button once a frame, so a desktop tap shorter than a st
 `reader-portrait`, WP-13: `reader-zoom`, `reader-spread-split`, WP-13b: `reader-webtoon`, WP-15: `updates-history`). Touch coordinates for the
 scenarios: `tests/e2e/lib/screens.ts`.
 
-**Status:** WP-15. Browse is a placeholder tab until WP-14.
+**Status:** WP-15b. Browse is a placeholder tab until WP-14.

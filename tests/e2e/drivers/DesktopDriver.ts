@@ -20,6 +20,7 @@ import { promisify } from 'node:util';
 
 import { EventStream, type EventSource } from '../lib/events.ts';
 import { NotSupportedError, startEventFor, type Button, type Driver, type LaunchOptions } from './Driver.ts';
+import { CONFIG_FILES } from './ownerConfig.ts';
 
 const run = promisify(execFile);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -79,8 +80,8 @@ export class DesktopDriver implements Driver {
         if (opts.testConfig) await this.writeFile('test/config.json', JSON.stringify(opts.testConfig, null, 2));
         else await rm(join(this.dataDir, 'test', 'config.json'), { force: true });
         if (!opts.keepConfig) {
-            await rm(join(this.dataDir, 'config.json'), { force: true });
-            await rm(join(this.dataDir, 'config.json.bak'), { force: true });
+            // config.json and the waiting progress saves (WP-15b): no scenario inherits another's
+            for (const name of CONFIG_FILES) await rm(join(this.dataDir, name), { force: true });
         }
 
         const args = ['-d', '--log-file'];

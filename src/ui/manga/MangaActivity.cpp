@@ -224,9 +224,18 @@ MangaActivity::MangaActivity(app::AppContext& context, core::Manga manga,
     : context_(context),
       model_(context.client, std::move(manga), static_cast<std::size_t>(std::max(1, context.profile.maxChapters))),
       onChanged_(std::move(onChanged)),
-      reportedUnread_(model_.manga().unreadCount) {}
+      reportedUnread_(model_.manga().unreadCount) {
+    // A waiting save of this manga reached the server (or went): the list shows the server's progress, as after the
+    // reader closes. Main thread, like the queue's rounds.
+    savesListener_ = context_.saves.addListener([this](WaitingSaves::Change change, const core::WaitingSave& entry) {
+        if (change == WaitingSaves::Change::Gone && entry.mangaId == model_.manga().id) {
+            model_.reloadChapters();
+        }
+    });
+}
 
 MangaActivity::~MangaActivity() {
+    context_.saves.removeListener(savesListener_);
     alive_.cancel();  // a reader closing later doesn't call back into this screen
     if (list_ != nullptr) {
         list_->setSource(nullptr);  // unbinds the rows while this screen still exists

@@ -8,7 +8,10 @@
 // - X in Updates marks Epsilon's chapter 3 read on the server, X again unread; a tap on a row's cover opens the details screen;
 // - Delta Big stamped through GraphQL (chapter 150 at page 2, as if read on another device): X refreshes History, a tap
 //   continues it at page 2 (the "chapter_open" event says how long the open took).
-// The waiting-save queue steps come with WP-15b. Needs the test server; puts back what it changed.
+// - the waiting-save queue (WP-15b): Alpha chapter 3 to page 5 while the server is stopped, B (the save fails and waits),
+//   quit; the server back, a start with the same config sends it (the server has page 5, History shows it); then chapter 3
+//   to page 7 the same way, but "another device" sets page 2 first: the next start drops ours, the server keeps page 2.
+// Needs the test server; stops and starts it (startServer); puts back what it changed.
 
 import { expect } from 'vitest';
 
@@ -23,6 +26,8 @@ import {
     EPSILON_MANGA_ID,
     optionsFromEnv,
     removeNewChapter,
+    startServer,
+    stopServer,
     SuwayomiClient,
 } from '../lib/suwayomi.ts';
 
@@ -97,6 +102,39 @@ async function closeReader(s: Scenario, chapterId: number, page: number, screen:
     expect(saved.ok, JSON.stringify(saved)).toBe(true);
     await s.events.waitForEvent('screen', { name: screen }, { from: mark });
     await s.events.waitForEvent('idle', {}, { from: mark });
+}
+
+const OFFLINE_KINDS = ['offline', 'network', 'timeout'];
+
+/**
+ * The reader is open at `openedAt` of `chapterId` (the page reader, a 10-page Alpha chapter). Turns to `savedAt` and waits
+ * for the reader's own save of it (the first one comes 5 s after the open, progressSyncMs), so the server's state is known
+ * (the queue entry's base). Then stops the server, turns to `lastPage` (already loaded: it's next to the page on screen) and
+ * closes with B: that save fails, so it goes into the waiting-save queue (`progress_queue` added).
+ */
+async function readAwayFrom(s: Scenario, chapterId: number, openedAt: number, savedAt: number, lastPage: number): Promise<void> {
+    const turned = s.events.mark();
+    for (let page = openedAt + 1; page <= savedAt; page++) {
+        await readerAfter(s, () => s.driver.press('LEFT'), { shown: 'page', page });
+    }
+    const saved = await s.events.waitForEvent('progress', { chapterId, page: savedAt }, { from: turned, timeoutMs: 20_000 });
+    expect(saved.ok, JSON.stringify(saved)).toBe(true);
+    // H2 (the server's database) writes a commit to its file about a second later; a hard stop right away could lose it.
+    await new Promise((r) => setTimeout(r, 1_500));
+    stopServer();
+    await readerAfter(s, () => s.driver.press('LEFT'), { shown: 'page', page: lastPage });
+    const mark = s.events.mark();
+    await s.driver.press('B');
+    const failed = await s.events.waitForEvent('progress', { chapterId, page: lastPage }, { from: mark, timeoutMs: 30_000 });
+    expect(failed.ok, JSON.stringify(failed)).toBe(false);
+    const added = await s.events.waitForEvent('progress_queue', { what: 'added', chapterId }, { from: mark });
+    expect(added).toMatchObject({ page: lastPage, read: false, waiting: 1 });
+    await s.events.waitForEvent('screen', { name: 'Manga' }, { from: mark });
+    await s.events.waitForEvent('idle', {}, { from: mark });
+    // Only the errors a server that is away causes (the details screen reloads its chapters after the reader closed).
+    for (const error of s.events.errors()) {
+        expect(OFFLINE_KINDS, JSON.stringify(error)).toContain(error.kind);
+    }
 }
 
 scenario('updates-history', async (s) => {
@@ -239,10 +277,52 @@ scenario('updates-history', async (s) => {
         await s.events.waitForEvent('idle', {}, { from: mark });
 
         s.expectNoErrorEvents();
+
+        // 7. The waiting-save queue (WP-15b): Alpha chapter 3 to page 5 while the server is away; the next start sends it.
+        const ch3 = alphaChapters[2].id;
+        await s.driver.touch(tab('Library').x, tab('Library').y);
+        await openManga(s, LIBRARY_MORE.reading, 0, 3);
+        await openChapter(s, 0, { shown: 'page', chapterId: ch3, page: 0 });
+        await readAwayFrom(s, ch3, 0, 3, 4);
+        await s.driver.quit();
+
+        startServer();
+        expect((await chaptersOf(client, alpha)).find((c) => c.id === ch3),
+            'the server kept the last save from before its hard stop (else it lost it, or had to be reset)').toMatchObject({ lastPageRead: 3 });
+        await s.launch({ testConfig: { server: { url } }, keepConfig: true });
+        await s.events.waitForEvent('server_check', { ok: true }, { timeoutMs: 30_000 });
+        const sent = await s.events.waitForEvent('progress_queue', { what: 'sent', chapterId: ch3 }, { timeoutMs: 30_000 });
+        expect(sent).toMatchObject({ page: 4, read: false, waiting: 0 });
+        expect((await chaptersOf(client, alpha)).find((c) => c.id === ch3)).toMatchObject({ lastPageRead: 4, isRead: false });
+        await waitForLibrary(s);
+        history = await showTab(s, 'History');
+        expect(rowsOf(history)[0]).toMatchObject({ mangaId: alpha, chapterId: ch3, page: 4 });
+        expect(history.waiting).toBe(0);
+        s.expectNoErrorEvents();
+
+        // 8. Server moved: chapter 3 to page 7 while the server is away, then another device sets it to page 2 first. The
+        // next start drops ours (the newer change wins), and the server keeps page 2.
+        await s.driver.touch(tab('Library').x, tab('Library').y);
+        await openManga(s, LIBRARY_MORE.reading, 0, 3);
+        await openChapter(s, 0, { shown: 'page', chapterId: ch3, page: 4 });
+        await readAwayFrom(s, ch3, 4, 5, 6);
+        await s.driver.quit();
+
+        startServer();
+        await client.query('mutation L($id: Int!) { updateChapter(input: { id: $id, patch: { lastPageRead: 1 } }) { chapter { id } } }',
+            { id: ch3 });
+        await s.launch({ testConfig: { server: { url } }, keepConfig: true });
+        const dropped = await s.events.waitForEvent('progress_queue', { what: 'dropped', chapterId: ch3 }, { timeoutMs: 30_000 });
+        expect(dropped).toMatchObject({ page: 6, reason: 'server moved', waiting: 0 });
+        expect((await chaptersOf(client, alpha)).find((c) => c.id === ch3)).toMatchObject({ lastPageRead: 1 });
+        await waitForLibrary(s);
+        expect(s.events.events.some((e) => e.ev === 'progress_queue' && e.what === 'sent'), 'nothing sent').toBe(false);
+        s.expectNoErrorEvents();
         await s.driver.quit();
     } finally {
+        startServer(); // a failed queue step may have left it stopped
         await resetChapters(client, alpha);
         await resetChapters(client, delta);
         await removeNewChapter(client);
     }
-}, { timeoutMs: 240_000 });
+}, { timeoutMs: 480_000 });

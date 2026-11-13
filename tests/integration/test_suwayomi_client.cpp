@@ -330,6 +330,26 @@ TEST_CASE("progress round trip: page 5 reads back as 5; beyond the end the serve
     CHECK(must(live->setProgress(chapterId, -1, false, CancelToken())).lastPageRead == 0);  // back to the start
 }
 
+TEST_CASE("chapterState (WP-15b): the waiting-save queue's question reads what a save left; a gone chapter is Server") {
+    Live live;
+    const int alpha = libraryId(live, "Alpha");
+    const auto chapters = must(live->chapters(alpha, 0, CancelToken()));
+    REQUIRE(chapters.nodes.size() == 3);
+    const int chapterId = chapters.nodes[0].id;  // Alpha chapter 3
+    REQUIRE(must(live->pages(chapterId, PageFormat::AsStored, CancelToken())).pages.size() == 10);
+
+    const snx::core::ReadProgress saved = must(live->setProgress(chapterId, 4, false, CancelToken()));
+    CHECK(saved.lastReadAt > 0);  // any lastPageRead write stamps it
+    const snx::core::ServerProgress state = must(live->chapterState(chapterId, CancelToken()));
+    CHECK(state.page == 4);
+    CHECK_FALSE(state.read);
+    CHECK(state.lastReadAt == saved.lastReadAt);  // the queue's "still at the base" test relies on this
+    CHECK(state.spotNote.empty());
+
+    CHECK(mustFail(live->chapterState(999999, CancelToken())).kind == ApiErrorKind::Server);
+    CHECK(must(live->setProgress(chapterId, 0, false, CancelToken())).lastPageRead == 0);  // back to the start
+}
+
 TEST_CASE("Updates and History (WP-15): newest first, a chapter with progress in History") {
     Live live;
     const auto updates = must(live->updates(0, CancelToken()));

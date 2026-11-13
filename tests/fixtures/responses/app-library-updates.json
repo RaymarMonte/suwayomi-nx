@@ -14,12 +14,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532764",
+          "fetchedAt": "1794544763",
           "manga": {
             "id": 157,
             "title": "Epsilon Weekly",
             "thumbnailUrl": "/api/v1/manga/157/thumbnail",
-            "inLibraryAt": "1794532764"
+            "inLibraryAt": "1794544763"
           }
         },
         {
@@ -34,12 +34,112 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532764",
+          "fetchedAt": "1794544763",
           "manga": {
             "id": 157,
             "title": "Epsilon Weekly",
             "thumbnailUrl": "/api/v1/manga/157/thumbnail",
-            "inLibraryAt": "1794532764"
+            "inLibraryAt": "1794544763"
+          }
+        },
+        {
+          "id": 420,
+          "mangaId": 117,
+          "name": "Chapter 1",
+          "chapterNumber": 1,
+          "sourceOrder": 1,
+          "uploadDate": "1767830460000",
+          "isRead": false,
+          "isBookmarked": false,
+          "lastPageRead": 0,
+          "pageCount": -1,
+          "lastReadAt": "0",
+          "fetchedAt": "1794544761",
+          "manga": {
+            "id": 117,
+            "title": "Shelf 112",
+            "thumbnailUrl": "/api/v1/manga/117/thumbnail",
+            "inLibraryAt": "1794544761"
+          }
+        },
+        {
+          "id": 421,
+          "mangaId": 118,
+          "name": "Chapter 1",
+          "chapterNumber": 1,
+          "sourceOrder": 1,
+          "uploadDate": "1767830460000",
+          "isRead": false,
+          "isBookmarked": false,
+          "lastPageRead": 0,
+          "pageCount": -1,
+          "lastReadAt": "0",
+          "fetchedAt": "1794544761",
+          "manga": {
+            "id": 118,
+            "title": "Shelf 113",
+            "thumbnailUrl": "/api/v1/manga/118/thumbnail",
+            "inLibraryAt": "1794544761"
+          }
+        },
+        {
+          "id": 422,
+          "mangaId": 119,
+          "name": "Chapter 1",
+          "chapterNumber": 1,
+          "sourceOrder": 1,
+          "uploadDate": "1767830460000",
+          "isRead": false,
+          "isBookmarked": false,
+          "lastPageRead": 0,
+          "pageCount": -1,
+          "lastReadAt": "0",
+          "fetchedAt": "1794544761",
+          "manga": {
+            "id": 119,
+            "title": "Shelf 114",
+            "thumbnailUrl": "/api/v1/manga/119/thumbnail",
+            "inLibraryAt": "1794544761"
+          }
+        },
+        {
+          "id": 423,
+          "mangaId": 120,
+          "name": "Chapter 1",
+          "chapterNumber": 1,
+          "sourceOrder": 1,
+          "uploadDate": "1767830460000",
+          "isRead": false,
+          "isBookmarked": false,
+          "lastPageRead": 0,
+          "pageCount": -1,
+          "lastReadAt": "0",
+          "fetchedAt": "1794544761",
+          "manga": {
+            "id": 120,
+            "title": "Shelf 115",
+            "thumbnailUrl": "/api/v1/manga/120/thumbnail",
+            "inLibraryAt": "1794544761"
+          }
+        },
+        {
+          "id": 424,
+          "mangaId": 121,
+          "name": "Chapter 1",
+          "chapterNumber": 1,
+          "sourceOrder": 1,
+          "uploadDate": "1767830460000",
+          "isRead": false,
+          "isBookmarked": false,
+          "lastPageRead": 0,
+          "pageCount": -1,
+          "lastReadAt": "0",
+          "fetchedAt": "1794544761",
+          "manga": {
+            "id": 121,
+            "title": "Shelf 116",
+            "thumbnailUrl": "/api/v1/manga/121/thumbnail",
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -54,12 +154,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 122,
             "title": "Shelf 117",
             "thumbnailUrl": "/api/v1/manga/122/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -74,12 +174,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 123,
             "title": "Shelf 118",
             "thumbnailUrl": "/api/v1/manga/123/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -94,12 +194,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 124,
             "title": "Shelf 119",
             "thumbnailUrl": "/api/v1/manga/124/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -114,12 +214,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 125,
             "title": "Shelf 120",
             "thumbnailUrl": "/api/v1/manga/125/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -134,12 +234,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 126,
             "title": "Shelf 121",
             "thumbnailUrl": "/api/v1/manga/126/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -154,12 +254,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 127,
             "title": "Shelf 122",
             "thumbnailUrl": "/api/v1/manga/127/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -174,12 +274,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 128,
             "title": "Shelf 123",
             "thumbnailUrl": "/api/v1/manga/128/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -194,12 +294,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 129,
             "title": "Shelf 124",
             "thumbnailUrl": "/api/v1/manga/129/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -214,12 +314,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 130,
             "title": "Shelf 125",
             "thumbnailUrl": "/api/v1/manga/130/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -234,12 +334,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 131,
             "title": "Shelf 126",
             "thumbnailUrl": "/api/v1/manga/131/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -254,12 +354,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 132,
             "title": "Shelf 127",
             "thumbnailUrl": "/api/v1/manga/132/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -274,12 +374,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 133,
             "title": "Shelf 128",
             "thumbnailUrl": "/api/v1/manga/133/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -294,12 +394,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 134,
             "title": "Shelf 129",
             "thumbnailUrl": "/api/v1/manga/134/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -314,12 +414,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 135,
             "title": "Shelf 130",
             "thumbnailUrl": "/api/v1/manga/135/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -334,12 +434,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 136,
             "title": "Shelf 131",
             "thumbnailUrl": "/api/v1/manga/136/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -354,12 +454,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 137,
             "title": "Shelf 132",
             "thumbnailUrl": "/api/v1/manga/137/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -374,12 +474,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 138,
             "title": "Shelf 133",
             "thumbnailUrl": "/api/v1/manga/138/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -394,12 +494,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 139,
             "title": "Shelf 134",
             "thumbnailUrl": "/api/v1/manga/139/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -414,12 +514,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 140,
             "title": "Shelf 135",
             "thumbnailUrl": "/api/v1/manga/140/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -434,12 +534,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 141,
             "title": "Shelf 136",
             "thumbnailUrl": "/api/v1/manga/141/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -454,12 +554,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 142,
             "title": "Shelf 137",
             "thumbnailUrl": "/api/v1/manga/142/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -474,12 +574,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 143,
             "title": "Shelf 138",
             "thumbnailUrl": "/api/v1/manga/143/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -494,12 +594,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 144,
             "title": "Shelf 139",
             "thumbnailUrl": "/api/v1/manga/144/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -514,12 +614,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 145,
             "title": "Shelf 140",
             "thumbnailUrl": "/api/v1/manga/145/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -534,12 +634,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 146,
             "title": "Shelf 141",
             "thumbnailUrl": "/api/v1/manga/146/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -554,12 +654,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 147,
             "title": "Shelf 142",
             "thumbnailUrl": "/api/v1/manga/147/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -574,12 +674,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 148,
             "title": "Shelf 143",
             "thumbnailUrl": "/api/v1/manga/148/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -594,12 +694,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 149,
             "title": "Shelf 144",
             "thumbnailUrl": "/api/v1/manga/149/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -614,12 +714,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 150,
             "title": "Shelf 145",
             "thumbnailUrl": "/api/v1/manga/150/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -634,12 +734,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 151,
             "title": "Shelf 146",
             "thumbnailUrl": "/api/v1/manga/151/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -654,12 +754,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 152,
             "title": "Shelf 147",
             "thumbnailUrl": "/api/v1/manga/152/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -674,12 +774,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 153,
             "title": "Shelf 148",
             "thumbnailUrl": "/api/v1/manga/153/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -694,12 +794,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 154,
             "title": "Shelf 149",
             "thumbnailUrl": "/api/v1/manga/154/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -714,12 +814,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 155,
             "title": "Shelf 150",
             "thumbnailUrl": "/api/v1/manga/155/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -734,12 +834,32 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532763",
+          "fetchedAt": "1794544761",
           "manga": {
             "id": 156,
             "title": "日本語タイトル テスト",
             "thumbnailUrl": "/api/v1/manga/156/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
+          }
+        },
+        {
+          "id": 351,
+          "mangaId": 48,
+          "name": "Chapter 1",
+          "chapterNumber": 1,
+          "sourceOrder": 1,
+          "uploadDate": "1767830460000",
+          "isRead": false,
+          "isBookmarked": false,
+          "lastPageRead": 0,
+          "pageCount": -1,
+          "lastReadAt": "0",
+          "fetchedAt": "1794544760",
+          "manga": {
+            "id": 48,
+            "title": "Shelf 043",
+            "thumbnailUrl": "/api/v1/manga/48/thumbnail",
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -754,12 +874,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532762",
+          "fetchedAt": "1794544760",
           "manga": {
             "id": 49,
             "title": "Shelf 044",
             "thumbnailUrl": "/api/v1/manga/49/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -774,12 +894,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532762",
+          "fetchedAt": "1794544760",
           "manga": {
             "id": 50,
             "title": "Shelf 045",
             "thumbnailUrl": "/api/v1/manga/50/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -794,12 +914,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532762",
+          "fetchedAt": "1794544760",
           "manga": {
             "id": 51,
             "title": "Shelf 046",
             "thumbnailUrl": "/api/v1/manga/51/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -814,12 +934,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532762",
+          "fetchedAt": "1794544760",
           "manga": {
             "id": 52,
             "title": "Shelf 047",
             "thumbnailUrl": "/api/v1/manga/52/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -834,12 +954,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532762",
+          "fetchedAt": "1794544760",
           "manga": {
             "id": 53,
             "title": "Shelf 048",
             "thumbnailUrl": "/api/v1/manga/53/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -854,12 +974,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532762",
+          "fetchedAt": "1794544760",
           "manga": {
             "id": 54,
             "title": "Shelf 049",
             "thumbnailUrl": "/api/v1/manga/54/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         },
         {
@@ -874,132 +994,12 @@
           "lastPageRead": 0,
           "pageCount": -1,
           "lastReadAt": "0",
-          "fetchedAt": "1794532762",
+          "fetchedAt": "1794544760",
           "manga": {
             "id": 55,
             "title": "Shelf 050",
             "thumbnailUrl": "/api/v1/manga/55/thumbnail",
-            "inLibraryAt": "1794532763"
-          }
-        },
-        {
-          "id": 359,
-          "mangaId": 56,
-          "name": "Chapter 1",
-          "chapterNumber": 1,
-          "sourceOrder": 1,
-          "uploadDate": "1767830460000",
-          "isRead": false,
-          "isBookmarked": false,
-          "lastPageRead": 0,
-          "pageCount": -1,
-          "lastReadAt": "0",
-          "fetchedAt": "1794532762",
-          "manga": {
-            "id": 56,
-            "title": "Shelf 051",
-            "thumbnailUrl": "/api/v1/manga/56/thumbnail",
-            "inLibraryAt": "1794532763"
-          }
-        },
-        {
-          "id": 360,
-          "mangaId": 57,
-          "name": "Chapter 1",
-          "chapterNumber": 1,
-          "sourceOrder": 1,
-          "uploadDate": "1767830460000",
-          "isRead": false,
-          "isBookmarked": false,
-          "lastPageRead": 0,
-          "pageCount": -1,
-          "lastReadAt": "0",
-          "fetchedAt": "1794532762",
-          "manga": {
-            "id": 57,
-            "title": "Shelf 052",
-            "thumbnailUrl": "/api/v1/manga/57/thumbnail",
-            "inLibraryAt": "1794532763"
-          }
-        },
-        {
-          "id": 361,
-          "mangaId": 58,
-          "name": "Chapter 1",
-          "chapterNumber": 1,
-          "sourceOrder": 1,
-          "uploadDate": "1767830460000",
-          "isRead": false,
-          "isBookmarked": false,
-          "lastPageRead": 0,
-          "pageCount": -1,
-          "lastReadAt": "0",
-          "fetchedAt": "1794532762",
-          "manga": {
-            "id": 58,
-            "title": "Shelf 053",
-            "thumbnailUrl": "/api/v1/manga/58/thumbnail",
-            "inLibraryAt": "1794532763"
-          }
-        },
-        {
-          "id": 362,
-          "mangaId": 59,
-          "name": "Chapter 1",
-          "chapterNumber": 1,
-          "sourceOrder": 1,
-          "uploadDate": "1767830460000",
-          "isRead": false,
-          "isBookmarked": false,
-          "lastPageRead": 0,
-          "pageCount": -1,
-          "lastReadAt": "0",
-          "fetchedAt": "1794532762",
-          "manga": {
-            "id": 59,
-            "title": "Shelf 054",
-            "thumbnailUrl": "/api/v1/manga/59/thumbnail",
-            "inLibraryAt": "1794532763"
-          }
-        },
-        {
-          "id": 363,
-          "mangaId": 60,
-          "name": "Chapter 1",
-          "chapterNumber": 1,
-          "sourceOrder": 1,
-          "uploadDate": "1767830460000",
-          "isRead": false,
-          "isBookmarked": false,
-          "lastPageRead": 0,
-          "pageCount": -1,
-          "lastReadAt": "0",
-          "fetchedAt": "1794532762",
-          "manga": {
-            "id": 60,
-            "title": "Shelf 055",
-            "thumbnailUrl": "/api/v1/manga/60/thumbnail",
-            "inLibraryAt": "1794532763"
-          }
-        },
-        {
-          "id": 364,
-          "mangaId": 61,
-          "name": "Chapter 1",
-          "chapterNumber": 1,
-          "sourceOrder": 1,
-          "uploadDate": "1767830460000",
-          "isRead": false,
-          "isBookmarked": false,
-          "lastPageRead": 0,
-          "pageCount": -1,
-          "lastReadAt": "0",
-          "fetchedAt": "1794532762",
-          "manga": {
-            "id": 61,
-            "title": "Shelf 056",
-            "thumbnailUrl": "/api/v1/manga/61/thumbnail",
-            "inLibraryAt": "1794532763"
+            "inLibraryAt": "1794544761"
           }
         }
       ],

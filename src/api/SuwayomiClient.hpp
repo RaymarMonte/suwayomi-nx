@@ -140,6 +140,10 @@ class SuwayomiClient {
     // How far the library update is, and when the last one started. withManga: also the titles of the manga that failed.
     ApiFuture<core::LibraryUpdateStatus> libraryUpdateStatus(bool withManga, const net::CancelToken& cancel,
                                                              net::Priority priority = net::Priority::Interactive);
+    // WP-15b: one chapter's reading progress on the server now (page, read flag, stamp, the strip's note): the waiting-save
+    // queue's check before it sends a save that failed earlier. A chapter that is gone: Server.
+    ApiFuture<core::ServerProgress> chapterState(int chapterId, const net::CancelToken& cancel,
+                                                 net::Priority priority = net::Priority::Background);
     // ui_login: logs in (sent without a token: the server refuses a login while logged in), keeps the tokens, username and
     // password for renewing later, and reports them through onSettingsChanged. Wrong password: Auth with the server's words.
     ApiFuture<core::LoginTokens> login(std::string username, std::string password, const net::CancelToken& cancel,

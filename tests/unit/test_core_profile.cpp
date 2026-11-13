@@ -73,6 +73,9 @@ TEST_SUITE("core") {
         CHECK(full.maxHistoryRows == 500);
         CHECK(full.libraryUpdatePollMs == 1000);
         CHECK(full.libraryUpdateStartWaitMs == 10000);
+        // WP-15b: the waiting-save queue.
+        CHECK(full.pendingSavesMax == 100);
+        CHECK(full.progressQueueFileBytes == 64 * 1024);
         CHECK(full.httpConcurrency == 6);
         CHECK(full.decodeThreads == 2);
         CHECK(full.maxDecodeScale == doctest::Approx(4.0));  // D48: WP-13c's console measurement

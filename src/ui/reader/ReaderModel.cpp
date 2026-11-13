@@ -45,6 +45,9 @@ ReaderModel::ReaderModel(api::SuwayomiClient& client, image::ImageLoader& images
     settings_.mangaId = manga_.id;
     saver_ = std::make_shared<ProgressSaver>(client_, options_.clock, options_.onSaved);
     saver_->toModel = [this](const core::ReadProgress& progress) { onSaved(progress); };
+    saver_->queue = options_.queue;
+    saver_->mangaId = manga_.id;
+    saver_->mangaTitle = manga_.title;
 }
 
 ReaderModel::~ReaderModel() {
@@ -280,11 +283,26 @@ void ReaderModel::showList(const core::PageList& list, std::vector<Slot> ready, 
     } else if (start.kind == Start::Kind::Last) {
         page = count - 1;
     }
+    // WP-15b: a save of this chapter that failed earlier, still at what the server has: it opens there and is saved as the
+    // reader's own (not on a step back onto the last page: that keeps its own rule, and the queue's round decides).
+    std::optional<core::WaitingSave> waiting;
+    if (options_.queue != nullptr && start.kind != Start::Kind::Last) {
+        waiting = options_.queue->takeOver(
+            chapter_.id, core::ServerProgress{fresh.lastPageRead, fresh.isRead, fresh.lastReadAt, fresh.stripSpotNote});
+        if (waiting) {
+            page = waiting->page;
+        }
+    }
     position_ = count == 0 ? 0 : std::clamp(page, 0, count - 1);  // no pages: the "next chapter" screen
     half_ = start.kind == Start::Kind::Last ? 1 : 0;  // back from the next chapter: a spread's last half
 
     sync_ = std::make_shared<core::ProgressSync>(chapter_.id, fresh.lastPageRead, fresh.isRead, options_.progressSyncMs,
                                                  options_.progressRetryMaxMs, options_.clock());
+    sync_->setServerLastReadAt(fresh.lastReadAt);
+    if (waiting) {
+        sync_->adopt(waiting->page, waiting->read, std::nullopt);  // the page reader saves no spot (the strip's note stays)
+    }
+    saver_->chapterNames[chapter_.id] = chapter_.name;
     state_ = State::Ready;
     arrive();
     changed();

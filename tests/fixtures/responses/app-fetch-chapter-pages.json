@@ -20,6 +20,7 @@
         "isRead": false,
         "lastPageRead": 0,
         "pageCount": 10,
+        "lastReadAt": "0",
         "meta": []
       },
       "syncConflict": null

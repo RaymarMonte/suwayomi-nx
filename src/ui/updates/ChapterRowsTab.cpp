@@ -71,6 +71,17 @@ std::string rowInfo(const core::ChapterEntry& entry, bool updates) {
     return brls::getStr("history/chapter_page", chapterTitle(chapter), chapter.lastPageRead + 1);
 }
 
+// History's note for a save of this manga that waits in the queue (WP-15b): "page 5 not saved yet", with the chapter's
+// name in front when it isn't the row's chapter (read while the server was away, so the server's history doesn't show it).
+std::string waitingNote(const core::WaitingSave& waiting, int rowChapterId) {
+    const std::string what =
+        waiting.read ? "history/waiting_read"_i18n : brls::getStr("history/waiting_page", waiting.page + 1);
+    if (waiting.chapterId == rowChapterId || waiting.chapterName.empty()) {
+        return what;
+    }
+    return brls::getStr("history/waiting_other", waiting.chapterName, what);
+}
+
 // One row: the cover (a tap opens the details screen), the manga's title and the chapter line, the day on the first
 // row of a day, and on Updates a "..." for the row menu (its own tap wins over the row's: borealis asks the innermost
 // view first).
@@ -145,11 +156,18 @@ class RowCell : public GridCell {
         }
     }
 
+    // note: History's waiting note, or "".
     void show(const core::ChapterEntry& entry, bool updates, const std::string& day, bool opening,
-              app::AppContext& context) {
+              const std::string& note, app::AppContext& context) {
         title_->setText(entry.manga.title);
         title_->setTextColor(themeColor(entry.chapter.isRead && updates ? "brls/text_disabled" : "brls/text"));
-        info_->setText(opening ? "updates/opening"_i18n : rowInfo(entry, updates));
+        if (opening) {
+            info_->setText("updates/opening"_i18n);
+        } else if (!note.empty()) {
+            info_->setText(rowInfo(entry, updates) + " · " + note);
+        } else {
+            info_->setText(rowInfo(entry, updates));
+        }
         info_->setTextColor(themeColor("brls/text_disabled"));
         day_->setText(day);
         const std::string url =
@@ -238,7 +256,24 @@ ChapterRowsTab::ChapterRowsTab(app::AppContext& context, std::shared_ptr<Chapter
             openMenu();
             return true;
         });
+        // A save of a manga in the list went into the queue or left it: the rows show or drop their note.
+        savesListener_ = context_.saves.addListener([this](WaitingSaves::Change, const core::WaitingSave&) {
+            if (gridShown_) {
+                grid_->rebind();
+            }
+            report();
+        });
     }
+    // B cancels "Opening..." (both tabs). Only while an open is under way; otherwise B does what it does elsewhere.
+    registerAction("updates/cancel_open"_i18n, brls::BUTTON_B, [this](brls::View*) {
+        if (opener_ == nullptr) {
+            return false;
+        }
+        brls::Logger::info("{}: opening cancelled", isUpdates() ? "updates" : "history");
+        stopOpening();
+        return true;
+    });
+    setActionAvailable(brls::BUTTON_B, false);
 
     rows_.setListener([this] { modelChanged(); });
     rows_.setMangaChanged(onMangaChanged_);
@@ -254,6 +289,7 @@ ChapterRowsTab::ChapterRowsTab(app::AppContext& context, std::shared_ptr<Chapter
 
 ChapterRowsTab::~ChapterRowsTab() {
     *alive_ = false;
+    context_.saves.removeListener(savesListener_);  // 0 (Updates): nothing to remove
     opener_.reset();
     grid_->setSource(nullptr);  // unbinds the cells (cancels their cover loads) while this tab still exists
     rows_.setListener({});
@@ -466,9 +502,20 @@ void ChapterRowsTab::report() {
         row["page"] = entry.chapter.lastPageRead;
         row["read"] = entry.chapter.isRead;
         row["day"] = dayText(i);
+        if (const core::WaitingSave* waiting = waitingOf(i)) {
+            row["waitingChapterId"] = waiting->chapterId;  // WP-15b: the row shows "page N not saved yet"
+            row["waitingPage"] = waiting->page;
+        }
         first.push_back(row);
     }
     fields["first"] = first;
+    if (!isUpdates()) {
+        std::size_t waiting = 0;  // rows with a waiting note
+        for (std::size_t i = 0; i < rows_.items().size(); ++i) {
+            waiting += waitingOf(i) != nullptr ? 1 : 0;
+        }
+        fields["waiting"] = waiting;
+    }
     if (isUpdates()) {
         fields["newest"] = rows_.newestFetchedAt();
     }
@@ -514,7 +561,16 @@ GridCell* ChapterRowsTab::makeCell() {
 void ChapterRowsTab::bind(GridCell& cell, std::size_t index) {
     cell.setId((isUpdates() ? "updates/row-" : "history/row-") + std::to_string(index));  // the "focus" test event
     const bool opening = opener_ != nullptr && openingIndex_ == index;
-    static_cast<RowCell&>(cell).show(rows_.items()[index], isUpdates(), dayText(index), opening, context_);
+    const core::WaitingSave* waiting = waitingOf(index);
+    const std::string note = waiting != nullptr ? waitingNote(*waiting, rows_.items()[index].chapter.id) : std::string();
+    static_cast<RowCell&>(cell).show(rows_.items()[index], isUpdates(), dayText(index), opening, note, context_);
+}
+
+const core::WaitingSave* ChapterRowsTab::waitingOf(std::size_t index) const {
+    if (isUpdates() || index >= rows_.items().size()) {
+        return nullptr;  // Updates shows the server's chapters only
+    }
+    return context_.saves.waitingForManga(rows_.items()[index].manga.id);
 }
 
 void ChapterRowsTab::unbind(GridCell& cell) {
@@ -547,8 +603,10 @@ void ChapterRowsTab::openRow(std::size_t index) {
     openingIndex_ = index;
     openingChapterId_ = isUpdates() ? entry.chapter.id : 0;
     openStartMs_ = nowMs();
+    ++openTicket_;
     opener_->setListener([this] { openerChanged(); });
     opener_->start();
+    setActionAvailable(brls::BUTTON_B, true);  // B cancels
     grid_->rebind();  // "Opening..."
 }
 
@@ -559,10 +617,9 @@ void ChapterRowsTab::openerChanged() {
     MangaModel& model = *opener_;
     if (model.state() == MangaModel::State::Failed) {
         brls::Application::notify(brls::getStr("updates/open_failed", errorText(model.error())));
-        brls::sync([this, alive = std::weak_ptr<bool>(alive_)] {
-            if (!alive.expired() && *alive.lock()) {
-                opener_.reset();
-                grid_->rebind();
+        brls::sync([this, alive = std::weak_ptr<bool>(alive_), ticket = openTicket_] {
+            if (!alive.expired() && *alive.lock() && ticket == openTicket_) {
+                stopOpening();
             }
         });
         return;
@@ -594,12 +651,11 @@ void ChapterRowsTab::openerChanged() {
     const core::Manga manga = model.manga();
     const std::vector<core::Chapter> chapters = model.chapters();
     // Not inside the model's own callback: the model goes on the next frame.
-    brls::sync([this, alive = std::weak_ptr<bool>(alive_), manga, chapters, chapterId, page] {
-        if (alive.expired() || !*alive.lock()) {
-            return;
+    brls::sync([this, alive = std::weak_ptr<bool>(alive_), ticket = openTicket_, manga, chapters, chapterId, page] {
+        if (alive.expired() || !*alive.lock() || ticket != openTicket_) {
+            return;  // this view went, or B cancelled the open (or another row replaced it) meanwhile
         }
-        opener_.reset();
-        grid_->rebind();
+        stopOpening();
         if (chapterId == 0 || chapters.empty()) {
             // Every chapter read (or none): the details screen instead.
             brls::Application::pushActivity(new MangaActivity(context_, manga, onMangaChanged_));
@@ -613,6 +669,13 @@ void ChapterRowsTab::openerChanged() {
         };
         brls::Application::pushActivity(new ReaderActivity(context_, manga, chapters, chapterId, page, onClosed));
     });
+}
+
+void ChapterRowsTab::stopOpening() {
+    opener_.reset();  // cancels its loads
+    ++openTicket_;    // and a step it posted already does nothing
+    setActionAvailable(brls::BUTTON_B, false);
+    grid_->rebind();
 }
 
 void ChapterRowsTab::openManga(std::size_t index) {

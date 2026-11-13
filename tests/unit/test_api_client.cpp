@@ -206,6 +206,27 @@ TEST_CASE("client: pages() and setProgress() are mutations; page format and prog
     CHECK(vars["patch"]["isRead"] == true);
 }
 
+TEST_CASE("client: chapterState is a query with the chapter's id; a gone chapter is Server (WP-15b)") {
+    Harness h(settingsFor(AuthMode::None));
+    h.http.setHandler([](const Request& request) {
+        if (variablesOf(request)["id"] == 7) return fixture("app-update-then-chapter-state.json");
+        return fixture("error-chapter-not-found.json");
+    });
+    const CancelToken cancel;
+
+    const auto state = h.client->chapterState(7, cancel).get();
+    REQUIRE(state.ok());
+    CHECK(state.value().page == 2);
+    CHECK(state.value().lastReadAt > 0);
+    const Request sent = h.sent("ChapterState").at(0);
+    CHECK(sent.idempotent);  // a query: net may repeat it
+    CHECK(variablesOf(sent)["id"] == 7);
+
+    const auto gone = h.client->chapterState(999999, cancel).get();
+    REQUIRE_FALSE(gone.ok());
+    CHECK(gone.error().kind == ApiErrorKind::Server);
+}
+
 TEST_CASE("client: updates and history read the recorded answers, with their page sizes (WP-15)") {
     Harness h(settingsFor(AuthMode::None));
     h.http.setHandler([](const Request& request) {

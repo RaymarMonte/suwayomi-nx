@@ -118,8 +118,9 @@ A mismatch writes `out/<scenario>/<step>.actual.png` and `<step>.diff.png` (red 
 - After a crash the HOME menu says "The software was closed because an error occurred." (D35). `waitForExit()` reports that
   (`ENDED_SOFTWARE_CLOSED`) and dismisses it with A, only after the screen check (reference crop `software-closed`).
 - **The owner's settings** (`drivers/ownerConfig.ts`): the test console is also the owner's reading console, and its
-  `config.json` names the owner's real server. Before the first launch changes it, the driver copies `config.json` and
-  `config.json.bak` (whichever exist) to `out/owner-config/`, checks each copy against the console's SHA-256, and writes
+  `config.json` names the owner's real server. Before the first launch changes it, the driver copies `config.json`,
+  `config.json.bak` and the waiting progress saves `progress-queue.json` + `.bak` (WP-15b; whichever exist, the list is
+  `CONFIG_FILES`) to `out/owner-config/`, checks each copy against the console's SHA-256, and writes
   `pending.json` last. At the end of every scenario it uploads them again with a hash check (or deletes what the tests left where
   there was no file), removes the harness's `test/config.json` (a test build would start with the test server), and renames
   `pending.json` to `restored.json`. `tools/e2e.sh switch` runs `drivers/restore-config.ts` once more after the run, also after a

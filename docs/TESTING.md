@@ -245,7 +245,9 @@ interface Driver {
   - **safety allowlist**: the driver can only call the endpoints listed in SAFETY.md S10. Anything else throws before sending.
   - **the owner's settings** (found 2026-10-30: every run wiped them): the console is also the owner's reading console (D18), and
     its `config.json` names the owner's real server. Before the first launch changes it, `drivers/ownerConfig.ts` copies
-    `config.json` and `config.json.bak` to `tests/e2e/out/owner-config/` (git-ignored, hash-checked, `pending.json` written last).
+    `config.json` and `config.json.bak`, and the waiting progress saves `progress-queue.json` + `.bak` (WP-15b: a test run never
+    loses them nor sends them to the test server), to `tests/e2e/out/owner-config/` (git-ignored, hash-checked, `pending.json`
+    written last; an older `pending.json` without the queue files leaves them as they are).
     Every scenario's cleanup puts them back (upload + SHA-256, or delete where there was no file), removes the harness's
     `test/config.json`, and renames `pending.json` to `restored.json`. `tools/e2e.sh switch` restores once more after the run,
     also after a failure or Ctrl+C; `tools/e2e.sh switch --restore-config` does only that. A leftover `pending.json` is never
@@ -356,7 +358,7 @@ Initial list, grown per UI WP:
 16. `keyboard-wait` (WP-12 regression, Switch only) – the setup screen's address field opens the system keyboard, which
     stays open 15 s (it blocks the main loop, longer than the 10 s watchdog), + confirms, Continue reaches the library, no crash
     record in `logs/`. ~50 s
-17. `updates-history` (WP-15, D52; desktop done, Switch runs with WP-15b) – a known state first (GraphQL: every chapter
+17. `updates-history` (WP-15, D52; WP-15b, D53; desktop done, the Switch runs wait for the owner) – a known state first (GraphQL: every chapter
     but Epsilon's unread at page 0, `removeNewChapter()`); Updates empty (golden `updates-empty`); `addNewChapter()`, Update
     library → `library_update` done (total 1, skipped 156, newChapters 1), the row "Today" + Epsilon Chapter 3 (golden
     `updates-new`); the row opens it (code 8/3/1), a page on, B → the row and History at page 2; Alpha ch1 → page 3 and ch2
@@ -366,7 +368,13 @@ Initial list, grown per UI WP:
     rows with chapterId, mangaId, title, chapter, page, read, day; Updates also `newest`; hidden, pages, end),
     `library_update` (phase started / progress / done / stopped / nothing / poll_failed, total, finished, skipped, failed,
     newChapters, ms), `chapter_open` (from, chapterId, page, chapters, ms). RIGHT from the tab list onto the rows needs a
-    second press after a touch (borealis's first one only shows the focus): `focusRows()`. The queue steps: WP-15b. ~22 s
+    second press after a touch (borealis's first one only shows the focus): `focusRows()`. **The queue (WP-15b):** Alpha ch3
+    to page 4 (its 5 s save), `stopServer()`, page 5, B → `progress` ok false + `progress_queue` added; quit; `startServer()`
+    (the server still has page 4), start with the same config → `server_check`, `progress_queue` sent, the server has page
+    5, History shows it. Then ch3 to page 7 the same way, "another device" sets page 2 through GraphQL, the next start →
+    `progress_queue` dropped (server moved), the server keeps page 2. Events: `progress_queue` (what added / sent / already /
+    dropped / kept / taken, chapterId, page, read, reason, waiting), `history` gains `waiting` (rows with a "not saved yet"
+    note) and `waitingChapterId` / `waitingPage` on such a first row. ~22 s + ~40 s for the queue
 
 ## Golden screenshots
 - Stored per driver: `tests/e2e/goldens/{desktop,switch}/<scenario>/<step>.png`.

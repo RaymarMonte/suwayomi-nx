@@ -85,10 +85,12 @@ path rules in `core::jailPath`. It also refuses any `.nro` (no self-update, D15)
 **S5 Write discipline (SD/exFAT safety).**
 - Atomic writes: `x.tmp` → write → `fflush` → `fsync` → close → `rename` over `x`. Config also keeps `x.bak`.
 - Few, small writes: config saves debounced (≥ 2 s), reading progress goes to the *server* (not the SD), disk-cache files are written once
-  and never edited.
+  and never edited. The one exception: a progress save that fails as the reader closes waits in `progress-queue.json` (WP-15b, D53),
+  written like config (atomic, `.bak`, debounced 2 s, not while the reader moves, flushed at HOME / sleep / exit), at most 100 entries
+  and 64 KiB; read back with S6's limits, fuzzed (`fuzz_progress_queue`).
 - No file stays open between frames.
 - On exit request / HOME / sleep: stop new writes, finish or abandon in-flight cache writes (temp files are just deleted next start),
-  flush config, all within 1.5 s. borealis already calls `appletLockExit()`, so the system waits for us.
+  flush config and the waiting-save queue, all within 1.5 s. borealis already calls `appletLockExit()`, so the system waits for us.
 - Free-space guard: never write to the cache if the SD would drop below 1 GB free (configurable). The cache is disposable, so corrupt
   entries are deleted and re-downloaded.
 

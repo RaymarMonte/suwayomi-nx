@@ -50,8 +50,12 @@ struct StripOptions {
     std::function<std::int64_t()> clock;
     // After every progress save, ok or not (also after the model is gone). May be empty. The "progress" test event.
     std::function<void(const core::ReadProgress& progress, bool ok)> onSaved;
+    // WP-15b, the waiting-save queue (it must outlive the model and its saves; nullptr: none). A save that fails as the
+    // strip closes goes there; the chapter the strip opens takes its entry over (its page and spot; not a chapter that
+    // joins later while scrolling: the queue's round decides that one).
+    WaitingSaves* queue = nullptr;
 };
-// Everything above except units, screen, orientation, clock and onSaved.
+// Everything above except units, screen, orientation, clock, onSaved and queue.
 StripOptions stripOptionsFrom(const core::RuntimeProfile& profile, const core::ReaderSettings& reader);
 
 // A band of the strip: the chapters above and below it (0 = none: the strip's very start or end), and, for the strip's first

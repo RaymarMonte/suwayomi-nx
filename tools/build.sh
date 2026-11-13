@@ -116,10 +116,11 @@ build_fuzz() {
     cmake --build "$dir" -j "$JOBS" --target snx_fuzz
     mkdir -p "$out"
     local target seeds
-    for target in fuzz_gql_response fuzz_app_config fuzz_image_decode; do
+    for target in fuzz_gql_response fuzz_app_config fuzz_image_decode fuzz_progress_queue; do
         case "$target" in
             fuzz_gql_response) seeds="$REPO/tests/fixtures/responses" ;;
             fuzz_app_config) seeds="$REPO/tests/fuzz/seeds/app-config" ;;
+            fuzz_progress_queue) seeds="$REPO/tests/fuzz/seeds/progress-queue" ;;
             fuzz_image_decode) seeds="$REPO/tests/fixtures/images" ;;  # its make-extra.sh is a harmless non-image seed
         esac
         if [ "$kind" = libfuzzer ]; then

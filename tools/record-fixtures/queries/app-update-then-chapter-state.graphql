@@ -1,0 +1,4 @@
+# document: ChapterState
+# vars: {"id": "$chapter:Delta Big:1"}
+# The waiting-save queue's check (WP-15b). Named so it sorts after app-update-chapter-progress, which leaves Delta Big's
+# chapter 1 at page 2: the answer shows that page and the stamp of that save (the recording's time).

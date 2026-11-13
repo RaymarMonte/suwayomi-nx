@@ -55,6 +55,10 @@ The owner's own server runs the same version (v2.4.2366 Stable, checked 2026-10-
 3. Progress: `updateChapter(input:{id, patch:{lastPageRead, isRead, isBookmarked}})` → `{chapter}`; bulk: `updateChapters(input:{ids, patch})`.
    - **`lastReadAt`** (seconds) is stamped whenever a patch sends `lastPageRead`, even 0, and for every chapter in a bulk
      update; `isRead` or `isBookmarked` alone leave it alone (checked on the test server, WP-10, D43).
+     WP-15b (v2.4.2366): even the same page again stamps it; `fetchChapterPages` and `setChapterMeta` (the strip spot) don't.
+     It comes as a string of digits. The waiting-save queue (D53) uses it to tell "still as we left it" from "changed
+     elsewhere": it asks `chapter(id: $id) { id lastPageRead isRead lastReadAt meta { key value } }` (`ChapterState`)
+     before sending. A chapter that is gone answers only `errors[]` (the non-null `chapter` field, no `data`).
    The server stamps `lastReadAt` and **caps `lastPageRead` to `[0, pageCount]`** (source: `ChapterMutation.kt`). So:
    - progress sent before `fetchChapterPages` ever ran for that chapter is saved as **0** (pageCount is -1);
    - the cap is `pageCount` itself (10 for a 10-page chapter), one past the last page index.

@@ -1,0 +1,7 @@
+# What the server has for one chapter's reading progress now (WP-15b): the waiting-save queue compares it with a save that
+# failed as the reader closed (core/ProgressQueue.hpp). A chapter that is gone answers an error and no data.
+query ChapterState($id: Int!) {
+  chapter(id: $id) {
+    id lastPageRead isRead lastReadAt meta { key value }
+  }
+}

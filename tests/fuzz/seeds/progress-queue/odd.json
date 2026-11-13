@@ -1,0 +1,6 @@
+{"version": 2, "future": {"x": [1, 2]}, "entries": [
+  {"server": "https://user:pw@example.test/sub/", "user": "reader", "chapterId": 9, "mangaId": 2, "page": 7, "read": false, "spot": 1, "base": {"page": 6, "read": false, "lastReadAt": "1794544765"}, "manga": "アルファ 📖", "chapter": "第1話", "madeAt": -5, "errors": 999, "extra": null},
+  {"server": "", "chapterId": 0, "page": -1},
+  {"server": "http://s", "chapterId": 9, "mangaId": 2, "page": 8, "read": false, "base": {}},
+  "not an entry", 12, null
+]}

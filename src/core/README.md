@@ -47,6 +47,12 @@
   `stripScreensBehind` / `stripScreensAhead`. WP-13d, D50, zoom in the strip: `StripZoomView` (zoom, left edge, top),
   `clampStripLeft`, `stripZoomAround`, `StripPinchStart` / `stripPinchView`, `isStripDoubleTap`, `stripSharpPages` (the
   pages on screen that decode again sharper), `stripZoomDecodeBox`; profile `stripZoomPages`. Tests: `test_core_strip.cpp`.
+- `ProgressQueue.hpp` (WP-15b, D53): the waiting-save queue's rules. `WaitingSave` (one per server + user + chapter, with
+  its **base**: the server's page / read / `lastReadAt` the reader knew), `addWaitingSave` (replace, keep the older base, the
+  cap), the file (`loadProgressQueue` tolerant with S6 limits, `saveProgressQueue` one entry per line, `fitProgressQueue`),
+  `decideWaitingSave` (already / send / server moved). `ServerProgress` (models/ReadProgress.hpp), `ReadProgress::lastReadAt`,
+  `ProgressSync`'s base (`serverAnswered`, `notSaved`, `adopt`). Profile `pendingSavesMax`, `progressQueueFileBytes`.
+  Document `ChapterState`. Tests: `test_core_queue.cpp`; fuzz `fuzz_progress_queue`.
 - `UpdatesHistory.hpp` (WP-15, D52): Updates and History. `isNewChapter` (`fetchedAt` > the manga's `inLibraryAt`),
   `updatesWindowStart` (90 days), `filterUpdates` (`UpdatesFilter`: window + seen chapters), `historyRows` (one row per
   manga), days by the console's time zone (`dayKey`, `civilFromDay`, `dayLabel`, `formatDate`, `formatDateTime`,
@@ -66,4 +72,4 @@ are our own documents' answers, `tools/record-fixtures`). Contract: `npm run con
 (`tests/fuzz/`). Coverage ≥ 80% lines (94% after WP-04).
 
 **Status:** WP-04 added models, JSON, GraphQL, config and the runtime profile. WP-10: `Chapter::lastReadAt`, `ChapterPatch`,
-the `UpdateChapters` and `FetchMangaAndChapters` documents, `RuntimeProfile::maxChapters`. WP-11: `ReaderMath`, `ProgressSync`, the reader settings in `AppConfig`, `RuntimeProfile::progressSyncMs` and `readerMangaSettingsMax`. WP-13b: `StripMath`, the `UpdateStripProgress` document.
+the `UpdateChapters` and `FetchMangaAndChapters` documents, `RuntimeProfile::maxChapters`. WP-11: `ReaderMath`, `ProgressSync`, the reader settings in `AppConfig`, `RuntimeProfile::progressSyncMs` and `readerMangaSettingsMax`. WP-13b: `StripMath`, the `UpdateStripProgress` document. WP-15b: `ProgressQueue`.
