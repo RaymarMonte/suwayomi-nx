@@ -28,6 +28,7 @@ class SettingsTab : public brls::Box {
     BRLS_BIND(brls::DetailCell, login, "settings/login");
     BRLS_BIND(brls::DetailCell, logout, "settings/logout");
     BRLS_BIND(brls::DetailCell, serverVersion, "settings/server_version");
+    BRLS_BIND(brls::BooleanCell, askCategories, "settings/ask_categories");  // WP-14
     BRLS_BIND(brls::DetailCell, version, "settings/version");
     BRLS_BIND(brls::DetailCell, mode, "settings/mode");
     BRLS_BIND(brls::DetailCell, memory, "settings/memory");

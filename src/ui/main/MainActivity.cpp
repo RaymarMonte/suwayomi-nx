@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "app/TestHooks.hpp"
+#include "ui/browse/BrowseTab.hpp"
 #include "ui/components/ServerCheck.hpp"
 #include "ui/library/LibraryTab.hpp"
 #include "ui/login/LoginActivity.hpp"
@@ -21,6 +22,7 @@ namespace {
 constexpr std::size_t kLibraryTab = 0;
 constexpr std::size_t kUpdatesTab = 1;
 constexpr std::size_t kHistoryTab = 2;
+constexpr std::size_t kBrowseTab = 3;
 constexpr std::size_t kSettingsTab = 4;
 
 // The i18n key of each tab's label, in MainModel::tabs() order.
@@ -46,6 +48,17 @@ class LibraryTabView : public LibraryTab {
     MainActivity& main_;
 };
 
+// The Browse tab, the same (WP-14).
+class BrowseTabView : public BrowseTab {
+  public:
+    BrowseTabView(MainActivity& main, std::function<void(const core::Manga&)> onLibraryChanged)
+        : BrowseTab(main.context(), std::move(onLibraryChanged)), main_(main) {}
+    ~BrowseTabView() override { main_.forgetTab(this); }
+
+  private:
+    MainActivity& main_;
+};
+
 }  // namespace
 
 MainActivity::MainActivity(app::AppContext& context)
@@ -66,6 +79,9 @@ MainActivity::~MainActivity() {
     // The tab's view outlives this destructor (borealis deletes the content afterwards): let go of the model first.
     if (libraryView_ != nullptr) {
         libraryView_->showStatusOnly();
+    }
+    if (browseView_ != nullptr) {
+        browseView_->attach(nullptr);
     }
 }
 
@@ -93,7 +109,9 @@ brls::View* MainActivity::makeTab(std::size_t index) {
     } else if ((index == kUpdatesTab || index == kHistoryTab) &&
                model_.connection() == MainModel::Connection::Connected) {
         view = makeRowsTab(index == kUpdatesTab);
-    } else if (index == kUpdatesTab || index == kHistoryTab) {
+    } else if (index == kBrowseTab && model_.connection() == MainModel::Connection::Connected) {
+        view = makeBrowseTab();
+    } else if (index == kUpdatesTab || index == kHistoryTab || index == kBrowseTab) {
         auto* status = new TabStatus(*this);
         status->showMessage(brls::getStr(kTabLabels[index]), "main/connect_first"_i18n);
         view = status;
@@ -115,6 +133,30 @@ void MainActivity::forgetTab(const brls::View* tab) {
     }
     if (tab == settingsView_) {
         settingsView_ = nullptr;
+    }
+    if (tab == browseView_) {
+        browseView_ = nullptr;
+    }
+}
+
+brls::View* MainActivity::makeBrowseTab() {
+    if (!sources_) {
+        const core::BrowseSettings& browse = context_.config.config().browse;
+        sources_ = std::make_unique<SourcesModel>(context_.client, browse.lastSourceId, browse.hiddenLanguages);
+    }
+    browseView_ = new BrowseTabView(*this, [this](const core::Manga& manga) { libraryChanged(manga); });
+    browseView_->attach(sources_.get());
+    return browseView_;
+}
+
+void MainActivity::libraryChanged(const core::Manga& manga) {
+    if (!library_) {
+        return;
+    }
+    if (manga.inLibrary) {
+        library_->mangaAdded(manga);
+    } else {
+        library_->mangaRemoved(manga.id);
     }
 }
 
@@ -228,7 +270,12 @@ void MainActivity::dropLibrary() {
     if (libraryView_ != nullptr) {
         libraryView_->showStatusOnly();
     }
+    if (browseView_ != nullptr) {
+        browseView_->attach(nullptr);
+        browseView_->status().showMessage("main/browse"_i18n, "main/connect_first"_i18n);
+    }
     library_.reset();
+    sources_.reset();  // another server: other sources
     // Another server or login: other updates and history. A tab view still showing keeps its own share until it goes.
     if (updater_) {
         updater_->removeListener(updaterListener_);

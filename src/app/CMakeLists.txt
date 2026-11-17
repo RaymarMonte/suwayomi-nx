@@ -15,10 +15,15 @@ set(SNX_APP_SOURCES
     TestHooks.cpp
     crash/Crash.cpp
     crash/Drills.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/browse/AddFlow.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/browse/BrowseTab.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/browse/FiltersActivity.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/browse/SourceActivity.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/categories/CategoriesActivity.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/categories/CategoryPickerActivity.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/components/AskText.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/crash/CrashActivity.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/components/CoverCell.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/components/CoverGrid.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/components/CoverImage.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/components/ServerCheck.cpp

@@ -28,6 +28,17 @@
                 fontSize="18"
                 text="@i18n/categories/picker_note" />
 
+            <!-- Choose mode only (WP-14): "Don't ask again" for the next adds. -->
+            <brls:Button
+                id="picker/dont_ask"
+                style="bordered"
+                height="72"
+                marginLeft="16"
+                paddingLeft="12"
+                paddingRight="12"
+                visibility="gone"
+                text="" />
+
             <brls:Button
                 id="picker/new"
                 style="bordered"

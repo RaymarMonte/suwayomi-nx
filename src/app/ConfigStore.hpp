@@ -41,6 +41,9 @@ class ConfigStore {
     // The webtoon strip's width in landscape and its own orientation (WP-13b), for every manga.
     void setReaderStripWidth(core::StripWidth width);
     void setReaderStripOrientation(core::ReaderOrientation orientation);
+    // The Browse tab's settings (WP-14): the last source opened, hidden languages, asking for categories. Saved a moment later,
+    // if they changed.
+    void setBrowse(const core::BrowseSettings& browse);
     // The test config's server (test builds): used as if it had been saved, but not written unless something changes it.
     void useServer(const core::ServerSettings& server);
 

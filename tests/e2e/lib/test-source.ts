@@ -215,3 +215,31 @@ export async function findSourceManga(sourceId: string, key: string, client: Suw
         if (!data.fetchSourceManga.hasNextPage) throw new Error(`source ${sourceId} doesn't list ${key}`);
     }
 }
+
+/**
+ * WP-14 (D56): every test-source manga out of the library, with its categories cleared (a removed manga keeps its old
+ * categories on the server, SUWAYOMI-API.md), so a browse scenario starts and ends in a known state. The seed's library
+ * (Local's 157 manga) isn't touched. Returns how many it took out.
+ */
+export async function removeTestSourceMangaFromLibrary(client: SuwayomiClient = defaultClient()): Promise<number> {
+    const sources = Object.values(TEST_SOURCE_IDS);
+    const data = await client.query<{ mangas: { nodes: { id: number; inLibrary: boolean; sourceId: string; categories: { totalCount: number } }[] } }>(
+        `query T($sources: [LongString!]!) {
+            mangas(filter: { sourceId: { in: $sources } }) { nodes { id inLibrary sourceId categories { totalCount } } } }`,
+        { sources });
+    let removed = 0;
+    for (const manga of data.mangas.nodes) {
+        if (manga.categories.totalCount > 0) {
+            await client.query(
+                `mutation C($id: Int!) { updateMangaCategories(input: { id: $id, patch: { clearCategories: true } }) { manga { id } } }`,
+                { id: manga.id });
+        }
+        if (manga.inLibrary) {
+            await client.query(
+                `mutation R($id: Int!) { updateManga(input: { id: $id, patch: { inLibrary: false } }) { manga { id } } }`,
+                { id: manga.id });
+            removed++;
+        }
+    }
+    return removed;
+}

@@ -4,12 +4,12 @@
 #include <utility>
 
 #include "app/TestHooks.hpp"
-#include "image/Caches.hpp"
 #include "core/LibraryTools.hpp"
+#include "ui/browse/AddFlow.hpp"
 #include "ui/categories/CategoriesActivity.hpp"
 #include "ui/categories/CategoryPickerActivity.hpp"
 #include "ui/components/AskText.hpp"
-#include "ui/components/TextFit.hpp"
+#include "ui/components/CoverCell.hpp"
 #include "ui/manga/MangaActivity.hpp"
 
 using namespace brls::literals;  // for _i18n
@@ -18,17 +18,7 @@ namespace snx::ui {
 
 namespace {
 
-// The grid's cells. 6 columns fit the tab (1280 - 410 px sidebar - 2 x 24 padding); a cell is far over the 72 px touch minimum.
-constexpr float kCoverWidth = 120;
-constexpr float kCoverHeight = 180;  // covers are 2:3
-constexpr float kTitleGap = 6;
-constexpr float kTitleHeight = 44;   // two lines
-constexpr float kTitleFontSize = 16;
-constexpr float kTitleLineHeight = 1.25f;
-constexpr GridMetrics kMetrics{kCoverWidth, kCoverHeight + kTitleGap + kTitleHeight, 16, 24};
-
-const NVGcolor kPlaceholder = nvgRGB(60, 60, 64);
-const NVGcolor kBadge = nvgRGB(0, 150, 200);
+constexpr GridMetrics kMetrics = kCoverGridMetrics;
 
 const char* const kSortKeys[] = {"library/sort_title", "library/sort_unread", "library/sort_last_read"};
 const core::LibrarySort kSorts[] = {core::LibrarySort::Title, core::LibrarySort::Unread, core::LibrarySort::LastRead};
@@ -45,128 +35,6 @@ bool inside(brls::View* view, const brls::View* parent) {
     }
     return false;
 }
-
-// One cover: the image (a grey placeholder until it arrives), the unread badge on it, the title below.
-class CoverCell : public GridCell {
-  public:
-    CoverCell() {
-        setAxis(brls::Axis::COLUMN);
-        setCornerRadius(4);
-        setHighlightCornerRadius(6);
-
-        cover_ = new brls::Box();
-        cover_->setWidth(kCoverWidth);
-        cover_->setHeight(kCoverHeight);
-        cover_->setBackgroundColor(kPlaceholder);
-        cover_->setCornerRadius(4);
-        cover_->setClipsToBounds(true);
-        image_ = new brls::Image();
-        image_->setWidth(kCoverWidth);
-        image_->setHeight(kCoverHeight);
-        image_->setScalingType(brls::ImageScalingType::FILL);
-        image_->setFreeTexture(true);
-        cover_->addView(image_);
-
-        badgeBox_ = new brls::Box();
-        badgeBox_->detach();  // on top of the cover, top left
-        badgeBox_->setDetachedPosition(6, 6);
-        badgeBox_->setBackgroundColor(kBadge);
-        badgeBox_->setCornerRadius(4);
-        badgeBox_->setPadding(2, 6, 2, 6);
-        badge_ = new brls::Label();
-        badge_->setFontSize(14);
-        badge_->setTextColor(nvgRGB(255, 255, 255));
-        badge_->setAutoAnimate(false);
-        badgeBox_->addView(badge_);
-        cover_->addView(badgeBox_);
-        addView(cover_);
-
-        title_ = new brls::Label();
-        title_->setWidth(kCoverWidth);
-        title_->setHeight(kTitleHeight);
-        title_->setMarginTop(kTitleGap);
-        title_->setFontSize(kTitleFontSize);
-        title_->setLineHeight(kTitleLineHeight);
-        title_->setIsWrapping(true);
-        title_->setAutoAnimate(false);
-        addView(title_);
-    }
-
-    ~CoverCell() override { cancel_.cancel(); }
-
-    void show(const core::Manga& manga, std::string url, app::AppContext& context) {
-        title_->setText(fitLines(manga.title, kCoverWidth, title_->getFont(), kTitleFontSize, kTitleLineHeight, 2).text);
-        if (manga.unreadCount > 0) {
-            badge_->setText(std::to_string(manga.unreadCount));
-            badgeBox_->setVisibility(brls::Visibility::VISIBLE);
-        } else {
-            badgeBox_->setVisibility(brls::Visibility::GONE);
-        }
-        badgeBox_->invalidate();  // detached: lays itself out
-        if (url.empty()) {
-            return;
-        }
-        const image::LoadRequest request{std::move(url), coverBox(), net::Priority::Interactive, image::ImageKind::Cover};
-        if (image::ImagePtr ready = context.images.cached(request.url, request.box, image::ImageKind::Cover)) {
-            setCover(ready, context.textures);
-            return;
-        }
-        cancel_ = net::CancelToken();
-        const net::CancelToken token = cancel_;
-        image::TextureBudget* textures = &context.textures;
-        context.images.load(request, token, [this, token, textures](const image::ImageResult& result) {
-            if (token.cancelled()) {
-                return;  // scrolled away, or the cell is gone
-            }
-            if (result.ok()) {
-                setCover(result.value(), *textures);
-            }
-        });
-    }
-
-    void clear() {
-        cancel_.cancel();
-        image_->clear();
-        lease_.reset();
-    }
-
-    // The size to decode covers at: the cover in screen pixels.
-    static core::ImageSize coverBox() {
-        const float scale = std::max(1.0f, brls::Application::windowScale);
-        return {static_cast<int>(kCoverWidth * scale), static_cast<int>(kCoverHeight * scale)};
-    }
-
-  private:
-    void setCover(const image::ImagePtr& decoded, image::TextureBudget& textures) {
-        if (!decoded || decoded->tiles().empty()) {
-            return;
-        }
-        // A cover decoded for this box is one tile (far below maxTextureSide).
-        const core::TileRect& tile = decoded->tiles()[0];
-        image::TextureLease lease(textures, image::TextureBudget::bytesFor(tile));
-        if (!lease.ok()) {
-            return;  // the GPU budget is full (S7): keep the placeholder
-        }
-        std::vector<std::uint8_t> scratch;
-        const std::uint8_t* pixels = decoded->tilePixels(0, scratch);
-        const int texture =
-            pixels ? nvgCreateImageRGBA(brls::Application::getNVGContext(), tile.width, tile.height, 0, pixels) : 0;
-        if (texture == 0) {
-            return;
-        }
-        image_->clear();
-        lease_ = std::move(lease);
-        image_->innerSetImage(texture);
-    }
-
-    brls::Box* cover_;
-    brls::Image* image_;
-    brls::Box* badgeBox_;
-    brls::Label* badge_;
-    brls::Label* title_;
-    net::CancelToken cancel_;
-    image::TextureLease lease_;
-};
 
 }  // namespace
 
@@ -479,6 +347,10 @@ void LibraryTab::select(std::size_t index) {
         if (!alive.expired() && model_ != nullptr) {
             model_->mangaCategoriesChanged(mangaId, categories);  // WP-24: the details screen's picker
         }
+    }, [this, alive](const core::Manga& now) {
+        if (!alive.expired() && model_ != nullptr) {
+            now.inLibrary ? model_->mangaAdded(now) : model_->mangaRemoved(now.id);  // WP-14: Add / Remove there
+        }
     }));
 }
 
@@ -506,20 +378,9 @@ void LibraryTab::prefetchCovers(std::size_t first, std::size_t last) {
     (void)first;
     prefetch_.cancel();
     prefetch_ = net::CancelToken();
-    if (!context_.profile.coverRowPrefetch) {
-        return;
-    }
     // The row below the screen, so scrolling down finds its covers ready (one row: the grid's width in cells).
     const std::size_t columns = static_cast<std::size_t>(GridLayout(grid_->getWidth(), kMetrics).columns());
-    const auto& items = model_->items();
-    for (std::size_t i = last; i < std::min(items.size(), last + columns); ++i) {
-        if (items[i].thumbnailUrl.empty()) {
-            continue;
-        }
-        image::LoadRequest request{context_.client.absoluteUrl(items[i].thumbnailUrl), CoverCell::coverBox(),
-                                   net::Priority::Prefetch, image::ImageKind::Cover};
-        context_.images.load(std::move(request), prefetch_, [](const image::ImageResult&) {});
-    }
+    snx::ui::prefetchCovers(context_, model_->items(), last, columns, prefetch_);
 }
 
 void LibraryTab::refresh() {
@@ -623,7 +484,8 @@ void LibraryTab::openCoverMenu(std::size_t index) {
     }
     model_->rememberFocus(index);
     const int id = model_->items()[index].id;
-    const std::vector<std::string> entries = {"library/cover_open"_i18n, "library/cover_categories"_i18n};
+    const std::vector<std::string> entries = {"library/cover_open"_i18n, "library/cover_categories"_i18n,
+                                              "library/cover_remove"_i18n};
     auto* dropdown = new brls::Dropdown(model_->items()[index].title, entries, [this, id](int selected) {
         brls::sync([this, id, selected] {
             if (model_ == nullptr) {
@@ -635,6 +497,8 @@ void LibraryTab::openCoverMenu(std::size_t index) {
                         select(i);
                     } else if (selected == 1) {
                         openPicker(i);
+                    } else if (selected == 2) {
+                        removeFlow()->removeFromLibrary(model_->items()[i]);  // WP-14
                     }
                     return;
                 }
@@ -642,6 +506,18 @@ void LibraryTab::openCoverMenu(std::size_t index) {
         });
     });
     brls::Application::pushActivity(new brls::Activity(dropdown));
+}
+
+std::shared_ptr<AddFlow> LibraryTab::removeFlow() {
+    if (!flow_) {
+        const std::weak_ptr<int> alive = alive_;
+        flow_ = AddFlow::make(context_, [this, alive](const core::Manga& now) {
+            if (!alive.expired() && model_ != nullptr && !now.inLibrary) {
+                model_->mangaRemoved(now.id);
+            }
+        });
+    }
+    return flow_;
 }
 
 void LibraryTab::openPicker(std::size_t index) {

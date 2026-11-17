@@ -31,5 +31,6 @@
     "menu_edit": "Edit categories...",
     "cover_menu": "More",
     "cover_open": "Open",
-    "cover_categories": "Categories..."
+    "cover_categories": "Categories...",
+    "cover_remove": "Remove from library..."
 }

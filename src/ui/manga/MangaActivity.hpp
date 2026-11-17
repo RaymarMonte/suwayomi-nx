@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 
 #include "app/AppContext.hpp"
@@ -20,14 +21,20 @@
 // Touch: tap a chapter to open it, its "..." for its menu, and the buttons for everything else (D16).
 // The state lives in MangaModel. Opening a chapter starts the reader (WP-11); when it closes, the chapter list loads again
 // (after the reader's progress is saved). Layout: resources/xml/activity/manga.xml.
+// WP-14 (D56): it is also the preview of a manga met while browsing. A manga the server has no details for yet is asked from
+// its source first ("Loading from ..."); one not in the library has Add to library in place of Categories (and on the MINUS
+// menu); one in the library has Remove from library... on the MINUS menu. Both go through AddFlow.
 namespace snx::ui {
+
+class AddFlow;
 
 class MangaActivity : public brls::Activity, private GridSource {
   public:
     // onChanged: the manga's unread count changed (chapter actions); the library updates its badge. May be empty.
     // onCategoriesChanged (WP-24): the category picker saved the manga's categories; the library moves it. May be empty.
     MangaActivity(app::AppContext& context, core::Manga manga, std::function<void(const core::Manga&)> onChanged,
-                  std::function<void(int, const std::vector<core::Category>&)> onCategoriesChanged = {});
+                  std::function<void(int, const std::vector<core::Category>&)> onCategoriesChanged = {},
+                  std::function<void(const core::Manga&)> onLibraryChanged = {});
     ~MangaActivity() override;
 
     CONTENT_FROM_XML_RES("activity/manga.xml");
@@ -62,7 +69,9 @@ class MangaActivity : public brls::Activity, private GridSource {
     void report();
     void reportScreen();
     void openPicker();         // WP-24
-    void updateCategories();   // the Categories button's text
+    void updateCategories();   // the Categories button's text (WP-14: or Add to library)
+    void addOrPick();          // the Categories / Add to library button
+    void libraryChanged(const core::Manga& now);  // AddFlow added or removed it
 
     BRLS_BIND(brls::Box, header, "manga/header");
     BRLS_BIND(brls::Label, title, "manga/title");
@@ -84,6 +93,8 @@ class MangaActivity : public brls::Activity, private GridSource {
     MangaModel model_;
     std::function<void(const core::Manga&)> onChanged_;
     std::function<void(int, const std::vector<core::Category>&)> onCategoriesChanged_;
+    std::function<void(const core::Manga&)> onLibraryChanged_;
+    std::shared_ptr<AddFlow> addFlow_;
     std::string shownCategories_;
     CoverImage* cover_ = nullptr;
     StatusView* statusView_ = nullptr;

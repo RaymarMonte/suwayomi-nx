@@ -1,4 +1,6 @@
 {
+    "browse": "Browse",
+    "ask_categories": "Ask for categories when adding",
     "server": "Server",
     "address": "Address",
     "login": "Login",

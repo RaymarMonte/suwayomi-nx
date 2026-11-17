@@ -17,6 +17,17 @@ constexpr float kRowHeight = 80;
 constexpr GridMetrics kListMetrics{kRowWidth, kRowHeight, 4, 0};
 constexpr float kBoxSide = 32;
 
+// The preticked ids as the manga's "current" categories: the model ticks those (choose mode, WP-14).
+std::vector<core::Category> asCategories(const std::set<int>& ids) {
+    std::vector<core::Category> out;
+    for (int id : ids) {
+        core::Category c;
+        c.id = id;
+        out.push_back(c);
+    }
+    return out;
+}
+
 NVGcolor themeColor(const char* name) {
     return brls::Application::getTheme()[name];
 }
@@ -86,7 +97,17 @@ CategoryPickerActivity::CategoryPickerActivity(app::AppContext& context, core::M
              static_cast<std::size_t>(context.profile.categoryNameMaxChars)),
       onSaved_(std::move(onSaved)) {}
 
+CategoryPickerActivity::CategoryPickerActivity(app::AppContext& context, core::Manga manga, PickerChoice choice)
+    : context_(context),
+      manga_(std::move(manga)),
+      model_(context.client, manga_.id, asCategories(choice.preticked),
+             static_cast<std::size_t>(context.profile.categoryNameMaxChars)),
+      choice_(std::move(choice)) {}
+
 CategoryPickerActivity::~CategoryPickerActivity() {
+    if (choice_ && !closing_ && choice_->onCancel) {
+        choice_->onCancel();  // left without Add (B)
+    }
     model_.setListener({});
     if (list_ != nullptr) {
         list_->setSource(nullptr);
@@ -95,7 +116,16 @@ CategoryPickerActivity::~CategoryPickerActivity() {
 
 void CategoryPickerActivity::onContentAvailable() {
     if (auto* frame = dynamic_cast<brls::AppletFrame*>(getContentView())) {
-        frame->setTitle(brls::getStr("categories/picker_title", manga_.title));
+        frame->setTitle(brls::getStr(choice_ ? "browse/add_to" : "categories/picker_title", manga_.title));
+    }
+    if (choice_) {
+        saveButton->setText("browse/add"_i18n);
+        dontAskButton->setVisibility(brls::Visibility::VISIBLE);
+        dontAskButton->setText("browse/dont_ask_off"_i18n);
+        dontAskButton->registerClickAction([this](brls::View*) {
+            toggleDontAsk();
+            return true;
+        });
     }
     status_ = new StatusView();
     status_->setGrow(1.0f);
@@ -113,7 +143,7 @@ void CategoryPickerActivity::onContentAvailable() {
         save();
         return true;
     });
-    getContentView()->registerAction("categories/save"_i18n, brls::BUTTON_X, [this](brls::View*) {
+    getContentView()->registerAction(choice_ ? "browse/add"_i18n : "categories/save"_i18n, brls::BUTTON_X, [this](brls::View*) {
         save();
         return true;
     });
@@ -129,6 +159,7 @@ void CategoryPickerActivity::onContentAvailable() {
     modelChanged();
     nlohmann::ordered_json params = nlohmann::ordered_json::object();
     params["id"] = manga_.id;
+    params["mode"] = choice_ ? "choose" : "edit";
     app::testhooks::screen("CategoryPicker", params);
 }
 
@@ -232,7 +263,11 @@ void CategoryPickerActivity::report() {
     }
     nlohmann::ordered_json fields = nlohmann::ordered_json::object();
     fields["state"] = kStates[static_cast<int>(model_.state())];
+    fields["mode"] = choice_ ? "choose" : "edit";
     fields["manga"] = manga_.id;
+    if (choice_) {
+        fields["dontAsk"] = dontAsk_;
+    }
     fields["rows"] = rows;
     if (model_.state() == CategoryPickerModel::State::Saved) {
         nlohmann::ordered_json saved = nlohmann::ordered_json::array();
@@ -250,9 +285,40 @@ void CategoryPickerActivity::report() {
 }
 
 void CategoryPickerActivity::save() {
-    if (!closing_) {
-        model_.save();
+    if (closing_) {
+        return;
     }
+    if (!choice_) {
+        model_.save();
+        return;
+    }
+    // Choose mode: nothing is sent here; the add flow adds with these.
+    if (model_.busy() || model_.state() != CategoryPickerModel::State::Ready) {
+        return;
+    }
+    closing_ = true;
+    const std::set<int> chosen = model_.chosen();
+    nlohmann::ordered_json ids = nlohmann::ordered_json::array();
+    for (int id : chosen) {
+        ids.push_back(id);
+    }
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["state"] = "chosen";
+    fields["mode"] = "choose";
+    fields["manga"] = manga_.id;
+    fields["chosen"] = ids;
+    fields["dontAsk"] = dontAsk_;
+    app::testhooks::write("category_picker", fields);
+    if (choice_->onAdd) {
+        choice_->onAdd(chosen, dontAsk_);
+    }
+    brls::sync([] { brls::Application::popActivity(); });
+}
+
+void CategoryPickerActivity::toggleDontAsk() {
+    dontAsk_ = !dontAsk_;
+    dontAskButton->setText(dontAsk_ ? "browse/dont_ask_on"_i18n : "browse/dont_ask_off"_i18n);
+    report();
 }
 
 void CategoryPickerActivity::askNew() {

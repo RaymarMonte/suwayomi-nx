@@ -57,6 +57,11 @@
     "menu_filter": "Show...",
     "menu_refresh": "Refresh from source",
     "menu_categories": "Categories...",
+    "menu_add": "Add to library...",
+    "menu_remove": "Remove from library...",
+    "add": "Add to library",
+    "loading_from": "Loading from {}...",
+    "loading_from_source": "Loading from the source...",
     "categories": "Categories",
     "categories_list": "Categories: {}",
     "open": "Read"

@@ -1,17 +1,16 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-14 planned** (browse, D56, `docs/wp/WP-14-browse.md`). Next: **run WP-14** (Opus, L).
-Done: WP-00a … 13, 13b, 13c, 13d, **15, 15b, 23, 24**, 22; **v0.2.0 released** (13…24 unreleased). Nice to have: WP-08b,
-17, 21, 26, last offline 18 / 18b (D51). From WP-13d: the console's longest strip frame is 31–32 ms (limit 34), not looked into.
-## Last session (2026-11-17, WP-14 planning, Opus) – plan committed, no code
-- Wrote `docs/wp/WP-14-browse.md` (Opus, size **L**, split point: Search all + Tick for new manga + Languages → WP-14b), D56,
-  ROADMAP row and stub. Owner's answers: add like the web UI (the server's "default"-marked categories ticked, Don't ask
-  again), a same-title warning, Remove from library with a confirm, Search all as a row per source, all languages shown with a
-  Languages checklist, 18+ sources with a tag. Facts checked on the test server are in the WP doc (they go into
-  SUWAYOMI-API.md during the WP): aliased filter defaults, pages from 1, Local ignores `page`, bare browsed manga, add = one
-  request with `clearCategories` + the chosen set. WP-14 also renames SNX Mature's third manga to "Paper Garden" (test data).
-- The test server was running (no auth) and is left running; the probes added and removed manga 191–194 (library back to 157,
-  categories as seeded) and created browse rows from id 158 on (ids after the seed's are never fixed anyway, D55).
-- Previous: WP-23 done (test source, D55): store + site on `127.0.0.1:4569`, SNX Test v1 installed by the seed.
+**Phase 3 – Features. Now:** **WP-14 paused at the usage limit** (browse, D56); **split**: Search all, Tick for new manga and
+Languages → **WP-14b** (ROADMAP). Done: WP-00a … 13, 13b, 13c, 13d, **15, 15b, 23, 24**, 22; **v0.2.0** (13…24 unreleased).
+Nice to have: WP-08b, 17, 21, 26, last 18 / 18b (D51). WP-13d: the console's longest strip frame is 31–32 ms (limit 34).
+## Paused (2026-11-17, WP-14, Opus) – the 5-hour limit resets at 20:10 UTC+08:00
+- **Committed, tested:** core (filters, languages, models, limits, `browse` config), 7 GraphQL documents, api calls, ui models
+  (`test_ui_browse.cpp`), integration (3 modes), the "Paper Garden" rename. **Committed, built** (old desktop e2e green, the
+  new screens not looked at yet): Browse tab, source screen, filters, `AddFlow` (same-title box, picker choose mode, remove
+  confirm), details Add / Remove, Library Y Remove, Settings toggle, `components/CoverCell` (+ tag), test events.
+- **Next:** `tests/e2e/scenarios/browse.test.ts` (the WP doc's scenario minus the WP-14b parts: Languages, Search all, Tick for
+  new manga), run it (`--visible` to look), fix; all desktop e2e; Switch build + gate + runs (ask the owner); recorded fixtures;
+  docs (SUWAYOMI-API.md, READMEs, TESTING.md scenario, CHANGELOG.md, D56 as built); push. Events and ids: TESTING.md
+  (WP-14 events). Test server running (no auth). Nothing pushed yet.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

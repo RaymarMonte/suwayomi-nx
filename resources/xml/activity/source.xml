@@ -1,0 +1,118 @@
+<!-- A source's screen (src/ui/browse/SourceActivity, WP-14, D56): a bar (Popular | Latest, or the search with Clear; Search,
+     Filters, Refresh) and below it the cover grid or a status (both added in code). Touch targets are 72 px high (D16). -->
+<brls:AppletFrame
+    iconInterpolation="linear"
+    footerHidden="false">
+
+    <brls:Box
+        width="auto"
+        height="auto"
+        axis="column"
+        grow="1.0">
+
+        <brls:Box
+            id="source/bar"
+            width="auto"
+            height="72"
+            axis="row"
+            alignItems="center"
+            paddingLeft="24"
+            paddingRight="24">
+
+            <brls:Box
+                id="source/modes"
+                width="auto"
+                height="72"
+                grow="1.0"
+                shrink="1.0"
+                axis="row"
+                alignItems="center">
+
+                <brls:Button
+                    id="source/popular"
+                    style="primary"
+                    height="72"
+                    marginRight="8"
+                    paddingLeft="14"
+                    paddingRight="14"
+                    text="@i18n/browse/popular" />
+
+                <brls:Button
+                    id="source/latest"
+                    style="borderless"
+                    height="72"
+                    paddingLeft="14"
+                    paddingRight="14"
+                    text="@i18n/browse/latest" />
+
+            </brls:Box>
+
+            <brls:Box
+                id="source/searchBox"
+                width="auto"
+                height="72"
+                grow="1.0"
+                shrink="1.0"
+                axis="row"
+                alignItems="center"
+                visibility="gone">
+
+                <brls:Label
+                    id="source/searchLabel"
+                    width="auto"
+                    grow="1.0"
+                    shrink="1.0"
+                    fontSize="20"
+                    singleLine="true"
+                    text="" />
+
+                <brls:Button
+                    id="source/clear"
+                    style="bordered"
+                    height="72"
+                    marginLeft="16"
+                    paddingLeft="12"
+                    paddingRight="12"
+                    text="@i18n/browse/clear" />
+
+            </brls:Box>
+
+            <brls:Button
+                id="source/search"
+                style="bordered"
+                height="72"
+                marginLeft="16"
+                paddingLeft="12"
+                paddingRight="12"
+                text="@i18n/browse/search" />
+
+            <brls:Button
+                id="source/filters"
+                style="bordered"
+                height="72"
+                marginLeft="16"
+                paddingLeft="12"
+                paddingRight="12"
+                text="@i18n/browse/filters" />
+
+            <brls:Button
+                id="source/refresh"
+                style="bordered"
+                height="72"
+                marginLeft="16"
+                paddingLeft="12"
+                paddingRight="12"
+                text="@i18n/browse/refresh" />
+
+        </brls:Box>
+
+        <brls:Box
+            id="source/body"
+            width="auto"
+            height="auto"
+            grow="1.0"
+            axis="column" />
+
+    </brls:Box>
+
+</brls:AppletFrame>

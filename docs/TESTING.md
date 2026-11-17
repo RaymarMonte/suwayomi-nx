@@ -106,6 +106,19 @@ Builds with `-DSNX_TEST_HOOKS=ON` (desktop + a test .nro) write **JSON Lines eve
   when the app refused the name without asking the server); `category_picker` (`state` ready/failed/saving/saved, `manga`,
   `rows` [{`id`, `name`, `checked`}], once saved `saved` = the ids and `sent` = whether a request went); `dialog` (`text` of
   a question, e.g. a delete); `screen` `Categories` and `CategoryPicker` (`params.id` = the manga).
+- WP-14 (D56): `sources` (the Browse tab: `state` ready/only_local/failed, `count`, `rows` [{`id`, `name`, `lang`, `nsfw`,
+  `label` (on a language's first row, "Last used" on that row), `lastUsed`}] (the first 40), `lastUsed` id, `hidden` codes);
+  `browse` (a source's screen, when not loading: `source`, `mode` popular/latest/search, `query`, `filters` = changed count,
+  `state` ready/empty/failed, `items`, `hasNext`, `pages`, `moreFailed`, `titles` (first 10), `inLibrary` [ids], `kind` +
+  `message` when failed, `ms` = asked → shown); `filters` (`state`, `rows` [{`kind`, `name`, `value`, `depth`, `open` for a
+  group}], `changed`, `ms` on the first); `filters_applied` (`changed`, `changes` = what goes to the server);
+  `category_picker` gains `mode` edit/choose and `dontAsk`, and choose mode's Add writes `state` chosen + `chosen` [ids];
+  `library_add` (`manga`, `ok`, `categories` [ids], `duplicate` = the same-title box was shown, `asked` = the picker was,
+  `ms` = Add → answered) and `library_remove` (`manga`, `ok`, `ms`), on failure `ok` false + `kind`; `dialog` for the
+  same-title box and the remove confirm; `setting` (`name` askCategories, `value`); `manga` gains `inLibrary`, `author`,
+  `categoriesButton` (its text). `screen` `Source` (`id`, `name`), `Filters` (`source`), `CategoryPicker` gains `mode`.
+  Ids: `browse/source-<i>`, `source/cover-<i>`, `filters/row-<i>`; buttons `source/popular|latest|search|filters|refresh|clear`,
+  `filters/apply|reset`, `picker/dont_ask`, `browse/refresh`, `settings/ask_categories`.
 - `idle` is emitted when there are no pending net/decode jobs (`http.inFlight()`, `images.activeJobs()`, WP-08) and no running animations (borealis's running tickings) for 3 frames in a row,
   once per quiet spell: again only after something was busy, a new `screen` came, or (WP-10) any other event a screen
   writes (`library`, `manga`, `chapter_action`, ...: on the console an answer can arrive within one frame, so the app never

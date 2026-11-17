@@ -63,6 +63,15 @@ void ConfigStore::setLibrary(const core::LibrarySettings& library) {
     scheduler_.changed(appClockMs());
 }
 
+void ConfigStore::setBrowse(const core::BrowseSettings& browse) {
+    if (browse.hiddenLanguages == config_.browse.hiddenLanguages && browse.askCategories == config_.browse.askCategories &&
+        browse.lastSourceId == config_.browse.lastSourceId) {
+        return;
+    }
+    config_.browse = browse;
+    scheduler_.changed(appClockMs());
+}
+
 void ConfigStore::setMangaReader(const core::MangaReaderSettings& settings) {
     const core::MangaReaderSettings now = core::readerSettingsFor(config_.reader, settings.mangaId);
     const bool own = std::any_of(config_.reader.manga.begin(), config_.reader.manga.end(),

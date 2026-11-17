@@ -61,6 +61,13 @@ SettingsTab::SettingsTab(MainActivity& main) : main_(main) {
         main_.retry();
         return true;
     });
+    // WP-14 (D56): the add flow's category question; the picker's "Don't ask again" turns it off.
+    askCategories->init("settings/ask_categories"_i18n, context.config.config().browse.askCategories, [&context](bool on) {
+        core::BrowseSettings browse = context.config.config().browse;
+        browse.askCategories = on;
+        context.config.setBrowse(browse);
+        app::testhooks::write("setting", nlohmann::ordered_json{{"name", "askCategories"}, {"value", on}});
+    });
     version->setDetailText(core::versionLabel());
     mode->setDetailText(modeText(context));
     memory->setDetailText(memoryText());

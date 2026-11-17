@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "app/TestHooks.hpp"
+#include "ui/browse/AddFlow.hpp"
 #include "ui/categories/CategoryPickerActivity.hpp"
 #include "ui/components/TextFit.hpp"
 #include "ui/reader/ReaderActivity.hpp"
@@ -222,11 +223,13 @@ class ChapterCell : public GridCell {
 
 MangaActivity::MangaActivity(app::AppContext& context, core::Manga manga,
                              std::function<void(const core::Manga&)> onChanged,
-                             std::function<void(int, const std::vector<core::Category>&)> onCategoriesChanged)
+                             std::function<void(int, const std::vector<core::Category>&)> onCategoriesChanged,
+                             std::function<void(const core::Manga&)> onLibraryChanged)
     : context_(context),
       model_(context.client, std::move(manga), static_cast<std::size_t>(std::max(1, context.profile.maxChapters))),
       onChanged_(std::move(onChanged)),
       onCategoriesChanged_(std::move(onCategoriesChanged)),
+      onLibraryChanged_(std::move(onLibraryChanged)),
       reportedUnread_(model_.manga().unreadCount) {
     // A waiting save of this manga reached the server (or went): the list shows the server's progress, as after the
     // reader closes. Main thread, like the queue's rounds.
@@ -280,8 +283,14 @@ void MangaActivity::onContentAvailable() {
         return true;
     });
     categoriesButton->registerClickAction([this](brls::View*) {
-        openPicker();
+        addOrPick();
         return true;
+    });
+    const net::CancelToken alive = alive_;
+    addFlow_ = AddFlow::make(context_, [this, alive](const core::Manga& now) {
+        if (!alive.cancelled()) {
+            libraryChanged(now);
+        }
     });
     descriptionBox->addGestureRecognizer(new brls::TapGestureRecognizer(descriptionBox));
     sortButton->registerClickAction([this](brls::View*) {
@@ -345,7 +354,14 @@ void MangaActivity::modelChanged() {
 
     switch (model_.state()) {
         case MangaModel::State::Loading:
-            statusView_->showLoading("manga/loading"_i18n);
+            if (model_.loadingFromSource()) {
+                const auto& source = model_.manga().source;
+                statusView_->showLoading(source && !source->displayName.empty()
+                                             ? brls::getStr("manga/loading_from", source->displayName)
+                                             : "manga/loading_from_source"_i18n);
+            } else {
+                statusView_->showLoading("manga/loading"_i18n);
+            }
             showList(false);
             break;
         case MangaModel::State::Failed:
@@ -695,8 +711,12 @@ void MangaActivity::openFilterMenu() {
 }
 
 void MangaActivity::openMenu() {
-    const std::vector<std::string> entries = {"manga/menu_sort"_i18n, "manga/menu_filter"_i18n,
-                                              "manga/menu_refresh"_i18n, "manga/menu_categories"_i18n};
+    const bool inLibrary = model_.manga().inLibrary;
+    std::vector<std::string> entries = {"manga/menu_sort"_i18n, "manga/menu_filter"_i18n, "manga/menu_refresh"_i18n,
+                                        inLibrary ? "manga/menu_categories"_i18n : "manga/menu_add"_i18n};
+    if (inLibrary) {
+        entries.push_back("manga/menu_remove"_i18n);
+    }
     auto* dropdown = new brls::Dropdown("manga/menu_title"_i18n, entries, [this](int selected) {
         // The menu closes first; the next one opens on the following frame.
         brls::sync([this, selected] {
@@ -707,7 +727,9 @@ void MangaActivity::openMenu() {
             } else if (selected == 2) {
                 refresh();
             } else if (selected == 3) {
-                openPicker();
+                addOrPick();
+            } else if (selected == 4) {
+                addFlow_->removeFromLibrary(model_.manga());
             }
         });
     });
@@ -733,7 +755,31 @@ void MangaActivity::openPicker() {
         }));
 }
 
+void MangaActivity::addOrPick() {
+    if (model_.detailsLoaded() && !model_.manga().inLibrary) {
+        addFlow_->add(model_.manga());
+    } else {
+        openPicker();
+    }
+}
+
+void MangaActivity::libraryChanged(const core::Manga& now) {
+    model_.setInLibrary(now.inLibrary, now.categories);
+    if (onLibraryChanged_) {
+        onLibraryChanged_(model_.manga());
+    }
+    report();
+}
+
 void MangaActivity::updateCategories() {
+    if (model_.detailsLoaded() && !model_.manga().inLibrary) {
+        const std::string add = "manga/add"_i18n;
+        if (add != shownCategories_) {
+            shownCategories_ = add;
+            categoriesButton->setText(add);
+        }
+        return;
+    }
     std::string names;
     for (const core::Category& c : model_.manga().categories) {
         if (c.id != core::kDefaultCategoryId) {
@@ -775,6 +821,9 @@ void MangaActivity::report() {
     fields["filter"] = std::string(chapterFilterName(model_.filter()));
     fields["first"] = model_.items().empty() ? 0 : model_.items().front().sourceOrder;
     fields["unread"] = model_.manga().unreadCount;
+    fields["inLibrary"] = model_.manga().inLibrary;
+    fields["author"] = model_.manga().author;
+    fields["categoriesButton"] = shownCategories_;
     fields["continue"] = next;
     fields["description"] = !descriptionCut_ ? "short" : (expanded_ ? "open" : "closed");
     const std::string key = fields.dump();

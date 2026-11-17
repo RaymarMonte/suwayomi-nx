@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -17,8 +18,17 @@
 // The category picker (WP-24, D54): "Categories for <title>", a checklist of the user's categories (none ticked =
 // Default). Controller: A ticks / unticks, X saves, Y makes a new category (ticked), B leaves without saving. Touch: tap a
 // row, Save, New category. The state lives in CategoryPickerModel. Layout: resources/xml/activity/category_picker.xml.
-// WP-14 can open it to choose the categories of a manga it adds (see CategoryPickerModel).
+// WP-14 (D56) opens it in choose mode for a manga being added: "Add <title> to", the categories marked "default" on the
+// server ticked, a "Don't ask again" toggle, and Add (X / button) in place of Save. Nothing is sent: Add hands the ticks to
+// the add flow (AddFlow), B cancels the add.
 namespace snx::ui {
+
+// Choose mode (WP-14): what the add flow gets back.
+struct PickerChoice {
+    std::set<int> preticked;  // ticked at the start
+    std::function<void(std::set<int> chosen, bool dontAskAgain)> onAdd;
+    std::function<void()> onCancel;  // B, or the screen closed any other way without Add
+};
 
 class CategoryPickerActivity : public brls::Activity, private GridSource {
   public:
@@ -27,6 +37,8 @@ class CategoryPickerActivity : public brls::Activity, private GridSource {
     CategoryPickerActivity(app::AppContext& context, core::Manga manga,
                            std::optional<std::vector<core::Category>> current,
                            std::function<void(int mangaId, const std::vector<core::Category>&)> onSaved);
+    // Choose mode (WP-14).
+    CategoryPickerActivity(app::AppContext& context, core::Manga manga, PickerChoice choice);
     ~CategoryPickerActivity() override;
 
     CONTENT_FROM_XML_RES("activity/category_picker.xml");
@@ -45,15 +57,19 @@ class CategoryPickerActivity : public brls::Activity, private GridSource {
     void save();
     void askNew();
     void report();
+    void toggleDontAsk();  // choose mode
 
     BRLS_BIND(brls::Button, newButton, "picker/new");
     BRLS_BIND(brls::Button, saveButton, "picker/save");
+    BRLS_BIND(brls::Button, dontAskButton, "picker/dont_ask");
     BRLS_BIND(brls::Box, body, "picker/body");
 
     app::AppContext& context_;
     core::Manga manga_;
     CategoryPickerModel model_;
     std::function<void(int, const std::vector<core::Category>&)> onSaved_;
+    std::optional<PickerChoice> choice_;  // set: choose mode
+    bool dontAsk_ = false;
     StatusView* status_ = nullptr;
     CoverGrid* list_ = nullptr;
     bool ready_ = false;

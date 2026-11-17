@@ -46,6 +46,16 @@
                 width="auto"
                 height="auto"
                 marginTop="30"
+                title="@i18n/settings/browse" />
+
+            <brls:BooleanCell
+                minHeight="72"
+                id="settings/ask_categories" />
+
+            <brls:Header
+                width="auto"
+                height="auto"
+                marginTop="30"
                 title="@i18n/settings/about" />
 
             <brls:DetailCell

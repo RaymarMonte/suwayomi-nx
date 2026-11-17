@@ -1,0 +1,60 @@
+<!-- A source's filters (src/ui/browse/FiltersActivity, WP-14, D56): Reset and Apply on top, the filters below (a one-column
+     list, added in code) or a status. Touch targets are at least 72 px high (D16). -->
+<brls:AppletFrame
+    iconInterpolation="linear"
+    footerHidden="false">
+
+    <brls:Box
+        width="auto"
+        height="auto"
+        axis="column"
+        grow="1.0"
+        paddingLeft="80"
+        paddingRight="80">
+
+        <brls:Box
+            width="auto"
+            height="72"
+            axis="row"
+            alignItems="center"
+            marginTop="12"
+            marginBottom="12">
+
+            <brls:Label
+                id="filters/note"
+                width="auto"
+                grow="1.0"
+                shrink="1.0"
+                fontSize="18"
+                text="" />
+
+            <brls:Button
+                id="filters/reset"
+                style="bordered"
+                height="72"
+                marginLeft="16"
+                paddingLeft="12"
+                paddingRight="12"
+                text="@i18n/browse/reset" />
+
+            <brls:Button
+                id="filters/apply"
+                style="primary"
+                height="72"
+                marginLeft="16"
+                paddingLeft="12"
+                paddingRight="12"
+                text="@i18n/browse/apply" />
+
+        </brls:Box>
+
+        <brls:Box
+            id="filters/body"
+            width="auto"
+            height="auto"
+            grow="1.0"
+            axis="column" />
+
+    </brls:Box>
+
+</brls:AppletFrame>
