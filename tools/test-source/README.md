@@ -7,8 +7,8 @@ Everything stays on the PC: the server reads the catalogs from a test site on `h
 | Extension (package) | Sources | Content warning | After the seed |
 |---|---|---|---|
 | SNX Test (`snx.testsource`) | "SNX Test" en (60 manga), ja (8) | SAFE | installed, v1 (`1.5.1`); the store also has v2 (`1.5.2`) |
-| SNX Extra (`snx.testsource.extra`) | "SNX Extra" fr (5) | SAFE | not installed |
-| SNX Mature (`snx.testsource.mature`) | "SNX Mature" en (3) | NSFW | not installed |
+| SNX Extra (`snx.testextra`) | "SNX Extra" fr (5) | SAFE | not installed |
+| SNX Mature (`snx.testmature`) | "SNX Mature" en (3) | NSFW | not installed |
 
 ## How it works
 - A **plain jar is an extension** for Suwayomi-Server v2.4.2366: our compiled classes plus a text `AndroidManifest.xml`
@@ -43,7 +43,8 @@ Built jars are never committed (`.test-server/` is git-ignored).
   `selectManga()`, never with hard-coded lists.
 - **A filter**: add it in `Filters.java` (`create()`, `addToUrl()`, `select()`) **and** in `test-source.ts` (`FILTER`,
   `FILTER_TYPES`, `FILTER_NAMES`, `selectManga()`). Positions are what tests address, so add new filters at the end.
-- **An extension**: a new `Main` class in its own package under `src/snx/testsource/`, an entry in `EXTENSIONS` (and
+- **An extension**: a new `Main` class in its own package under `src/snx/` (`package` = the extension's package name, which must
+  not start with another extension's: the server finds a cached icon by prefix, SUWAYOMI-API.md), an entry in `EXTENSIONS` (and
   `storeIndex()`) in `test-source.ts`, and its source ids in `TEST_SOURCE_IDS` (the unit test checks the formula). Never rename a
   source or change its language: the name and language make its id (MD5 of `"<name lower case>/<lang>/1"`).
 

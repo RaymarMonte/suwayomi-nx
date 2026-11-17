@@ -153,7 +153,7 @@ describe('the extensions and the store', () => {
             expect(Object.keys(e.resources as object).sort()).toEqual(['apkUrl', 'iconUrl', 'jarUrl']);
         }
         const versions = (v: number) => (storeIndex(v) as typeof index).extensionList.extensions.map((e) => [e.packageName, e.versionCode, e.versionName]);
-        expect(versions(1)).toEqual([['snx.testsource', 1, '1.5.1'], ['snx.testsource.extra', 1, '1.5.1'], ['snx.testsource.mature', 1, '1.5.1']]);
+        expect(versions(1)).toEqual([['snx.testsource', 1, '1.5.1'], ['snx.testextra', 1, '1.5.1'], ['snx.testmature', 1, '1.5.1']]);
         expect(versions(2)[0]).toEqual(['snx.testsource', 2, '1.5.2']);
         expect(() => storeIndex(3)).toThrow();
         expect(index.extensionList.extensions.map((e) => e.contentWarning)).toEqual(['SAFE', 'SAFE', 'NSFW']);

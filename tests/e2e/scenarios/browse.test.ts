@@ -433,7 +433,6 @@ scenario('browse', async (s) => {
             (e) => e.ev === 'category_picker' && (e.rows as { checked: boolean }[])[0]?.checked === true);
         const added = await tapUntil(s, PICKER.save, 'the add', isEv('library_add', { ok: true }));
         expect(added).toMatchObject({ categories: [reading], duplicate: false, asked: true });
-        times.add = Number(added.ms);  // Add → the server's answer
         const comet = Number(added.manga);
         expect(await mangaCategoryIds(comet)).toEqual([reading]);
         await s.events.waitFor('Categories: Reading', (e) => e.ev === 'manga' && e.inLibrary === true &&
@@ -515,7 +514,6 @@ scenario('browse', async (s) => {
         await s.expectGolden('remove-confirm', { masks: [CLOCK_MASK] });
         const removed = await tapUntil(s, REMOVE_CONFIRM.remove, 'the remove', isEv('library_remove', { ok: true }));
         expect(Number(removed.manga)).toBe(comet);
-        times.remove = Number(removed.ms);  // the confirm → the server's answer
         expect(await isInLibrary(comet)).toBe(false);
         const afterRemove = s.events.events.indexOf(removed);
         await s.events.waitFor('Add to library again', (e) => e.ev === 'manga' && e.inLibrary === false &&
@@ -537,6 +535,11 @@ scenario('browse', async (s) => {
             await backTo(s, 'Browse');
         }
         const after = await memNow(s);
+        // Every add and remove counts (Add / the confirm → the server's answer; an add of a manga the server hasn't
+        // loaded yet includes loading its details from the source).
+        const slowest = (ev: string) => Math.max(...s.events.events.filter((e) => e.ev === ev && e.ok === true).map((e) => Number(e.ms)));
+        times.add = slowest('library_add');
+        times.remove = slowest('library_remove');
         console.log(`[browse] ${s.driver.name}: ${JSON.stringify(times)} ms; ${ROUNDS} rounds ${(before / MiB).toFixed(1)} -> ${(after / MiB).toFixed(1)} MiB`);
         expect(after - before, `memory growth over ${ROUNDS} source rounds (bytes)`).toBeLessThan(LIMITS.roundsBytes);
 

@@ -67,8 +67,8 @@ No app code changes.
   | Package | Name | Sources | Warning | After the seed | Versions in `store/` |
   |---|---|---|---|---|---|
   | `snx.testsource` | SNX Test | "SNX Test" en (60 manga), "SNX Test" ja (8) | SAFE | installed, v1 | v1 (`1.5.1`, code 1), v2 (`1.5.2`, code 2) |
-  | `snx.testsource.extra` | SNX Extra | "SNX Extra" fr (5) | SAFE | not installed | v1 |
-  | `snx.testsource.mature` | SNX Mature | "SNX Mature" en (3) | NSFW | not installed | v1 |
+  | `snx.testextra` | SNX Extra | "SNX Extra" fr (5) | SAFE | not installed | v1 |
+  | `snx.testmature` | SNX Mature | "SNX Mature" en (3) | NSFW | not installed | v1 |
 
   The index normally offers SNX Test v1; a helper switches it to v2 (an update) and back. SNX Mature's manga are the same
   plain synthetic pages as the rest: only the flag differs.

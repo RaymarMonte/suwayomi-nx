@@ -347,12 +347,14 @@ export interface ExtensionDef {
     sources: readonly { name: string; lang: string; catalog: Catalog }[];
 }
 
+// No package name may start with another's: the server finds a cached icon by prefix, so "snx.testsource" would get
+// "snx.testsource.mature"'s icon (WP-14, SUWAYOMI-API.md). The Java class is <pkg>.Main.
 export const EXTENSIONS = {
     test: { pkg: 'snx.testsource', name: 'SNX Test', lib: '1.5', contentWarning: 'SAFE', versions: [1, 2],
         sources: [{ name: 'SNX Test', lang: 'en', catalog: CATALOG_EN }, { name: 'SNX Test', lang: 'ja', catalog: CATALOG_JA }] },
-    extra: { pkg: 'snx.testsource.extra', name: 'SNX Extra', lib: '1.5', contentWarning: 'SAFE', versions: [1],
+    extra: { pkg: 'snx.testextra', name: 'SNX Extra', lib: '1.5', contentWarning: 'SAFE', versions: [1],
         sources: [{ name: 'SNX Extra', lang: 'fr', catalog: CATALOG_FR }] },
-    mature: { pkg: 'snx.testsource.mature', name: 'SNX Mature', lib: '1.5', contentWarning: 'NSFW', versions: [1],
+    mature: { pkg: 'snx.testmature', name: 'SNX Mature', lib: '1.5', contentWarning: 'NSFW', versions: [1],
         sources: [{ name: 'SNX Mature', lang: 'en', catalog: CATALOG_MATURE }] },
 } as const satisfies Record<string, ExtensionDef>;
 export const ALL_EXTENSIONS: readonly ExtensionDef[] = [EXTENSIONS.test, EXTENSIONS.extra, EXTENSIONS.mature];

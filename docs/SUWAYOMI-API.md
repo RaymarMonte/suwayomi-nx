@@ -195,6 +195,10 @@ Checked with our own test extension (`tools/test-source/`, live check `tools/tes
 - **Sources:** `sources(order: [{by: NAME}]) { nodes { id name displayName lang iconUrl supportsLatest isConfigurable
   contentWarning } }` (our `Sources.graphql`). Local is `id "0"`, `lang "localsourcelang"`, "Local source". `iconUrl` is
   relative (`/api/v1/extension/icon/<pkg>`, a PNG through the server; Local has one too). `contentWarning` SAFE / MIXED / NSFW.
+  **The icon route finds its cached file by prefix** (seen on v2.4.2366, WP-14): with `snx.testsource.png` and
+  `snx.testsource.mature.png` in `extensions/icon/`, `/icon/snx.testsource` answered the Mature icon (the first match in name
+  order). Real extensions whose package starts with another installed one's can show its icon; the app shows what it gets.
+  Our test packages are named so that none starts with another (`snx.testsource`, `snx.testextra`, `snx.testmature`).
 - **Filters** (`SourceFilters.graphql`): `source(id) { filters { __typename ... on GroupFilter { name filters { ... } } } }`.
   **Trap:** the union's `default` fields have different types, so one query must alias them (`textDefault: default`,
   `checkDefault: default`, …) or the server refuses it ("FieldsConflict"). Local has one `SortFilter` "Order by";
