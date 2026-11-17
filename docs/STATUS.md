@@ -1,17 +1,20 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-14 paused at the usage limit** (browse, D56); **split**: Search all, Tick for new manga and
-Languages → **WP-14b** (ROADMAP). Done: WP-00a … 13, 13b, 13c, 13d, **15, 15b, 23, 24**, 22; **v0.2.0** (13…24 unreleased).
+**Phase 3 – Features. Now:** **WP-14 done** (browse, D56); next **WP-14b** (Search all, Tick for new manga, Languages;
+ROADMAP). Done: WP-00a … 13, 13b, 13c, 13d, **14, 15, 15b, 23, 24**, 22; **v0.2.0** (13…24 unreleased).
 Nice to have: WP-08b, 17, 21, 26, last 18 / 18b (D51). WP-13d: the console's longest strip frame is 31–32 ms (limit 34).
-## Paused (2026-11-17, WP-14, Opus) – the 5-hour limit resets at 20:10 UTC+08:00
-- **Committed, tested:** core (filters, languages, models, limits, `browse` config), 7 GraphQL documents, api calls, ui models
-  (`test_ui_browse.cpp`), integration (3 modes), the "Paper Garden" rename; the views (Browse tab, source screen, filters,
-  `AddFlow`: same-title box, picker choose mode, remove confirm; details Add / Remove, Library Y Remove, Settings toggle,
-  `components/CoverCell` + tag), test events; all old desktop e2e green. Docs done: SUWAYOMI-API.md, READMEs, CHANGELOG,
-  TESTING.md events. Desktop `browse` scenario green for steps 1–5 (sources, paging, latest, search, filters, a failure).
-  The WP doc's step 4 combo (Completed + Action + Webtoon) matches no manga: the scenario sets Action back to any.
-- **Next:** finish `tests/e2e/scenarios/browse.test.ts` (steps 6, 7, 9–11 of the WP doc; the WP-14b parts stay out); the add /
-  remove screens have not been looked at yet; all desktop e2e; Switch build + gate + runs (ask the owner); recorded
-  fixtures; TESTING.md scenario text, D56 as built, ROADMAP row; push. Test server running (no auth). Nothing pushed yet.
+## Last session (2026-11-17, WP-14, Opus)
+- **Built:** the Browse tab (sources by language, Last used, an "18+" tag), a source's screen (Popular / Latest, search,
+  every filter type, paging, the "In library" tag; it opens with the focus on the first cover), the preview loaded from the
+  source, Add (the picker in choose mode, Don't ask again, the same-title box), Remove (details menu, Library and Browse Y
+  menus, a confirm), Settings "Ask for categories when adding". D56 as built has the numbers.
+- **Tests:** unit 7/7, contract 48/48 (+ 4 recorded answers), integration 3 modes, npm test, the test-source live check
+  (none, ui_login), all 25 desktop e2e; Switch: browse (incl. the Y / L / R / Settings step), library-browse, manga-details,
+  touch-pass, updates-history green; smoke and library-tools: see below.
+- **Found and fixed:** Suwayomi's icon route finds a cached icon by name prefix, so SNX Test showed SNX Mature's icon: the
+  test packages are now `snx.testextra` / `snx.testmature` (SUWAYOMI-API.md); the console's stale cached icon was deleted
+  once. The Switch smoke golden still had the pre-WP-24 Library bar (re-recorded). library-tools' Switch step tapped the
+  old 2-entry cover menu (now 3 entries).
+- **WP-14b starts with:** the api's `setCategoryDefault` and SourcesModel's hidden languages are in; the screens are not.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

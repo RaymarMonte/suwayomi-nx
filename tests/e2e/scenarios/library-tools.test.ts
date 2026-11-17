@@ -6,7 +6,8 @@
 //   Move up, Delete after its question (golden "dialog"); the server has the seed again afterwards;
 // - Alpha's details -> Categories: the picker ticks Reading; tick Long series, Save (golden "picker"): the server has both;
 // - 10 rounds Library -> Categories -> back: the memory in use grows by less than 16 MiB;
-// - Switch only (desktop can't press Y or MINUS): Y on a cover opens its menu -> Categories... opens the picker; MINUS ->
+// - Switch only (desktop can't press Y or MINUS): Y on a cover opens its menu (Open,
+//   Categories..., Remove from library...) -> Categories... opens the picker; MINUS ->
 //   Search... searches.
 // Times (asserted on the Switch): search <= 1.5 s, picker open <= 1 s, a category action <= 1 s, in the app's own clock from
 // a played tap's finger down (timedTap); Save from the X press in the harness's time (an upper bound).
@@ -249,7 +250,7 @@ async function switchButtons(s: Scenario, alpha: number, reading: number): Promi
     await s.driver.press('Y');
     await s.events.waitFor('Y: the cover menu has the focus', (e) => e.ev === 'focus' && !String(e.view).includes('CoverCell'), { from: mark });
     await s.events.waitForEvent('idle', {}, { from: mark });
-    const picker = await tapUntil(s, MANGA.menuEntry(1, 2), 'the picker from the cover menu', isEv('screen', { name: 'CategoryPicker' }));
+    const picker = await tapUntil(s, MANGA.menuEntry(1, 3), 'the picker from the cover menu', isEv('screen', { name: 'CategoryPicker' }));
     expect(picker.e.params).toMatchObject({ id: alpha });
     const ready = await s.events.waitForEvent('category_picker', { state: 'ready' }, { from: s.events.events.indexOf(picker.e) });
     expect(rowsOf(ready).map((r) => r.checked)).toEqual([true, true, false, false]);

@@ -1194,6 +1194,18 @@ couldn't change it, pages packed in the jar), committing built jars.
   (Mihon's rule); for a manga outside the library its Categories button is "Add to library".
 - Planner's defaults (the owner can change any): Tick for new manga on the Categories screen (sets the server's `default`
   flag), filters reset when the source's screen closes, no pins and no source settings yet, Separators not shown.
+- **As built (WP-14, 2026-11-17), within the above:** WP-14 was split at its planned point: Search all, Tick for new manga
+  and the Languages checklist are WP-14b (the api's `setCategoryDefault` and SourcesModel's hidden languages are already in).
+  "Don't ask again" is a button that says yes / no (the font has no check-box signs). The same-title box is a borealis
+  dialog with three buttons, which borealis lays out as Cancel on a row of its own on top, Show entry and Add anyway below.
+  A source's failure shows "The server reported a problem: " + the source's first line (the GraphQL prefix cut off). The
+  Browse tab is one column of 80 px rows (language label, icon, name, the red "18+" tag); the source screen's grid and the
+  Library share `components/CoverCell` (the "In library" tag). Times (the app's clock from a played tap, D54's way), desktop:
+  sources 61 ms, a first page 79 ms, next pages ≤ 12 ms, filters 1 ms, add 8 ms, remove 5 ms; memory + 0.1 MiB over 10
+  rounds. Switch (application mode, 3 runs): sources 109–117 ms, a first page 439–864 ms, next pages ≤ 609 ms, filters
+  7 ms, an add ≤ 439 ms (the slowest loads the manga from the source first), a remove ≤ 25 ms; memory + 0.1 MiB over 10
+  rounds. A source opens with the focus on its first cover. The test packages are `snx.testsource`, `snx.testextra`,
+  `snx.testmature`: the server finds a cached extension icon by name prefix (SUWAYOMI-API.md).
 Rejected: Mihon's way (nothing pre-ticked, no "don't ask"), adding without a question, the web UI's own server-side
 setting for asking (it is the web UI's internal metadata), a list of sources or one mixed grid for Search all, English only
 at first, hiding 18+ sources, a duplicate title pair with a Local fixture (WP-23 keeps Local titles out of the catalog).
