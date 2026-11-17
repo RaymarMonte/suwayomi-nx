@@ -299,7 +299,8 @@ void SourceActivity::modelChanged() {
         case SourceBrowseModel::State::Ready: {
             const std::size_t count = model_.items().size();
             showGrid(true);
-            if (model_.listRevision() != shownList_ || count < shownCount_) {
+            // shownCount_ 0: the grid showed nothing of this list yet (it was loading: the list may be a new one).
+            if (shownCount_ == 0 || model_.listRevision() != shownList_ || count < shownCount_) {
                 grid_->reload(model_.rememberedFocus());
             } else if (count > shownCount_) {
                 grid_->appended();

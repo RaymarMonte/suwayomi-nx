@@ -4,13 +4,13 @@ Languages → **WP-14b** (ROADMAP). Done: WP-00a … 13, 13b, 13c, 13d, **15, 15
 Nice to have: WP-08b, 17, 21, 26, last 18 / 18b (D51). WP-13d: the console's longest strip frame is 31–32 ms (limit 34).
 ## Paused (2026-11-17, WP-14, Opus) – the 5-hour limit resets at 20:10 UTC+08:00
 - **Committed, tested:** core (filters, languages, models, limits, `browse` config), 7 GraphQL documents, api calls, ui models
-  (`test_ui_browse.cpp`), integration (3 modes), the "Paper Garden" rename. **Committed, built** (old desktop e2e green, the
-  new screens not looked at yet): Browse tab, source screen, filters, `AddFlow` (same-title box, picker choose mode, remove
-  confirm), details Add / Remove, Library Y Remove, Settings toggle, `components/CoverCell` (+ tag), test events.
-- **Next:** `tests/e2e/scenarios/browse.test.ts` (the WP doc's scenario minus the WP-14b parts: Languages, Search all, Tick for
-  new manga), run it (`--visible` to look), fix; all desktop e2e; Switch build + gate + runs (ask the owner); recorded fixtures;
-  docs (SUWAYOMI-API.md, READMEs, TESTING.md scenario, CHANGELOG.md, D56 as built); push. Events and ids: TESTING.md
-  (WP-14 events). Test server running (no auth). Nothing pushed yet.
+  (`test_ui_browse.cpp`), integration (3 modes), the "Paper Garden" rename; the views (Browse tab, source screen, filters,
+  `AddFlow`: same-title box, picker choose mode, remove confirm; details Add / Remove, Library Y Remove, Settings toggle,
+  `components/CoverCell` + tag), test events; all old desktop e2e green. Docs done: SUWAYOMI-API.md, READMEs, CHANGELOG,
+  TESTING.md events. Desktop `browse` scenario green so far for steps 1–3 (sources, popular paging, latest, search, B).
+- **Next:** finish `tests/e2e/scenarios/browse.test.ts` (steps 4–7, 9–11 of the WP doc; the WP-14b parts stay out); the add /
+  remove / filters screens have not been looked at yet; all desktop e2e; Switch build + gate + runs (ask the owner); recorded
+  fixtures; TESTING.md scenario text, D56 as built, ROADMAP row; push. Test server running (no auth). Nothing pushed yet.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

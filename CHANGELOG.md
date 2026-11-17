@@ -6,6 +6,15 @@ with 0, any release may change things.
 ## [Unreleased]
 
 ### Added
+- **Browse:** the Browse tab lists the sources installed on your server by language (the one you used last on top, adult
+  sources with an "18+" tag). Open one to see its Popular or Latest manga, search it, or narrow it down with its filters
+  (Filters: text, choices, ticks, include / exclude, sort order and groups; Apply searches, Reset puts the defaults back).
+  Covers already in your library have an "In library" tag. A manga you open is loaded from its source first.
+- **Add to and remove from the library:** a manga that isn't in your library has Add to library on its page (and in the
+  MINUS menu, and Y on a cover in a source). If you already have a manga with the same name you're asked first (Show
+  entry / Add anyway / Cancel); then you pick its categories, with the ones your server marks for new manga already ticked
+  ("Don't ask again" skips this next time; Settings → "Ask for categories when adding" turns it back on). Remove from
+  library... (MINUS on a manga's page, Y on a library cover) asks first; reading progress stays on the server.
 - **Search the library:** the new Search button (or MINUS → Search...) finds manga by title in your whole library, any
   case. The results show in place of the category tabs; B or Clear ends the search.
 - **Manage categories:** Edit (or MINUS → Edit categories...) opens the Categories screen: add, rename, move up or down,

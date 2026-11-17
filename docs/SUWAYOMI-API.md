@@ -191,6 +191,38 @@ Checked with our own test extension (`tools/test-source/`, live check `tools/tes
   chapter id makes `enqueueChapterDownloads` wait 30 s and fail.
 - A source error (an `IOException` in the extension) comes back as a GraphQL error with its message.
 
+## Browsing a source, adding and removing ✅ (test server v2.4.2366, 2026-11-17, for WP-14, D56)
+- **Sources:** `sources(order: [{by: NAME}]) { nodes { id name displayName lang iconUrl supportsLatest isConfigurable
+  contentWarning } }` (our `Sources.graphql`). Local is `id "0"`, `lang "localsourcelang"`, "Local source". `iconUrl` is
+  relative (`/api/v1/extension/icon/<pkg>`, a PNG through the server; Local has one too). `contentWarning` SAFE / MIXED / NSFW.
+- **Filters** (`SourceFilters.graphql`): `source(id) { filters { __typename ... on GroupFilter { name filters { ... } } } }`.
+  **Trap:** the union's `default` fields have different types, so one query must alias them (`textDefault: default`,
+  `checkDefault: default`, …) or the server refuses it ("FieldsConflict"). Local has one `SortFilter` "Order by";
+  `SortFilter.default` may be null. We read two levels (a group inside a group isn't asked for).
+- **Browse** (`BrowseSource.graphql`): `fetchSourceManga(input: {source, type: POPULAR | LATEST | SEARCH, page, query,
+  filters})` is a **mutation** (never repeated) → `mangas { … } hasNextPage`. **Pages start at 1** (SNX Test en: 25 + 25 +
+  10). **Local ignores `page`:** every page is all of it with `hasNextPage` false (so the app stops at a page with nothing new).
+  SEARCH with no text and no filters = popular. **Filters reach the source only with SEARCH** and don't stick. Changes:
+  `{position, textState | selectState | checkBoxState | triState: INCLUDE|EXCLUDE | sortState: {index, ascending}}`, a
+  group's child as `{position: <group>, groupChange: {position: <child>, <state>}}` (one entry per child). A wrong position
+  or state type is a GraphQL error.
+- **A browsed manga is a bare row:** `initialized: false`, no author / genres / description, no chapters.
+  `fetchMangaAndChapters` fills both; the details screen does that first (Mihon's rule: also for an initialized manga with no
+  chapters that isn't in the library). `Manga.graphql` and `FetchMangaAndChapters.graphql` ask `initialized`.
+- **Errors:** a failing source call answers `fetchSourceManga: null` with "Exception while fetching data (/fetchSourceManga) :
+  SNX test failure: search" and a stack trace; the app shows the part after " : ", first line only.
+- **Adding** (`AddToLibrary.graphql`): `updateManga(… {inLibrary: true})` sets `inLibrary` and `inLibraryAt` **and nothing
+  else** (no category, not even a `default`-marked one on this server; an unopened manga stays bare). `updateMangaCategories`
+  alone doesn't add. Both in one document work (top-level mutation fields run in order): `added: updateManga(…)`,
+  `categories: updateMangaCategories(… {clearCategories: true, addToCategories: [ids]})`. **Trap:** read `inLibrary` from
+  `added` (the second field once answered false), the categories from `categories`.
+- **Removing** (`RemoveFromLibrary.graphql`, `updateManga(… {inLibrary: false})`) **keeps the manga's categories**, so an add
+  always sends clear + the chosen set.
+- **Categories' `default` flag** means "tick for new manga" (the web UI's meaning; Default id 0 has it too and never counts);
+  `updateCategory(… {default: …})` sets it (`SetCategoryDefault.graphql`, the screen comes with WP-14b).
+- **Same title** (`LibraryDuplicates.graphql`): `mangas(condition: {inLibrary: true}, filter: {title: {likeInsensitive: $t}})`
+  with `likeEscape` (`_` and `%` are wildcards otherwise); there is no `equalToInsensitive`; a leading space matters.
+
 ## Useful for tests ✅
 - The test server: `tools/test-server/` (README there, D29). Fixture manga: docs/TESTING.md.
 - Jar: `java -Dsuwayomi.tachidesk.config.server.rootDir=<dir> -Dsuwayomi.tachidesk.config.server.port=4568 … -jar Suwayomi-Server-*.jar`.
