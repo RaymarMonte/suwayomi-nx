@@ -38,7 +38,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | WP-15b | **The waiting-save queue** (split from WP-15 on 2026-11-13, its planned split point): a progress save that fails as the reader closes waits in `progress-queue.json` and is sent once the server answers, also after a restart; the server's newer change wins; the reader takes a waiting entry over; History's "Page N not saved yet". The whole spec is WP-15's doc, section "The waiting-save queue", its queue deliverables and the scenario's two queue steps, plus WP-15's leftovers: B cancels "Opening...", the `updates-history` Switch runs and console numbers (D52). **Runs right after WP-15, before WP-24** | 15 | Opus (never Sonnet: progress sync) | M | Optional: a save made while the server is away | done (D53, desktop + Switch) |
 | [WP-24](wp/WP-24-library-tools.md) | **Library tools**: search the whole library by title, manage categories (add, rename, order, delete) on a Categories screen, put a manga in other categories with a checklist picker (Y on a cover, the details screen) that WP-14 reuses (2026-11-13, D54; not split) | 12 | Opus | M | Optional: try it on your server | done (D54, desktop + Switch) |
 | [WP-23](wp/WP-23-test-source.md) | **Test source** for the test server: our own extension (a plain jar built with the PC's JDK), an offline extension store and a test site on the PC's loopback: sources in en / ja with every filter type and paging, chapters the server can download, a switch file for errors and delays, store entries for WP-16 (planned and done 2026-11-17, D55; no split needed) | 02 ∥ any | Opus | M | – (nothing to install, D55) | **done** 2026-11-17 |
-| WP-14 | **Browse**: sources by language, popular / latest / search, search across sources, filters, preview, add to library with a category | 24, 23 | Opus | M | – | todo |
+| [WP-14](wp/WP-14-browse.md) | **Browse**: sources by language (a Languages checklist, an 18+ tag), popular / latest / search, every filter type, search across sources (a row per source), a preview loaded from the source, add with WP-24's picker like the web UI (its "default" categories ticked, Don't ask again) after a same-title warning, remove from the library (planned 2026-11-17, D56; split point: Search all → WP-14b) | 24, 23 | Opus | L | Optional: try it on your server | todo |
 | WP-16 | **Extensions**: installed / updates / available, install, update, uninstall, extension repos, permission errors | 14, 23 | Opus | M | – | todo |
 | WP-25 | **Tracking**: a manga's tracker entries (AniList, MyAnimeList, …): find and link, status, score, chapter | 12 | Opus | M | **Yes**: a tracker account to try it | todo |
 | WP-19 | Settings polish, i18n, theming, optional HTTPS, config saves off the main thread, small reader leftovers | 12 | Opus (string extraction: **H**) | M/L | – | todo |
@@ -148,7 +148,15 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
   extension that reads from an address we set (the old Suwayomi/"Tachidesk" extension is no longer in keiyoushi's repo, checked
   2026-10-30) or our own tiny extension built once (Android build tools in WSL: an owner install). Check licences before pinning.
   It touches only `tools/test-server/`, so it can run alongside, except during WP-15's seed change.
-- **WP-14 Browse.** Sources by language (Local first), popular / latest / search per source, a search across sources (Suwayomi-JUI
+- **WP-14 Browse.** Planned: full doc `wp/WP-14-browse.md` (2026-11-17, D56). Owner's answers: adding works like Suwayomi's
+  web UI (the checklist when there are categories, the server's "default"-marked ones ticked, "Don't ask again", Settings
+  asks again), a same-title warning first (Show entry / Add anyway), Remove from library with a confirm, Search all as a row
+  per source (a card + 5 covers), every language shown with a Languages checklist to hide some, 18+ sources with a tag.
+  Checked on the test server: the filters query needs aliased `default` fields, pages start at 1, Local ignores `page`, a
+  browsed manga is bare until `fetchMangaAndChapters`, `updateManga(inLibrary)` sets no category and a removed manga keeps
+  its old ones (so an add sends clear + the chosen set in the same request). Size L; split point: Search all, Tick for new
+  manga and Languages → WP-14b. Test data: SNX Mature's "Paper Garden" (same title as SNX Test's) for the warning.
+  The original stub: Sources by language (Local first), popular / latest / search per source, a search across sources (Suwayomi-JUI
   has one), filters (the server's `Filter` types: sort, text, select, check and tri-state first; groups if they fit), a preview of
   a manga not in the library (the details screen with "Add to library"), adding with WP-24's category picker. Copies the Library
   pattern (D42). Test seed: some Local manga left out of the library (WP-23's test source already gives 70+ manga that aren't in

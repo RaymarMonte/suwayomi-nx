@@ -1170,3 +1170,30 @@ Rejected: an APK built with the Android SDK (an owner install, heavy, licence to
 repo (needs the internet, old versions disappear, its filters and content aren't ours), Kotlin (one more pinned download for
 the compiler), a Node test site in WSL (Windows → WSL forwarding, another moving part), a fake network inside the jar (tests
 couldn't change it, pages packed in the jar), committing built jars.
+
+**D56 Browse: sources by language, add like the web UI, a same-title warning, remove from the Switch** (WP-14, planned
+2026-11-17; the owner's answers the same day; `wp/WP-14-browse.md`). Carries out D47's WP-14 on top of D42 and D54.
+- **Adding** works like Suwayomi's web UI (checked in its code: `showAddToLibraryCategorySelectDialog` on by default, the
+  categories marked `default` pre-ticked, "Don't show again"): when the user has categories besides Default, WP-24's picker
+  opens in choose mode with the server's `default`-marked categories ticked and a "Don't ask again" check; without the
+  question the manga goes into those (or Default). `askCategories` lives in config.json; Settings turns it back on. One
+  request adds: `updateManga(inLibrary: true)`, then `updateMangaCategories` with `clearCategories` + the chosen set,
+  because a removed manga keeps its old categories and newer servers apply the marked ones by themselves (checked). A manga
+  that isn't `initialized` gets `fetchMangaAndChapters` first, so the library never holds a bare row.
+- **A same-title warning** before adding (both Mihon and the web UI have one): a library manga whose title matches
+  `likeInsensitive` (escaped, D54) gives Show entry / Add anyway / Cancel.
+- **Remove from library** with a confirm, on the details screen's menu and the Y cover menus (Library and Browse). The
+  server keeps the reading progress.
+- **Sources** are grouped by language, Local first, a Last used row on top, every language shown; a Languages checklist hides
+  some (config.json, also for Search all). 18+ sources (content warning NSFW) show with a tag, no setting.
+- **Search all** is a row per source (a card with the count, then 5 covers) in a 6-column `CoverGrid`, the sources searched
+  3 at a time (profile), rows never reorder. A source's screen: Popular / Latest, a search text and the source's filters
+  (every type; only changes from the defaults are sent; kept while the screen is open), paging stops at a page with nothing
+  new (Local ignores `page`).
+- **The preview** is the details screen: a manga that isn't `initialized` or has no chapters loads from the source first
+  (Mihon's rule); for a manga outside the library its Categories button is "Add to library".
+- Planner's defaults (the owner can change any): Tick for new manga on the Categories screen (sets the server's `default`
+  flag), filters reset when the source's screen closes, no pins and no source settings yet, Separators not shown.
+Rejected: Mihon's way (nothing pre-ticked, no "don't ask"), adding without a question, the web UI's own server-side
+setting for asking (it is the web UI's internal metadata), a list of sources or one mixed grid for Search all, English only
+at first, hiding 18+ sources, a duplicate title pair with a Local fixture (WP-23 keeps Local titles out of the catalog).

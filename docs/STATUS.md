@@ -1,18 +1,17 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-23 done** (test source, D55). Next: **plan WP-14** (browse; it tests against the test source).
+**Phase 3 – Features. Now:** **WP-14 planned** (browse, D56, `docs/wp/WP-14-browse.md`). Next: **run WP-14** (Opus, L).
 Done: WP-00a … 13, 13b, 13c, 13d, **15, 15b, 23, 24**, 22; **v0.2.0 released** (13…24 unreleased). Nice to have: WP-08b,
 17, 21, 26, last offline 18 / 18b (D51). From WP-13d: the console's longest strip frame is 31–32 ms (limit 34), not looked into.
-## Last session (2026-11-17, WP-23, Opus) – done, committed and pushed
-- The test server now also has **our own extension** (Java, `tools/test-source/`, a plain jar built at `reset` with the PC's
-  JDK), a **store** and a **test site** served by `jwebserver` on `127.0.0.1:4569` (started/stopped with Java). The seed adds
-  the store and installs **SNX Test v1** (en 60 manga, ja 8, every filter type, paging); SNX Extra (fr) and SNX Mature (NSFW)
-  wait in the store, and the store can offer SNX Test v2. How to use it: TESTING.md "Test source", `tools/test-server/README.md`,
-  helpers in `tests/e2e/lib/test-source.ts`. All of the WP (no WP-23b). No app code changed, no Switch runs.
-- Server quirks found (SUWAYOMI-API.md, D55 "as built"): content warning is a number (2 = NSFW), install right after uninstall
-  needs a store read first, OkHttp reuses old store files unless dated ahead. Ids after the seed's are never fixed: look them up.
-- Green: live check `tools/test-server/test-source.test.ts` (11) in `none` and `ui_login` on a fresh reset, `npm test` (141),
-  typecheck, `tools/build.sh tests`, integration (3 modes), all desktop e2e (24 files, 34 tests; oom drill + keyboard-wait skip on desktop as before, ~14 min).
-  Start: Windows side 6.2 s (Java ready 4.5 s, the site ~1 s more), seed step 0.1 s; a Java change rebuilds the jars in ~2 s.
+## Last session (2026-11-17, WP-14 planning, Opus) – plan committed, no code
+- Wrote `docs/wp/WP-14-browse.md` (Opus, size **L**, split point: Search all + Tick for new manga + Languages → WP-14b), D56,
+  ROADMAP row and stub. Owner's answers: add like the web UI (the server's "default"-marked categories ticked, Don't ask
+  again), a same-title warning, Remove from library with a confirm, Search all as a row per source, all languages shown with a
+  Languages checklist, 18+ sources with a tag. Facts checked on the test server are in the WP doc (they go into
+  SUWAYOMI-API.md during the WP): aliased filter defaults, pages from 1, Local ignores `page`, bare browsed manga, add = one
+  request with `clearCategories` + the chosen set. WP-14 also renames SNX Mature's third manga to "Paper Garden" (test data).
+- The test server was running (no auth) and is left running; the probes added and removed manga 191–194 (library back to 157,
+  categories as seeded) and created browse rows from id 158 on (ids after the seed's are never fixed anyway, D55).
+- Previous: WP-23 done (test source, D55): store + site on `127.0.0.1:4569`, SNX Test v1 installed by the seed.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
