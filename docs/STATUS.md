@@ -7,9 +7,10 @@ Nice to have: WP-08b, 17, 21, 26, last 18 / 18b (D51). WP-13d: the console's lon
   (`test_ui_browse.cpp`), integration (3 modes), the "Paper Garden" rename; the views (Browse tab, source screen, filters,
   `AddFlow`: same-title box, picker choose mode, remove confirm; details Add / Remove, Library Y Remove, Settings toggle,
   `components/CoverCell` + tag), test events; all old desktop e2e green. Docs done: SUWAYOMI-API.md, READMEs, CHANGELOG,
-  TESTING.md events. Desktop `browse` scenario green so far for steps 1–3 (sources, popular paging, latest, search, B).
-- **Next:** finish `tests/e2e/scenarios/browse.test.ts` (steps 4–7, 9–11 of the WP doc; the WP-14b parts stay out); the add /
-  remove / filters screens have not been looked at yet; all desktop e2e; Switch build + gate + runs (ask the owner); recorded
+  TESTING.md events. Desktop `browse` scenario green for steps 1–5 (sources, paging, latest, search, filters, a failure).
+  The WP doc's step 4 combo (Completed + Action + Webtoon) matches no manga: the scenario sets Action back to any.
+- **Next:** finish `tests/e2e/scenarios/browse.test.ts` (steps 6, 7, 9–11 of the WP doc; the WP-14b parts stay out); the add /
+  remove screens have not been looked at yet; all desktop e2e; Switch build + gate + runs (ask the owner); recorded
   fixtures; TESTING.md scenario text, D56 as built, ROADMAP row; push. Test server running (no auth). Nothing pushed yet.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with

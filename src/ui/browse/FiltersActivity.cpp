@@ -19,6 +19,7 @@ constexpr float kRowWidth = 1120;
 constexpr float kRowHeight = 72;
 constexpr GridMetrics kListMetrics{kRowWidth, kRowHeight, 4, 0};
 constexpr float kIndent = 48;
+constexpr float kValueWidth = 320;  // "Latest chapter, descending" fits
 const NVGcolor kSecondaryText = nvgRGB(150, 150, 156);
 
 bool inside(brls::View* view, const brls::View* parent) {
@@ -80,24 +81,27 @@ class FilterCell : public GridCell {
         setHighlightCornerRadius(6);
         setBackgroundColor(nvgRGBA(128, 128, 128, 24));
         setPaddingRight(20);
+        // Fixed widths: a label that may grow and shrink got cut short ("Genres (1 …") when the value was empty.
         name_ = new brls::Label();
         name_->setFontSize(20);
         name_->setSingleLine(true);
         name_->setAutoAnimate(false);
-        name_->setGrow(1.0f);
-        name_->setShrink(1.0f);
         addView(name_);
         value_ = new brls::Label();
+        value_->setWidth(kValueWidth);
         value_->setFontSize(20);
         value_->setSingleLine(true);
         value_->setAutoAnimate(false);
         value_->setMarginLeft(20);
+        value_->setHorizontalAlign(brls::HorizontalAlign::RIGHT);
         value_->setTextColor(kSecondaryText);
         addView(value_);
     }
 
     void show(const std::string& name, const std::string& value, int depth, bool header) {
-        setPaddingLeft(20 + kIndent * static_cast<float>(depth));
+        const float indent = kIndent * static_cast<float>(depth);
+        setPaddingLeft(20 + indent);
+        name_->setWidth(kRowWidth - 40 - indent - 20 - kValueWidth);
         name_->setText(name);
         name_->setTextColor(header ? kSecondaryText : brls::Application::getTheme()["brls/text"]);
         value_->setText(value);
