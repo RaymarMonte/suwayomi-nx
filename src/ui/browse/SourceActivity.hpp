@@ -84,6 +84,7 @@ class SourceActivity : public brls::Activity, private GridSource {
     CoverGrid* grid_ = nullptr;
     bool ready_ = false;
     bool gridShown_ = false;
+    bool gridEverShown_ = false;  // the first page: the focus goes from the bar (borealis's start) to the covers
     bool searchShown_ = false;
     std::uint64_t shownList_ = 0;
     std::uint64_t shownItems_ = 0;

@@ -254,9 +254,13 @@ void SourceActivity::showGrid(bool visible) {
         return;
     }
     brls::View* focus = brls::Application::getCurrentFocus();
-    const bool hadFocus = inside(focus, grid_) || inside(focus, status_);
+    // While the first page loads, the status can't take the focus, so borealis puts it on the bar's first button. When
+    // the first covers show, the focus moves to them (a controller user starts on the covers, not on Popular).
+    const bool startFocus = !gridEverShown_ && (focus == popularButton || focus == latestButton);
+    const bool hadFocus = inside(focus, grid_) || inside(focus, status_) || (visible && startFocus);
     gridShown_ = visible;
     if (visible) {
+        gridEverShown_ = true;
         status_->setVisibility(brls::Visibility::GONE);
         grid_->setVisibility(brls::Visibility::VISIBLE);
         if (hadFocus) {

@@ -57,6 +57,8 @@ const SAME_TITLE = {
     showEntry: { x: 460, y: 513 },
     addAnyway: { x: 820, y: 513 },
 };
+/** The picker's "Don't ask again: no / yes" button in choose mode (left of New category; golden "add-picker"). */
+const PICKER_DONT_ASK = { x: 855, y: 136 };
 /** The remove question (3 lines of text, so lower than WP-24's DIALOG): Cancel on the left, Remove on the right. */
 const REMOVE_CONFIRM = {
     cancel: { x: 460, y: 476 },
@@ -192,6 +194,95 @@ async function isInLibrary(id: number): Promise<boolean> {
     const client = new SuwayomiClient(optionsFromEnv());
     const r = await client.query<{ manga: { inLibrary: boolean } }>('query M($id: Int!) { manga(id: $id) { inLibrary } }', { id });
     return r.manga.inLibrary;
+}
+
+/** The view id in the latest "focus" event ("" when none). */
+function focusedView(s: Scenario): string {
+    return String(s.events.events.filter((e) => e.ev === 'focus').at(-1)?.view ?? '');
+}
+
+/**
+ * Presses `button` until the focused view's description contains `part` (at most `max` presses). After a touch the first
+ * D-pad press only brings the focus frame back (borealis leaves touch mode), so a press without a focus event is fine.
+ */
+async function pressUntilFocus(s: Scenario, button: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT', part: string, max = 12): Promise<void> {
+    for (let i = 0; i < max && !focusedView(s).includes(part); i++) {
+        const mark = s.events.mark();
+        await s.driver.press(button);
+        await s.events.waitForEvent('focus', {}, { from: mark, timeoutMs: 3_000 }).catch(() => undefined);
+        await s.events.waitForEvent('idle', {}, { from: mark });
+    }
+    expect(focusedView(s), `${button}: the focus reaches ${part}`).toContain(part);
+}
+
+/** Presses `button` and waits for the screen to settle (a dropdown opening, a mode change). */
+async function pressSettled(s: Scenario, button: 'Y' | 'L' | 'R' | 'MINUS' | 'A'): Promise<number> {
+    const mark = s.events.mark();
+    await s.driver.press(button);
+    await s.events.waitForEvent('idle', {}, { from: mark });
+    return mark;
+}
+
+/**
+ * WP doc step 10, Switch only. On SNX Test (EN): Y on Comet Courier → Add to library... → the picker → Don't ask again →
+ * Add (Default); Y on Midnight Knight → Add to library... goes straight in, no picker (Default: no category is marked for
+ * new manga; marking one is WP-14b's Tick); R / L switch Latest / Popular. Settings: "Ask for categories when adding" back
+ * on. Library: search "Midnight Knight", Y on its cover → Remove from library... → the confirm → out. Ends on the Browse tab.
+ */
+async function switchButtons(s: Scenario, comet: number): Promise<void> {
+    await tapUntil(s, BROWSE.row(sourceRow(s, TEST_SOURCE_IDS.en)), 'SNX Test (EN)',
+        isEv('browse', { source: TEST_SOURCE_IDS.en, mode: 'popular', state: 'ready' }));
+    await pressUntilFocus(s, 'RIGHT', 'source/cover-1');
+    await pressUntilFocus(s, 'LEFT', 'source/cover-0');  // Comet Courier (removed in step 9)
+    await pressSettled(s, 'Y');
+    await tapUntil(s, MANGA.menuEntry(1, 2), 'the picker from the cover menu', isEv('category_picker', { state: 'ready', mode: 'choose' }));
+    await tapUntil(s, PICKER_DONT_ASK, "Don't ask again: yes", (e) => e.ev === 'category_picker' && e.dontAsk === true);
+    const chosen = await tapUntil(s, PICKER.save, 'the add', isEv('library_add', { ok: true }));
+    expect(chosen).toMatchObject({ manga: comet, categories: [], asked: true });
+
+    // The next add asks nothing.
+    await pressUntilFocus(s, 'RIGHT', 'source/cover-2');  // Midnight Knight
+    await pressSettled(s, 'Y');
+    const direct = await tapUntil(s, MANGA.menuEntry(1, 2), 'the add without a question', isEv('library_add', { ok: true }));
+    expect(direct).toMatchObject({ categories: [], asked: false });
+    expect(s.events.events.slice(s.events.events.indexOf(chosen)).some((e) => e.ev === 'screen' && e.name === 'CategoryPicker'))
+        .toBe(false);
+    const midnight = Number(direct.manga);
+    expect(await isInLibrary(midnight)).toBe(true);
+
+    // R: Latest, L: Popular.
+    let mark = await pressSettled(s, 'R');
+    await s.events.waitForEvent('browse', { mode: 'latest', state: 'ready' }, { from: mark, timeoutMs: 30_000 });
+    mark = await pressSettled(s, 'L');
+    await s.events.waitForEvent('browse', { mode: 'popular', state: 'ready' }, { from: mark, timeoutMs: 30_000 });
+    await backTo(s, 'Browse');
+
+    // Settings: "Ask for categories when adding" is off (Don't ask again); A turns it back on.
+    await tapUntil(s, tab('Settings'), 'the Settings tab', isEv('screen', { name: 'Settings' }));
+    await pressUntilFocus(s, 'RIGHT', 'settings/', 3);
+    await pressUntilFocus(s, 'DOWN', 'settings/ask_categories', 12);
+    mark = await pressSettled(s, 'A');
+    await s.events.waitForEvent('setting', { name: 'askCategories', value: true }, { from: mark });
+
+    // Library: search "Midnight Knight", Y on its cover → Remove from library... → Remove.
+    await tapUntil(s, tab('Library'), 'the Library tab', isEv('screen', { name: 'Library' }));
+    await pressUntilFocus(s, 'RIGHT', 'library/', 3);
+    await pressSettled(s, 'MINUS');
+    await typedText(s, 'Midnight Knight');
+    await tapUntil(s, MANGA.menuEntry(2, 5), 'MINUS → Search...',
+        (e) => e.ev === 'library' && e.search === 'Midnight Knight' && e.state === 'ready');
+    await pressUntilFocus(s, 'DOWN', 'library/cover-0', 4);
+    await pressSettled(s, 'Y');
+    const ask = await tapUntil(s, MANGA.menuEntry(2, 3), 'the remove question', isEv('dialog', {}));
+    expect(ask.text).toBe('Remove Midnight Knight from your library? Reading progress stays on the server.');
+    const removed = await tapUntil(s, REMOVE_CONFIRM.remove, 'the remove', isEv('library_remove', { ok: true }));
+    expect(Number(removed.manga)).toBe(midnight);
+    expect(await isInLibrary(midnight)).toBe(false);
+    mark = s.events.mark();
+    await s.driver.press('B');  // ends the search
+    await s.events.waitForEvent('library', { search: null, state: 'ready' }, { from: mark });
+    await s.events.waitForEvent('idle', {}, { from: mark });
+    await tapUntil(s, tab('Browse'), 'the Browse tab', isEv('screen', { name: 'Browse' }));
 }
 
 /** The ids of the library manga in category `category`. */
@@ -433,6 +524,9 @@ scenario('browse', async (s) => {
             !(e.inLibrary as number[]).includes(comet), { from: afterRemove });
         await backTo(s, 'Source');
         await backTo(s, 'Browse');
+
+        // 10. Switch only (the desktop can't press Y, L, R or MINUS): the Y menus, Don't ask again, Settings, L / R.
+        if (s.driver.name === 'switch') await switchButtons(s, comet);
 
         // 11. Memory: 10 rounds of opening SNX Test (EN) and scrolling to the end; the memory in use stays flat.
         const before = await memNow(s);
