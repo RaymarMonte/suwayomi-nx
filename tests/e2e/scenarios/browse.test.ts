@@ -7,26 +7,60 @@
 // - Filters (golden "filters", Genres open, Action include): Action back to any (no Completed Webtoon has Action), Status =
 //   Completed, Type → Webtoon, Sort by Title ascending → Apply: the 4 manga selectManga() predicts, in that order; Reset →
 //   Apply: Popular again;
-// - the switch file fails en "search": the error "SNX test failure: search"; Refresh (Retry) after clearing it works.
-// Still to come (the next session, see docs/STATUS.md): add / remove, the same-title warning, the Switch-only Y / MINUS steps and the memory rounds.
+// - the switch file fails en "search": the error "SNX test failure: search"; Refresh (Retry) after clearing it works;
+// - Comet Courier's preview (loaded from the source) → Add to library → the picker in choose mode (golden "add-picker") →
+//   Reading → Add: in the library in exactly Reading; its cover gets the "In library" tag (golden "source-tagged");
+// - Paper Garden → Add with nothing ticked: Default. SNX Mature installed: its row has "18+" (golden "sources-mature"); its
+//   Paper Garden → Add → the same-title box (golden "same-title") → Show entry opens SNX Test's; Add anyway: in the library twice;
+// - the Library's Reading tab has Comet Courier; Remove from its preview's menu → the confirm (golden "remove-confirm") → out;
+// - 10 rounds of opening SNX Test (EN) and scrolling to the end: the memory in use grows by less than 16 MiB;
+// - the D56 times, on the app's clock (D54's way): the sources ≤ 1 s, a first page ≤ 2 s, the next pages ≤ 2 s, the filters
+//   ≤ 0.5 s, an add and a remove ≤ 1 s.
+// Left for WP-14b: Search all (step 8), the Switch-only Y / MINUS / L / R steps (step 10, with Tick for new manga).
 // Known state first and at the end, also after a failure: the test source as seeded, no test-source manga in the library.
 // Needs the test server (tools/test-server/test-server.sh start).
 
 import { expect } from 'vitest';
 
+import { mangaCategoryIds, serverCategories } from '../lib/categories.ts';
 import type { AppEvent } from '../lib/events.ts';
 import { scenario, type Scenario } from '../lib/scenario.ts';
-import { CLOCK_MASK, tab } from '../lib/screens.ts';
-import { appServerUrl } from '../lib/suwayomi.ts';
-import { typedText } from '../lib/touches.ts';
+import { CLOCK_MASK, LIBRARY, MANGA, PICKER, tab } from '../lib/screens.ts';
+import { appServerUrl, optionsFromEnv, SuwayomiClient } from '../lib/suwayomi.ts';
+import { playTouches, tapFrames, typedText } from '../lib/touches.ts';
 import {
-    clearTestSourceControl, removeTestSourceMangaFromLibrary, resetTestSource, setTestSourceControl, TEST_SOURCE_IDS,
+    clearTestSourceControl, EXTENSIONS, installExtension, removeTestSourceMangaFromLibrary, resetTestSource,
+    setTestSourceControl, TEST_SOURCE_IDS,
 } from '../lib/test-source.ts';
 import { CATALOG_EN, selectManga } from '../../../tools/gen-fixtures/test-source.ts';
+
+const MiB = 1024 * 1024;
+const ROUNDS = 10;
+/** D56's limits (WP-14 Acceptance), all on the app's own clock. */
+const LIMITS = { sourcesMs: 1_000, firstPageMs: 2_000, nextPageMs: 2_000, filtersMs: 500, addMs: 1_000, removeMs: 1_000,
+    roundsBytes: 16 * MiB };
+
+/** The details screen's footer hint "Menu" (MINUS): a tap opens the menu, the desktop's way to it. */
+const MENU_HINT = { x: 945, y: 683 };
 
 /** The Browse tab's rows (BrowseTab: one column of 80 px rows, 4 px apart, under the 72 px bar). */
 const BROWSE = {
     row: (i: number) => ({ x: 834, y: 223 + 84 * i }),
+    refresh: { x: 1200, y: 123 },
+};
+/**
+ * The same-title box, a borealis dialog with three buttons: the third (Cancel) gets a row of its own on top, Show entry and
+ * Add anyway share the bottom row. Measured with the 3-line Paper Garden text (golden "same-title").
+ */
+const SAME_TITLE = {
+    cancel: { x: 640, y: 441 },
+    showEntry: { x: 460, y: 513 },
+    addAnyway: { x: 820, y: 513 },
+};
+/** The remove question (3 lines of text, so lower than WP-24's DIALOG): Cancel on the left, Remove on the right. */
+const REMOVE_CONFIRM = {
+    cancel: { x: 460, y: 476 },
+    remove: { x: 820, y: 476 },
 };
 /** A source's screen: the bar (Popular | Latest on the left; Search, Filters, Refresh on the right). */
 const SOURCE = {
@@ -35,6 +69,8 @@ const SOURCE = {
     search: { x: 1012, y: 123 },
     filters: { x: 1110, y: 123 },
     refresh: { x: 1211, y: 123 },
+    /** The middle of cover `index`'s image while the grid is at the top (9 columns, 136 px apart). */
+    cover: (index: number) => ({ x: 96 + 136 * (index % 9), y: 274 + 246 * Math.floor(index / 9) }),
 };
 
 /** The filters screen's Reset and Apply (top right, above the list). */
@@ -52,6 +88,37 @@ async function tapUntil(s: Scenario, at: { x: number; y: number }, what: string,
     const e = await s.events.waitFor(what, match, { from: mark, timeoutMs: 30_000 });
     await s.events.waitForEvent('idle', {}, { from: mark });
     return e;
+}
+
+/**
+ * Like tapUntil, but the tap is played through the test build's touch channel and the time is the app's own: from the finger
+ * touching (the `command` event's `started`) to the event `match` accepts (D54's way: a driver tap on the Switch adds ~0.9 s).
+ */
+async function timedTap(s: Scenario, at: { x: number; y: number }, what: string, match: (e: AppEvent) => boolean): Promise<{ e: AppEvent; ms: number }> {
+    const mark = s.events.mark();
+    const played = await playTouches(s, tapFrames(at));
+    const e = await s.events.waitFor(what, match, { from: mark, timeoutMs: 30_000 });
+    await s.events.waitForEvent('idle', {}, { from: mark });
+    const from = played.started !== undefined ? Number(played.started) : Number(played.t);
+    return { e, ms: Math.max(0, Number(e.t) - from) };
+}
+
+/** Waits for the next "mem" event (one every 10 s) and returns its "used". */
+async function memNow(s: Scenario): Promise<number> {
+    const mem = await s.events.waitForEvent('mem', {}, { from: s.events.mark(), timeoutMs: 15_000 });
+    return Number(mem.used);
+}
+
+/** Presses DOWN until the source's list has no next page; returns the last "browse" event. */
+async function scrollToEnd(s: Scenario, from: AppEvent): Promise<AppEvent> {
+    let last = from;
+    for (let i = 0; i < 20 && last.hasNext !== false; i++) {
+        const mark = s.events.mark();
+        await s.driver.press('DOWN');
+        await s.events.waitForEvent('idle', {}, { from: mark });
+        last = s.events.events.filter((e) => e.ev === 'browse').at(-1) ?? last;
+    }
+    return last;
 }
 
 const isEv = (name: string, fields: Record<string, unknown>) => (e: AppEvent) =>
@@ -96,6 +163,46 @@ function filterRows(s: Scenario): FilterRowEvent[] {
     return (s.events.events.filter((e) => e.ev === 'filters').at(-1)?.rows ?? []) as FilterRowEvent[];
 }
 
+/** B, then waits for the `screen` event of the screen it goes back to, and for the screen to settle. */
+async function backTo(s: Scenario, screen: string): Promise<void> {
+    const mark = s.events.mark();
+    await s.driver.press('B');
+    await s.events.waitForEvent('screen', { name: screen }, { from: mark });
+    await s.events.waitForEvent('idle', {}, { from: mark });
+}
+
+/** How many library manga are called `title` (any source). */
+async function libraryCount(title: string): Promise<number> {
+    const client = new SuwayomiClient(optionsFromEnv());
+    const r = await client.query<{ mangas: { totalCount: number } }>(
+        'query M($t: String!) { mangas(condition: { inLibrary: true, title: $t }) { totalCount } }', { t: title });
+    return r.mangas.totalCount;
+}
+
+/** The row of source `id` in the Browse tab's latest "sources" event (the Last used row counts, it comes first). */
+function sourceRow(s: Scenario, id: string): number {
+    const rows = (s.events.events.filter((e) => e.ev === 'sources').at(-1)?.rows ?? []) as SourceRowEvent[];
+    const row = rows.findIndex((r) => r.id === id);
+    if (row < 0) throw new Error(`the Browse tab has no source ${id}`);
+    return row;
+}
+
+/** Whether manga `id` is in the library (the server's answer). */
+async function isInLibrary(id: number): Promise<boolean> {
+    const client = new SuwayomiClient(optionsFromEnv());
+    const r = await client.query<{ manga: { inLibrary: boolean } }>('query M($id: Int!) { manga(id: $id) { inLibrary } }', { id });
+    return r.manga.inLibrary;
+}
+
+/** The ids of the library manga in category `category`. */
+async function libraryIdsIn(category: number): Promise<number[]> {
+    const client = new SuwayomiClient(optionsFromEnv());
+    const r = await client.query<{ mangas: { nodes: { id: number }[] } }>(
+        `query M($c: Int!) { mangas(condition: { inLibrary: true }, filter: { categoryId: { equalTo: $c } }) { nodes { id } } }`,
+        { c: category });
+    return r.mangas.nodes.map((n) => n.id);
+}
+
 async function knownState(): Promise<void> {
     await resetTestSource();
     await removeTestSourceMangaFromLibrary();
@@ -108,9 +215,13 @@ scenario('browse', async (s) => {
         await s.launch({ testConfig: { server: { url } } });
         await s.events.waitForEvent('screen', { name: 'Library' });
         await s.events.waitForEvent('library', { state: 'ready' }, { timeoutMs: 30_000 });
+        await s.events.waitForEvent('idle', {});  // a tap before the first frame settles can get lost
 
         // 1. The Browse tab: Local, then English and Japanese, a label on each language's first row, no Last used yet.
-        const list = await tapUntil(s, tab('Browse'), 'the sources', isEv('sources', { state: 'ready' }));
+        const times: Record<string, number> = {};
+        const tabOpened = await timedTap(s, tab('Browse'), 'the sources', isEv('sources', { state: 'ready' }));
+        times.sources = tabOpened.ms;
+        const list = tabOpened.e;
         const rows = list.rows as SourceRowEvent[];
         expect(rows.map((r) => r.id)).toEqual(['0', TEST_SOURCE_IDS.en, TEST_SOURCE_IDS.ja]);
         expect(rows.map((r) => r.label)).toEqual(['Local', 'English', 'Japanese']);
@@ -120,26 +231,21 @@ scenario('browse', async (s) => {
 
         // 2. SNX Test (EN) → Popular: page 1 (25), then the pages as the grid scrolls, 60 in all, no more.
         let mark = s.events.mark();
-        await s.driver.touch(BROWSE.row(1).x, BROWSE.row(1).y);
-        await s.events.waitForEvent('screen', { name: 'Source' }, { from: mark });
-        const first = await s.events.waitForEvent('browse', { source: TEST_SOURCE_IDS.en, mode: 'popular', state: 'ready' },
-            { from: mark, timeoutMs: 30_000 });
+        const source = await timedTap(s, BROWSE.row(1), 'the first page',
+            isEv('browse', { source: TEST_SOURCE_IDS.en, mode: 'popular', state: 'ready' }));
+        times.firstPage = source.ms;
+        const first = source.e;
         expect(Number(first.items)).toBeGreaterThanOrEqual(25);
         expect((first.titles as string[])[0]).toBe('Comet Courier');
-        await s.events.waitForEvent('idle', {}, { from: mark });
         await s.expectGolden('source-popular', { masks: [CLOCK_MASK] });
 
-        // Down through the grid until the list ends.
-        let last = first;
-        for (let i = 0; i < 20 && last.hasNext !== false; i++) {
-            mark = s.events.mark();
-            await s.driver.press('DOWN');
-            await s.events.waitForEvent('idle', {}, { from: mark });
-            last = s.events.events.filter((e) => e.ev === 'browse').at(-1) ?? last;
-        }
+        // Down through the grid until the list ends. Each next page's "ms": the grid asked → on screen.
+        const last = await scrollToEnd(s, first);
         expect(last.items).toBe(60);
         expect(last.hasNext).toBe(false);
         expect(last.pages).toBe(3);
+        const nextPages = s.events.events.slice(mark).filter((e) => e.ev === 'browse' && e.state === 'ready' && Number(e.pages) > 1);
+        times.nextPage = Math.max(...nextPages.map((e) => Number(e.ms)));
 
         // Latest: the newest first (the catalog's last manga, en-14); then Popular again.
         const latest = await tapUntil(s, SOURCE.latest, 'latest', isEv('browse', { mode: 'latest', state: 'ready' }));
@@ -160,6 +266,7 @@ scenario('browse', async (s) => {
 
         // 4. Filters: Status = Completed, Genres → Action include, Type → Webtoon, Sort by Title ascending.
         const opened = await tapUntil(s, SOURCE.filters, 'the filters', isEv('filters', { state: 'ready' }));
+        times.filters = Number(opened.ms);  // the screen opened → ready
         expect((opened.rows as FilterRowEvent[]).map((r) => r.name)).toEqual(
             ['Filters also work without a search text', 'Author', 'Status', 'In colour', 'Genres', 'Type', 'Sort by']);
         await focusFilterRow(s, 2);  // Status: A opens its list at "Any"; down twice = Completed
@@ -220,6 +327,132 @@ scenario('browse', async (s) => {
         await s.driver.press('B');
         await s.events.waitForEvent('browse', { mode: 'popular', query: '', state: 'ready' }, { from: mark, timeoutMs: 30_000 });
         await s.events.waitForEvent('idle', {}, { from: mark });
+
+        // 6. Comet Courier (the first cover): the preview loads it from the source (the author shows), Add to library → the
+        // picker in choose mode (golden "add-picker") → tick Reading → Add: in the library, exactly in Reading.
+        const reading = (await serverCategories()).find((c) => c.name === 'Reading')!.id;
+        const preview = await tapUntil(s, SOURCE.cover(0), 'the preview with its details',
+            (e) => e.ev === 'manga' && e.state === 'ready' && e.categoriesButton === 'Add to library');
+        expect(preview.inLibrary).toBe(false);
+        expect(String(preview.author)).not.toBe('');
+        const picker = await tapUntil(s, MANGA.categories, 'the picker', isEv('category_picker', { state: 'ready', mode: 'choose' }));
+        expect((picker.rows as { name: string; checked: boolean }[]).map((r) => r.checked)).toEqual([false, false, false, false]);
+        await s.expectGolden('add-picker', { masks: [CLOCK_MASK] });
+        await tapUntil(s, PICKER.row(0), 'Reading ticked',
+            (e) => e.ev === 'category_picker' && (e.rows as { checked: boolean }[])[0]?.checked === true);
+        const added = await tapUntil(s, PICKER.save, 'the add', isEv('library_add', { ok: true }));
+        expect(added).toMatchObject({ categories: [reading], duplicate: false, asked: true });
+        times.add = Number(added.ms);  // Add → the server's answer
+        const comet = Number(added.manga);
+        expect(await mangaCategoryIds(comet)).toEqual([reading]);
+        await s.events.waitFor('Categories: Reading', (e) => e.ev === 'manga' && e.inLibrary === true &&
+            e.categoriesButton === 'Categories: Reading', { from: s.events.events.indexOf(added) });
+        // The source's grid already knows (its cover gets the "In library" tag); back to it.
+        await s.events.waitFor('the tag', (e) => e.ev === 'browse' && (e.inLibrary as number[]).includes(comet),
+            { from: s.events.events.indexOf(added) });
+        mark = s.events.mark();
+        await s.driver.press('B');
+        await s.events.waitForEvent('screen', { name: 'Source' }, { from: mark });
+        await s.events.waitForEvent('idle', {}, { from: mark });
+        await s.expectGolden('source-tagged', { masks: [CLOCK_MASK] });
+
+        // 7. Paper Garden (the second cover, en-14) → Add with nothing ticked → Default.
+        await tapUntil(s, SOURCE.cover(1), 'the Paper Garden preview',
+            (e) => e.ev === 'manga' && e.state === 'ready' && e.categoriesButton === 'Add to library');
+        await tapUntil(s, MANGA.categories, 'the picker', isEv('category_picker', { state: 'ready', mode: 'choose' }));
+        const paperAdded = await tapUntil(s, PICKER.save, 'the add', isEv('library_add', { ok: true }));
+        expect(paperAdded).toMatchObject({ categories: [], duplicate: false, asked: true });
+        const paper = Number(paperAdded.manga);
+        expect(await mangaCategoryIds(paper)).toEqual([]);
+        await backTo(s, 'Source');
+        await backTo(s, 'Browse');
+
+        // SNX Mature (an 18+ extension) installed, Refresh: its row has the "18+" tag.
+        await installExtension(EXTENSIONS.mature.pkg);
+        const withMature = await tapUntil(s, BROWSE.refresh, 'the sources again',
+            (e) => e.ev === 'sources' && e.state === 'ready' && (e.rows as SourceRowEvent[]).some((r) => r.id === TEST_SOURCE_IDS.matureEn));
+        const matureRows = withMature.rows as SourceRowEvent[];
+        const matureRow = matureRows.findIndex((r) => r.id === TEST_SOURCE_IDS.matureEn && !r.lastUsed);
+        expect(matureRows[matureRow].nsfw).toBe(true);
+        await s.expectGolden('sources-mature', { masks: [CLOCK_MASK] });
+
+        // Its Paper Garden → Add → the same-title box (golden "same-title") → Show entry: SNX Test's Paper Garden, in the library.
+        mark = s.events.mark();
+        await s.driver.touch(BROWSE.row(matureRow).x, BROWSE.row(matureRow).y);
+        const mature = await s.events.waitForEvent('browse', { source: TEST_SOURCE_IDS.matureEn, mode: 'popular', state: 'ready' },
+            { from: mark, timeoutMs: 30_000 });
+        await s.events.waitForEvent('idle', {}, { from: mark });
+        const maturePaper = (mature.titles as string[]).indexOf('Paper Garden');
+        expect(maturePaper).toBeGreaterThanOrEqual(0);
+        await tapUntil(s, SOURCE.cover(maturePaper), 'the SNX Mature Paper Garden preview',
+            (e) => e.ev === 'manga' && e.state === 'ready' && e.categoriesButton === 'Add to library');
+        const box = await tapUntil(s, MANGA.categories, 'the same-title box', isEv('dialog', {}));
+        expect(box.text).toBe('You have an entry in your library with the same name: Paper Garden (SNX Test (EN))');
+        await s.expectGolden('same-title', { masks: [CLOCK_MASK] });
+        const shown = await tapUntil(s, SAME_TITLE.showEntry, 'the entry', (e) => e.ev === 'manga' && e.id === paper && e.state === 'ready');
+        expect(shown.inLibrary).toBe(true);
+        await backTo(s, 'Manga');
+
+        // Add anyway → the picker → Add: Paper Garden is in the library twice.
+        await tapUntil(s, MANGA.categories, 'the same-title box again', isEv('dialog', {}));
+        await tapUntil(s, SAME_TITLE.addAnyway, 'the picker', isEv('category_picker', { state: 'ready', mode: 'choose' }));
+        const twice = await tapUntil(s, PICKER.save, 'the second add', isEv('library_add', { ok: true }));
+        expect(twice).toMatchObject({ duplicate: true });
+        expect(await libraryCount('Paper Garden')).toBe(2);
+        await backTo(s, 'Source');
+        await backTo(s, 'Browse');
+
+        // The Library's Reading tab has Comet Courier (step 6).
+        await tapUntil(s, tab('Library'), 'the library', isEv('library', { state: 'ready' }));
+        const shelf = await tapUntil(s, LIBRARY.categories.reading, 'Reading', isEv('library', { state: 'ready', category: reading }));
+        const inReading = await libraryIdsIn(reading);
+        expect(inReading).toContain(comet);
+        expect(shelf.total).toBe(inReading.length);
+
+        // 9. Remove Comet Courier from its preview's menu (the footer's Menu hint, then Remove) → the confirm (golden
+        // "remove-confirm") → out of the library; the preview offers Add to library again, the grid drops the tag.
+        await tapUntil(s, tab('Browse'), 'the Browse tab', isEv('screen', { name: 'Browse' }));
+        await tapUntil(s, BROWSE.row(sourceRow(s, TEST_SOURCE_IDS.en)), 'SNX Test (EN)',
+            isEv('browse', { source: TEST_SOURCE_IDS.en, mode: 'popular', state: 'ready' }));
+        await tapUntil(s, SOURCE.cover(0), 'Comet Courier, in the library',
+            (e) => e.ev === 'manga' && e.state === 'ready' && e.id === comet && e.categoriesButton === 'Categories: Reading');
+        mark = s.events.mark();
+        await s.driver.touch(MENU_HINT.x, MENU_HINT.y);
+        await s.events.waitForEvent('idle', {}, { from: mark });
+        const ask = await tapUntil(s, MANGA.menuEntry(4, 5), 'the remove question', isEv('dialog', {}));
+        expect(ask.text).toBe('Remove Comet Courier from your library? Reading progress stays on the server.');
+        await s.expectGolden('remove-confirm', { masks: [CLOCK_MASK] });
+        const removed = await tapUntil(s, REMOVE_CONFIRM.remove, 'the remove', isEv('library_remove', { ok: true }));
+        expect(Number(removed.manga)).toBe(comet);
+        times.remove = Number(removed.ms);  // the confirm → the server's answer
+        expect(await isInLibrary(comet)).toBe(false);
+        const afterRemove = s.events.events.indexOf(removed);
+        await s.events.waitFor('Add to library again', (e) => e.ev === 'manga' && e.inLibrary === false &&
+            e.categoriesButton === 'Add to library', { from: afterRemove });
+        await s.events.waitFor('the tag gone', (e) => e.ev === 'browse' && e.source === TEST_SOURCE_IDS.en &&
+            !(e.inLibrary as number[]).includes(comet), { from: afterRemove });
+        await backTo(s, 'Source');
+        await backTo(s, 'Browse');
+
+        // 11. Memory: 10 rounds of opening SNX Test (EN) and scrolling to the end; the memory in use stays flat.
+        const before = await memNow(s);
+        for (let i = 0; i < ROUNDS; i++) {
+            const round = await tapUntil(s, BROWSE.row(sourceRow(s, TEST_SOURCE_IDS.en)), `round ${i + 1}: SNX Test (EN)`,
+                isEv('browse', { source: TEST_SOURCE_IDS.en, mode: 'popular', state: 'ready' }));
+            expect((await scrollToEnd(s, round)).items).toBe(60);
+            await backTo(s, 'Browse');
+        }
+        const after = await memNow(s);
+        console.log(`[browse] ${s.driver.name}: ${JSON.stringify(times)} ms; ${ROUNDS} rounds ${(before / MiB).toFixed(1)} -> ${(after / MiB).toFixed(1)} MiB`);
+        expect(after - before, `memory growth over ${ROUNDS} source rounds (bytes)`).toBeLessThan(LIMITS.roundsBytes);
+
+        // The D56 numbers (WP-14 Acceptance).
+        expect(times.sources, 'the sources on screen after the tab opens (ms)').toBeLessThanOrEqual(LIMITS.sourcesMs);
+        expect(times.firstPage, "a source's first page in the grid (ms)").toBeLessThanOrEqual(LIMITS.firstPageMs);
+        expect(times.nextPage, 'the slowest next page (ms)').toBeLessThanOrEqual(LIMITS.nextPageMs);
+        expect(times.filters, 'the filters screen ready (ms)').toBeLessThanOrEqual(LIMITS.filtersMs);
+        expect(times.add, 'an add answered (ms)').toBeLessThanOrEqual(LIMITS.addMs);
+        expect(times.remove, 'a remove answered (ms)').toBeLessThanOrEqual(LIMITS.removeMs);
     } finally {
         await knownState();
     }

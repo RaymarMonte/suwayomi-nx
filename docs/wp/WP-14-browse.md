@@ -152,41 +152,41 @@ SUWAYOMI-API.md "Extensions, stores and online sources". The .cpp of the screens
 MainActivity, CategoryPickerActivity, CategoriesActivity, SettingsTab).
 
 ## Deliverables
-- [ ] core: `SourceFilters.hpp` (the filter tree: kind, name, default, values, children; `readSourceFilters` with the S6
+- [x] core: `SourceFilters.hpp` (the filter tree: kind, name, default, values, children; `readSourceFilters` with the S6
       limits; a state per filter; `filterChanges(filters, state)` → the server's change list, only what differs;
       `changedCount`; `resetFilters`), `SourceLanguages.hpp` (`languageName(code)`, Local's `localsourcelang`, the list order
       with Last used, hidden languages), `Source` gains `supportsLatest`, `isConfigurable`, `contentWarning`; `Manga::initialized`;
       `BrowsePage` (manga + `hasNextPage`); `AppConfig::browse`; profile `browseMaxItems` (1000), `sourcesMax` (500),
       `sourceFiltersMax` (300), `filterValuesMax` (500), `filterTextMaxChars` (64), `globalSearchConcurrency` (3),
       `globalSearchCovers` (5), `globalSearchSourcesMax` (100). Tests `test_core_browse.cpp`.
-- [ ] core GraphQL: documents `Sources`, `SourceFilters` (aliased defaults, two levels), `BrowseSource` (fetchSourceManga),
+- [x] core GraphQL: documents `Sources`, `SourceFilters` (aliased defaults, two levels), `BrowseSource` (fetchSourceManga),
       `LibraryDuplicates` (likeInsensitive, escaped), `AddToLibrary`, `RemoveFromLibrary`, `SetCategoryDefault`; `Manga` and
       `FetchMangaAndChapters` + `initialized`; builders and readers; the source error's message cut ("Exception while
       fetching data (…) : " off, first line). Contract test green; recorded answers (`tools/record-fixtures`) for the new ones.
-- [ ] api: `sources()`, `sourceFilters(sourceId)`, `browseSource(sourceId, kind, page, query, changes)`,
+- [x] api: `sources()`, `sourceFilters(sourceId)`, `browseSource(sourceId, kind, page, query, changes)`,
       `libraryDuplicates(title, exceptId)`, `addToLibrary(mangaId, categoryIds)`, `removeFromLibrary(mangaId)`,
       `setCategoryDefault(id, on)`; mutations (`fetchSourceManga` is one) never repeated. Tests in `test_api_client.cpp`.
-- [ ] ui models: `SourcesModel`, `SourceBrowseModel` (modes, paging, dedupe, the no-new-page stop, the limit, Failed + retry,
+- [x] ui models (`GlobalSearchModel` → WP-14b): `SourcesModel`, `SourceBrowseModel` (modes, paging, dedupe, the no-new-page stop, the limit, Failed + retry,
       more failed), `SourceFiltersModel` (rows with open groups, edits, apply, reset), `GlobalSearchModel` (the queue at the
       concurrency, states, cancel), `LibraryAdder` (duplicate → categories → details → add; remove), `LibraryModel::mangaAdded`
       / `mangaRemoved`, `MangaModel` (load from source first; in-library state), `CategoryPickerModel` choose mode,
       `GridLayout` neighbour with a focusable check. Tests: new `test_ui_browse.cpp` (each model: loading, Failed + retry, busy,
       destroyed while loading, every branch of the add flow), additions to `test_ui_library.cpp`, `test_ui_manga.cpp`,
       `test_ui_categories.cpp`, the GridLayout tests.
-- [ ] ui views: BrowseTab (replaces the placeholder), SourceActivity, FiltersActivity, GlobalSearchActivity,
+- [x] ui views (GlobalSearchActivity, LanguagesActivity, CategoriesActivity's Tick → WP-14b): BrowseTab (replaces the placeholder), SourceActivity, FiltersActivity, GlobalSearchActivity,
       LanguagesActivity, `components/CoverCell` (+ tag), MangaActivity (Add / Remove, loading from source), LibraryTab (Y:
       Remove), CategoryPickerActivity (choose mode, Don't ask again), CategoriesActivity (Tick for new manga), SettingsTab (Ask
       for categories when adding). Layouts in `resources/xml/`, texts in `resources/i18n/en-US/`. Touch targets ≥ 72 px, every
       action also by touch (D16).
-- [ ] Test events: `sources` (rows: id, name, lang, nsfw, the label; last used; hidden), `browse` (source, mode, query,
+- [x] Test events (`global_search`, `languages` → WP-14b): `sources` (rows: id, name, lang, nsfw, the label; last used; hidden), `browse` (source, mode, query,
       filters changed, items, hasNext, state), `filters` (rows: kind, name, value, depth, open; changed), `global_search`
       (query; per source: id, state, found, shown), `library_add` / `library_remove` (manga, ok, categories, duplicate,
       asked), `category_picker` gains `mode`, `languages` (rows).
-- [ ] Test source (test infrastructure): SNX Mature's third manga is renamed "Paper Garden" (the title of SNX Test's en-14),
+- [x] Test source (test infrastructure): SNX Mature's third manga is renamed "Paper Garden" (the title of SNX Test's en-14),
       the same work in two sources, for the same-title warning; the gen-fixtures unit tests and the WP-23 live check stay green
       (update what they predict). `tests/e2e/lib/test-source.ts` gains `removeTestSourceMangaFromLibrary()` (every test-source
       manga out of the library, categories cleared: the scenario's known state).
-- [ ] Integration (`tests/integration/`, all 3 auth modes): sources (Local + 2), SNX Test's filters read into the tree (8,
+- [x] Integration (`tests/integration/`, all 3 auth modes): sources (Local + 2), SNX Test's filters read into the tree (8,
       two groups), popular paging 25 / 25 / 10, latest's first key as `listPage` says, search "comet" (3), one filter of each
       type narrows as the catalog predicts, a source failure (switch file) comes back as a Server error with the short message,
       add with two categories → a query shows exactly those, the duplicate check finds a same-title library manga, remove →

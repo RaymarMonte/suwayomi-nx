@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -752,6 +753,61 @@ TEST_CASE("client: the library tools' calls (WP-24, D54): requests as sent, muta
     const nlohmann::json vars = variablesOf(h.sent("UpdateMangaCategories").at(0));
     CHECK(vars["add"] == nlohmann::json::array({2}));
     CHECK(vars["remove"] == nlohmann::json::array({1}));
+}
+
+TEST_CASE("client: the browse documents' recorded answers (WP-14): sources, filters, a page, a same-title match") {
+    Harness h(settingsFor(AuthMode::None));
+    h.http.setHandler([](const Request& request) {
+        const std::string operation = operationOf(request);
+        if (operation == "Sources") return fixture("app-sources.json");
+        if (operation == "SourceFilters") return fixture("app-source-filters.json");
+        if (operation == "BrowseSource") return fixture("app-browse-source.json");
+        if (operation == "LibraryDuplicates") return fixture("app-library-duplicates.json");
+        return FakeHttpClient::answer(500, "unexpected");
+    });
+    const CancelToken cancel;
+    const std::string snxEn = "1105946461371740061";
+
+    // The seeded test server: Local and SNX Test's two sources.
+    const auto sources = h.client->sources(cancel).get();
+    REQUIRE(sources.ok());
+    std::vector<std::string> ids;
+    for (const auto& s : sources.value()) ids.push_back(s.id);
+    std::sort(ids.begin(), ids.end());
+    CHECK(ids == std::vector<std::string>{"0", snxEn, "1294398940357362604"});
+    for (const auto& s : sources.value()) {
+        if (s.id == "0") CHECK(s.lang == "localsourcelang");
+        if (s.id == snxEn) {
+            CHECK(s.displayName == "SNX Test (EN)");
+            CHECK(s.supportsLatest);
+            CHECK(s.contentWarning == snx::core::ContentWarning::Safe);
+        }
+    }
+
+    // SNX Test (EN)'s filters as a tree: 8, two groups (7 genres, 3 types), Sort by's aliased default.
+    const auto filters = h.client->sourceFilters(snxEn, cancel).get();
+    REQUIRE(filters.ok());
+    REQUIRE(filters.value().size() == 8);
+    CHECK(filters.value()[2].kind == snx::core::FilterKind::Select);
+    CHECK(filters.value()[5].children.size() == 7);
+    CHECK(filters.value()[6].children.size() == 3);
+    REQUIRE(filters.value()[7].defaults.sort.has_value());
+    CHECK(filters.value()[7].defaults.sort->index == 0);
+
+    // Popular, page 1: 25 manga, Comet Courier first, a next page.
+    const auto page = h.client->browseSource(snxEn, snx::core::gql::BrowseKind::Popular, 1, "", nlohmann::json::array(),
+                                             cancel).get();
+    REQUIRE(page.ok());
+    REQUIRE(page.value().manga.size() == 25);
+    CHECK(page.value().manga[0].title == "Comet Courier");
+    CHECK_FALSE(page.value().manga[0].inLibrary);
+    CHECK(page.value().hasNextPage);
+
+    // "alpha" (any case) finds the library's Alpha.
+    const auto dupes = h.client->libraryDuplicates("alpha", 0, cancel).get();
+    REQUIRE(dupes.ok());
+    REQUIRE(dupes.value().size() == 1);
+    CHECK(dupes.value()[0].title == "Alpha");
 }
 
 TEST_CASE("client: the browse calls (WP-14, D56): requests as sent, mutations never repeated, answers read") {

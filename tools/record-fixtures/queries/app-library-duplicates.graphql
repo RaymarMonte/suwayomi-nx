@@ -1,0 +1,3 @@
+# document: LibraryDuplicates
+# vars: {"title": "alpha"}
+# The same-title check before adding: "alpha" (any case) finds the library's Alpha (WP-14).

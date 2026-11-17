@@ -1,0 +1,184 @@
+{
+  "data": {
+    "fetchSourceManga": {
+      "mangas": [
+        {
+          "id": 158,
+          "title": "Comet Courier",
+          "thumbnailUrl": "/api/v1/manga/158/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 159,
+          "title": "Paper Garden",
+          "thumbnailUrl": "/api/v1/manga/159/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 160,
+          "title": "Midnight Knight",
+          "thumbnailUrl": "/api/v1/manga/160/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 161,
+          "title": "Thunder Lantern",
+          "thumbnailUrl": "/api/v1/manga/161/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 162,
+          "title": "Iron Circuit",
+          "thumbnailUrl": "/api/v1/manga/162/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 163,
+          "title": "Lost Cover Mystery",
+          "thumbnailUrl": "/api/v1/manga/163/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 164,
+          "title": "Glass Garden",
+          "thumbnailUrl": "/api/v1/manga/164/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 165,
+          "title": "Silent Lantern",
+          "thumbnailUrl": "/api/v1/manga/165/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 166,
+          "title": "Hidden Valley",
+          "thumbnailUrl": "/api/v1/manga/166/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 167,
+          "title": "Wandering Circuit",
+          "thumbnailUrl": "/api/v1/manga/167/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 168,
+          "title": "Crimson Garden",
+          "thumbnailUrl": "/api/v1/manga/168/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 169,
+          "title": "Paper Knight",
+          "thumbnailUrl": "/api/v1/manga/169/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 170,
+          "title": "Midnight Lantern",
+          "thumbnailUrl": "/api/v1/manga/170/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 171,
+          "title": "Thunder Valley",
+          "thumbnailUrl": "/api/v1/manga/171/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 172,
+          "title": "Pressed Flowers",
+          "thumbnailUrl": "/api/v1/manga/172/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 173,
+          "title": "Golden Garden",
+          "thumbnailUrl": "/api/v1/manga/173/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 174,
+          "title": "Glass Knight",
+          "thumbnailUrl": "/api/v1/manga/174/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 175,
+          "title": "Silent Valley",
+          "thumbnailUrl": "/api/v1/manga/175/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 176,
+          "title": "Hidden Circuit",
+          "thumbnailUrl": "/api/v1/manga/176/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 177,
+          "title": "Missing Page Mansion",
+          "thumbnailUrl": "/api/v1/manga/177/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 178,
+          "title": "Crimson Knight",
+          "thumbnailUrl": "/api/v1/manga/178/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 179,
+          "title": "Paper Lantern",
+          "thumbnailUrl": "/api/v1/manga/179/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 180,
+          "title": "Comet Over the Bay",
+          "thumbnailUrl": "/api/v1/manga/180/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 181,
+          "title": "Thunder Circuit",
+          "thumbnailUrl": "/api/v1/manga/181/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        },
+        {
+          "id": 182,
+          "title": "Iron Garden",
+          "thumbnailUrl": "/api/v1/manga/182/thumbnail",
+          "inLibrary": false,
+          "initialized": false
+        }
+      ],
+      "hasNextPage": true
+    }
+  }
+}

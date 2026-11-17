@@ -1,0 +1,113 @@
+{
+  "data": {
+    "source": {
+      "id": "1105946461371740061",
+      "filters": [
+        {
+          "__typename": "HeaderFilter",
+          "name": "Filters also work without a search text"
+        },
+        {
+          "__typename": "TextFilter",
+          "name": "Author",
+          "textDefault": ""
+        },
+        {
+          "__typename": "SelectFilter",
+          "name": "Status",
+          "values": [
+            "Any",
+            "Ongoing",
+            "Completed",
+            "On hiatus"
+          ],
+          "selectDefault": 0
+        },
+        {
+          "__typename": "SeparatorFilter",
+          "name": ""
+        },
+        {
+          "__typename": "CheckBoxFilter",
+          "name": "In colour",
+          "checkDefault": false
+        },
+        {
+          "__typename": "GroupFilter",
+          "name": "Genres",
+          "filters": [
+            {
+              "__typename": "TriStateFilter",
+              "name": "Action",
+              "triDefault": "IGNORE"
+            },
+            {
+              "__typename": "TriStateFilter",
+              "name": "Comedy",
+              "triDefault": "IGNORE"
+            },
+            {
+              "__typename": "TriStateFilter",
+              "name": "Drama",
+              "triDefault": "IGNORE"
+            },
+            {
+              "__typename": "TriStateFilter",
+              "name": "Fantasy",
+              "triDefault": "IGNORE"
+            },
+            {
+              "__typename": "TriStateFilter",
+              "name": "Romance",
+              "triDefault": "IGNORE"
+            },
+            {
+              "__typename": "TriStateFilter",
+              "name": "Sci-Fi",
+              "triDefault": "IGNORE"
+            },
+            {
+              "__typename": "TriStateFilter",
+              "name": "Long Strip",
+              "triDefault": "IGNORE"
+            }
+          ]
+        },
+        {
+          "__typename": "GroupFilter",
+          "name": "Type",
+          "filters": [
+            {
+              "__typename": "CheckBoxFilter",
+              "name": "Manga",
+              "checkDefault": false
+            },
+            {
+              "__typename": "CheckBoxFilter",
+              "name": "Manhwa",
+              "checkDefault": false
+            },
+            {
+              "__typename": "CheckBoxFilter",
+              "name": "Webtoon",
+              "checkDefault": false
+            }
+          ]
+        },
+        {
+          "__typename": "SortFilter",
+          "name": "Sort by",
+          "values": [
+            "Popularity",
+            "Title",
+            "Latest chapter"
+          ],
+          "sortDefault": {
+            "index": 0,
+            "ascending": false
+          }
+        }
+      ]
+    }
+  }
+}
