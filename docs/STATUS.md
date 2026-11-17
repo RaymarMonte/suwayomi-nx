@@ -1,24 +1,21 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-24 done** (desktop + Switch, D54). Next by the roadmap: WP-14 (browse), plan it first.
+**Phase 3 – Features. Now:** **WP-23 planned** (D55). Next: **work on WP-23** (test source), then plan WP-14 (browse needs it).
 Done: WP-00a … 13, 13b, 13c, 13d, **15, 15b, 24**, 22; **v0.2.0 released** (13…24 unreleased). Nice to have: WP-08b,
 17, 21, 26, last offline 18 / 18b (D51). From WP-13d: the console's longest strip frame is 31–32 ms (limit 34), not looked into.
-## Last session (2026-11-17, harness chore "the touch resets", Opus) – done, committed
-- **Cause:** the console's network stack sometimes turns a new connection to sys-autopilot away (reset 1–5 ms after
-  connecting, before any answer; ~20 per `updates-history` run, plus spells of 10–30 s, once ending in "host unreachable"
-  for a few seconds). Reads were tried again, inputs never (D32), so one unlucky touch or tap ended the run (WP-24's 4 runs).
-- **Fix (`tests/e2e/drivers/autopilot.ts`; D32 amended, owner OK):** an input asks first (`Expect: 100-continue`) and sends
-  its body only after sys-autopilot's `100 Continue`. Its handler plays nothing without the body, so a reset before that,
-  or a connection that never opened (refused, unreachable), is sent again (~1 min of tries, like reads); once the body
-  has left it is never repeated. After a whole failed minute the next requests try once. sys-autopilot itself unchanged.
-- **Tests:** npm unit tests (new: a stand-in console that resets before / after the body, or refuses), typecheck, all desktop
-  e2e. Switch: `updates-history` green twice in a row (run 1 stopped on "host unreachable" before that part of the fix; run 2
-  got a launch tap through a ~30 s spell), `touch-pass` green. Why the console's stack resets: not looked into (sys-autopilot's
-  log is off and outside the allowlist). WP-24's known gap is in its WP file. Console asleep: wake it first.
+## Last session (2026-11-17, WP-23 planning, Opus) – done, committed
+- STATUS said WP-14 next, but WP-14 needs WP-23 (todo, unplanned), so this session planned WP-23: `docs/wp/WP-23-test-source.md`.
+- **A throwaway spike** (scratch folder, nothing committed) proved the server installs a **plain jar** extension: one Java
+  class built with the PC's JDK against the server jar, a store JSON served by `jwebserver` on 127.0.0.1:4569; it browsed
+  with all 8 filter types, the server downloaded its chapter, update to v2 and uninstall worked on Windows. So **no Android
+  SDK and no owner install** (the stub expected one). Facts are in the WP file ("Checked on the test server").
+- No product questions (test infrastructure): D55 = planner's defaults. The test server was reset afterwards (no spike left).
+- WP-23 touches no app code and needs no console: it can run hands-off.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
   `MSYS_NO_PATHCONV=1`, or `/mnt/c/...` arguments get rewritten). Git Bash has no python. The Bash tool turns `\\` in a heredoc
   into `\`: write files with backslashes (regexes, CMake escapes) with the Write/Edit tools.
+- Windows JDK: Temurin 21 (`C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot\bin`: java, javac, jar, jwebserver); WSL has none.
 - Builds: unit tests ~10 s, desktop ~50 s, Switch ~55 s (+ gate ~5 s), 0 warnings. Backups: `C:\Users\JohnDoe\SwitchBackup\2026-10-22\`.
 - Test server: `reset` + `start` ~10 s (desktop e2e needs it running); won't start ("null cannot be cast"): `reset`, start again.
 - WSL can fail to start ("insufficient system resources") when Windows memory is nearly all committed (it reserves up to 12 GB): ask the owner to close apps.

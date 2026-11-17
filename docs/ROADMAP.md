@@ -37,7 +37,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-15](wp/WP-15-updates-and-history.md) | **Updates + history**: new chapters across the library (new only, last 3 months, like Mihon), "update library" with progress, reading history with continue, and a progress save that failed as the reader closed is sent again later, also after a restart (D45's leftover, from 18b, D51). **Runs next** (D51; planned 2026-11-13; split point: the queue → WP-15b) | 12 | Opus (History screen: Sonnet-safe chunk) | M/L | Optional: try it on your server | done (desktop; console runs open, STATUS) |
 | WP-15b | **The waiting-save queue** (split from WP-15 on 2026-11-13, its planned split point): a progress save that fails as the reader closes waits in `progress-queue.json` and is sent once the server answers, also after a restart; the server's newer change wins; the reader takes a waiting entry over; History's "Page N not saved yet". The whole spec is WP-15's doc, section "The waiting-save queue", its queue deliverables and the scenario's two queue steps, plus WP-15's leftovers: B cancels "Opening...", the `updates-history` Switch runs and console numbers (D52). **Runs right after WP-15, before WP-24** | 15 | Opus (never Sonnet: progress sync) | M | Optional: a save made while the server is away | done (D53, desktop + Switch) |
 | [WP-24](wp/WP-24-library-tools.md) | **Library tools**: search the whole library by title, manage categories (add, rename, order, delete) on a Categories screen, put a manga in other categories with a checklist picker (Y on a cover, the details screen) that WP-14 reuses (2026-11-13, D54; not split) | 12 | Opus | M | Optional: try it on your server | done (D54, desktop + Switch) |
-| WP-23 | **Test source** for the test server: an offline extension store and a source whose chapters the server can download, so extensions, server downloads and source filters can be tested | 02 ∥ any (not with 15's seed change) | Opus | M | Maybe: install a build tool | todo |
+| [WP-23](wp/WP-23-test-source.md) | **Test source** for the test server: our own extension (a plain jar built with the PC's JDK), an offline extension store and a test site on the PC's loopback: sources in en / ja with every filter type and paging, chapters the server can download, a switch file for errors and delays, store entries for WP-16 (planned 2026-11-17, D55; split point: the WP-16 extras → WP-23b). **Runs next, before WP-14** | 02 ∥ any | Opus | M | – (nothing to install, D55) | todo (planned) |
 | WP-14 | **Browse**: sources by language, popular / latest / search, search across sources, filters, preview, add to library with a category | 24, 23 | Opus | M | – | todo |
 | WP-16 | **Extensions**: installed / updates / available, install, update, uninstall, extension repos, permission errors | 14, 23 | Opus | M | – | todo |
 | WP-25 | **Tracking**: a manga's tracker entries (AniList, MyAnimeList, …): find and link, status, score, chapter | 12 | Opus | M | **Yes**: a tracker account to try it | todo |
@@ -135,7 +135,12 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
   categories (`createCategory`, `updateCategory`, `updateCategoryOrder`, `deleteCategory`), move manga between categories from the
   library and the details screen (`updateMangaCategories`), through a category picker that WP-14 reuses. The Library tab keeps
   its model (D42).
-- **WP-23 Test source (test infrastructure).** The test server has only the Local source: browse works offline (popular, latest,
+- **WP-23 Test source (test infrastructure).** Planned: full doc `wp/WP-23-test-source.md` (2026-11-17, D55). A spike on the
+  test server showed that Suwayomi v2.4.2366 installs a plain jar (JVM classes + a text manifest), so the extension is Java
+  built with the PC's JDK against the pinned server jar: no Android tools, no owner install. Store and test site are static
+  files served by `jwebserver` on `127.0.0.1:4569`; the extension filters a generated catalog itself; SNX Test (en + ja,
+  installed, v1 / v2), SNX Extra (fr) and SNX Mature (NSFW flag) in the store; the server downloads its chapters (checked).
+  The original stub: The test server has only the Local source: browse works offline (popular, latest,
   search; only a Sort filter), there are no extensions and no extension repo, and the server can't download Local chapters
   (`enqueueChapterDownloads` empties the queue, `isDownloaded` stays false; tried 2026-10-30). WP-14's filters, WP-16 and WP-17
   need more, still without the internet once set up (TESTING.md). Ideas to check: a small extension store served from the PC
@@ -146,7 +151,9 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
 - **WP-14 Browse.** Sources by language (Local first), popular / latest / search per source, a search across sources (Suwayomi-JUI
   has one), filters (the server's `Filter` types: sort, text, select, check and tri-state first; groups if they fit), a preview of
   a manga not in the library (the details screen with "Add to library"), adding with WP-24's category picker. Copies the Library
-  pattern (D42). Test seed: some Local manga left out of the library.
+  pattern (D42). Test seed: some Local manga left out of the library (WP-23's test source already gives 70+ manga that aren't in
+  the library, every filter type, a failing / slow source by its switch file and "Comet" for the search across sources: the
+  planner checks whether that's enough). Plan it after WP-23 is built: its queries get checked against the test source.
 - **WP-16 Extensions.** Inside Browse (like Mihon: Sources | Extensions): installed, with updates, available, by language; install,
   update, uninstall (`updateExtension`), check for updates (`fetchExtensions`), extension repos (`extensionStores`,
   `addExtensionStore`, `removeExtensionStore`: a fresh stable server has none), content warnings, multi-user permission errors

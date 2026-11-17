@@ -1140,3 +1140,25 @@ another device).
   screen rounds 33.8 → 33.8 MiB (+< 16 MiB). The hints are short ("More", "Clear") so they fit beside the console's clock.
 Rejected: filtering the loaded list (misses unloaded categories and pages), the tools in Settings, removing a deleted
 category's manga from the library, a select mode for several manga.
+
+**D55 The test source: our own extension as a plain jar, a store and a site on the PC's loopback** (WP-23, planned
+2026-11-17; test infrastructure, no product questions: planner's defaults; `wp/WP-23-test-source.md`). Carries out D47's
+WP-23 and stays within D29 (Windows Java, files in `.test-server/`) and D11 (offline once set up).
+- **A jar, not an APK:** Suwayomi-Server v2.4.2366 installs a jar with compiled JVM classes and a text
+  `AndroidManifest.xml` (checked with a throwaway spike: install, browse with all 8 filter types, details, chapters, pages,
+  a server download, an update to v2 and an uninstall, all on the Windows test server). So no Android SDK and no owner
+  install (the stub expected one).
+- **Java, built with the PC's JDK** (Temurin 21, the one that runs the test server: `javac`, `jar`, `jwebserver`), against
+  the pinned server jar, at `reset` when its sources or the server version change. Built jars are never committed.
+- **The store and the test site are static files** served by `jwebserver` on `127.0.0.1:4569`, started and stopped with
+  the server. Loopback only: no firewall rule; the Switch never talks to it (covers, pages and icons come through the server,
+  checked). The extension does the searching and filtering itself over a generated catalog; a switch file
+  (`site/control.json`) makes chosen calls fail or slow down and shows held-back chapters.
+- **Three extensions:** SNX Test (en 60 manga + ja 8, every filter type, paging; installed by the seed, v1 with a v2 in the
+  store for updates), SNX Extra (fr, not installed), SNX Mature (en, NSFW flag only, not installed).
+- **Ids:** the seed doesn't browse, so manga 1–157 and chapters 1–461 stay fixed; anything a test browses gets the next free
+  ids, which tests look up, never assume.
+Rejected: an APK built with the Android SDK (an owner install, heavy, licence to accept), a real extension from a public
+repo (needs the internet, old versions disappear, its filters and content aren't ours), Kotlin (one more pinned download for
+the compiler), a Node test site in WSL (Windows → WSL forwarding, another moving part), a fake network inside the jar (tests
+couldn't change it, pages packed in the jar), committing built jars.
