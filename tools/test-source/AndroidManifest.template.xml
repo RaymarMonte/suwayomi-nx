@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The manifest of one SNX test extension jar (WP-23, D55). test-server.ps1 build-source fills in the @...@ fields from
+     .test-server/web/store/build.json (written by tools/gen-fixtures/gen-test-source.ts). The server reads it as text. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="@PACKAGE@"
+    android:versionCode="@VERSION_CODE@"
+    android:versionName="@VERSION_NAME@">
+    <uses-feature android:name="tachiyomi.extension" />
+    <application android:label="Tachiyomi: @NAME@">
+        <meta-data android:name="tachiyomi.extension.class" android:value=".Main" />
+        <!-- 0 SAFE, 1 MIXED, 2 NSFW (the server reads a number; the older tachiyomi.extension.nsfw = 1 counts as MIXED) -->
+        <meta-data android:name="tachiyomix.contentWarning" android:value="@CONTENT_WARNING@" />
+    </application>
+</manifest>

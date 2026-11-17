@@ -22,7 +22,7 @@ const MARKER = '.snx-fixtures';
 const MARKER_TEXT = 'Written by tools/gen-fixtures. The tool deletes and rewrites this folder.\n';
 
 /** Makes `out` an empty folder, refusing to delete anything this tool didn't write. */
-async function prepareOut(out: string): Promise<void> {
+export async function prepareOut(out: string): Promise<void> {
     if (existsSync(out)) {
         const entries = readdirSync(out);
         if (entries.length > 0 && !entries.includes(MARKER)) {
@@ -34,7 +34,7 @@ async function prepareOut(out: string): Promise<void> {
 }
 
 /** Runs the tasks with at most `limit` in flight. */
-async function inParallel(tasks: (() => Promise<void>)[], limit: number): Promise<void> {
+export async function inParallel(tasks: (() => Promise<void>)[], limit: number): Promise<void> {
     let next = 0;
     const worker = async () => {
         while (next < tasks.length) await tasks[next++]();

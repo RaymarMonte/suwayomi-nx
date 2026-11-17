@@ -31,7 +31,8 @@ Items marked 👤 need you (hardware, admin prompts, SD card). Claude runs every
    - Toolchain proofs (WP-00a): the libnx `templates/application` example builds to `hello.nro` in `~/build/suwayomi-nx/spike/hello/`.
      Upstream sys-autopilot (commit in STATUS) builds unmodified with `make` → `sys-autopilot.nsp`, `make -C app` → `sys-autopilot-app.nro`,
      and `./tests/run.sh` passes (C host tests plus its Node test). Clone: `~/build/suwayomi-nx/sys-autopilot-upstream/`.
-3. **Java 21** is already on Windows (Temurin 21.0.11). It runs the Suwayomi *test* server (D11, D29).
+3. **Java 21** is already on Windows (Temurin 21.0.11, a full JDK). It runs the Suwayomi *test* server (D11, D29), and its
+   `javac`, `jar` and `jwebserver` build and serve the test extension (WP-23, D55). A runtime-only Java (JRE) is not enough.
 4. 👤 **Windows Firewall** (done 2026-10-25, WP-02). The PC's Ethernet network is classed *Public*, and WSL's virtual network
    counts as Public too, so a "Private networks only" answer to Windows' Java pop-up doesn't help. Two steps, in an admin PowerShell:
    - Allow TCP 4568 from the home network only, on every profile:

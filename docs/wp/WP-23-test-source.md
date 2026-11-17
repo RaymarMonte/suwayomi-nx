@@ -113,27 +113,27 @@ style), `tests/e2e/lib/pagecode.ts` (how many series codes fit); TESTING.md "Fix
 facts). No app code: `src/` doesn't change.
 
 ## Deliverables
-- [ ] `tools/test-source/`: the Java sources (shared catalog source with the paging, search, filters, switch file, extra
+- [x] `tools/test-source/`: the Java sources (shared catalog source with the paging, search, filters, switch file, extra
       chapters; the three extensions' main classes), the manifest template, `README.md` (how it's built, how to add a
       manga / filter / extension, what to do when the server version changes).
-- [ ] Generator: the catalogs, covers, pages and `store/index.json` (source ids from the formula above), deterministic.
-- [ ] `test-server.ps1`: `build-source` (javac + jar per extension and version), `jwebserver` started / stopped / reported
+- [x] Generator: the catalogs, covers, pages and `store/index.json` (source ids from the formula above), deterministic.
+- [x] `test-server.ps1`: `build-source` (javac + jar per extension and version), `jwebserver` started / stopped / reported
       with Java, port 4569 checked like 4568. `test-server.sh`: the stamp, `reset` rebuilds when needed and resets the
       store and the switch file, `status` / `env` show the store address (`SNX_STORE_URL`).
-- [ ] Seed: the store and SNX Test v1, every start, all three auth modes.
-- [ ] `tests/e2e/lib/test-source.ts`: the helpers above.
-- [ ] npm unit tests: the generator gives the same bytes twice; catalog rules (counts, unique keys, every special manga
+- [x] Seed: the store and SNX Test v1, every start, all three auth modes.
+- [x] `tests/e2e/lib/test-source.ts`: the helpers above.
+- [x] npm unit tests: the generator gives the same bytes twice; catalog rules (counts, unique keys, every special manga
       there, every filter option matches some but not all, "Comet" placement, no outside address in any catalog or index
       entry: all start with `http://127.0.0.1:4569/`); the index has the server's fields and no byte-order mark; the
       source-id function gives the spike's 7230610560190231314 for "SNX Spike"/en.
-- [ ] Live check `tools/test-server/test-source.test.ts` (`SNX_LIVE_SERVER=1`, like `epsilon.test.ts`), on a fresh reset:
+- [x] Live check `tools/test-server/test-source.test.ts` (`SNX_LIVE_SERVER=1`, like `epsilon.test.ts`), on a fresh reset:
       the store and the three extensions (SNX Test v1 installed); en / ja sources and their filters; popular pages
       25 / 25 / 10 with `hasNextPage`; latest order; search by text; each filter type narrows to the set the catalog
       predicts; "Comet" across all sources; details, chapters, a page image through the server; a server download
       (`isDownloaded`); the switch file (an error, a delay, an extra chapter); update offered → `hasUpdate` → update → v2
       → back to v1; install and uninstall SNX Extra; SNX Mature's `contentWarning: NSFW`; remove and re-add the store. It
       leaves everything as the seed left it (`resetTestSource()`).
-- [ ] Docs: `tools/test-server/README.md` (store, site, port 4569, the switch file, helpers, bumping the server also
+- [x] Docs: `tools/test-server/README.md` (store, site, port 4569, the switch file, helpers, bumping the server also
       rebuilds the source and runs the live check), TESTING.md (a "Test source" section next to the fixture manga; still
       offline), SUWAYOMI-API.md (the facts above), fix the "chapter 462" wording in TESTING.md and `suwayomi.ts` (ids after
       the seed aren't fixed), D55 (update if the build changes it), ROADMAP (row done), STATUS, CHANGELOG not needed (no

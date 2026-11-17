@@ -115,15 +115,34 @@ export class SuwayomiClient {
         return tokens;
     }
 
-    private async send<T>(query: string, variables?: Record<string, unknown>, anonymous = false): Promise<GraphQLResponse<T>> {
-        const headers: Record<string, string> = { 'content-type': 'application/json', accept: 'application/json' };
-        if (anonymous) {
-            // no credentials
-        } else if (this.options.auth === 'basic') {
-            headers.authorization = 'Basic ' + Buffer.from(`${this.options.username}:${this.options.password}`).toString('base64');
-        } else if (this.options.auth === 'ui_login' && this.accessToken) {
-            headers.authorization = `Bearer ${this.accessToken}`;
+    /**
+     * GETs a server path (e.g. /api/v1/manga/158/thumbnail, a cover or page image) with the same login as the GraphQL calls
+     * (WP-23). Returns the HTTP status, the content type and the body bytes; errors are answers too, not exceptions.
+     */
+    async get(path: string): Promise<{ status: number; contentType: string; body: Buffer }> {
+        const once = async () => {
+            const response = await fetch(`${this.options.url}${path}`, { headers: this.authHeaders(), signal: AbortSignal.timeout(60_000) });
+            return { status: response.status, contentType: response.headers.get('content-type') ?? '', body: Buffer.from(await response.arrayBuffer()) };
+        };
+        let res = await once();
+        if (this.options.auth === 'ui_login' && res.status === 401) {
+            await this.login();
+            res = await once();
         }
+        return res;
+    }
+
+    private authHeaders(anonymous = false): Record<string, string> {
+        if (anonymous) return {};
+        if (this.options.auth === 'basic') {
+            return { authorization: 'Basic ' + Buffer.from(`${this.options.username}:${this.options.password}`).toString('base64') };
+        }
+        if (this.options.auth === 'ui_login' && this.accessToken) return { authorization: `Bearer ${this.accessToken}` };
+        return {};
+    }
+
+    private async send<T>(query: string, variables?: Record<string, unknown>, anonymous = false): Promise<GraphQLResponse<T>> {
+        const headers: Record<string, string> = { 'content-type': 'application/json', accept: 'application/json', ...this.authHeaders(anonymous) };
         const response = await fetch(`${this.options.url}/api/graphql`, {
             method: 'POST',
             headers,
@@ -245,7 +264,8 @@ export function addNewChapter(): void {
 
 /**
  * Undoes addNewChapter(): deletes chapter 3's folder and asks the server to re-read Epsilon's chapter list, so the server forgets
- * the chapter (chapter 462 is gone again). Safe to call when the chapter isn't there.
+ * the chapter (its row is gone again; it had the next free id, 462 on a fresh server, never a fixed one: D55). Safe to call
+ * when the chapter isn't there.
  */
 export async function removeNewChapter(client: SuwayomiClient = new SuwayomiClient(optionsFromEnv())): Promise<void> {
     rmSync(join(serverLocalFolder(), EPSILON.title, chapterFolder(EPSILON_HELD_BACK_CHAPTER)), { recursive: true, force: true });

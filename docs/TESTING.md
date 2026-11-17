@@ -155,12 +155,41 @@ Fixture set (series code in brackets = the colour code's series number):
   copies (the server numbers manga in folder order, so Epsilon there would shift every later id). The seed adds it as a second
   step: manga 157, chapters 460–461, in Reading after Alpha and Beta RTL, both chapters read (`isRead` only, so History stays
   empty). A held-back **Chapter 3** (3 pages) is generated too: `addNewChapter()` (tests/e2e/lib/suwayomi.ts) copies it into the
-  server's `local/Epsilon Weekly/` with a fixed folder time; after `updateLibrary(input: {})` the server has chapter 462.
+  server's `local/Epsilon Weekly/` with a fixed folder time; after `updateLibrary(input: {})` the server has a third chapter
+  (the next free id: 462 on a fresh server, higher once a test browsed the test source; ids after the seed's are never fixed, D55).
   `removeNewChapter()` deletes it and re-fetches the chapter list, so the server forgets it. Both are safe to call twice.
 
 After seeding (`tools/test-server/seed.ts`): categories `Reading` (Alpha, Beta RTL, Epsilon Weekly), `Long series` (Gamma Webtoon, Delta Big),
 `Big shelf` (the 150) and `Empty` (none: the "nothing in this category" screen); `Broken` and `日本語タイトル テスト` are in no
 category (the Default category, id 0). Real answers for these are in `tests/fixtures/responses/`.
+
+## Test source (our own extension, WP-23, D55)
+
+Local Source can't test browsing, filters, extensions or server downloads, so the test server also has **our own extension**
+(Java, `tools/test-source/`), an **extension store** and a **test site** on the PC's loopback (`http://127.0.0.1:4569`,
+jwebserver from the JDK, started with the server). Still offline: nothing leaves the PC, and the Switch never talks to the test
+site (covers and pages come through the server). Content and rules: `tools/gen-fixtures/test-source.ts` (tests import it and
+predict answers with `selectManga()`, `listPage()`, `listedChapters()`); helpers: `tests/e2e/lib/test-source.ts`; how it's
+served and reset: `tools/test-server/README.md`.
+- **SNX Test** (installed by the seed, v1; the store can offer v2 as an update): "SNX Test (EN)" id `1105946461371740061`,
+  60 manga, popular / latest / search 25 per page (25 + 25 + 10); "SNX Test (JA)" id `1294398940357362604`, 8 Japanese titles.
+  Not installed: **SNX Extra** (fr, id `7671842670262530014`, 5 manga) and **SNX Mature** (en, id `6796814882383758416`, 3 plain
+  manga, NSFW flag only).
+- **Every filter type**, the same list in every source at fixed positions (`FILTER` in test-source.ts): 0 Header, 1 Text
+  "Author", 2 Select "Status", 3 Separator, 4 CheckBox "In colour", 5 Group "Genres" of TriStates, 6 Group "Type" of
+  CheckBoxes, 7 Sort "Sort by" (Popularity / Title / Latest chapter). All AND together with the title text; every option
+  matches some manga and not all.
+- **Special manga** (`SPECIAL`): `en-01` "Comet Courier" (own JPEG pages, page code series 9, held-back chapter 3), `en-02`
+  webtoon (genre Long Strip, 800×12000 WebP strips, series 10: the app opens it as a strip, D49), `en-03` own PNG pages (series
+  11), `en-04` a ~120-character title, `en-05` no cover, `en-06` a cover that answers 404, `en-07` no chapters, `en-08` chapter 1
+  page 2 answers 404, `ja-01` own JPEG pages (series 12). "Comet" is in 3 en titles and 1 fr title, none in ja. Everyone else
+  shares one 2-chapter page set (series 13, printed "SNX SHARED CH 1/2"); covers carry series 14 with the cover number 1–76.
+- **The switch file** (`setTestSourceControl()`): make chosen calls fail (an error the server passes on), slow every call
+  down, or show a held-back chapter (a new chapter for library updates and downloads).
+- **Ids**: the seed doesn't browse, so the Local fixtures' ids (manga 1–157, chapters 1–461) stay fixed. A test-source manga
+  gets a row (the next free id) the first time anything browses it: look it up with `findSourceManga(sourceId, key)`, by its
+  url `/manga/<key>`. A browsed manga that's not in the library takes the title of the last browse.
+- Live check: `tools/test-server/test-source.test.ts` (`SNX_LIVE_SERVER=1`, ~10 s); unit tests: `tools/gen-fixtures/test-source.test.ts`.
 
 ## Drivers (one scenario, two drivers)
 

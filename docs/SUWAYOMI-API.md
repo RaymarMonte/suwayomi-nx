@@ -151,6 +151,46 @@ The owner's own server runs the same version (v2.4.2366 Stable, checked 2026-10-
 
 The best reference for real query shapes is **Suwayomi-WebUI**'s GraphQL documents (TypeScript). Copy the *shape*, not the code.
 
+## Extensions, stores and online sources ✅ (test server v2.4.2366, 2026-11-17, for WP-23, D55)
+Checked with our own test extension (`tools/test-source/`, live check `tools/test-server/test-source.test.ts`).
+- **A plain .jar is an extension** (server `Extension.kt`, PR #2182): a zip with compiled JVM classes and a **text**
+  `AndroidManifest.xml`: `package`, `android:versionCode`, `android:versionName` (= lib version + "." + code, lib 1.3–1.6),
+  `<uses-feature android:name="tachiyomi.extension"/>`, meta-data `tachiyomi.extension.class` (`.Main`: a `Source` or
+  `SourceFactory`) and **`tachiyomix.contentWarning` as a number: 0 SAFE, 1 MIXED, 2 NSFW** (without it the old
+  `tachiyomi.extension.nsfw` is read, and its `1` means MIXED). The server installs it as `extensions/<apk name>-v<versionName>.jar`;
+  "Failed to extract icon from JAR" in its log is harmless (a jar has no Android resources; the store's `iconUrl` is used).
+- **A store is one JSON file** on any address, `http://` too (`addExtensionStore(input: {indexUrl})`, `removeExtensionStore`,
+  `extensionStores`): `{name, badgeLabel, signingKey, contact: {website, discord}, extensionList: {extensions: [{name,
+  packageName, resources: {apkUrl, iconUrl, jarUrl}, extensionLib, versionCode, versionName, contentWarning: SAFE|MIXED|NSFW,
+  sources: [{id, name, language}]}]}, extensionListUrl: null}`. With a `jarUrl` the server downloads the jar, not the APK.
+  **A byte-order mark at the start makes the server read the file as protobuf and fail.** An extension with sources in two
+  languages has `lang: "all"`.
+- `fetchExtensions(input: {})` reads every store again and lists store + installed extensions. `updateExtension(input: {id:
+  <pkgName>, patch: {install | update | uninstall: true}})`. A higher `versionCode` in the store gives `hasUpdate: true`;
+  `update` loads the new code. Going back to an older version = uninstall, `fetchExtensions`, install: **an install right after
+  an uninstall, without a store read in between, quietly does nothing.** Uninstall removes the sources and the jar (also on
+  Windows, where a loaded jar is locked: the server deletes it later).
+- The server reads store files and covers through its own HTTP client (OkHttp with a cache): a file without `Cache-Control` but
+  with an old `Last-Modified` can be reused for a while without asking. (Our test store dates its files in the future.)
+- **Sources**: `sources` lists them (`displayName` "Name (EN)"); a source's `filters` come in its order, each with its default.
+  `fetchSourceManga(input: {source, type: POPULAR | LATEST | SEARCH, page, query, filters: [{position, textState |
+  selectState | checkBoxState | triState | sortState: {index, ascending} | groupChange: {position, …}}]})`: filters only
+  reach the source with SEARCH. A source id is `MD5("<name lower case>/<lang>/<versionId>")`, first 8 bytes, top bit cleared
+  (Tachiyomi's `generateId`).
+- **Rows**: browsing makes a manga row for each manga listed (the next free ids, in browse order) and loading chapters makes
+  chapter rows, so ids after a seed are never fixed: look them up (`mangas(condition: {sourceId, url})`). A manga in the
+  library keeps its details title; one not in the library takes the title of the last browse. When the source stops listing
+  a chapter, the next chapter fetch removes it.
+- Covers, pages and extension icons reach clients **only through the server** (`/api/v1/manga/<id>/thumbnail`,
+  `/api/v1/manga/<id>/chapter/<n>/page/<i>`, `/api/v1/extension/icon/<pkg>`), with the same login as GraphQL. A page's
+  content type comes from the file ending (`image/jpg`, `image/png`, `image/webp`). The server keeps pages it served once:
+  `clearCachedImages(input: {cachedPages: true})` empties that cache.
+- **Server downloads**: `enqueueChapterDownloads(input: {ids})` alone downloads (`isDownloaded: true` after ~1 s for 6 pages;
+  files in `root/downloads/mangas/<source display name>/<title>/<chapter>/001.<ext> …` + `ComicInfo.xml`);
+  `deleteDownloadedChapters(input: {ids})` deletes them. `startDownloader` while that runs timed out after 30 s; an unknown
+  chapter id makes `enqueueChapterDownloads` wait 30 s and fail.
+- A source error (an `IOException` in the extension) comes back as a GraphQL error with its message.
+
 ## Useful for tests ✅
 - The test server: `tools/test-server/` (README there, D29). Fixture manga: docs/TESTING.md.
 - Jar: `java -Dsuwayomi.tachidesk.config.server.rootDir=<dir> -Dsuwayomi.tachidesk.config.server.port=4568 … -jar Suwayomi-Server-*.jar`.

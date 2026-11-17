@@ -5,11 +5,14 @@
 //   3. add them all to the library
 //   4. create the categories below and put manga in them (the rest stay in the default category)
 //   5. (WP-15) Epsilon Weekly last, so no older id moves: manga 157, in Reading, its two chapters read (see seedEpsilon)
+//   6. (WP-23) the test source: our store (http://127.0.0.1:4569/store/index.json) and SNX Test v1 installed. No browsing,
+//      so no manga or chapter ids move (tests/e2e/lib/test-source.ts seedTestSource)
 //
 // Usage: node tools/test-server/seed.ts   (server address/auth from SNX_* variables, see test-server.sh env)
 
 import { fail, isMain } from '../../tests/e2e/lib/cli.ts';
 import { copyEpsilonChapter, EPSILON_MANGA_ID, optionsFromEnv, SuwayomiClient, waitForServer } from '../../tests/e2e/lib/suwayomi.ts';
+import { seedTestSource } from '../../tests/e2e/lib/test-source.ts';
 import { ALL_SERIES, EPSILON, EPSILON_PUBLISHED_CHAPTERS, SHELF } from '../gen-fixtures/fixtures.ts';
 
 const LOCAL_SOURCE_ID = '0';
@@ -77,10 +80,12 @@ async function main(): Promise<void> {
     }
     const epsilon = await seedEpsilon(client);
     await reloadDetails(client);
+    const testSource = await seedTestSource(client);
 
     console.log(`seed: ${about.name} ${about.version}, ${mangas.length + (epsilon.added ? 1 : 0)} manga in the library ` +
         `(${toAdd.length + (epsilon.added ? 1 : 0)} new), categories: ${CATEGORIES.map((c) => c.name).join(', ')}, ` +
-        `${EPSILON.title} = manga ${epsilon.id}`);
+        `${EPSILON.title} = manga ${epsilon.id}, test source store ${testSource.storeAdded ? 'added' : 'there'}, ` +
+        `SNX Test ${testSource.installed ? 'installed' : 'already installed'}`);
 }
 
 /**

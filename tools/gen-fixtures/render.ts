@@ -25,7 +25,7 @@ function darker(c: Rgb, by: number): Rgb {
  * One framed area with the page code top right, big text lines under it and a small footer line at the bottom.
  * The text stays within textW pixels from the left (a spread keeps it on its left half).
  */
-function drawPanel(c: Canvas, x: number, y: number, w: number, h: number, code: PageCode, lines: string[], footer: string,
+export function drawPanel(c: Canvas, x: number, y: number, w: number, h: number, code: PageCode, lines: string[], footer: string,
     textW = w): void {
     const u = pageCodeUnit(w, h);
     const border = Math.max(2, Math.round(Math.min(w, h) / 150));

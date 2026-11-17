@@ -30,7 +30,7 @@ describe.runIf(process.env.SNX_LIVE_SERVER === '1')('Epsilon Weekly on the live 
         expect(manga.chapters.nodes.every((c) => c.isRead && c.lastReadAt === '0')).toBe(true);
     });
 
-    it('finds chapter 462 after addNewChapter + a library update, and forgets it after removeNewChapter', async () => {
+    it('finds the new chapter after addNewChapter + a library update, and forgets it after removeNewChapter', async () => {
         addNewChapter();
         addNewChapter(); // twice is fine
         await client.query('mutation { updateLibrary(input: {}) { updateStatus { jobsInfo { isRunning } } } }');
@@ -42,7 +42,9 @@ describe.runIf(process.env.SNX_LIVE_SERVER === '1')('Epsilon Weekly on the live 
             chapters = manga.chapters.nodes;
             inLibraryAt = manga.inLibraryAt;
         }
-        expect(chapters.map((c) => c.id)).toEqual([460, 461, 462]);
+        // The new chapter gets the next free id: 462 on a fresh server, more after the test source was browsed (D55).
+        expect(chapters.map((c) => c.id).slice(0, 2)).toEqual([460, 461]);
+        expect(chapters[2].id).toBeGreaterThan(461);
         expect(Number(chapters[2].fetchedAt)).toBeGreaterThan(Number(inLibraryAt));
         expect(chapters[2].isRead).toBe(false);
 

@@ -1158,6 +1158,14 @@ WP-23 and stays within D29 (Windows Java, files in `.test-server/`) and D11 (off
   store for updates), SNX Extra (fr, not installed), SNX Mature (en, NSFW flag only, not installed).
 - **Ids:** the seed doesn't browse, so manga 1–157 and chapters 1–461 stay fixed; anything a test browses gets the next free
   ids, which tests look up, never assume.
+- **As built (WP-23, 2026-11-17), within the above:** each call asks the site for the catalog file with its details in the
+  query string (jwebserver ignores it) and an interceptor in front of the source's HTTP client applies the switch file to every
+  request (catalog, covers, pages); one more call name, `cover`, besides the planned ones. The filter and sort rules exist twice
+  (Java `Filters.java`, TypeScript `selectManga()` so tests can predict answers; a unit test keeps the lists equal). The
+  manifest's content warning is the number `tachiyomix.contentWarning` (2 = NSFW: the old `nsfw` flag gives only MIXED). Store
+  files get a Last-Modified date 100 years ahead, so the server's OkHttp cache never reuses an old index or jar. Two stamps
+  (site, jars): a Java change rebuilds in ~2 s. `installExtension()` reads the store first and checks the result (an install
+  right after an uninstall is otherwise a silent no-op). The genre text never holds the type ("Webtoon" would open a strip, D49).
 Rejected: an APK built with the Android SDK (an owner install, heavy, licence to accept), a real extension from a public
 repo (needs the internet, old versions disappear, its filters and content aren't ours), Kotlin (one more pinned download for
 the compiler), a Node test site in WSL (Windows → WSL forwarding, another moving part), a fake network inside the jar (tests

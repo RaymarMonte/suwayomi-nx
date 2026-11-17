@@ -5,15 +5,18 @@ this from WSL; it also works on its own from PowerShell. It never touches the ow
 <repo>\.test-server\ (git-ignored: jar\ = download cache, fixtures\ = pristine fixture manga, root\ = the server's data).
 
   test-server.ps1 fetch                  download the pinned jar (server.json) into jar\ and check its SHA-256
-  test-server.ps1 start [-Auth <mode>]   start Java in the background, wait until it answers. Restarts it if the auth mode differs.
+  test-server.ps1 start [-Auth <mode>]   start the test site (jwebserver, port 4569, loopback only) and Java in the background,
+                                         wait until both answer. Restarts Java if the auth mode differs.
                                          Modes: none | basic (BASIC_AUTH) | ui_login (JWT, short token expiry from server.json)
-  test-server.ps1 stop                   stop it (only the java.exe this script started)
-  test-server.ps1 status                 one line of JSON: running, pid, auth, port, LAN addresses, ...
+  test-server.ps1 stop                   stop both (only the java.exe and jwebserver.exe this script started)
+  test-server.ps1 status                 one line of JSON: running, pid, auth, port, LAN addresses, the test site, ...
   test-server.ps1 reset                  stop, wipe root\ (only if it holds our marker file), copy fixtures\ into root\local\
+  test-server.ps1 build-source           compile the test extension (tools\test-source, WP-23) and pack one jar per extension and
+                                         version into web\store\ (the list: web\store\build.json, written by gen-test-source.ts)
   test-server.ps1 paths                  one line of JSON with the folders (the WSL script uses it)
 #>
 param(
-    [Parameter(Mandatory = $true)][ValidateSet('fetch', 'start', 'stop', 'status', 'reset', 'paths')][string]$Action,
+    [Parameter(Mandatory = $true)][ValidateSet('fetch', 'start', 'stop', 'status', 'reset', 'build-source', 'paths')][string]$Action,
     [ValidateSet('none', 'basic', 'ui_login')][string]$Auth = 'none'
 )
 $ErrorActionPreference = 'Stop'
@@ -32,8 +35,29 @@ $Marker = Join-Path $Root '.snx-test-root'   # reset deletes root\ only when thi
 $OutLog = Join-Path $Base 'server.out.log'
 $ErrLog = Join-Path $Base 'server.err.log'
 $ReadyTimeoutSec = 90
+# The test source (WP-23, D55): the store and test site, served by the JDK's jwebserver on the PC's loopback only (the
+# Switch never talks to it: covers and pages reach clients through the server). Written by tools/gen-fixtures/gen-test-source.ts.
+$WebPort = [int]$Cfg.webPort
+$Web = Join-Path $Base 'web'
+$Store = Join-Path $Web 'store'
+$WebOutLog = Join-Path $Base 'web.out.log'
+$WebErrLog = Join-Path $Base 'web.err.log'
+$SourceDir = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\test-source'))
+$SourceBuild = Join-Path $Base 'source-build'   # javac's output and the jar staging folders; rebuilt every time
 
 $AuthModes = @{ none = 'NONE'; basic = 'BASIC_AUTH'; ui_login = 'UI_LOGIN' }
+
+# A JDK tool (javac, jar, jwebserver) from the PATH, else from the folder of the java.exe that runs the server.
+function Get-JdkTool([string]$name) {
+    $cmd = Get-Command $name -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -ne $cmd) { return $cmd.Source }
+    $java = Get-Command java -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -ne $java) {
+        $beside = Join-Path (Split-Path -Parent $java.Source) "$name.exe"
+        if (Test-Path -LiteralPath $beside) { return $beside }
+    }
+    throw "$name.exe not found. The test source needs a full JDK (Temurin 21, docs/SETUP.md), not only a Java runtime (JRE)."
+}
 
 function Get-Jar {
     if (Test-Path -LiteralPath $Jar) { return }
@@ -65,9 +89,107 @@ function Get-ServerProcess {
     return $null
 }
 
-function Test-PortInUse {
-    $listening = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+function Test-PortInUse([int]$port = $Port) {
+    $listening = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
     return $null -ne $listening
+}
+
+# The jwebserver.exe this script started (its pid), or $null. Found by its command line, which names our web folder.
+function Get-WebProcess {
+    foreach ($proc in (Get-CimInstance Win32_Process -Filter "Name = 'jwebserver.exe'")) {
+        if ($null -ne $proc.CommandLine -and $proc.CommandLine.Contains("-d `"$Web`"")) { return [int]$proc.ProcessId }
+    }
+    return $null
+}
+
+# True once the test site sends the store index.
+function Test-WebAnswers {
+    try {
+        Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri "http://127.0.0.1:$WebPort/store/index.json" | Out-Null
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+# Starts a hidden command through WMI (see Start-Server for why) and returns its process id.
+function Start-Hidden([string]$commandLine) {
+    $startup = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }
+    $created = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
+        CommandLine = "cmd.exe /d /s /c `"$commandLine`""; CurrentDirectory = $Base; ProcessStartupInformation = $startup
+    }
+    if ($created.ReturnValue -ne 0) { throw "Starting '$commandLine' failed (Win32_Process.Create returned $($created.ReturnValue))." }
+    return $created.ProcessId
+}
+
+function Start-Web {
+    if ($null -ne (Get-WebProcess)) { return }
+    if (-not (Test-Path -LiteralPath (Join-Path $Store 'index.json'))) { throw "No test site in $Web yet: run test-server.sh reset (it generates it)." }
+    if (Test-PortInUse $WebPort) { throw "Port $WebPort (the test site) is already in use by another program." }
+    $jweb = Get-JdkTool 'jwebserver'
+    Write-Host "Starting the test site on 127.0.0.1:$WebPort ..."
+    $shell = Start-Hidden "`"$jweb`" -b 127.0.0.1 -p $WebPort -d `"$Web`" -o info > `"$WebOutLog`" 2> `"$WebErrLog`""
+    $watch = [Diagnostics.Stopwatch]::StartNew()
+    while ($watch.Elapsed.TotalSeconds -lt 30) {
+        Start-Sleep -Milliseconds 250
+        if (Test-WebAnswers) { return }
+        if ($null -eq (Get-Process -Id $shell -ErrorAction SilentlyContinue)) { break }
+    }
+    foreach ($log in @($WebOutLog, $WebErrLog)) {
+        if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 15 | ForEach-Object { Write-Host $_ } }
+    }
+    throw "The test site (jwebserver) didn't answer on port $WebPort (log above)."
+}
+
+function Stop-Web {
+    $webPid = Get-WebProcess
+    if ($null -ne $webPid) {
+        Write-Host "Stopping the test site (pid $webPid) ..."
+        Stop-Process -Id $webPid -Force
+        Wait-Process -Id $webPid -Timeout 15 -ErrorAction SilentlyContinue
+    }
+}
+
+# Compiles tools\test-source against the pinned server jar (on the class path only, never packed in) and packs one jar per
+# web\store\build.json entry: all our classes + an AndroidManifest.xml from the template. Text files are written without a
+# byte-order mark (PowerShell 5.1's Set-Content would add one).
+function Build-Source {
+    $listFile = Join-Path $Store 'build.json'
+    if (-not (Test-Path -LiteralPath $listFile)) { throw "No $listFile yet (tools/gen-fixtures/gen-test-source.ts writes it)." }
+    Get-Jar
+    $javac = Get-JdkTool 'javac'
+    $jarTool = Get-JdkTool 'jar'
+    $watch = [Diagnostics.Stopwatch]::StartNew()
+    if (Test-Path -LiteralPath $SourceBuild) { Remove-Item -LiteralPath $SourceBuild -Recurse -Force }
+    $classes = Join-Path $SourceBuild 'classes'
+    New-Item -ItemType Directory -Force -Path $classes | Out-Null
+    $sources = @(Get-ChildItem -LiteralPath (Join-Path $SourceDir 'src') -Recurse -Filter '*.java' | ForEach-Object { $_.FullName })
+    # -nowarn: the only warning is "getFilterList() overrides a bridge method" (a Kotlin detail, harmless).
+    & $javac --release 21 -encoding UTF-8 -nowarn -cp $Jar -d $classes @sources
+    if ($LASTEXITCODE -ne 0) { throw "javac failed (exit $LASTEXITCODE): see the errors above." }
+
+    $template = [IO.File]::ReadAllText((Join-Path $SourceDir 'AndroidManifest.template.xml'))
+    $noBom = New-Object Text.UTF8Encoding $false
+    # A Last-Modified date in the future: OkHttp then never treats a cached copy as fresh by itself and asks again, so a
+    # rebuilt jar is never served from the server's HTTP cache. Each build gets a later date than the last one.
+    $future = (Get-Date).ToUniversalTime().AddYears(100)
+    $built = 0
+    foreach ($entry in (Get-Content -Raw -LiteralPath $listFile | ConvertFrom-Json)) {
+        $stage = Join-Path $SourceBuild $entry.jar
+        Copy-Item -LiteralPath $classes -Destination $stage -Recurse
+        $fields = [ordered]@{ '@PACKAGE@' = $entry.package; '@VERSION_CODE@' = [string]$entry.versionCode
+            '@VERSION_NAME@' = $entry.versionName; '@NAME@' = $entry.name; '@CONTENT_WARNING@' = [string]$entry.contentWarning }
+        $manifest = $template
+        foreach ($key in $fields.Keys) { $manifest = $manifest.Replace($key, $fields[$key]) }
+        [IO.File]::WriteAllText((Join-Path $stage 'AndroidManifest.xml'), $manifest, $noBom)
+        $target = Join-Path $Store $entry.jar
+        if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Force }
+        & $jarTool --create --file $target --date 2026-01-01T00:00:00Z -C $stage .
+        if ($LASTEXITCODE -ne 0) { throw "jar failed for $($entry.jar) (exit $LASTEXITCODE)." }
+        (Get-Item -LiteralPath $target).LastWriteTimeUtc = $future
+        $built++
+    }
+    Write-Host ("Built {0} extension jars into {1} in {2:N1} s." -f $built, $Store, $watch.Elapsed.TotalSeconds)
 }
 
 # True once anything answers HTTP on the port (401 counts: with auth on, that's the expected answer).
@@ -102,6 +224,7 @@ function Stop-Server {
 }
 
 function Start-Server {
+    Start-Web   # first: the seed (and the server's extension store) need it
     $info = Get-ServerProcess
     if ($null -ne $info) {
         if ($info.auth -eq $Auth) { Write-Host "Already running (pid $($info.pid), auth $Auth)."; return }
@@ -137,16 +260,12 @@ function Start-Server {
     Write-Host "Starting Suwayomi-Server $($Cfg.version) on port $Port (auth $Auth) ..."
     # Started through WMI (Win32_Process.Create), not Start-Process: a child of this PowerShell would inherit the pipe that
     # WSL reads our output from, and WSL would then wait for Java to end. A hidden cmd.exe writes Java's output to the logs.
-    $startup = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }
-    $created = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
-        CommandLine = "cmd.exe /d /s /c `"$line`""; CurrentDirectory = $Base; ProcessStartupInformation = $startup
-    }
-    if ($created.ReturnValue -ne 0) { throw "Starting Java failed (Win32_Process.Create returned $($created.ReturnValue))." }
+    $shell = Start-Hidden $line
 
     $watch = [Diagnostics.Stopwatch]::StartNew()
     while ($watch.Elapsed.TotalSeconds -lt $ReadyTimeoutSec) {
         Start-Sleep -Milliseconds 500
-        if ($null -eq (Get-Process -Id $created.ProcessId -ErrorAction SilentlyContinue)) {
+        if ($null -eq (Get-Process -Id $shell -ErrorAction SilentlyContinue)) {
             Show-LogTail; throw 'Java exited during start-up (log above).'
         }
         if (Test-ServerAnswers) { Write-Host ("Ready after {0:N1} s." -f $watch.Elapsed.TotalSeconds); return }
@@ -157,6 +276,7 @@ function Start-Server {
 
 function Reset-Root {
     Stop-Server
+    Stop-Web
     if (-not (Test-Path -LiteralPath (Join-Path $Fixtures 'Alpha'))) { throw "No fixtures in $Fixtures yet (tools/gen-fixtures writes them)." }
     if (Test-Path -LiteralPath $Root) {
         if (-not (Test-Path -LiteralPath $Marker)) { throw "Refusing to delete $Root because it has no $Marker file." }
@@ -182,10 +302,12 @@ function Get-LanAddresses {
 switch ($Action) {
     'fetch' { Get-Jar }
     'start' { Start-Server }
-    'stop' { Stop-Server }
+    'stop' { Stop-Server; Stop-Web }
     'reset' { Reset-Root }
+    'build-source' { Build-Source }
     'status' {
         $info = Get-ServerProcess
+        $webPid = Get-WebProcess
         $status = [ordered]@{
             running = $null -ne $info
             answers = $false
@@ -195,14 +317,17 @@ switch ($Action) {
             version = $Cfg.version
             lan     = Get-LanAddresses
             root    = $Root
+            web     = [ordered]@{ running = $null -ne $webPid; answers = $false; pid = $webPid; port = $WebPort
+                storeUrl = "http://127.0.0.1:$WebPort/store/index.json" }
         }
         if ($null -ne $info) {
             $status.pid = $info.pid; $status.auth = $info.auth; $status.answers = Test-ServerAnswers
         }
+        if ($null -ne $webPid) { $status.web.answers = Test-WebAnswers }
         $status | ConvertTo-Json -Compress
     }
     'paths' {
-        [ordered]@{ base = $Base; jar = $Jar; fixtures = $Fixtures; root = $Root; outLog = $OutLog; errLog = $ErrLog } |
+        [ordered]@{ base = $Base; jar = $Jar; fixtures = $Fixtures; root = $Root; outLog = $OutLog; errLog = $ErrLog; web = $Web } |
             ConvertTo-Json -Compress
     }
 }
