@@ -236,8 +236,18 @@ interface Driver {
     checked every 3 s with a screenshot (hbmenu, the HOME menu, or its "The software was closed because an error occurred." note
     on screen = it's gone; the driver dismisses that note with A after the screen check, WP-03c)
   - **requests (WP-03, D32):** one at a time, at least 150 ms apart, a fresh connection each that the PC closes once the answer is complete.
-    Bursts of connections (~50 in a second) made the console reset every new one, curl's too, for ~10 s. Reads, uploads and deletes that hit a
-    reset back off (0.5 → 30 s, about a minute in all since WP-03c) and try again; `/input` and `/controller` calls never do (a repeated A could start a game)
+    Bursts of connections (~50 in a second) made the console reset every new one, curl's too, for ~10 s, and it also resets a single new
+    connection now and then (`updates-history`: ~20 in 3 minutes; each reset comes 1–5 ms after connecting, before any answer, so the
+    console's network stack turns the connection away before sys-autopilot has it). Once (2026-11-17, 22 s after the app's start) a
+    ~20 s spell of resets ended in "host unreachable" (the console briefly off the network); it answered again seconds later.
+    Reads, uploads, deletes and `/input/clear` that hit a reset or a connection that never opened (refused, host or network unreachable)
+    back off (0.5 → 30 s, about a minute in all since WP-03c) and try again. After a whole minute of failures the next requests try
+    only once until one gets through, so a console that is really gone is reported fast. **An input asks first** (tap, hold,
+    release, stick, touch, swipe; 2026-11-17, D32): its head says `Expect: 100-continue` and goes out alone. sys-autopilot answers
+    `100 Continue` only from the input's handler, which plays nothing before it has the whole JSON body (a missing or cut-off body
+    is a 400). Only then does the body go out. A reset before that, or a connection that never opened, means the console never had
+    the input: it backs off and is sent again the same way. Once the body has left, it is never sent again (a repeated A could
+    start a game). The warning says which: `(the console never had this input)`
   - crash check: list `atmosphere/crash_reports/`, `atmosphere/fatal_errors/` and `atmosphere/fatal_reports/` at launch and after quit/cleanup
   - status: `GET /status` (version, firmware, controller attached, uptime, battery, `screenshots` available, `heap` size/peak/used)
   - the virtual Pro Controller is released before sleep and comes back on the next button call (`controllerAttached` goes false after a wake)
@@ -397,7 +407,8 @@ Initial list, grown per UI WP:
   keep the glow.
 - One drill's golden alone: `SNX_E2E_DRIVER=switch SNX_E2E_BUILD=~/build/suwayomi-nx/switch-test/suwayomi-nx.nro npx vitest run
   -c vitest.e2e.config.ts tests/e2e/scenarios/crash-drills.test.ts -t main-loop-exception` (add `SNX_UPDATE_GOLDENS=1` to update).
-- On the Switch, sys-autopilot sometimes resets the connection of an input request, and the driver never repeats those (a
+- On the Switch, sys-autopilot sometimes resets the connection of an input request. The driver sends it again only when the
+  console never had it (the reset came before `100 Continue`, "requests" above); a reset after the body left is an error (a
   press could happen twice). A loop that checks the app's state before every input may catch that and look again
   (`inputInLoop` in `library-browse`); a fixed sequence of presses must not.
 - On failure, the harness writes `<step>.actual.png`, `<step>.diff.png`, the events and the app log to `tests/e2e/out/<scenario>/`.

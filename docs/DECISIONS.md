@@ -305,7 +305,12 @@ Rejected: SVG text via sharp/librsvg (depends on installed fonts), OCR of the pr
   `APPLET_MODE_READY = false` until WP-08 (applet mode needs WP-03b's crash handler first).
 - sys-autopilot client: its own HTTP/1.1 over a TCP socket, one request at a time, ≥ 150 ms apart, the PC closes each connection. Bursts
   (~50 connections in a second) made the console reset every new connection for ~10 s, curl's too; reads, uploads and deletes then back off
-  0.5 → 30 s (WP-03c: was 8 s, a spell lasted over 30 s), inputs are never repeated. Node's fetch and http modules had reported resets on `GET /files` where a plain socket didn't
+  0.5 → 30 s (WP-03c: was 8 s, a spell lasted over 30 s). An input is never played twice: since 2026-11-17 (owner OK; was "inputs are
+  never repeated", which let single resets stop `updates-history`) an input asks first with `Expect: 100-continue` and sends its body
+  only after sys-autopilot's `100 Continue`, and it is sent again only after a reset before that or a connection that never opened
+  (its handler plays nothing without the body), never once the body has left. Refused and "host unreachable" connections are tried
+  again like resets (the console was once off the network for seconds); after a whole failed minute the next requests try once.
+  Node's fetch and http modules had reported resets on `GET /files` where a plain socket didn't
   (possibly the same burst effect; not proven). Events are polled every 500 ms, "is the app still there" every 3 s by screenshot.
 - Fatal gate: `atmosphere/fatal_reports/` joins `fatal_errors/` (owner OK 2026-10-25): Atmosphère's fatal screen writes `fatal_reports/`
   (except when creport caused it), `fatal_errors/` is only written at the next boot. A new file in either writes

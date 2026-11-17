@@ -2,12 +2,13 @@
 // add a row for every new kind of request.
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { checkAllowed, loadAutopilotConfig, NotAllowedError, parseResponse } from './autopilot.ts';
+import { answerCodes, Autopilot, checkAllowed, ConsoleUnreachableError, loadAutopilotConfig, NotAllowedError, parseResponse } from './autopilot.ts';
 
 const q = (p: string) => encodeURIComponent(p);
 
@@ -106,6 +107,122 @@ describe('HTTP answers', () => {
         expect(parseResponse(answer('HTTP/1.1 404 Not Found\r\ncontent-length: 2', 'nojunk'))).toEqual({ status: 404, body: Buffer.from('no') });
         expect(parseResponse(answer('HTTP/1.1 200 OK', 'x'))).toBeNull();
         expect(() => parseResponse(answer('SSH-2.0-nope', ''))).toThrow(/not an HTTP answer/);
+    });
+
+    it('skips "100 Continue" and lists the answers so far', () => {
+        const go = Buffer.from('HTTP/1.1 100 Continue\r\n\r\n', 'latin1');
+        const ok = answer('HTTP/1.1 200 OK\r\nContent-Length: 11', '{"ok":true}');
+        expect(answerCodes(go.subarray(0, 10))).toEqual([]);
+        expect(answerCodes(go)).toEqual([100]);
+        expect(parseResponse(go)).toBeNull();
+        expect(answerCodes(Buffer.concat([go, ok]))).toEqual([100, 200]);
+        expect(parseResponse(Buffer.concat([go, ok]))).toEqual({ status: 200, body: Buffer.from('{"ok":true}') });
+        expect(answerCodes(answer('HTTP/1.1 401 Unauthorized\r\nContent-Length: 0', ''))).toEqual([401]);
+    });
+});
+
+/**
+ * A stand-in for sys-autopilot on this PC. Connection n (1, 2, ...) does `steps[n - 1]` (the last one repeats):
+ * "reset-at-head" resets as soon as the request's head is there, "reset-after-body" says "100 Continue" when asked, takes the
+ * body and resets, "answer" says "100 Continue" when asked, takes the body and answers 200 like the real one.
+ */
+async function fakeConsole(steps: ('reset-at-head' | 'reset-after-body' | 'answer')[], port = 0) {
+    const heads: string[] = [];
+    const bodies: string[] = []; // the bodies that reached the "console": an input there may have been played
+    const early: string[] = []; // body bytes that came with the head although it asked first
+    const server = createServer((socket) => {
+        const step = steps[Math.min(heads.length, steps.length - 1)];
+        let data = Buffer.alloc(0);
+        let head = '';
+        socket.on('error', () => undefined);
+        socket.on('data', (chunk: Buffer) => {
+            data = Buffer.concat([data, chunk]);
+            const end = data.indexOf('\r\n\r\n');
+            if (end < 0) return;
+            const body = data.subarray(end + 4);
+            if (!head) {
+                head = data.subarray(0, end).toString('latin1');
+                heads.push(head);
+                const asks = /\r\nexpect: 100-continue/i.test(head);
+                if (asks && body.length) early.push(body.toString('utf8'));
+                if (step === 'reset-at-head') return void socket.resetAndDestroy();
+                if (asks) socket.write('HTTP/1.1 100 Continue\r\n\r\n');
+            }
+            if (body.length < Number(/\r\ncontent-length: (\d+)/i.exec(head)?.[1] ?? 0)) return;
+            bodies.push(body.toString('utf8'));
+            if (step === 'reset-after-body') return void socket.resetAndDestroy();
+            socket.write('HTTP/1.1 200 OK\r\nContent-Length: 11\r\n\r\n{"ok":true}');
+        });
+    });
+    await new Promise<void>((done) => server.listen(port, '127.0.0.1', done));
+    const api = new Autopilot({ host: '127.0.0.1', port: (server.address() as AddressInfo).port, token: 'test-token' });
+    const close = () => new Promise<void>((done) => server.close(() => done()));
+    return { api, heads, bodies, early, close };
+}
+
+describe('resets (the console sometimes resets a new connection)', () => {
+    it('sends an input again when the console was reset before it had the body', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const c = await fakeConsole(['reset-at-head', 'answer']);
+        try {
+            expect((await c.api.touch(640, 360)).status).toBe(200);
+            expect(c.heads).toHaveLength(2);
+            expect(c.heads.every((h) => /\r\nExpect: 100-continue/.test(h))).toBe(true);
+            expect(c.early).toEqual([]); // the body waits for "100 Continue"
+            expect(c.bodies).toEqual(['{"x":640,"y":360}']); // played once
+            expect(String(warn.mock.calls[0]?.[0])).toMatch(/ECONNRESET .*never had this input/);
+        } finally {
+            warn.mockRestore();
+            await c.close();
+        }
+    });
+
+    it('never sends an input again once the console had its body', async () => {
+        const c = await fakeConsole(['reset-after-body', 'answer']);
+        try {
+            const error = await c.api.tap(['A']).catch((e: unknown) => e);
+            expect(error).toBeInstanceOf(ConsoleUnreachableError);
+            expect((error as ConsoleUnreachableError).delivered).toBe(true);
+            expect(c.heads).toHaveLength(1);
+            expect(c.bodies).toEqual(['{"buttons":["A"]}']);
+        } finally {
+            await c.close();
+        }
+    });
+
+    it('sends an input again when the connection never opened (refused)', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const free = createServer(); // a port with nothing on it yet
+        await new Promise<void>((done) => free.listen(0, '127.0.0.1', done));
+        const port = (free.address() as AddressInfo).port;
+        await new Promise<void>((done) => free.close(() => done()));
+        const api = new Autopilot({ host: '127.0.0.1', port, token: 'test-token' });
+        const touched = api.touch(5, 6);
+        await new Promise((r) => setTimeout(r, 200)); // the first try is refused by now; the next one comes after 500 ms
+        const c = await fakeConsole(['answer'], port);
+        try {
+            expect((await touched).status).toBe(200);
+            expect(c.bodies).toEqual(['{"x":5,"y":6}']);
+            expect(String(warn.mock.calls[0]?.[0])).toMatch(/ECONNREFUSED .*while connecting.*never had this input/);
+        } finally {
+            warn.mockRestore();
+            await c.close();
+        }
+    });
+
+    it('tries reads and /input/clear again, without asking first', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const c = await fakeConsole(['reset-at-head', 'answer', 'reset-at-head', 'answer']);
+        try {
+            expect((await c.api.request('GET', '/status')).status).toBe(200);
+            expect((await c.api.clearInput()).status).toBe(200);
+            expect(c.heads).toHaveLength(4);
+            expect(c.heads.some((h) => /expect:/i.test(h))).toBe(false);
+            expect(warn).toHaveBeenCalledTimes(2);
+        } finally {
+            warn.mockRestore();
+            await c.close();
+        }
     });
 });
 

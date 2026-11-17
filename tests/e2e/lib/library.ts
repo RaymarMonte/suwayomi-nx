@@ -9,8 +9,9 @@ import { LIBRARY } from './screens.ts';
 /**
  * One input inside a loop that checks the app's state before every step (walkTo, flickUntil), so an input that got lost or
  * went through twice doesn't matter. On the Switch, sys-autopilot sometimes resets the connection of an input request; the
- * driver never repeats those (a press could happen twice), but here that is safe: wait a moment and look again. Returns
- * false when the input may not have happened.
+ * driver sends it again only when the console provably never had it (autopilot.ts), never once it may have been played (a
+ * press could happen twice), but here that is safe: wait a moment and look again. Returns false when the input may not
+ * have happened.
  */
 export async function inputInLoop(s: Scenario, input: () => Promise<void>): Promise<boolean> {
     try {

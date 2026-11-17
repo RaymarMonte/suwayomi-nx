@@ -129,5 +129,7 @@ A mismatch writes `out/<scenario>/<step>.actual.png` and `<step>.diff.png` (red 
   it is never overwritten, the next run puts it back, or `tools/e2e.sh switch --restore-config` does. After a new fatal file it
   waits (nothing touches the console until the owner has checked it). Only files inside `sdmc:/switch/suwayomi-nx/`.
 - It sends one request at a time, at least 150 ms apart: bursts of connections make the console reset new ones for ~10 s.
+  Reads and writes that get reset are tried again. An input is tried again only when the console never had it (it asks first
+  with `Expect: 100-continue` and sends its body only after `100 Continue`, `drivers/autopilot.ts`), never once it may have played.
 - If the console stops answering, the error asks the owner to look at it (it might show the "press POWER" fatal screen).
 - Missing reference crops (`device/local/*.png`): `device/profile.json` says which screen and region to crop.

@@ -110,25 +110,69 @@ export interface DirEntry {
 }
 
 /**
- * A complete HTTP answer (status line, headers, then exactly Content-Length bytes), or null if more bytes are needed.
- * sys-autopilot always sends Content-Length (http.c), so an answer without it is never complete.
+ * The status codes of the answers at the start of `data`, in order, each one complete (status line and headers). An input
+ * request gets "100 Continue" first (see Autopilot.send()), then the real answer.
  */
-export function parseResponse(data: Buffer): Response | null {
-    const end = data.indexOf('\r\n\r\n');
-    if (end < 0) return null;
-    const lines = data.subarray(0, end).toString('latin1').split('\r\n');
-    const status = /^HTTP\/1\.[01] (\d{3})/.exec(lines[0] ?? '');
-    if (!status) throw new Error(`not an HTTP answer: ${(lines[0] ?? '').slice(0, 80)}`);
-    const lengthLine = lines.find((l) => /^content-length:/i.test(l));
-    if (!lengthLine) return null;
-    const length = Number(lengthLine.slice(lengthLine.indexOf(':') + 1).trim());
-    const bodyStart = end + 4;
-    if (!Number.isInteger(length) || data.length < bodyStart + length) return null;
-    return { status: Number(status[1]), body: data.subarray(bodyStart, bodyStart + length) };
+export function answerCodes(data: Buffer): number[] {
+    const codes: number[] = [];
+    let start = 0;
+    for (;;) {
+        const end = data.indexOf('\r\n\r\n', start);
+        if (end < 0) return codes;
+        const firstLine = data.subarray(start, end).toString('latin1').split('\r\n')[0];
+        const status = /^HTTP\/1\.[01] (\d{3})/.exec(firstLine);
+        if (!status) throw new Error(`not an HTTP answer: ${firstLine.slice(0, 80)}`);
+        codes.push(Number(status[1]));
+        if (!status[1].startsWith('1')) return codes; // a real answer: a body follows, not another head
+        start = end + 4;
+    }
 }
 
-/** The console didn't answer at all (asleep, Wi-Fi off, rebooting, or stuck on a fatal error screen). */
-export class ConsoleUnreachableError extends Error {}
+/**
+ * A complete HTTP answer (status line, headers, then exactly Content-Length bytes), or null if more bytes are needed.
+ * An interim "100 Continue" before it is skipped. sys-autopilot always sends Content-Length (http.c), so an answer without
+ * it is never complete.
+ */
+export function parseResponse(data: Buffer): Response | null {
+    let start = 0;
+    for (;;) {
+        const end = data.indexOf('\r\n\r\n', start);
+        if (end < 0) return null;
+        const lines = data.subarray(start, end).toString('latin1').split('\r\n');
+        const status = /^HTTP\/1\.[01] (\d{3})/.exec(lines[0] ?? '');
+        if (!status) throw new Error(`not an HTTP answer: ${(lines[0] ?? '').slice(0, 80)}`);
+        if (status[1].startsWith('1')) {
+            start = end + 4; // "100 Continue": the real answer comes after it
+            continue;
+        }
+        const lengthLine = lines.find((l) => /^content-length:/i.test(l));
+        if (!lengthLine) return null;
+        const length = Number(lengthLine.slice(lengthLine.indexOf(':') + 1).trim());
+        const bodyStart = end + 4;
+        if (!Number.isInteger(length) || data.length < bodyStart + length) return null;
+        return { status: Number(status[1]), body: data.subarray(bodyStart, bodyStart + length) };
+    }
+}
+
+/**
+ * The console didn't answer at all (asleep, Wi-Fi off, rebooting, or stuck on a fatal error screen), or it reset the
+ * connection. `delivered` is false only when sys-autopilot provably never had the request: an input whose body never left
+ * the PC (see Autopilot.send()). Then nothing was played, and sending it again can't press anything twice.
+ */
+export class ConsoleUnreachableError extends Error {
+    readonly delivered: boolean;
+    constructor(message: string, delivered = true) {
+        super(message);
+        this.delivered = delivered;
+    }
+}
+
+/**
+ * The inputs whose sys-autopilot handler reads the whole JSON body before it plays anything (routes.c: read_json_body
+ * first; a missing or cut-off body is a 400 and plays nothing). /input/clear, /controller/attach and /controller/detach
+ * don't read theirs.
+ */
+const INPUT_WITH_BODY = /^\/input\/(tap|hold|release|stick|touch|swipe)$/;
 
 export const UNREACHABLE_HELP =
     'Please look at the console. If it shows "A fatal error occurred" (press POWER to reboot): press POWER, boot back into ' +
@@ -139,6 +183,16 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Shortest time between two connections to the console (see request()). */
 const MIN_GAP_MS = 150;
+
+/** The waits between tries of a request that may be tried again (request()), -1 = no more tries: about a minute in all. */
+const BACKOFF_MS = [500, 1_000, 2_000, 4_000, 8_000, 15_000, 30_000, -1];
+
+/**
+ * Failures worth another try: the console reset the connection or closed it before answering, or the connection never
+ * opened (refused, or the console briefly gone from the network: seen 2026-11-17 after a ~20 s spell of resets, it answered
+ * again a few seconds later).
+ */
+const TRANSIENT = /ECONNRESET|before the answer|ECONNREFUSED|EHOSTUNREACH|ENETUNREACH|EHOSTDOWN/;
 
 export class Autopilot {
     private readonly config: AutopilotConfig;
@@ -153,25 +207,35 @@ export class Autopilot {
 
     /**
      * One allowed request, and never two at once (the sysmodule's server handles one connection at a time). Network failures
-     * become ConsoleUnreachableError. A request that changes nothing or can safely happen twice (everything except /input and
-     * /controller) is tried once more after a reset, with a warning on stderr.
+     * become ConsoleUnreachableError. After a reset, or a connection that never opened (TRANSIENT), the request is tried
+     * again, with a warning on stderr, when that can't do anything twice: a request that changes nothing or can safely happen
+     * twice (everything except /input and /controller; /input/clear only lets go of everything), or an input the console
+     * provably never had (send(): its body never left). An input the console may have played is never sent again: a
+     * repeated A could start a game. Once a request has failed after a whole minute of tries, the next ones try only once
+     * until one gets through, so a console that is really gone (a fatal error screen) is reported without more minutes.
      */
     request(method: string, url: string, body?: Buffer | string | object, timeoutMs = 30_000): Promise<Response> {
         checkAllowed(method, url);
-        const repeatable = !/^\/(input|controller)\//.test(url);
+        const repeatable = !/^\/(input|controller)\//.test(url) || url === '/input/clear';
+        const askFirst = method.toUpperCase() === 'POST' && INPUT_WITH_BODY.test(url) && body !== undefined;
         const attempt = async (): Promise<Response> => {
             // WP-03: after bursts of connections (~50 within a second) the console reset every new one for ~10 s, curl's too.
-            // So connections start at least MIN_GAP_MS apart, and repeatable requests back off and try again. WP-03c: during
-            // long device runs a spell sometimes lasts over 30 s, so the tries cover about a minute.
-            for (const backoffMs of [500, 1_000, 2_000, 4_000, 8_000, 15_000, 30_000, -1]) {
+            // So connections start at least MIN_GAP_MS apart, and requests that are safe to repeat back off and try again.
+            // WP-03c: during long device runs a spell sometimes lasts over 30 s, so the tries cover about a minute.
+            for (const backoffMs of this.gaveUp ? [-1] : BACKOFF_MS) {
                 await sleep(Math.max(0, this.lastStart + MIN_GAP_MS - Date.now()));
                 this.lastStart = Date.now();
                 try {
-                    return await this.send(method, url, body, timeoutMs);
+                    const response = await this.send(method, url, body, timeoutMs, askFirst);
+                    this.gaveUp = false;
+                    return response;
                 } catch (e) {
-                    const reset = e instanceof ConsoleUnreachableError && /ECONNRESET|before the answer/.test(e.message);
-                    if (!repeatable || !reset || backoffMs < 0) throw e;
-                    console.warn(`[autopilot] ${e.message}; again in ${backoffMs} ms`);
+                    const transient = e instanceof ConsoleUnreachableError && TRANSIENT.test(e.message);
+                    const safe = repeatable || (e instanceof ConsoleUnreachableError && !e.delivered);
+                    if (transient && safe && backoffMs < 0) this.gaveUp = true;
+                    if (!transient || !safe || backoffMs < 0) throw e;
+                    const why = repeatable ? '' : ' (the console never had this input)';
+                    console.warn(`[autopilot] ${e.message}${why}; again in ${backoffMs} ms`);
                     await sleep(backoffMs);
                 }
             }
@@ -184,6 +248,7 @@ export class Autopilot {
 
     private queue: Promise<unknown> = Promise.resolve();
     private lastStart = 0;
+    private gaveUp = false; // a request failed after all of BACKOFF_MS: the next ones try once until one gets through
 
     /**
      * Plain HTTP/1.1 over a fresh TCP connection per request. Found in WP-03:
@@ -192,8 +257,16 @@ export class Autopilot {
      * - With "Connection: close" the console closes every connection itself and has to remember each closed one for a while.
      *   After a few hundred quick requests it started resetting new connections, and recovered by itself after some seconds.
      *   So the request keeps the connection open (HTTP/1.1 default) and this side closes it once the answer is complete.
+     *
+     * `askFirst` (inputs with a body, 2026-11-17): the console also resets a single new connection now and then, mostly
+     * during long runs with the app busy on the network (updates-history: ~20 in 3 minutes). So an input asks first: its
+     * head says "Expect: 100-continue" and goes out alone. sys-autopilot answers "100 Continue" only once it has accepted
+     * the connection, checked the token and reached the input's handler (http.c http_read_body), and the handler plays
+     * nothing before it has the whole body. Only then does the body go out. A reset before that is an error with
+     * `delivered: false`: nothing was played, so request() may send it again.
      */
-    private send(method: string, url: string, body: Buffer | string | object | undefined, timeoutMs: number): Promise<Response> {
+    private send(method: string, url: string, body: Buffer | string | object | undefined, timeoutMs: number,
+        askFirst = false): Promise<Response> {
         let payload: Buffer = Buffer.alloc(0);
         let contentType = '';
         if (Buffer.isBuffer(body) || typeof body === 'string') {
@@ -207,15 +280,23 @@ export class Autopilot {
             `${method} ${url} HTTP/1.1\r\nHost: ${this.config.host}:${this.config.port}\r\n` +
             `Authorization: Bearer ${this.config.token}\r\n` +
             (body !== undefined ? `Content-Type: ${contentType}\r\nContent-Length: ${payload.length}\r\n` : '') +
+            (askFirst ? 'Expect: 100-continue\r\n' : '') +
             '\r\n';
         const where = `sys-autopilot at ${this.config.host} didn't answer ${method} ${url.split('?')[0]}`;
 
         return new Promise<Response>((resolve, reject) => {
             const chunks: Buffer[] = [];
             let settled = false;
+            let bodySent = !askFirst; // without askFirst the body goes out with the head, so the console may have it
+            let connectedAt = 0;
             const finish = (error?: Error) => {
                 if (settled) return;
-                const parsed = parseResponse(Buffer.concat(chunks));
+                const data = Buffer.concat(chunks);
+                if (!bodySent && !error && answerCodes(data)[0] === 100) {
+                    bodySent = true; // from here on the console may play the input
+                    if (payload.length) socket.write(payload);
+                }
+                const parsed = parseResponse(data);
                 if (parsed) {
                     settled = true;
                     socket.end(); // we close first, so the "recently closed" bookkeeping stays on the PC
@@ -224,12 +305,16 @@ export class Autopilot {
                 } else if (error) {
                     settled = true;
                     socket.destroy();
-                    reject(new ConsoleUnreachableError(`${where}: ${error.message}`));
+                    const when = connectedAt ? `${Date.now() - connectedAt} ms after connecting` : 'while connecting';
+                    const got = data.length ? `, ${data.length} bytes back` : '';
+                    // A connection that never opened carried nothing, whatever the request.
+                    reject(new ConsoleUnreachableError(`${where}: ${error.message} (${when}${got})`, bodySent && connectedAt > 0));
                 }
             };
             const socket = connect({ host: this.config.host, port: this.config.port }, () => {
+                connectedAt = Date.now();
                 socket.write(head);
-                if (payload.length) socket.write(payload);
+                if (bodySent && payload.length) socket.write(payload);
             });
             socket.setTimeout(timeoutMs, () => finish(new Error(`no complete answer within ${timeoutMs / 1000} s`)));
             socket.on('data', (c: Buffer) => {
