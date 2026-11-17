@@ -162,11 +162,11 @@ void notifySettings(const StatePtr& state, core::ServerSettings settings) {
 // --- sending GraphQL ---
 
 template <typename T>
-using GqlReader = core::Result<T> (*)(const core::GqlResponse&);
+using GqlReader = std::function<core::Result<T>(const core::GqlResponse&)>;  // a reader, or a lambda around one
 
 // An answer -> a model: HTTP status, then the GraphQL envelope, then the operation's reader.
 template <typename T>
-ApiResult<T> readAnswer(const net::HttpResult& answer, const core::JsonLimits& limits, GqlReader<T> read) {
+ApiResult<T> readAnswer(const net::HttpResult& answer, const core::JsonLimits& limits, const GqlReader<T>& read) {
     if (!answer.ok()) {
         return fromCoreError(answer.error());
     }
@@ -338,7 +338,7 @@ template <typename T>
 struct Call {
     StatePtr state;
     core::GqlRequest gql;
-    GqlReader<T> read = nullptr;
+    GqlReader<T> read;
     net::CancelToken cancel;
     net::Priority priority = net::Priority::Interactive;
     net::Promise<ApiResult<T>> promise;
@@ -384,7 +384,7 @@ ApiFuture<T> startCall(const StatePtr& state, core::GqlRequest gql, GqlReader<T>
     auto call = std::make_shared<Call<T>>();
     call->state = state;
     call->gql = std::move(gql);
-    call->read = read;
+    call->read = std::move(read);
     call->cancel = cancel;
     call->priority = priority;
     ApiFuture<T> future = call->promise.future();
@@ -416,6 +416,10 @@ ClientOptions clientOptionsFrom(const core::RuntimeProfile& profile) {
     options.chapterPageSize = profile.chapterPageSize;
     options.updatesPageSize = profile.updatesPageSize;
     options.historyPageSize = profile.historyPageSize;
+    options.sourcesMax = static_cast<std::size_t>(std::max(0, profile.sourcesMax));
+    options.filterLimits.maxFilters = static_cast<std::size_t>(std::max(0, profile.sourceFiltersMax));
+    options.filterLimits.maxValues = static_cast<std::size_t>(std::max(0, profile.filterValuesMax));
+    options.filterLimits.maxNameBytes = static_cast<std::size_t>(std::max(0, profile.filterNameMaxBytes));
     return options;
 }
 
@@ -651,6 +655,68 @@ ApiFuture<std::vector<core::Category>> SuwayomiClient::setMangaCategories(int ma
                                                                           net::Priority priority) {
     return startCall<std::vector<core::Category>>(state_, core::gql::updateMangaCategories(mangaId, add, remove),
                                                   core::gql::readUpdateMangaCategories, cancel, priority);
+}
+
+ApiFuture<std::vector<core::Source>> SuwayomiClient::sources(const net::CancelToken& cancel, net::Priority priority) {
+    const std::size_t max = state_->options.sourcesMax;
+    return startCall<std::vector<core::Source>>(
+        state_, core::gql::sources(), [max](const core::GqlResponse& r) { return core::gql::readSources(r, max); }, cancel,
+        priority);
+}
+
+ApiFuture<std::vector<core::SourceFilter>> SuwayomiClient::sourceFilters(const std::string& sourceId,
+                                                                         const net::CancelToken& cancel,
+                                                                         net::Priority priority) {
+    const core::FilterLimits limits = state_->options.filterLimits;
+    return startCall<std::vector<core::SourceFilter>>(
+        state_, core::gql::sourceFilters(sourceId),
+        [limits](const core::GqlResponse& r) { return core::gql::readSourceFilters(r, limits); }, cancel, priority);
+}
+
+ApiFuture<core::BrowsePage> SuwayomiClient::browseSource(const std::string& sourceId, core::gql::BrowseKind kind, int page,
+                                                         const std::string& query, const nlohmann::json& changes,
+                                                         const net::CancelToken& cancel, net::Priority priority) {
+    return startCall<core::BrowsePage>(state_, core::gql::browseSource(sourceId, kind, page, query, changes),
+                                       core::gql::readBrowseSource, cancel, priority);
+}
+
+ApiFuture<std::vector<core::Manga>> SuwayomiClient::libraryDuplicates(const std::string& title, int exceptId,
+                                                                      const net::CancelToken& cancel,
+                                                                      net::Priority priority) {
+    return startCall<std::vector<core::Manga>>(
+        state_, core::gql::libraryDuplicates(title),
+        [exceptId](const core::GqlResponse& r) -> core::Result<std::vector<core::Manga>> {
+            core::Result<std::vector<core::Manga>> found = core::gql::readLibraryDuplicates(r);
+            if (!found.ok()) {
+                return found;
+            }
+            std::vector<core::Manga> others;
+            for (core::Manga& manga : found.value()) {
+                if (manga.id != exceptId) {
+                    others.push_back(std::move(manga));
+                }
+            }
+            return others;
+        },
+        cancel, priority);
+}
+
+ApiFuture<core::Manga> SuwayomiClient::addToLibrary(int mangaId, std::vector<int> categoryIds,
+                                                    const net::CancelToken& cancel, net::Priority priority) {
+    return startCall<core::Manga>(state_, core::gql::addToLibrary(mangaId, categoryIds), core::gql::readAddToLibrary,
+                                  cancel, priority);
+}
+
+ApiFuture<core::Manga> SuwayomiClient::removeFromLibrary(int mangaId, const net::CancelToken& cancel,
+                                                         net::Priority priority) {
+    return startCall<core::Manga>(state_, core::gql::removeFromLibrary(mangaId), core::gql::readRemoveFromLibrary, cancel,
+                                  priority);
+}
+
+ApiFuture<core::Category> SuwayomiClient::setCategoryDefault(int categoryId, bool on, const net::CancelToken& cancel,
+                                                             net::Priority priority) {
+    return startCall<core::Category>(state_, core::gql::setCategoryDefault(categoryId, on),
+                                     core::gql::readSetCategoryDefault, cancel, priority);
 }
 
 ApiFuture<core::LoginTokens> SuwayomiClient::login(std::string username, std::string password,

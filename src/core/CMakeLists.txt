@@ -33,6 +33,8 @@ add_library(snx_core STATIC
     RuntimeProfile.cpp
     SafePath.cpp
     SaveScheduler.cpp
+    SourceFilters.cpp
+    SourceLanguages.cpp
     TestConfig.cpp
     TestEvents.cpp
     Version.cpp

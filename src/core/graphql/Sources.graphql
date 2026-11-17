@@ -1,0 +1,8 @@
+# The Browse tab's list (WP-14): every source the server has (Local and the installed extensions' sources), by name. The app
+# orders them itself (core/SourceLanguages.hpp). iconUrl is relative (/api/v1/extension/icon/<pkg>), loaded through the server.
+query Sources {
+  sources(order: [{ by: NAME }]) {
+    nodes { id name displayName lang iconUrl supportsLatest isConfigurable contentWarning }
+    totalCount
+  }
+}

@@ -125,11 +125,23 @@ struct LibrarySettings {
     LibrarySort sort = LibrarySort::Title;
 };
 
+// The Browse tab (WP-14, D56). A new section, so old files simply don't have it (no migration).
+struct BrowseSettings {
+    std::vector<std::string> hiddenLanguages;  // language codes the Languages checklist hid (Local's: "localsourcelang")
+    bool askCategories = true;  // adding a manga asks for its categories; "Don't ask again" turns it off, Settings back on
+    std::string lastSourceId;   // the source opened last (the "Last used" row); "" = none yet
+};
+
+// At most this many hidden languages are read back, each at most kMaxLanguageCodeBytes long (S6: the file stays small).
+inline constexpr std::size_t kMaxHiddenLanguages = 200;
+inline constexpr std::size_t kMaxLanguageCodeBytes = 32;
+
 struct AppConfig {
     int schemaVersion = kAppConfigVersion;
     ServerSettings server;
     ReaderSettings reader;
     LibrarySettings library;
+    BrowseSettings browse;
 };
 
 struct ConfigLoad {

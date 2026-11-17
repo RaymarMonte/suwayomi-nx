@@ -1,0 +1,7 @@
+# "Tick for new manga" on the Categories screen (WP-14): the category's "default" flag, which means "tick this one when a
+# manga is added" (the web UI's meaning; this server doesn't apply it by itself).
+mutation SetCategoryDefault($id: Int!, $on: Boolean!) {
+  updateCategory(input: { id: $id, patch: { default: $on } }) {
+    category { id name order default }
+  }
+}

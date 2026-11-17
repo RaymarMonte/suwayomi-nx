@@ -669,8 +669,6 @@ TEST_CASE("client: clientOptionsFrom takes the limits from the profile") {
     CHECK_FALSE(options.deliver);
 }
 
-}  // TEST_SUITE("api")
-
 TEST_CASE("client: the library tools' calls (WP-24, D54): requests as sent, mutations never repeated, answers read") {
     Harness h(settingsFor(AuthMode::None));
     h.http.setHandler([](const Request& request) {
@@ -755,3 +753,117 @@ TEST_CASE("client: the library tools' calls (WP-24, D54): requests as sent, muta
     CHECK(vars["add"] == nlohmann::json::array({2}));
     CHECK(vars["remove"] == nlohmann::json::array({1}));
 }
+
+TEST_CASE("client: the browse calls (WP-14, D56): requests as sent, mutations never repeated, answers read") {
+    Harness h(settingsFor(AuthMode::None));
+    h.http.setHandler([](const Request& request) {
+        const std::string operation = operationOf(request);
+        if (operation == "Sources") {
+            return FakeHttpClient::answer(200, R"j({"data": {"sources": {"nodes": [
+                {"id": "0", "name": "Local source", "displayName": "Local source", "lang": "localsourcelang"},
+                {"id": "1105946461371740061", "name": "SNX Test", "displayName": "SNX Test (EN)", "lang": "en",
+                 "supportsLatest": true, "contentWarning": "SAFE"},
+                {"id": "1294398940357362604", "name": "SNX Test", "displayName": "SNX Test (JA)", "lang": "ja"}]}}})j");
+        }
+        if (operation == "SourceFilters") {
+            return FakeHttpClient::answer(200, R"({"data": {"source": {"id": "1", "filters": [
+                {"__typename": "SelectFilter", "name": "Status", "values": ["Any", "Ongoing", "Completed"], "selectDefault": 0},
+                {"__typename": "GroupFilter", "name": "Genres", "filters": [
+                    {"__typename": "TriStateFilter", "name": "Action", "triDefault": "IGNORE"}]}]}}})");
+        }
+        if (operation == "BrowseSource") {
+            if (variablesOf(request)["type"] == "SEARCH" && variablesOf(request)["query"] == "x") {
+                return FakeHttpClient::answer(200, R"({"data": {"fetchSourceManga": null}, "errors": [{"message":
+                    "Exception while fetching data (/fetchSourceManga) : SNX test failure: search\njava.io.IOException",
+                    "path": ["fetchSourceManga"]}]})");
+            }
+            return FakeHttpClient::answer(200, R"({"data": {"fetchSourceManga": {"mangas": [
+                {"id": 158, "title": "Comet Courier", "thumbnailUrl": "/api/v1/manga/158/thumbnail", "inLibrary": false,
+                 "initialized": false}], "hasNextPage": true}}})");
+        }
+        if (operation == "LibraryDuplicates") {
+            return FakeHttpClient::answer(200, R"({"data": {"mangas": {"nodes": [
+                {"id": 158, "title": "Paper Garden"}, {"id": 12, "title": "PAPER GARDEN"}]}}})");
+        }
+        if (operation == "AddToLibrary") {
+            return FakeHttpClient::answer(200, R"({"data": {
+                "added": {"manga": {"id": 158, "inLibrary": true, "inLibraryAt": 1763370000}},
+                "categories": {"manga": {"id": 158, "categories": {"nodes": [{"id": 1, "name": "Reading"},
+                    {"id": 2, "name": "Long series"}]}}}}})");
+        }
+        if (operation == "RemoveFromLibrary") {
+            return FakeHttpClient::answer(200, R"({"data": {"updateManga": {"manga": {"id": 158, "inLibrary": false}}}})");
+        }
+        if (operation == "SetCategoryDefault") {
+            return FakeHttpClient::answer(200, R"({"data": {"updateCategory": {"category":
+                {"id": 2, "name": "Long series", "order": 2, "default": true}}}})");
+        }
+        return FakeHttpClient::answer(500, "unexpected");
+    });
+    const CancelToken cancel;
+
+    const auto sources = h.client->sources(cancel).get();
+    REQUIRE(sources.ok());
+    REQUIRE(sources.value().size() == 3);
+    CHECK(sources.value()[1].supportsLatest);
+    CHECK(h.sent("Sources").at(0).idempotent);
+
+    const auto filters = h.client->sourceFilters("1105946461371740061", cancel).get();
+    REQUIRE(filters.ok());
+    REQUIRE(filters.value().size() == 2);
+    CHECK(filters.value()[1].children.size() == 1);
+    CHECK(variablesOf(h.sent("SourceFilters").at(0))["id"] == "1105946461371740061");
+
+    const nlohmann::json changes = nlohmann::json::parse(R"([{"position": 0, "selectState": 2}])");
+    const auto page = h.client->browseSource("1105946461371740061", snx::core::gql::BrowseKind::Search, 2, "comet",
+                                             changes, cancel).get();
+    REQUIRE(page.ok());
+    CHECK(page.value().hasNextPage);
+    CHECK_FALSE(page.value().manga.at(0).initialized);
+    const Request browse = h.sent("BrowseSource").at(0);
+    CHECK_FALSE(browse.idempotent);  // fetchSourceManga is a mutation: never repeated
+    CHECK(variablesOf(browse)["page"] == 2);
+    CHECK(variablesOf(browse)["query"] == "comet");
+    CHECK(variablesOf(browse)["filters"] == changes);
+
+    const auto failed = h.client->browseSource("1105946461371740061", snx::core::gql::BrowseKind::Search, 1, "x",
+                                               nlohmann::json::array(), cancel).get();
+    REQUIRE_FALSE(failed.ok());
+    CHECK(failed.error().kind == ApiErrorKind::Server);
+    CHECK(failed.error().detail == "SNX test failure: search");
+
+    const auto dupes = h.client->libraryDuplicates("Paper Garden", 158, cancel).get();
+    REQUIRE(dupes.ok());
+    REQUIRE(dupes.value().size() == 1);  // the manga itself is left out
+    CHECK(dupes.value()[0].id == 12);
+
+    const auto added = h.client->addToLibrary(158, {1, 2}, cancel).get();
+    REQUIRE(added.ok());
+    CHECK(added.value().inLibrary);
+    CHECK(added.value().categories.size() == 2);
+    CHECK_FALSE(h.sent("AddToLibrary").at(0).idempotent);
+    CHECK(variablesOf(h.sent("AddToLibrary").at(0))["categories"] == nlohmann::json::array({1, 2}));
+
+    const auto removed = h.client->removeFromLibrary(158, cancel).get();
+    REQUIRE(removed.ok());
+    CHECK_FALSE(removed.value().inLibrary);
+    CHECK_FALSE(h.sent("RemoveFromLibrary").at(0).idempotent);
+
+    const auto flagged = h.client->setCategoryDefault(2, true, cancel).get();
+    REQUIRE(flagged.ok());
+    CHECK(flagged.value().isDefault);
+    CHECK(variablesOf(h.sent("SetCategoryDefault").at(0))["on"] == true);
+
+    snx::core::RuntimeProfile profile;
+    profile.sourcesMax = 7;
+    profile.sourceFiltersMax = 8;
+    profile.filterValuesMax = 9;
+    profile.filterNameMaxBytes = 10;
+    const ClientOptions options = clientOptionsFrom(profile);
+    CHECK(options.sourcesMax == 7);
+    CHECK(options.filterLimits.maxFilters == 8);
+    CHECK(options.filterLimits.maxValues == 9);
+    CHECK(options.filterLimits.maxNameBytes == 10);
+}
+
+}  // TEST_SUITE("api")

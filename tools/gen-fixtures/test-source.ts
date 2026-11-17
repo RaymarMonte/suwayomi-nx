@@ -253,7 +253,8 @@ export const CATALOG_FR: Catalog = buildCatalog({
 
 export const CATALOG_MATURE: Catalog = buildCatalog({
     id: 'mature-en', source: 'SNX Mature', lang: 'en', prefix: 'mx',
-    titles: ['Velvet Nights', 'Scarlet Contract', 'After Hours Bar'],
+    titles: ['Velvet Nights', 'Scarlet Contract', 'Paper Garden'],
+    // WP-14: mx-03 has SNX Test en-14's title ("Paper Garden"): the same work in two sources, for the same-title warning.
     authors: ['Nora Vance', 'Oscar Reyes', 'Paula Stein'],
 });
 

@@ -247,6 +247,77 @@ GqlRequest updateMangaCategories(int mangaId, const std::vector<int>& add, const
     return r;
 }
 
+GqlRequest sources() {
+    return request("Sources");
+}
+
+GqlRequest sourceFilters(std::string_view sourceId) {
+    GqlRequest r = request("SourceFilters");
+    r.variables["id"] = std::string(sourceId);
+    return r;
+}
+
+std::string_view browseKindName(BrowseKind kind) {
+    switch (kind) {
+        case BrowseKind::Latest:
+            return "LATEST";
+        case BrowseKind::Search:
+            return "SEARCH";
+        case BrowseKind::Popular:
+            break;
+    }
+    return "POPULAR";
+}
+
+GqlRequest browseSource(std::string_view sourceId, BrowseKind kind, int page, std::string_view query,
+                        const nlohmann::json& filters) {
+    GqlRequest r = request("BrowseSource");
+    r.variables["source"] = std::string(sourceId);
+    r.variables["type"] = std::string(browseKindName(kind));
+    r.variables["page"] = std::max(page, 1);
+    if (kind == BrowseKind::Search) {
+        if (!query.empty()) {
+            r.variables["query"] = std::string(query);
+        }
+        if (filters.is_array() && !filters.empty()) {
+            r.variables["filters"] = filters;
+        }
+    }
+    return r;
+}
+
+GqlRequest libraryDuplicates(std::string_view title) {
+    GqlRequest r = request("LibraryDuplicates");
+    r.variables["title"] = likeEscape(title);
+    return r;
+}
+
+GqlRequest addToLibrary(int mangaId, const std::vector<int>& categoryIds) {
+    GqlRequest r = request("AddToLibrary");
+    r.variables["id"] = mangaId;
+    nlohmann::json list = nlohmann::json::array();
+    for (int id : categoryIds) {
+        if (id != kDefaultCategoryId) {
+            list.push_back(id);
+        }
+    }
+    r.variables["categories"] = list;
+    return r;
+}
+
+GqlRequest removeFromLibrary(int mangaId) {
+    GqlRequest r = request("RemoveFromLibrary");
+    r.variables["id"] = mangaId;
+    return r;
+}
+
+GqlRequest setCategoryDefault(int categoryId, bool on) {
+    GqlRequest r = request("SetCategoryDefault");
+    r.variables["id"] = categoryId;
+    r.variables["on"] = on;
+    return r;
+}
+
 Result<ServerInfo> readAboutServer(const GqlResponse& response) {
     return readObject<ServerInfo>(response, "aboutServer");
 }
@@ -474,6 +545,93 @@ Result<std::vector<Category>> readUpdateMangaCategories(const GqlResponse& respo
         return manga.error();
     }
     return std::move(manga.value().categories);
+}
+
+Result<std::vector<Source>> readSources(const GqlResponse& response, std::size_t maxSources) {
+    Result<NodeList<Source>> list = readList<Source>(response, "sources");
+    if (!list.ok()) {
+        return list.error();
+    }
+    std::vector<Source> out = std::move(list.value().nodes);
+    if (out.size() > maxSources) {
+        out.resize(maxSources);
+    }
+    return out;
+}
+
+Result<std::vector<SourceFilter>> readSourceFilters(const GqlResponse& response, const FilterLimits& limits) {
+    Result<const nlohmann::json*> node = dataField(response, "source");
+    if (!node.ok()) {
+        return node.error();
+    }
+    const nlohmann::json* list = json::array(*node.value(), "filters");
+    if (!list) {
+        return Result<std::vector<SourceFilter>>::fail(ErrorKind::Parse, "source has no \"filters\"");
+    }
+    return readFilterList(*list, limits);
+}
+
+Result<BrowsePage> readBrowseSource(const GqlResponse& response) {
+    Result<const nlohmann::json*> node = dataField(response, "fetchSourceManga");
+    if (!node.ok()) {
+        return node.error();
+    }
+    const nlohmann::json* list = json::array(*node.value(), "mangas");
+    if (!list) {
+        return Result<BrowsePage>::fail(ErrorKind::Parse, "fetchSourceManga has no \"mangas\"");
+    }
+    BrowsePage page;
+    for (const nlohmann::json& entry : *list) {
+        if (auto parsed = fromJson<Manga>(entry)) {
+            page.manga.push_back(std::move(parsed.value()));
+        }
+    }
+    page.hasNextPage = json::boolean(*node.value(), "hasNextPage").value_or(false);
+    return page;
+}
+
+Result<std::vector<Manga>> readLibraryDuplicates(const GqlResponse& response) {
+    Result<NodeList<Manga>> list = readList<Manga>(response, "mangas");
+    if (!list.ok()) {
+        return list.error();
+    }
+    return std::move(list.value().nodes);
+}
+
+Result<Manga> readAddToLibrary(const GqlResponse& response) {
+    Result<const nlohmann::json*> added = innerObject(response, "added", "manga");
+    if (!added.ok()) {
+        return added.error();
+    }
+    Result<const nlohmann::json*> categories = innerObject(response, "categories", "manga");
+    if (!categories.ok()) {
+        return categories.error();
+    }
+    Result<Manga> manga = fromJson<Manga>(*added.value());
+    if (!manga.ok()) {
+        return manga.error();
+    }
+    Result<Manga> withCategories = fromJson<Manga>(*categories.value());
+    if (withCategories.ok()) {
+        manga.value().categories = std::move(withCategories.value().categories);
+    }
+    return manga;
+}
+
+Result<Manga> readRemoveFromLibrary(const GqlResponse& response) {
+    Result<const nlohmann::json*> node = innerObject(response, "updateManga", "manga");
+    if (!node.ok()) {
+        return node.error();
+    }
+    return fromJson<Manga>(*node.value());
+}
+
+Result<Category> readSetCategoryDefault(const GqlResponse& response) {
+    Result<const nlohmann::json*> node = innerObject(response, "updateCategory", "category");
+    if (!node.ok()) {
+        return node.error();
+    }
+    return fromJson<Category>(*node.value());
 }
 
 Result<LoginTokens> readLogin(const GqlResponse& response) {

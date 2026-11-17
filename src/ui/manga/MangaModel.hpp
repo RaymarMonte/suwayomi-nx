@@ -100,6 +100,12 @@ class MangaModel {
     void setFilter(ChapterFilter filter);
     // WP-24: the category picker saved the manga's categories (the server's answer).
     void setCategories(std::vector<core::Category> categories);
+    // WP-14: the manga joined or left the library (LibraryAdder's answer), with its categories now.
+    void setInLibrary(bool inLibrary, std::vector<core::Category> categories);
+    // WP-14 (D56): a manga the server has no details for yet (initialized false, a bare row from browsing) is first asked
+    // from its source (refreshManga), then loaded as usual; so is one outside the library whose list came back empty
+    // (Mihon's rule), once per open. True while that request runs ("Loading from <source>...").
+    bool loadingFromSource() const { return loadingFromSource_; }
 
     // The menu for chapter items()[index], always four entries in this order: MarkRead or MarkUnread, Bookmark or
     // RemoveBookmark, MarkPreviousRead, MarkPreviousUnread. Empty for a wrong index.
@@ -149,6 +155,8 @@ class MangaModel {
     };
 
     void load();  // details + chapters (start, retry)
+    void fetchFromSource();  // WP-14: refreshManga, then load()
+    void maybeFromSource();  // after an answer: the source first after all? (see loadingFromSource)
     void onDetails(const api::ApiResult<core::Manga>& result);
     void loadPage(bool replace);
     void onPage(bool replace, const api::ApiResult<core::NodeList<core::Chapter>>& result);
@@ -181,6 +189,9 @@ class MangaModel {
     bool moreFailed_ = false;
     bool busy_ = false;
     bool refreshing_ = false;
+    bool loadingFromSource_ = false;
+    bool triedSource_ = false;   // asked the source in this open already
+    bool sourceFailed_ = false;  // the last failure was the source's: retry() asks it again
 
     ChapterSort sort_ = ChapterSort::NewestFirst;
     ChapterFilter filter_ = ChapterFilter::All;

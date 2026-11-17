@@ -1,0 +1,12 @@
+# Adds a manga to the library in its chosen categories (WP-14, D56), one request: top-level mutation fields run in order, so
+# `added` sets inLibrary first, then `categories` clears the manga's old categories (a removed manga keeps them) and adds the
+# chosen ones (none = Default). Read inLibrary from `added` (the second answer once said false right after) and the
+# categories from `categories`.
+mutation AddToLibrary($id: Int!, $categories: [Int!]!) {
+  added: updateManga(input: { id: $id, patch: { inLibrary: true } }) {
+    manga { id inLibrary inLibraryAt }
+  }
+  categories: updateMangaCategories(input: { id: $id, patch: { clearCategories: true, addToCategories: $categories } }) {
+    manga { id categories { nodes { id name order } } }
+  }
+}

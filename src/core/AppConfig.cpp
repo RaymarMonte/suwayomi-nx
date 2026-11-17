@@ -187,6 +187,36 @@ void readMangaReaderSettings(const nlohmann::json& root, ReaderSettings& reader,
     }
 }
 
+// browse.hiddenLanguages (WP-14): ["ja", "fr"]. Entries that aren't text, are empty or too long are skipped; a code listed
+// twice counts once; at most kMaxHiddenLanguages.
+void readHiddenLanguages(const nlohmann::json& root, BrowseSettings& browse, std::vector<std::string>& problems) {
+    const nlohmann::json* section = json::field(root, "browse");
+    const nlohmann::json* list = section && section->is_object() ? json::field(*section, "hiddenLanguages") : nullptr;
+    if (!list || list->is_null()) {
+        return;
+    }
+    if (!list->is_array()) {
+        problems.push_back("config: browse.hiddenLanguages must be a list, ignored");
+        return;
+    }
+    int skipped = 0;
+    for (const nlohmann::json& entry : *list) {
+        if (!entry.is_string() || entry.get_ref<const std::string&>().empty() ||
+            entry.get_ref<const std::string&>().size() > kMaxLanguageCodeBytes ||
+            browse.hiddenLanguages.size() >= kMaxHiddenLanguages) {
+            ++skipped;
+            continue;
+        }
+        const std::string& code = entry.get_ref<const std::string&>();
+        if (std::find(browse.hiddenLanguages.begin(), browse.hiddenLanguages.end(), code) == browse.hiddenLanguages.end()) {
+            browse.hiddenLanguages.push_back(code);
+        }
+    }
+    if (skipped > 0) {
+        problems.push_back("config: " + std::to_string(skipped) + " entries of browse.hiddenLanguages ignored");
+    }
+}
+
 }  // namespace
 
 std::string_view authModeName(AuthMode mode) {
@@ -365,6 +395,16 @@ ConfigLoad loadAppConfig(std::string_view text, const JsonLimits& limits, const 
     SectionReader l(root, "library", problems);
     l.number("categoryId", library.categoryId);
     l.choice("sort", kSortNames, library.sort);
+
+    BrowseSettings& browse = load.config.browse;
+    SectionReader b(root, "browse", problems);
+    b.flag("askCategories", browse.askCategories);
+    b.text("lastSourceId", browse.lastSourceId);
+    if (browse.lastSourceId.size() > kMaxLanguageCodeBytes) {  // a source id is a number of at most 19 digits
+        problems.push_back("config: browse.lastSourceId is too long, ignored");
+        browse.lastSourceId.clear();
+    }
+    readHiddenLanguages(root, browse, problems);
     return load;
 }
 
@@ -406,6 +446,11 @@ std::string saveAppConfig(const AppConfig& config) {
     root["library"] = {
         {"categoryId", config.library.categoryId},
         {"sort", librarySortName(config.library.sort)},
+    };
+    root["browse"] = {
+        {"hiddenLanguages", config.browse.hiddenLanguages},
+        {"askCategories", config.browse.askCategories},
+        {"lastSourceId", config.browse.lastSourceId},
     };
     return root.dump(2, ' ', false, nlohmann::ordered_json::error_handler_t::replace) + "\n";
 }

@@ -33,11 +33,12 @@ TEST_SUITE("core") {
     TEST_CASE("every .graphql file is embedded, named after its operation, without comment lines") {
         const auto& docs = gql::documents();
         const std::vector<std::string> expected = {
-            "AboutServer",       "Categories",     "ChapterState",      "Chapters",              "CreateCategory",
+            "AboutServer",       "AddToLibrary",   "BrowseSource",      "Categories",     "ChapterState",      "Chapters",              "CreateCategory",
             "DeleteCategory",    "FetchChapterPages", "FetchMangaAndChapters",
-            "LibraryByCategory", "LibraryUpdateStatus", "LibraryUpdates", "Login",              "ManageCategories",
+            "LibraryByCategory", "LibraryDuplicates", "LibraryUpdateStatus", "LibraryUpdates", "Login",              "ManageCategories",
             "Manga",
-            "ReadingHistory",    "RefreshToken",   "StopLibraryUpdate", "UpdateCategory",   "UpdateCategoryOrder",
+            "ReadingHistory",    "RefreshToken",   "RemoveFromLibrary", "SetCategoryDefault", "SourceFilters",
+            "Sources",           "StopLibraryUpdate", "UpdateCategory",   "UpdateCategoryOrder",
             "UpdateChapterProgress", "UpdateChapters",
             "UpdateLibrary",     "UpdateMangaCategories", "UpdateStripProgress"};
         REQUIRE(docs.size() == expected.size());

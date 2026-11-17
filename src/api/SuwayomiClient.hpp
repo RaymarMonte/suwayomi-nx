@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -11,6 +12,8 @@
 #include "core/AppConfig.hpp"
 #include "core/Json.hpp"
 #include "core/RuntimeProfile.hpp"
+#include "core/SourceFilters.hpp"
+#include "core/graphql/Operations.hpp"
 #include "core/models/Auth.hpp"
 #include "core/models/Category.hpp"
 #include "core/models/Chapter.hpp"
@@ -21,6 +24,7 @@
 #include "core/models/PageList.hpp"
 #include "core/models/ReadProgress.hpp"
 #include "core/models/ServerInfo.hpp"
+#include "core/models/Source.hpp"
 #include "net/CancelToken.hpp"
 #include "net/Future.hpp"
 #include "net/HttpClient.hpp"
@@ -43,6 +47,8 @@ struct ClientOptions {
     int chapterPageSize = 100;    // RuntimeProfile::chapterPageSize: chapters per chapters() page
     int updatesPageSize = 50;     // RuntimeProfile::updatesPageSize: chapters per updates() page (WP-15)
     int historyPageSize = 50;     // RuntimeProfile::historyPageSize: chapters per history() page
+    std::size_t sourcesMax = 500; // RuntimeProfile::sourcesMax: sources() keeps at most this many (WP-14)
+    core::FilterLimits filterLimits;  // RuntimeProfile::sourceFiltersMax, filterValuesMax, filterNameMaxBytes
     Deliver deliver;
     SettingsChanged onSettingsChanged;
 };
@@ -167,6 +173,33 @@ class SuwayomiClient {
     ApiFuture<std::vector<core::Category>> setMangaCategories(int mangaId, std::vector<int> add, std::vector<int> remove,
                                                               const net::CancelToken& cancel,
                                                               net::Priority priority = net::Priority::Interactive);
+    // WP-14 (D56), browse. Every source the server has (Local and the extensions'), at most sourcesMax.
+    ApiFuture<std::vector<core::Source>> sources(const net::CancelToken& cancel,
+                                                 net::Priority priority = net::Priority::Interactive);
+    // A source's filters as a tree (core/SourceFilters.hpp), with the filterLimits.
+    ApiFuture<std::vector<core::SourceFilter>> sourceFilters(const std::string& sourceId, const net::CancelToken& cancel,
+                                                             net::Priority priority = net::Priority::Interactive);
+    // One page of a source's list. page: 1-based. Search: the text and / or the filters' changes (core::filterChanges);
+    // Popular and Latest ignore both. A mutation on the server (it makes manga rows): never repeated. A source failure is
+    // a Server error with the source's message.
+    ApiFuture<core::BrowsePage> browseSource(const std::string& sourceId, core::gql::BrowseKind kind, int page,
+                                             const std::string& query, const nlohmann::json& changes,
+                                             const net::CancelToken& cancel,
+                                             net::Priority priority = net::Priority::Interactive);
+    // Library manga titled `title` (any case; % and _ match themselves), without manga `exceptId`: the same-title warning.
+    ApiFuture<std::vector<core::Manga>> libraryDuplicates(const std::string& title, int exceptId,
+                                                          const net::CancelToken& cancel,
+                                                          net::Priority priority = net::Priority::Interactive);
+    // The mutations below are never repeated. Adds a manga to the library in exactly these categories (none = Default),
+    // one request. Answers the manga with inLibrary and its categories now.
+    ApiFuture<core::Manga> addToLibrary(int mangaId, std::vector<int> categoryIds, const net::CancelToken& cancel,
+                                        net::Priority priority = net::Priority::Interactive);
+    // Takes a manga out of the library (its categories and progress stay on the server). Answers id + inLibrary.
+    ApiFuture<core::Manga> removeFromLibrary(int mangaId, const net::CancelToken& cancel,
+                                             net::Priority priority = net::Priority::Interactive);
+    // A category's "default" flag ("tick it for new manga"). Answers the category.
+    ApiFuture<core::Category> setCategoryDefault(int categoryId, bool on, const net::CancelToken& cancel,
+                                                 net::Priority priority = net::Priority::Interactive);
     // ui_login: logs in (sent without a token: the server refuses a login while logged in), keeps the tokens, username and
     // password for renewing later, and reports them through onSettingsChanged. Wrong password: Auth with the server's words.
     ApiFuture<core::LoginTokens> login(std::string username, std::string password, const net::CancelToken& cancel,

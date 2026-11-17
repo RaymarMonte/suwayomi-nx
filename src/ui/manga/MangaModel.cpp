@@ -152,11 +152,66 @@ void MangaModel::start() {
         return;
     }
     started_ = true;
+    if (!manga_.initialized) {
+        fetchFromSource();  // a bare row from browsing: the source's details first (WP-14, Mihon's rule)
+        return;
+    }
     load();
+}
+
+void MangaModel::fetchFromSource() {
+    triedSource_ = true;
+    sourceFailed_ = false;
+    loadCancel_.cancel();
+    loadCancel_ = net::CancelToken();
+    state_ = State::Loading;
+    loadingFromSource_ = true;
+    changed();
+    const net::CancelToken token = loadCancel_;
+    client_.refreshManga(manga_.id, token).then([this, token](const api::ApiResult<core::Manga>& result) {
+        if (token.cancelled()) {
+            return;
+        }
+        loadingFromSource_ = false;
+        if (!result.ok()) {
+            sourceFailed_ = true;
+            fail(result.error());
+            return;
+        }
+        core::Manga fresh = result.value();
+        if (fresh.title.empty()) {
+            fresh.title = manga_.title;
+        }
+        if (fresh.thumbnailUrl.empty()) {
+            fresh.thumbnailUrl = manga_.thumbnailUrl;
+        }
+        manga_ = std::move(fresh);
+        load();
+    });
+}
+
+void MangaModel::maybeFromSource() {
+    if (triedSource_ || busy_ || state_ == State::Failed || !detailsLoaded_ || !firstPage_) {
+        return;
+    }
+    // The server has no details yet, or a manga outside the library has no chapters: ask the source (once per open).
+    if (!manga_.initialized || (state_ == State::Empty && !manga_.inLibrary)) {
+        fetchFromSource();
+    }
+}
+
+void MangaModel::setInLibrary(bool inLibrary, std::vector<core::Category> categories) {
+    manga_.inLibrary = inLibrary;
+    manga_.categories = std::move(categories);
+    changed();
 }
 
 void MangaModel::retry() {
     started_ = true;
+    if (sourceFailed_) {
+        fetchFromSource();
+        return;
+    }
     if (state_ == State::Ready && moreFailed_ && !busy_) {
         moreFailed_ = false;  // carry on where the list stopped
         changed();
@@ -187,6 +242,7 @@ void MangaModel::load() {
             return;  // the model may be gone
         }
         onDetails(result);
+        maybeFromSource();
     });
     if (state_ == State::Failed) {
         return;  // the details failed at once (tests: the answer comes inside the call)
@@ -214,6 +270,7 @@ void MangaModel::loadPage(bool replace) {
                 return;
             }
             onPage(replace, result);
+            maybeFromSource();
         });
 }
 

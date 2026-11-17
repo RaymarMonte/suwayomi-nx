@@ -40,6 +40,15 @@ struct Manga {
     // WP-15: when the manga was added to the library (seconds since 1970, UTC). 0 = unknown, or not asked. A chapter fetched
     // after it is "new" (core::isNewChapter).
     std::int64_t inLibraryAt = 0;
+    // WP-14: the server has the source's details (author, genres, description). A manga met only while browsing isn't:
+    // the details screen asks the source first (Mihon's rule). True when a query didn't ask.
+    bool initialized = true;
+};
+
+// WP-14: one page of a source's list (fetchSourceManga): bare manga rows (id, title, cover, inLibrary, initialized).
+struct BrowsePage {
+    std::vector<Manga> manga;
+    bool hasNextPage = false;
 };
 
 }  // namespace snx::core

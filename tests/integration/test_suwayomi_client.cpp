@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <future>
 #include <memory>
 #include <string>
@@ -471,6 +473,155 @@ TEST_CASE("library tools (WP-24, D54): search with LIKE characters; a category's
           std::vector<std::string>{"Alpha", "Beta RTL", "Epsilon Weekly"});
     const ApiError gone = mustFail(live->deleteCategory(made.id, CancelToken()));  // already gone: no category deleted
     CHECK(gone.kind == ApiErrorKind::Server);
+}
+
+namespace {
+
+// WP-23's test source (TESTING.md "Test source"): SNX Test (EN), 60 manga, 25 per page.
+const std::string kSnxEn = "1105946461371740061";
+const std::string kSnxJa = "1294398940357362604";
+
+std::vector<std::string> browseTitles(const snx::core::BrowsePage& page) {
+    std::vector<std::string> out;
+    for (const auto& manga : page.manga) out.push_back(manga.title);
+    return out;
+}
+
+// The test source's switch file (tools/test-source Control.java reads it on every call). Written to a temporary file
+// first and renamed, so the source never reads half of it. Empty text removes it.
+void setSwitchFile(const std::string& text) {
+    const std::string path = std::string(SNX_TEST_SITE_DIR) + "/control.json";
+    if (text.empty()) {
+        std::remove(path.c_str());
+        return;
+    }
+    const std::string tmp = path + ".tmp";
+    {
+        std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+        out << text;
+    }
+    REQUIRE(std::rename(tmp.c_str(), path.c_str()) == 0);
+}
+
+int categoryId(Live& live, const std::string& name) {
+    for (const snx::core::Category& c : must(live->categories(CancelToken()))) {
+        if (c.name == name) return c.id;
+    }
+    FAIL("no category " << name);
+    return 0;
+}
+
+}  // namespace
+
+TEST_CASE("browse (WP-14, D56): sources, filters, paging, search, filters narrow, a source failure, add and remove") {
+    using snx::core::gql::BrowseKind;
+    Live live;
+    setSwitchFile("");
+    const nlohmann::json none = nlohmann::json::array();
+
+    // The sources: Local and SNX Test's two (the seed installs only SNX Test).
+    const std::vector<snx::core::Source> sources = must(live->sources(CancelToken()));
+    std::vector<std::string> ids;
+    for (const auto& s : sources) ids.push_back(s.id);
+    std::sort(ids.begin(), ids.end());
+    CHECK(ids == std::vector<std::string>{"0", kSnxEn, kSnxJa});
+    for (const auto& s : sources) {
+        if (s.id == "0") CHECK(s.lang == "localsourcelang");
+        if (s.id == kSnxEn) {
+            CHECK(s.displayName == "SNX Test (EN)");
+            CHECK(s.supportsLatest);
+            CHECK(s.contentWarning == snx::core::ContentWarning::Safe);
+        }
+    }
+
+    // The filters as a tree: 8, two groups (7 genres, 3 types), the aliased defaults.
+    const std::vector<snx::core::SourceFilter> filters = must(live->sourceFilters(kSnxEn, CancelToken()));
+    REQUIRE(filters.size() == 8);
+    CHECK(filters[2].kind == snx::core::FilterKind::Select);
+    CHECK(filters[5].kind == snx::core::FilterKind::Group);
+    CHECK(filters[5].children.size() == 7);
+    CHECK(filters[6].children.size() == 3);
+    REQUIRE(filters[7].defaults.sort.has_value());
+    CHECK(filters[7].defaults.sort->index == 0);
+    const std::vector<snx::core::SourceFilter> local = must(live->sourceFilters("0", CancelToken()));
+    REQUIRE(local.size() == 1);
+    CHECK(local[0].kind == snx::core::FilterKind::Sort);
+
+    // Popular pages 25 + 25 + 10 (pages start at 1); the most popular is Comet Courier. Latest starts with Paper Garden.
+    const auto page1 = must(live->browseSource(kSnxEn, BrowseKind::Popular, 1, "", none, CancelToken()));
+    CHECK(page1.manga.size() == 25);
+    CHECK(page1.hasNextPage);
+    REQUIRE_FALSE(page1.manga.empty());
+    CHECK(page1.manga[0].title == "Comet Courier");
+    CHECK(must(live->browseSource(kSnxEn, BrowseKind::Popular, 2, "", none, CancelToken())).manga.size() == 25);
+    const auto page3 = must(live->browseSource(kSnxEn, BrowseKind::Popular, 3, "", none, CancelToken()));
+    CHECK(page3.manga.size() == 10);
+    CHECK_FALSE(page3.hasNextPage);
+    const auto latest = must(live->browseSource(kSnxEn, BrowseKind::Latest, 1, "", none, CancelToken()));
+    REQUIRE_FALSE(latest.manga.empty());
+    CHECK(latest.manga[0].title == "Paper Garden");
+
+    // Search "comet": 3, by popularity.
+    CHECK(browseTitles(must(live->browseSource(kSnxEn, BrowseKind::Search, 1, "comet", none, CancelToken()))) ==
+          std::vector<std::string>{"Comet Courier", "Comet Over the Bay", "The Last Comet"});
+
+    // One filter of each type narrows as the catalog says (tools/gen-fixtures/test-source.ts).
+    auto changed = [&](auto edit) {
+        snx::core::FilterSettings settings = snx::core::defaultSettings(filters);
+        edit(settings);
+        return snx::core::filterChanges(filters, settings);
+    };
+    auto search = [&](const std::string& query, const nlohmann::json& changes) {
+        return must(live->browseSource(kSnxEn, BrowseKind::Search, 1, query, changes, CancelToken()));
+    };
+    CHECK(search("", changed([](auto& s) { s[1].value.text = "Aiko Mori"; })).manga.size() == 6);   // Text
+    CHECK(search("", changed([](auto& s) { s[2].value.select = 2; })).manga.size() == 15);           // Select: Completed
+    // CheckBox "In colour": 31 (every Manhwa and Webtoon, and the Manga numbered i % 7 == 0): 25 + 6.
+    const nlohmann::json inColour = changed([](auto& s) { s[4].value.check = true; });
+    CHECK(search("", inColour).hasNextPage);
+    const auto colour2 = must(live->browseSource(kSnxEn, BrowseKind::Search, 2, "", inColour, CancelToken()));
+    CHECK(colour2.manga.size() == 6);
+    CHECK_FALSE(colour2.hasNextPage);
+    CHECK(browseTitles(search("", changed([](auto& s) { s[5].children[6].tri = snx::core::TriState::Include; }))) ==
+          std::vector<std::string>{"Skyline Strip"});                                                  // TriState
+    CHECK(search("", changed([](auto& s) { s[6].children[2].check = true; })).manga.size() == 13);   // Group: Webtoon
+    CHECK(browseTitles(search("comet", changed([](auto& s) { s[7].value.sort = snx::core::SortSelection{1, false}; }))) ==
+          std::vector<std::string>{"The Last Comet", "Comet Over the Bay", "Comet Courier"});        // Sort: Title down
+
+    // A source failure (the switch file) is a Server error with the source's own message.
+    setSwitchFile(R"({"fail":[{"lang":"en","call":"search"}]})");
+    const ApiError failed = mustFail(live->browseSource(kSnxEn, BrowseKind::Search, 1, "x", none, CancelToken()));
+    setSwitchFile("");
+    CHECK(failed.kind == ApiErrorKind::Server);
+    CHECK(failed.detail == "SNX test failure: search");
+
+    // Add Comet Courier with two categories: exactly those. The same-title check finds it; remove takes it out again.
+    const int comet = page1.manga[0].id;
+    const int reading = categoryId(live, "Reading");
+    const int longSeries = categoryId(live, "Long series");
+    const snx::core::Manga added = must(live->addToLibrary(comet, {reading, longSeries}, CancelToken()));
+    CHECK(added.inLibrary);
+    const snx::core::Manga details = must(live->manga(comet, CancelToken()));
+    CHECK(details.inLibrary);
+    std::vector<int> in;
+    for (const auto& c : details.categories) in.push_back(c.id);
+    std::sort(in.begin(), in.end());
+    CHECK(in == std::vector<int>{reading, longSeries});
+    const std::vector<snx::core::Manga> dupes = must(live->libraryDuplicates("COMET COURIER", 0, CancelToken()));
+    REQUIRE(dupes.size() == 1);
+    CHECK(dupes[0].id == comet);
+    CHECK(must(live->libraryDuplicates("Comet Courier", comet, CancelToken())).empty());  // itself left out
+    CHECK(must(live->libraryDuplicates("Comet_Courier", 0, CancelToken())).empty());      // "_" is no wildcard
+
+    // Added again with one category: the old ones are cleared.
+    CHECK(must(live->addToLibrary(comet, {reading}, CancelToken())).categories.size() == 1);
+    CHECK_FALSE(must(live->removeFromLibrary(comet, CancelToken())).inLibrary);
+    CHECK_FALSE(must(live->manga(comet, CancelToken())).inLibrary);
+    must(live->setMangaCategories(comet, {}, {reading}, CancelToken()));  // as it was: no categories
+
+    // "Tick for new manga": the category's default flag, set and cleared.
+    CHECK(must(live->setCategoryDefault(longSeries, true, CancelToken())).isDefault);
+    CHECK_FALSE(must(live->setCategoryDefault(longSeries, false, CancelToken())).isDefault);
 }
 
 TEST_CASE("errors from the real server: unknown id, wrong sub-path, nobody listening") {

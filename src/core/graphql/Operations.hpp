@@ -1,10 +1,12 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "core/Result.hpp"
+#include "core/SourceFilters.hpp"
 #include "core/graphql/Gql.hpp"
 #include "core/models/Auth.hpp"
 #include "core/models/Category.hpp"
@@ -16,6 +18,7 @@
 #include "core/models/PageList.hpp"
 #include "core/models/ReadProgress.hpp"
 #include "core/models/ServerInfo.hpp"
+#include "core/models/Source.hpp"
 
 // The MVP's server operations (WP-04): for each one a request builder (document + variables) and a reader that turns the
 // answer into a model. The api layer (WP-06) sends request.body() and hands the parsed answer to the reader.
@@ -63,6 +66,20 @@ GqlRequest moveCategory(int categoryId, int position);  // position: core::categ
 GqlRequest deleteCategory(int categoryId);
 // One manga's categories: add and remove in one request (no Default; empty lists are fine).
 GqlRequest updateMangaCategories(int mangaId, const std::vector<int>& add, const std::vector<int>& remove);
+// WP-14 (D56), browse.
+GqlRequest sources();
+GqlRequest sourceFilters(std::string_view sourceId);
+enum class BrowseKind { Popular, Latest, Search };
+std::string_view browseKindName(BrowseKind kind);  // "POPULAR", "LATEST", "SEARCH" (the server's names)
+// page: 1-based (below 1 is sent as 1). query: sent only for Search when not empty. filters: core::filterChanges(), sent
+// only for Search when not empty.
+GqlRequest browseSource(std::string_view sourceId, BrowseKind kind, int page, std::string_view query,
+                        const nlohmann::json& filters);
+GqlRequest libraryDuplicates(std::string_view title);  // `title` escaped (core::likeEscape)
+// inLibrary true, then the categories cleared and set to `categoryIds` (Default left out; none = Default), one request.
+GqlRequest addToLibrary(int mangaId, const std::vector<int>& categoryIds);
+GqlRequest removeFromLibrary(int mangaId);
+GqlRequest setCategoryDefault(int categoryId, bool on);
 
 // --- answers ---
 Result<ServerInfo> readAboutServer(const GqlResponse& response);
@@ -96,5 +113,17 @@ Result<std::vector<Category>> readMoveCategory(const GqlResponse& response);    
 // The number of manga that were in it. A delete that did nothing (category: null) is a Server error.
 Result<int> readDeleteCategory(const GqlResponse& response);
 Result<std::vector<Category>> readUpdateMangaCategories(const GqlResponse& response);  // the manga's categories now
+// WP-14. At most maxSources (RuntimeProfile::sourcesMax); broken entries are left out.
+Result<std::vector<Source>> readSources(const GqlResponse& response, std::size_t maxSources);
+// The filter tree (core::readFilterList) with the S6 limits. A source that doesn't exist: the server's error.
+Result<std::vector<SourceFilter>> readSourceFilters(const GqlResponse& response, const FilterLimits& limits);
+// The page. A source failure answers fetchSourceManga: null with the source's error, cut to its message ("SNX test
+// failure: search", cleanServerMessage).
+Result<BrowsePage> readBrowseSource(const GqlResponse& response);
+Result<std::vector<Manga>> readLibraryDuplicates(const GqlResponse& response);
+// The manga with inLibrary (from the first part) and its categories now (from the second). Fails unless both answered.
+Result<Manga> readAddToLibrary(const GqlResponse& response);
+Result<Manga> readRemoveFromLibrary(const GqlResponse& response);  // id and inLibrary (false)
+Result<Category> readSetCategoryDefault(const GqlResponse& response);
 
 }  // namespace snx::core::gql

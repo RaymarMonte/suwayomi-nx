@@ -77,6 +77,9 @@ Result<Source> fromJson<Source>(const nlohmann::json& node) {
     source.displayName = json::string(node, "displayName").value_or(source.name);
     source.lang = json::string(node, "lang").value_or("");
     source.iconUrl = json::string(node, "iconUrl").value_or("");
+    source.supportsLatest = json::boolean(node, "supportsLatest").value_or(false);
+    source.isConfigurable = json::boolean(node, "isConfigurable").value_or(false);
+    source.contentWarning = contentWarningFromName(json::string(node, "contentWarning").value_or(""));
     return source;
 }
 
@@ -154,6 +157,7 @@ Result<Manga> fromJson<Manga>(const nlohmann::json& node) {
         manga.lastReadAt = json::int64(*chapter, "lastReadAt").value_or(0);
     }
     manga.inLibraryAt = json::int64(node, "inLibraryAt").value_or(0);
+    manga.initialized = json::boolean(node, "initialized").value_or(true);
     return manga;
 }
 

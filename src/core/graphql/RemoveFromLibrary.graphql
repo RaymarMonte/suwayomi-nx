@@ -1,0 +1,6 @@
+# Takes a manga out of the library (WP-14). Its categories, chapters and reading progress stay on the server.
+mutation RemoveFromLibrary($id: Int!) {
+  updateManga(input: { id: $id, patch: { inLibrary: false } }) {
+    manga { id inLibrary }
+  }
+}

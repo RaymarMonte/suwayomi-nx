@@ -5,6 +5,7 @@
 
 #include "core/models/Manga.hpp"
 #include "core/models/ServerInfo.hpp"
+#include "core/models/Source.hpp"
 
 namespace snx::core {
 
@@ -36,6 +37,28 @@ bool readNumber(std::string_view text, std::size_t& i, int& out) {
 }
 
 }  // namespace
+
+ContentWarning contentWarningFromName(std::string_view name) {
+    if (name == "NSFW") {
+        return ContentWarning::Nsfw;
+    }
+    if (name == "MIXED") {
+        return ContentWarning::Mixed;
+    }
+    return ContentWarning::Safe;
+}
+
+std::string_view contentWarningName(ContentWarning warning) {
+    switch (warning) {
+        case ContentWarning::Nsfw:
+            return "NSFW";
+        case ContentWarning::Mixed:
+            return "MIXED";
+        case ContentWarning::Safe:
+            break;
+    }
+    return "SAFE";
+}
 
 MangaStatus mangaStatusFromName(std::string_view name) {
     for (const auto& [status, text] : kStatusNames) {

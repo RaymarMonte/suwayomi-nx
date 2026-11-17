@@ -3,6 +3,10 @@
 # into the app itself (src/app/CMakeLists.txt).
 add_library(snx_ui_models STATIC
     components/GridLayout.cpp
+    browse/LibraryAdder.cpp
+    browse/SourceBrowseModel.cpp
+    browse/SourceFiltersModel.cpp
+    browse/SourcesModel.cpp
     categories/CategoriesModel.cpp
     categories/CategoryPickerModel.cpp
     library/LibraryModel.cpp

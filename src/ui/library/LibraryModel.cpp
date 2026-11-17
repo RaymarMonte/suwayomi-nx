@@ -327,6 +327,70 @@ void LibraryModel::mangaCategoriesChanged(int mangaId, const std::vector<core::C
     showCurrent();
 }
 
+void LibraryModel::mangaAdded(const core::Manga& manga) {
+    if (categories_.empty()) {
+        return;  // nothing loaded yet: it shows when the library loads
+    }
+    std::set<int> joined;
+    for (const core::Category& c : manga.categories) {
+        if (c.id != core::kDefaultCategoryId) {
+            joined.insert(c.id);
+        }
+    }
+    if (joined.empty()) {
+        joined.insert(core::kDefaultCategoryId);
+        const bool defaultIsTab = std::any_of(categories_.begin(), categories_.end(),
+                                              [](const core::Category& c) { return c.id == core::kDefaultCategoryId; });
+        if (!defaultIsTab) {
+            refresh();  // Default becomes a tab
+            return;
+        }
+    }
+    const int onScreen = shownShelf();
+    const std::size_t focus = rememberedFocus();  // before its shelf goes
+    bool shownForgotten = false;
+    for (auto it = shelves_.begin(); it != shelves_.end();) {
+        // The shelves it joined, and a search (it may match): forgotten, they load again when shown.
+        if (joined.count(it->first) > 0 || it->first == kSearchShelf) {
+            if (it->first == onScreen) {
+                shownForgotten = true;
+            }
+            it = shelves_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    if (!shownForgotten) {
+        return;
+    }
+    cancelRunning();  // a page of it may be on its way
+    shelf(onScreen).focus = focus;  // the one on screen reloads, the focus stays where it was
+    ++revision_;
+    showCurrent();
+}
+
+void LibraryModel::mangaRemoved(int mangaId) {
+    bool shownChanged = false;
+    const int onScreen = shownShelf();
+    for (auto& [id, kept] : shelves_) {
+        if (kept.ids.erase(mangaId) == 0) {
+            continue;
+        }
+        kept.loaded.erase(std::remove_if(kept.loaded.begin(), kept.loaded.end(),
+                                         [mangaId](const core::Manga& m) { return m.id == mangaId; }),
+                          kept.loaded.end());
+        kept.total = std::max(0, kept.total - 1);
+        if (id == onScreen) {
+            shownChanged = true;  // the focus keeps its index: the next manga moves up into it
+        }
+    }
+    if (!shownChanged) {
+        return;
+    }
+    ++revision_;
+    showCurrent();
+}
+
 void LibraryModel::stepCategory(int step) {
     if (categories_.empty()) {
         return;

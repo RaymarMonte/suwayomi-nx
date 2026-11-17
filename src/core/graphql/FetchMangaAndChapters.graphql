@@ -4,7 +4,7 @@
 mutation FetchMangaAndChapters($id: Int!) {
   fetchMangaAndChapters(input: { id: $id, fetchManga: true, fetchChapters: true }) {
     manga {
-      id title thumbnailUrl author artist description genre status inLibrary unreadCount downloadCount
+      id title thumbnailUrl author artist description genre status inLibrary initialized unreadCount downloadCount
       source { id name displayName }
       categories { nodes { id name } }
       firstUnreadChapter { id name chapterNumber sourceOrder lastPageRead pageCount }

@@ -1,0 +1,11 @@
+# One page of a source's list (WP-14): POPULAR, LATEST or SEARCH (a text and / or filters; filters reach the source only
+# with SEARCH and don't stick). A mutation on the server (it makes manga rows), so it is never repeated. Pages start at 1;
+# the Local source ignores the page (every page is all of it). A listed manga is a bare row until its details are fetched
+# (initialized false): the details screen asks the source first.
+mutation BrowseSource($source: LongString!, $type: FetchSourceMangaType!, $page: Int!, $query: String,
+                      $filters: [FilterChangeInput!]) {
+  fetchSourceManga(input: { source: $source, type: $type, page: $page, query: $query, filters: $filters }) {
+    mangas { id title thumbnailUrl inLibrary initialized }
+    hasNextPage
+  }
+}

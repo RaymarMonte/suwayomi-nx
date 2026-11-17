@@ -1,0 +1,7 @@
+# The same-title warning before an add (WP-14, D56): library manga whose title is the given one in any case (what Suwayomi's
+# web UI asks: likeInsensitive, here with `\`, `%` and `_` escaped by gql::libraryDuplicates). A few are enough to show one.
+query LibraryDuplicates($title: String!) {
+  mangas(condition: { inLibrary: true }, filter: { title: { likeInsensitive: $title } }, order: [{ by: ID }], first: 5) {
+    nodes { id title thumbnailUrl source { id name displayName } }
+  }
+}

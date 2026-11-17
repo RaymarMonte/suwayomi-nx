@@ -68,6 +68,12 @@ class LibraryModel {
     // loads again when shown); on screen the manga simply leaves the category (the focus keeps its place). When the
     // manga is now in no category while Default isn't a tab, everything loads again (refresh()), so Default appears.
     void mangaCategoriesChanged(int mangaId, const std::vector<core::Category>& categories);
+    // WP-14 (D56): a manga joined the library (with its categories; none = Default). The shelves it joined (and a search)
+    // are forgotten and load again when shown; the one on screen reloads now, keeping the focus. In no category while
+    // Default isn't a tab: everything loads again (Default appears).
+    void mangaAdded(const core::Manga& manga);
+    // A manga left the library: it leaves every shelf it was on; on screen the focus keeps its index.
+    void mangaRemoved(int mangaId);
 
     State state() const { return state_; }
     const std::vector<core::Category>& categories() const { return categories_; }  // empty until they are known

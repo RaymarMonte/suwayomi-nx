@@ -65,6 +65,15 @@ describe('test source catalogs', () => {
         expect([comet(CATALOG_EN), comet(CATALOG_JA), comet(CATALOG_FR), comet(CATALOG_MATURE)]).toEqual([3, 0, 1, 0]);
     });
 
+    it('gives SNX Mature\'s third manga the title of SNX Test en-14 (WP-14: the same-title warning)', () => {
+        const en14 = CATALOG_EN.manga.find((m) => m.key === 'en-14');
+        expect(en14?.title).toBe('Paper Garden');
+        expect(CATALOG_MATURE.manga[2]).toMatchObject({ key: 'mx-03', title: 'Paper Garden' });
+        // Only these two share a title across the catalogs.
+        const titles = CATALOGS.flatMap((c) => c.manga.map((m) => m.title));
+        expect(titles.filter((t, i) => titles.indexOf(t) !== i)).toEqual(['Paper Garden']);
+    });
+
     it('avoids the Local fixtures\' words in titles', () => {
         const words = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'shelf', 'broken', 'テスト'];
         for (const m of CATALOGS.flatMap((c) => c.manga)) {

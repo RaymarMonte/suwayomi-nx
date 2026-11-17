@@ -4,5 +4,6 @@
 add_executable(snx_integration_tests main.cpp test_suwayomi_client.cpp)
 target_link_libraries(snx_integration_tests PRIVATE snx_core snx_net snx_api snx_image third_party_doctest)
 target_include_directories(snx_integration_tests PRIVATE ${PROJECT_SOURCE_DIR}/tests/unit)  # ApiTestKit.hpp
-target_compile_definitions(snx_integration_tests PRIVATE SNX_FIXTURES_DIR="${PROJECT_SOURCE_DIR}/tests/fixtures")
+target_compile_definitions(snx_integration_tests PRIVATE SNX_FIXTURES_DIR="${PROJECT_SOURCE_DIR}/tests/fixtures"
+    SNX_TEST_SITE_DIR="${PROJECT_SOURCE_DIR}/.test-server/web/site")  # the test source's switch file (WP-14)
 snx_target_defaults(snx_integration_tests)

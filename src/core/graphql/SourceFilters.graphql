@@ -1,0 +1,32 @@
+# A source's filters (WP-14, D56), two levels (a group's filters; a group inside a group isn't read). The union's `default`
+# fields have different types (String, Int, Boolean, TriState, SortSelection), so each is aliased: without the aliases the
+# server refuses the query ("FieldsConflict"). core::readFilterList reads the answer; SortFilter.default may be null.
+query SourceFilters($id: LongString!) {
+  source(id: $id) {
+    id
+    filters {
+      __typename
+      ... on HeaderFilter { name }
+      ... on SeparatorFilter { name }
+      ... on TextFilter { name textDefault: default }
+      ... on SelectFilter { name values selectDefault: default }
+      ... on CheckBoxFilter { name checkDefault: default }
+      ... on TriStateFilter { name triDefault: default }
+      ... on SortFilter { name values sortDefault: default { index ascending } }
+      ... on GroupFilter {
+        name
+        filters {
+          __typename
+          ... on HeaderFilter { name }
+          ... on SeparatorFilter { name }
+          ... on TextFilter { name textDefault: default }
+          ... on SelectFilter { name values selectDefault: default }
+          ... on CheckBoxFilter { name checkDefault: default }
+          ... on TriStateFilter { name triDefault: default }
+          ... on SortFilter { name values sortDefault: default { index ascending } }
+          ... on GroupFilter { name }
+        }
+      }
+    }
+  }
+}
