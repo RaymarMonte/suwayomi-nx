@@ -1,7 +1,7 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
 **Phase 3 – Features. Now:** **WP-14b done** (2026-11-19). **Next: WP-17** (Download on server, **S**; no WP doc yet: an Opus
-planning session writes `docs/wp/WP-17-*.md` first). **New order** (owner, 2026-11-19, D57): WP-17 → 18 → 21 → 16 → 25 → 19;
-nice to have: 08b, 26, last 18b. Done: WP-00a … 13, 13b, 13c, 13d, **14, 14b, 15, 15b, 23, 24**, 22; **v0.2.0** (13…24
+planning session writes `docs/wp/WP-17-*.md` first). **New order** (owner, 2026-11-19, D57): WP-17 → 18 → 18b → 21 → 16 → 25 → 19;
+nice to have: 08b, 26. Done: WP-00a … 13, 13b, 13c, 13d, **14, 14b, 15, 15b, 23, 24**, 22; **v0.2.0** (13…24
 unreleased). WP-13d: the console's longest strip frame is 31–32 ms (limit 34).
 ## Last session (2026-11-19, WP-14b, Opus)
 - **Built:** Search all (`GlobalSearchModel` + `GlobalSearchActivity`: 6 columns = card + 5 covers, 3 sources at a time),

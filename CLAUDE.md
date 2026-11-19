@@ -63,7 +63,7 @@ docs/          plan, architecture, testing, research, decisions, status, work pa
 - Every network or decode task takes a cancellation token, so leaving a screen cancels its work.
 - Never hard-code memory sizes, cache budgets, prefetch counts or concurrency. Read them from `RuntimeProfile`. For now the app runs only in
   application mode (hold R on a game, profile `Full`) and refuses applet mode (Album) with a short message (D21, amends D12). Keep every limit
-  in the profile anyway, so applet support (WP-21, after WP-17 and WP-18, D57) can come back. Device tests run in application mode.
+  in the profile anyway, so applet support (WP-21, after WP-17, WP-18 and WP-18b, D57) can come back. Device tests run in application mode.
 - No GPL code gets copied in (wiliwili, komga-switch are GPL). Apache/MIT code (borealis, switchfin,
   mangadex-reader) may be adapted, with a credit in `CREDITS.md`.
 - Log with the app logger, not printf. In test builds the app also writes events (see `docs/TESTING.md`).
