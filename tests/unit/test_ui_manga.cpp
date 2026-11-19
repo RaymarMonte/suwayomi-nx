@@ -55,7 +55,7 @@ nlohmann::json chapterJson(const Chapter& c) {
             {"name", c.name},       {"chapterNumber", c.chapterNumber},
             {"sourceOrder", c.sourceOrder}, {"uploadDate", std::to_string(c.uploadDate)},
             {"scanlator", nullptr}, {"isRead", c.isRead},
-            {"isBookmarked", c.isBookmarked}, {"isDownloaded", false},
+            {"isBookmarked", c.isBookmarked}, {"isDownloaded", c.isDownloaded},
             {"lastPageRead", c.lastPageRead}, {"pageCount", c.pageCount},
             {"lastReadAt", std::to_string(c.lastReadAt)}};
 }
@@ -377,6 +377,29 @@ TEST_CASE("manga: details and all 300 chapters, a page of 100 at a time; newest 
 
     model->start();  // only once
     CHECK(h.http.releaseAll() == 0);
+}
+
+TEST_CASE("manga: Downloaded on server lists isDownloaded chapters; a delete's answer changes them in place (WP-17)") {
+    Harness h(6);
+    h.server.chapters[1].isDownloaded = true;  // chapter 2
+    h.server.chapters[3].isDownloaded = true;  // chapter 4
+    auto model = h.model();
+    model->start();
+    REQUIRE(model->state() == State::Ready);
+    CHECK(ui::chapterFilterName(ChapterFilter::DownloadedOnServer) == "downloaded_on_server");
+    model->setSort(ChapterSort::OldestFirst);
+    model->setFilter(ChapterFilter::DownloadedOnServer);
+    CHECK(sourceOrders(model->items()) == std::vector<int>{2, 4});
+    const auto revision = model->listRevision();
+    core::Chapter deleted;
+    deleted.id = model->items()[0].id;  // chapter 2's download deleted on the server
+    deleted.isDownloaded = false;
+    model->applyDownloaded({deleted});
+    CHECK(sourceOrders(model->items()) == std::vector<int>{4});
+    CHECK(model->listRevision() > revision);  // it left the filter
+    model->applyDownloaded({deleted});        // nothing new: no change
+    CHECK(sourceOrders(model->items()) == std::vector<int>{4});
+    CHECK(h.asked("Chapters") == 1);  // all on the console
 }
 
 TEST_CASE("manga: sort and filter on the console; the focus follows its chapter") {

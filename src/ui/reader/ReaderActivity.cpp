@@ -128,7 +128,17 @@ void progressSaved(const core::ReadProgress& progress, bool ok) {
     app::testhooks::write("progress", fields);
 }
 
-ReaderOptions optionsFor(app::AppContext& context) {
+// WP-17: every save goes to the test event; one that saved a chapter read is noted for "Delete server downloads after reading".
+std::function<void(const core::ReadProgress&, bool)> savedInto(std::shared_ptr<std::set<int>> finished) {
+    return [finished](const core::ReadProgress& progress, bool ok) {
+        progressSaved(progress, ok);
+        if (ok && progress.isRead) {
+            finished->insert(progress.chapterId);
+        }
+    };
+}
+
+ReaderOptions optionsFor(app::AppContext& context, std::shared_ptr<std::set<int>> finished) {
     ReaderOptions options = readerOptionsFrom(context.profile, context.config.config().reader);
     const int width = static_cast<int>(brls::Application::windowWidth);
     const int height = static_cast<int>(brls::Application::windowHeight);
@@ -136,7 +146,7 @@ ReaderOptions optionsFor(app::AppContext& context) {
         options.screen = {width, height};  // real pixels: 1280 x 720 handheld, 1920 x 1080 docked
     }
     options.clock = app::appClockMs;
-    options.onSaved = progressSaved;
+    options.onSaved = savedInto(std::move(finished));
     options.queue = &context.saves;  // a save that fails as the reader closes waits there (WP-15b)
     return options;
 }
@@ -183,7 +193,7 @@ ReaderActivity::ReaderActivity(app::AppContext& context, core::Manga manga, std:
     : context_(context),
       chapters_(std::move(chapters)),
       model_(context.client, context.images, manga, chapters_,
-             core::readerSettingsFor(context.config.config().reader, manga.id), optionsFor(context)),
+             core::readerSettingsFor(context.config.config().reader, manga.id), optionsFor(context, finished_)),
       startChapter_(chapterId),
       startPage_(page),
       onClosed_(std::move(onClosed)),
@@ -914,12 +924,50 @@ void ReaderActivity::close() {
     }
     closing_ = true;
     platform::keepScreenOn(false);
+    std::function<void()> done = afterClosing();
     if (strip_) {
-        strip_->close(onClosed_);  // the parked page reader saved its part when it parked
+        strip_->close(std::move(done));  // the parked page reader saved its part when it parked
     } else {
-        model_.close(onClosed_);  // the details screen reloads its chapters once the progress is saved
+        model_.close(std::move(done));  // the details screen reloads its chapters once the progress is saved
     }
     brls::Application::popActivity();
+}
+
+std::function<void()> ReaderActivity::afterClosing() {
+    // WP-17 (D58), "Delete server downloads after reading": the chapters that were unread when the reader opened, are
+    // downloaded on the server and not bookmarked (as the server answered last: the opened chapter's own answer wins over
+    // the details screen's list) count; which of them the reader saved as read is known once every save has ended.
+    std::set<int> candidates;
+    for (const core::Chapter& listed : chapters_) {
+        core::Chapter latest = listed;
+        if (strip_) {
+            if (const core::Chapter* known = strip_->chapterById(listed.id)) {
+                latest = *known;
+            }
+        } else if (model_.chapter().id == listed.id) {
+            latest = model_.chapter();
+        }
+        if (!listed.isRead && latest.isDownloaded && !latest.isBookmarked) {
+            candidates.insert(listed.id);
+        }
+    }
+    // No `this`: it runs after this screen is gone. The context outlives every screen.
+    return [onClosed = onClosed_, finished = finished_, candidates, &context = context_] {
+        if (onClosed) {
+            onClosed();
+        }
+        if (!context.config.config().serverDownloads.deleteAfterReading) {
+            return;
+        }
+        std::vector<int> ids;
+        for (int id : *finished) {
+            if (candidates.count(id) > 0) {
+                ids.push_back(id);
+            }
+        }
+        // One request at Background priority, never repeated; a failure is only logged (the download stays).
+        context.downloads.deleteDownloads(ids, ServerDownloads::Action::DeleteAfterReading, net::Priority::Background);
+    };
 }
 
 void ReaderActivity::openSettings() {
@@ -1223,7 +1271,7 @@ void ReaderActivity::startStrip(int chapterId, int page, StripModel::Open how, c
     StripOptions options = stripOptionsFrom(context_.profile, reader);
     options.width = stripWidth_;
     options.clock = app::appClockMs;
-    options.onSaved = progressSaved;
+    options.onSaved = savedInto(finished_);
     options.queue = &context_.saves;  // the same waiting-save queue (WP-15b)
     strip_ = std::make_unique<StripModel>(context_.client, context_.images, model_.manga(), chapters_, options);
     canvas_ = std::make_unique<StripCanvas>(*strip_, context_.textures, context_.profile.webtoonTilesAround);
