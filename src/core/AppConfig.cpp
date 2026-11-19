@@ -418,6 +418,19 @@ ConfigLoad loadAppConfig(std::string_view text, const JsonLimits& limits, const 
     ServerDownloadSettings& serverDownloads = load.config.serverDownloads;
     SectionReader d(root, "serverDownloads", problems);
     d.flag("deleteAfterReading", serverDownloads.deleteAfterReading);
+
+    SwitchDownloadSettings& switchDownloads = load.config.switchDownloads;
+    SectionReader sw(root, "switchDownloads", problems);
+    sw.flag("deleteAfterReading", switchDownloads.deleteAfterReading);
+    {
+        int limit = -1;  // missing: not chosen
+        sw.number("limitGb", limit);
+        if (std::find(kSwitchLimitChoicesGb.begin(), kSwitchLimitChoicesGb.end(), limit) != kSwitchLimitChoicesGb.end()) {
+            switchDownloads.limitGb = limit;
+        } else if (limit != -1) {
+            problems.push_back("config: switchDownloads.limitGb " + std::to_string(limit) + " is not a choice, ignored");
+        }
+    }
     return load;
 }
 
@@ -475,6 +488,12 @@ std::string saveAppConfig(const AppConfig& config) {
     root["serverDownloads"] = {
         {"deleteAfterReading", config.serverDownloads.deleteAfterReading},
     };
+    root["switchDownloads"] = {
+        {"deleteAfterReading", config.switchDownloads.deleteAfterReading},
+    };
+    if (config.switchDownloads.limitGb) {
+        root["switchDownloads"]["limitGb"] = *config.switchDownloads.limitGb;  // only once chosen
+    }
     return root.dump(2, ' ', false, nlohmann::ordered_json::error_handler_t::replace) + "\n";
 }
 

@@ -135,7 +135,8 @@ TEST_SUITE("core") {
         for (int order = 30; order >= 1; --order) {
             chapters.push_back(chapter(1000 + order, order, order <= 2, order == 3));
         }
-        const std::vector<int> queued = {1004};
+        const std::set<int> queued = serverSkipIds(chapters, {1004});
+        CHECK(queued == std::set<int>{1003, 1004});  // downloaded on the server, queued there
         CHECK(chaptersToDownload(chapters, DownloadChoice::Next1, queued) == std::vector<int>{1005});
         const std::vector<int> next5 = chaptersToDownload(chapters, DownloadChoice::Next5, queued);
         CHECK(next5 == std::vector<int>{1005, 1006, 1007, 1008, 1009});
@@ -145,8 +146,9 @@ TEST_SUITE("core") {
         CHECK(all.size() == 28);
         CHECK(all.front() == 1001);  // read ones too
         std::vector<Chapter> done = {chapter(1, 1, true), chapter(2, 2, false, true)};
-        CHECK(chaptersToDownload(done, DownloadChoice::Unread, {}).empty());
-        CHECK(chaptersToDownload(done, DownloadChoice::All, {}) == std::vector<int>{1});
+        CHECK(chaptersToDownload(done, DownloadChoice::Unread, serverSkipIds(done, {})).empty());
+        CHECK(chaptersToDownload(done, DownloadChoice::All, serverSkipIds(done, {})) == std::vector<int>{1});
+        CHECK(chaptersToDownload(done, DownloadChoice::All, {}) == std::vector<int>{1, 2});  // WP-18 skips its own set
     }
 
     TEST_CASE("server downloads: ids go in batches, and rows that left are found") {

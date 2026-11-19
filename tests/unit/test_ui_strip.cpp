@@ -7,7 +7,9 @@
 // The client answers inside the call (no deliver); the loader's answers come through MainQueue (the test plays the main thread).
 #include <doctest/doctest.h>
 
+#include <functional>
 #include <map>
+#include <optional>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <set>
@@ -15,6 +17,7 @@
 #include <vector>
 
 #include "ApiTestKit.hpp"
+#include "SdCard.hpp"
 #include "Fixtures.hpp"
 #include "MainQueue.hpp"
 #include "api/SuwayomiClient.hpp"
@@ -22,6 +25,8 @@
 #include "core/StripMath.hpp"
 #include "image/ImageLoader.hpp"
 #include "net/FakeHttpClient.hpp"
+#include "platform/SafeFs.hpp"
+#include "ui/reader/ChapterPages.hpp"
 #include "ui/reader/StripModel.hpp"
 
 using namespace snx;
@@ -50,6 +55,7 @@ struct FakeServer {
     std::vector<FakeChapter> chapters{{101, 1, 10, false, 0, {}}, {102, 2, 2, false, 0, {}}, {103, 3, 2, false, 0, {}}, {104, 4, 2, false, 0, {}}};
     std::set<std::string> brokenPages;  // "<sourceOrder>/<page>": a corrupt JPEG
     std::set<std::string> tallPages;    // "<sourceOrder>/<page>": Gamma's tall strip
+    bool failState = false;  // WP-18: ChapterState fails
     std::set<int> failLists;            // chapter ids whose page list fails
     std::vector<nlohmann::json> progress;  // every progress patch, with "id" (and "spot" for UpdateStripProgress)
     std::string image = readFixture("images/alpha-p1.jpg");
@@ -118,6 +124,15 @@ struct FakeServer {
             progress.push_back(patch);
             return FakeHttpClient::answer(200, nlohmann::json{{"data", data}}.dump());
         }
+        if (operation == "ChapterState") {
+            FakeChapter* c = find(vars["id"].get<int>());
+            if (failState || c == nullptr) {
+                return FakeHttpClient::answer(500, "oops");
+            }
+            return FakeHttpClient::answer(200, nlohmann::json{{"data", {{"chapter", {
+                {"id", c->id}, {"lastPageRead", c->lastPageRead}, {"isRead", c->isRead}, {"lastReadAt", 0},
+                {"isBookmarked", false}, {"isDownloaded", false}, {"meta", nlohmann::json::array()}}}}}}.dump());
+        }
         return FakeHttpClient::answer(404);
     }
 };
@@ -131,6 +146,7 @@ struct Harness {
     std::int64_t now = 1000;
     int changes = 0;
     std::vector<std::pair<core::ReadProgress, bool>> saved;  // onSaved
+    ui::PageSource pages;  // WP-18: the models made from now on read these chapters' files
 
     Harness() {
         http.setHandler([this](const Request& request) { return server.answer(request); });
@@ -141,6 +157,16 @@ struct Harness {
             core::makeRuntimeProfile(core::LaunchMode::Application, 4 * core::kGiB, 100 * core::kMiB);
         image::LoaderOptions options = image::loaderOptionsFrom(profile);
         options.deliver = main.deliver();
+        images = std::make_unique<image::ImageLoader>(http, options);
+    }
+
+    // WP-18: the loader reads downloaded pages from `fs` (a new loader; call it before making a model).
+    void useFiles(const platform::SafeFs& fs) {
+        const core::RuntimeProfile profile =
+            core::makeRuntimeProfile(core::LaunchMode::Application, 4 * core::kGiB, 100 * core::kMiB);
+        image::LoaderOptions options = image::loaderOptionsFrom(profile);
+        options.deliver = main.deliver();
+        options.files = &fs;
         images = std::make_unique<image::ImageLoader>(http, options);
     }
 
@@ -171,6 +197,7 @@ struct Harness {
         options.zoomPages = zoomPages;
         options.clock = [this] { return now; };
         options.onSaved = [this](const core::ReadProgress& p, bool ok) { saved.emplace_back(p, ok); };
+        options.pages = pages;
         auto made = std::make_unique<StripModel>(*client, *images, manga, chapters(), options);
         made->setListener([this] { ++changes; });
         return made;
@@ -573,4 +600,43 @@ TEST_CASE("strip: zoomed, at most zoomPages pages, none whose own decode has all
     CHECK(layout.viewHeight() == doctest::Approx(1280));
 }
 
-}  // TEST_SUITE
+
+// --- WP-18: chapters downloaded to the Switch ---
+
+TEST_CASE("strip: a chapter on the Switch opens from its files, the chapter it joins too; a damaged page says so") {
+    Harness h;
+    SdCard sd;
+    const platform::SafeFs fs(sd.root);
+    h.useFiles(fs);
+    const std::vector<std::string> first = writeDownloadedChapter(fs, kMangaId, 101, 10);
+    const std::vector<std::string> second = writeDownloadedChapter(fs, kMangaId, 102, 2, {1});
+    std::vector<std::pair<int, int>> damaged;
+    h.pages.files = [&](int id) -> std::optional<std::vector<std::string>> {
+        if (id == 101) {
+            return first;
+        }
+        if (id == 102) {
+            return second;
+        }
+        return std::nullopt;
+    };
+    h.pages.onDamaged = [&damaged](int chapterId, int page) { damaged.emplace_back(chapterId, page); };
+    auto model = h.model();
+    model->open(102, 0);
+    REQUIRE(h.settle(*model));
+    CHECK(model->state() == State::Ready);
+    CHECK(h.imageRequests(2).empty());
+    CHECK(h.imageRequests(1).empty());
+    CHECK(h.asked("ChapterState") >= 1);
+    // Only chapter 103 (not on the Switch) may have asked for a page list.
+    for (const Request& r : h.http.requests()) {
+        if (operationOf(r) == "FetchChapterPages") {
+            CHECK(variablesOf(r)["chapterId"].get<int>() == 103);
+        }
+    }
+    CHECK(pagesIn(*model, 102, PageState::Failed) == std::set<int>{1});
+    REQUIRE(damaged.size() == 1);
+    CHECK(damaged[0] == std::make_pair(102, 1));
+}
+
+}

@@ -1,0 +1,6 @@
+{"version": 1, "paused": true,
+"entries": [
+{"mangaId":12,"manga":"Alpha","thumbnailUrl":"/api/v1/manga/12/thumbnail","chapter":{"id":580,"name":"Chapter 3","chapterNumber":3,"sourceOrder":3,"scanlator":"","uploadDate":0},"failed":false,"failedPage":-1,"pageCount":0,"error":""},
+{"mangaId":158,"manga":"Comet Courier","thumbnailUrl":"","chapter":{"id":600,"name":"Chapter 1","chapterNumber":1,"sourceOrder":1},"failed":true,"failedPage":1,"pageCount":6,"error":"the server answered HTTP 500"},
+{"mangaId":0,"chapter":{"id":1}}
+]}

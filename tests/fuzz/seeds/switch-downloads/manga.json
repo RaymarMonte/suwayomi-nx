@@ -1,0 +1,7 @@
+{"version": 1,
+"manga": {"id":12,"title":"Alpha","author":"A. Author","artist":"","description":"Two lines\nof text","genres":["Action","Drama"],"status":"ONGOING","sourceId":"0","sourceName":"Local source","thumbnailUrl":"/api/v1/manga/12/thumbnail","coverBytes":16234},
+"chapters": [
+{"id":578,"name":"Chapter 1","chapterNumber":1,"sourceOrder":1,"scanlator":"","uploadDate":1767312180000,"formats":"jjjjjjjjjj","bytes":612345,"downloadedAt":1794534794},
+{"id":579,"name":"Chapter 2","chapterNumber":2.5,"sourceOrder":2,"scanlator":"Team","uploadDate":0,"formats":"jw-p","bytes":2000,"downloadedAt":1794534800,"damaged":[1]},
+{"id":0,"name":"broken"}
+]}

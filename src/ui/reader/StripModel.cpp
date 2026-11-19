@@ -176,6 +176,16 @@ StripBand StripModel::band(int item) const {
     return band;
 }
 
+core::Chapter StripModel::listed(int chapterId) const {
+    if (const core::Chapter* known = chapterById(chapterId)) {
+        return *known;
+    }
+    core::Chapter chapter;
+    chapter.id = chapterId;
+    chapter.mangaId = manga_.id;
+    return chapter;
+}
+
 const core::Chapter* StripModel::chapterById(int id) const {
     if (const Part* part = partOf(id)) {
         return &part->chapter;
@@ -349,7 +359,7 @@ void StripModel::load(int chapterId, int page, Open how) {
     error_ = api::ApiError{};
     listCancel_ = net::CancelToken();
     const net::CancelToken token = listCancel_;
-    client_.pages(chapterId, options_.format, token)
+    openChapterPages(client_, options_.pages, listed(chapterId), options_.format, token, net::Priority::Interactive)
         .then([this, token, page, how](const api::ApiResult<core::PageList>& result) {
             if (token.cancelled()) {
                 return;
@@ -375,7 +385,10 @@ StripModel::Part StripModel::makePart(int chapterId, const core::PageList& list)
     part.chapter.lastReadAt = list.chapter.lastReadAt;  // the base of a save that fails later (WP-15b)
     part.slots.resize(list.pages.size());
     for (std::size_t i = 0; i < list.pages.size(); ++i) {
-        if (!list.pages[i].empty()) {
+        if (isDownloadedPage(list.pages[i])) {
+            part.slots[i].url = list.pages[i];  // the loader's name for the file (image::loadId)
+            part.slots[i].file = downloadedPagePath(list.pages[i]);
+        } else if (!list.pages[i].empty()) {
             part.slots[i].url = client_.absoluteUrl(list.pages[i]);
         }
     }
@@ -587,7 +600,9 @@ void StripModel::startLoad(Part& part, int index, net::Priority priority) {
     slot.page.state = ReaderPage::State::Loading;
     const net::CancelToken token = slot.cancel;
     const int chapterId = part.chapter.id;
-    images_.load(image::LoadRequest{slot.url, box, priority, image::ImageKind::Page}, token,
+    images_.load(image::LoadRequest{slot.file.empty() ? slot.url : std::string(), box, priority, image::ImageKind::Page,
+                                    slot.file},
+                 token,
                  [this, token, chapterId, index](const image::ImageResult& result) {
                      if (token.cancelled()) {
                          return;  // left the window, or the model is gone
@@ -638,6 +653,13 @@ void StripModel::onLoaded(int chapterId, int index, const image::ImageResult& re
         } else {
             slot.page.state = ReaderPage::State::Failed;
             slot.page.error = result.error();
+            if (!slot.file.empty() && isDamagedPageError(slot.page.error)) {
+                // WP-18: no silent fall-back to the server; the chapter shows "damaged" and Retry download fetches it.
+                slot.page.error.message = kDamagedPageMessage;
+                if (options_.pages.onDamaged) {
+                    options_.pages.onDamaged(chapterId, index);
+                }
+            }
             refreshHeight(*part, index);
         }
     }
@@ -751,7 +773,7 @@ void StripModel::requestEdge(bool below) {
     edge.chapterId = chapterId;
     edge.loading = true;
     const net::CancelToken token = edge.cancel;
-    client_.pages(chapterId, options_.format, token, net::Priority::Prefetch)
+    openChapterPages(client_, options_.pages, listed(chapterId), options_.format, token, net::Priority::Prefetch)
         .then([this, token, below, chapterId](const api::ApiResult<core::PageList>& result) {
             if (token.cancelled()) {
                 return;
@@ -994,7 +1016,9 @@ void StripModel::requestSharp(Part& part, int index, core::ImageSize box) {
     slot.sharpLoading = true;
     const net::CancelToken token = slot.sharpCancel;
     const int chapterId = part.chapter.id;
-    images_.load(image::LoadRequest{slot.url, box, net::Priority::Reader, image::ImageKind::Page}, token,
+    images_.load(image::LoadRequest{slot.file.empty() ? slot.url : std::string(), box, net::Priority::Reader,
+                                    image::ImageKind::Page, slot.file},
+                 token,
                  [this, token, chapterId, index, box](const image::ImageResult& result) {
                      if (token.cancelled()) {
                          return;  // left the screen, zoomed again, or the model is gone

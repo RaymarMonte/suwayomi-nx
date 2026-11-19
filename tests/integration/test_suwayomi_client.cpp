@@ -244,7 +244,7 @@ TEST_CASE("image loader (WP-07): real pages through the login, decoded and tiled
     const auto load = [&](const std::string& url, snx::core::ImageSize box) {
         auto done = std::make_shared<std::promise<snx::image::ImageResult>>();
         auto answer = done->get_future();
-        loader.load(snx::image::LoadRequest{url, box, snx::net::Priority::Interactive, snx::image::ImageKind::Page},
+        loader.load(snx::image::LoadRequest{url, box, snx::net::Priority::Interactive, snx::image::ImageKind::Page, {}},
                     CancelToken(), [done](const snx::image::ImageResult& result) { done->set_value(result); });
         REQUIRE(answer.wait_for(60s) == std::future_status::ready);
         return answer.get();

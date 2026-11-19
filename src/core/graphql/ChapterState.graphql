@@ -1,7 +1,9 @@
 # What the server has for one chapter's reading progress now (WP-15b): the waiting-save queue compares it with a save that
 # failed as the reader closed (core/ProgressQueue.hpp). A chapter that is gone answers an error and no data.
+# WP-18: a chapter read from the Switch's SD card opens with this instead of fetchChapterPages (no source call), so it also
+# asks the two flags the "delete after reading" rules need.
 query ChapterState($id: Int!) {
   chapter(id: $id) {
-    id lastPageRead isRead lastReadAt meta { key value }
+    id lastPageRead isRead lastReadAt isBookmarked isDownloaded meta { key value }
   }
 }

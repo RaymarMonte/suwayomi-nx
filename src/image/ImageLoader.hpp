@@ -38,7 +38,14 @@ struct LoadRequest {
     core::ImageSize box; // fit inside this; a side of 0 = no limit that way (a webtoon strip: {width, 0})
     net::Priority priority = net::Priority::Interactive;
     ImageKind kind = ImageKind::Page;
+    // WP-18: a file in the app's folder instead of a URL ("downloads/<key>/m12/c578/0003.jpg", a page or cover downloaded
+    // to the Switch). Read on the disk thread through LoaderOptions::files (at most maxImageBytes), then sniffed,
+    // header-checked and decoded like a download; never put in the disk cache, never fetched. `url` is ignored then.
+    std::string file;
 };
+// The name a load is known by: in the memory cache (cached()), for shared loads and in the "image" event's url. The URL,
+// or "file:" + the file.
+std::string loadId(const LoadRequest& request);
 
 using ImageResult = ImageResultOf<ImagePtr>;
 using LoadCallback = std::function<void(const ImageResult&)>;
@@ -68,6 +75,9 @@ struct LoaderOptions {
     // The disk cache: the app's SafeFs (must outlive the loader), or nullptr for none.
     const platform::SafeFs* fs = nullptr;
     DiskCacheOptions disk;
+    // Where LoadRequest::file is read from: the app's SafeFs (always, also when the disk cache is off), or nullptr (a file
+    // load then fails Corrupt).
+    const platform::SafeFs* files = nullptr;
     // The allocator's in-use bytes and the total (platform::runtimeInfo()); empty = no memory-pressure guard, no memUsed.
     std::function<std::optional<core::MemorySample>()> memory;
     // Short log lines (the app passes its logger). May be empty.
@@ -120,12 +130,13 @@ class ImageLoader {
         LoadCallback done;
     };
     struct Job {
-        std::string url;
+        std::string url;   // loadId(): the URL, or "file:" + file
+        std::string file;  // a file load (WP-18), else empty
         net::Priority priority;
         net::CancelToken cancel;  // the job's own: fired when every waiter has cancelled
         std::vector<Waiter> waiters;
         bool authRetried = false;
-        std::string source;  // "disk" or "net"
+        std::string source;  // "disk", "net" or "download" (a file load)
         std::int64_t startMs = 0;
         std::int64_t fetchMs = 0;
     };
@@ -138,6 +149,7 @@ class ImageLoader {
     void deliverTo(const Waiter& waiter, const ImageResult& result);
     void startJob(const JobPtr& job);
     void readDisk(const JobPtr& job);
+    void readFile(const JobPtr& job);
     void fetch(const JobPtr& job);
     void onFetched(const JobPtr& job, const net::HttpResult& result);
     void decodeJob(const JobPtr& job, std::shared_ptr<const std::string> bytes);

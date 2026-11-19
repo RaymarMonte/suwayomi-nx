@@ -17,6 +17,7 @@
 #include "core/models/PageList.hpp"
 #include "image/ImageLoader.hpp"
 #include "net/CancelToken.hpp"
+#include "ui/reader/ChapterPages.hpp"
 #include "ui/reader/ProgressSaver.hpp"
 
 // The paged reader's state (WP-11): the opened chapter's pages, the position (a page, or the "previous chapter" and "next
@@ -41,6 +42,7 @@ struct ReaderOptions {
     float maxDecodeScale = 2.0f;        // RuntimeProfile::maxDecodeScale: the zoomed decode's cap (core::zoomDecodeBox)
     core::SpreadSplit spreadSplit = core::SpreadSplit::Portrait;  // ReaderSettings::splitSpreads (WP-13c)
     api::PageFormat format = api::PageFormat::AsStored;  // ReaderSettings::serverConvertsToJpeg
+    PageSource pages;  // WP-18: chapters downloaded to the Switch open from their files (ChapterPages.hpp)
     // Milliseconds on a steady clock, for the progress timing (the app: appClockMs). Required.
     std::function<std::int64_t()> clock;
     // Called after every progress save, ok or not, on the client's deliver thread, also after the model is gone (the save
@@ -175,7 +177,8 @@ class ReaderModel {
   private:
     struct Slot {
         ReaderPage page;
-        std::string url;  // full URL; empty: the server listed this page in a form we can't use
+        std::string url;  // full URL, or "file:" + file; empty: the server listed this page in a form we can't use
+        std::string file;  // WP-18: the page's file on the SD card (a downloaded chapter), else empty
         net::CancelToken cancel;
         bool spread = false;  // known once decoded (WP-13c); kept when the page is let go, so it loads at its box at once
     };

@@ -962,7 +962,8 @@ void MangaActivity::openDownloadMenu() {
         const core::DownloadChoice choice = kDownloadChoices[selected];
         brls::sync([this, choice] {
             const std::vector<int> ids =
-                core::chaptersToDownload(model_.chapters(), choice, context_.downloads.queuedIds());
+                core::chaptersToDownload(model_.chapters(), choice,
+                                         core::serverSkipIds(model_.chapters(), context_.downloads.queuedIds()));
             if (ids.empty()) {
                 brls::Application::notify("manga/download_nothing"_i18n);
                 return;

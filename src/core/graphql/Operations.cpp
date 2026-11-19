@@ -494,6 +494,8 @@ Result<ServerProgress> readChapterState(const GqlResponse& response) {
     state.read = chapter.value().isRead;
     state.lastReadAt = chapter.value().lastReadAt;
     state.spotNote = chapter.value().stripSpotNote;
+    state.bookmarked = chapter.value().isBookmarked;
+    state.downloaded = chapter.value().isDownloaded;
     return state;
 }
 

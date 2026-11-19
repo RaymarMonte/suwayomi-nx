@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -67,6 +68,10 @@ struct TestConfig {
     // "maxDecodeScale": 1..4 (WP-13c): the app decodes up to this many times the screen instead of the profile's value, for
     // the console measurement that chose RuntimeProfile::maxDecodeScale. 0 = not given (the profile's).
     float maxDecodeScale = 0;
+    // WP-18: "switchDownloadLimitBytes": the Switch downloads' space limit instead of Settings' (a small one fills up in a
+    // test); "sdFreeBytes": the SD card's free space as the downloads see it (the "nearly full" pause). Nothing = not given.
+    std::optional<std::uint64_t> switchDownloadLimitBytes;
+    std::optional<std::uint64_t> sdFreeBytes;
     std::vector<std::string> problems;  // what couldn't be understood, in plain words (logged, otherwise ignored)
 };
 

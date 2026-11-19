@@ -58,6 +58,7 @@ RuntimeProfile makeRuntimeProfile(LaunchMode mode, std::uint64_t totalMem, std::
         p.maxHistoryRows = 250;
         p.browseMaxItems = 500;
         p.globalSearchConcurrency = 1;
+        p.switchDownloadPagesAtOnce = 1;  // WP-21 settles Lite's downloads
         p.httpConcurrency = 2;
         p.decodeThreads = 1;
         p.heavyUiEffects = false;
@@ -80,6 +81,7 @@ RuntimeProfile makeRuntimeProfile(LaunchMode mode, std::uint64_t totalMem, std::
         p.stripScreensBehind = 0;
         p.stripScreensAhead = 1;
         p.stripZoomPages = 1;
+        p.switchDownloadPagesAtOnce = 1;
     }
     return p;
 }

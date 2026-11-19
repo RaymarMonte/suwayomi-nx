@@ -106,7 +106,7 @@ struct Answer {
 
 image::LoadRequest page(const std::string& url, core::ImageSize box = {1280, 720},
                         net::Priority priority = net::Priority::Interactive) {
-    return image::LoadRequest{url, box, priority, image::ImageKind::Page};
+    return image::LoadRequest{url, box, priority, image::ImageKind::Page, {}};
 }
 
 }  // namespace
@@ -476,7 +476,7 @@ TEST_SUITE("image") {
         {
             image::ImageLoader loader(http, options);
             Answer cover;
-            loader.load(image::LoadRequest{"http://s/alpha.jpg", {300, 450}, net::Priority::Interactive, image::ImageKind::Cover},
+            loader.load(image::LoadRequest{"http://s/alpha.jpg", {300, 450}, net::Priority::Interactive, image::ImageKind::Cover, {}},
                         net::CancelToken(), cover.callback());
             REQUIRE(main.runUntil([&] { return cover.result.has_value(); }));
             REQUIRE(cover.result->ok());
@@ -505,5 +505,61 @@ TEST_SUITE("image") {
         REQUIRE(main.runUntil([&] { return broken.result.has_value(); }));
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         CHECK(restarted.diskCache()->count() == 1);
+    }
+
+    TEST_CASE("ImageLoader: a file in the app's folder loads like a download, never from the network or into the disk cache") {
+        TempRoot tmp;
+        const platform::SafeFs fs(tmp.root);
+        REQUIRE(fs.makeDirs("downloads/k/m1/c2"));
+        REQUIRE(fs.writeAtomic("downloads/k/m1/c2/0000.jpg", readFixture("images/alpha-p1.jpg")));
+        const std::string jpeg = readFixture("images/alpha-p1.jpg");
+        REQUIRE(fs.writeAtomic("downloads/k/m1/c2/0001.jpg", jpeg.substr(0, jpeg.size() / 3)));  // cut short
+        REQUIRE(fs.writeAtomic("downloads/k/m1/c2/0002.jpg", ""));
+        net::FakeHttpClient http;
+        serveFixtures(http);
+        MainQueue main;
+        image::LoaderOptions options = testOptions(main);
+        options.fs = &fs;  // the disk cache is on: a file load must not go into it
+        options.files = &fs;
+        options.disk.freeBytes = [] { return std::optional<std::uint64_t>(100 * core::kGiB); };
+        options.maxImageBytes = jpeg.size() + 10;
+        image::ImageLoader loader(http, options);
+        Events events;
+        events.watch(loader);
+        auto fileLoad = [&](const std::string& file, image::ImageKind kind = image::ImageKind::Page) {
+            image::LoadRequest request{"", {1280, 720}, net::Priority::Reader, kind, file};
+            Answer answer;
+            loader.load(request, net::CancelToken(), answer.callback());
+            REQUIRE(main.runUntil([&] { return answer.result.has_value(); }));
+            return *answer.result;
+        };
+        const image::ImageResult good = fileLoad("downloads/k/m1/c2/0000.jpg");
+        REQUIRE(good.ok());
+        CHECK(good.value()->sourceSize().width > 0);
+        REQUIRE(events.all().size() == 1);
+        CHECK(events.all()[0].source == "download");
+        CHECK(events.all()[0].url == "file:downloads/k/m1/c2/0000.jpg");
+        const image::LoadRequest same{"", {1280, 720}, net::Priority::Reader, image::ImageKind::Page, "downloads/k/m1/c2/0000.jpg"};
+        CHECK(loader.cached(image::loadId(same), {1280, 720}, image::ImageKind::Page) != nullptr);  // the memory cache by file
+
+        const image::ImageResult cut = fileLoad("downloads/k/m1/c2/0001.jpg");
+        REQUIRE_FALSE(cut.ok());
+        CHECK(cut.error().kind == image::ImageErrorKind::Corrupt);
+        const image::ImageResult empty = fileLoad("downloads/k/m1/c2/0002.jpg");
+        REQUIRE_FALSE(empty.ok());
+        CHECK(empty.error().kind == image::ImageErrorKind::Corrupt);
+        const image::ImageResult missing = fileLoad("downloads/k/m1/c2/0009.jpg");
+        REQUIRE_FALSE(missing.ok());
+        CHECK(missing.error().kind == image::ImageErrorKind::Corrupt);
+        REQUIRE(fs.writeAtomic("downloads/k/m1/c2/0003.jpg", jpeg + std::string(100, 'x')));
+        const image::ImageResult big = fileLoad("downloads/k/m1/c2/0003.jpg");
+        REQUIRE_FALSE(big.ok());
+        CHECK(big.error().kind == image::ImageErrorKind::TooLarge);
+        const image::ImageResult cover = fileLoad("downloads/k/m1/c2/0000.jpg", image::ImageKind::Cover);
+        CHECK(cover.ok());
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        CHECK(http.requests().empty());
+        CHECK(loader.diskCache()->count() == 0);
     }
 }

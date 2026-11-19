@@ -184,6 +184,18 @@ TestConfig parse(std::string_view json) {
             config.problems.push_back("test config: \"maxDecodeScale\" must be a number from 1 to 4");
         }
     }
+    // WP-18: the Switch downloads' space limit and a fake free space on the SD card, both in bytes.
+    const auto bytesField = [&](const char* key, std::optional<std::uint64_t>& out) {
+        if (const auto value = root.find(key); value != root.end()) {
+            if (value->is_number_unsigned() || (value->is_number_integer() && value->get<std::int64_t>() >= 0)) {
+                out = value->get<std::uint64_t>();
+            } else {
+                config.problems.push_back(std::string("test config: \"") + key + "\" must be a whole number of bytes");
+            }
+        }
+    };
+    bytesField("switchDownloadLimitBytes", config.switchDownloadLimitBytes);
+    bytesField("sdFreeBytes", config.sdFreeBytes);
     if (const auto bench = root.find("imageBench"); bench != root.end()) {
         parseBench(*bench, config);
         config.diagnostics = config.diagnostics || config.benchRepeat > 0;

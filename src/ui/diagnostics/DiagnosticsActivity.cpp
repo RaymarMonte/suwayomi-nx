@@ -174,7 +174,7 @@ void DiagnosticsActivity::benchNext(const std::shared_ptr<BenchRun>& run) {
     const core::ImageSize box = run->index % 2 == 0 ? core::ImageSize{2560, 1440} : core::ImageSize{2560, 0};
     images_->clearMemory();  // so every load decodes (after the first, the bytes come from the disk cache)
     const net::CancelToken cancel = cancel_;
-    images_->load(image::LoadRequest{url, box, net::Priority::Interactive, image::ImageKind::Page}, cancel,
+    images_->load(image::LoadRequest{url, box, net::Priority::Interactive, image::ImageKind::Page, {}}, cancel,
                   [this, run, cancel](const image::ImageResult& result) {
                       if (cancel.cancelled()) {
                           return;  // the screen is gone

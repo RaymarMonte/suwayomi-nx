@@ -237,12 +237,13 @@ void ReaderModel::load(int chapterId, Start start) {
     state_ = State::Loading;
     listCancel_ = net::CancelToken();
     const net::CancelToken token = listCancel_;
-    client_.pages(chapterId, options_.format, token).then([this, token, start](const api::ApiResult<core::PageList>& result) {
-        if (token.cancelled()) {
-            return;
-        }
-        onPages(start, result);
-    });
+    openChapterPages(client_, options_.pages, chapter_, options_.format, token, net::Priority::Interactive)
+        .then([this, token, start](const api::ApiResult<core::PageList>& result) {
+            if (token.cancelled()) {
+                return;
+            }
+            onPages(start, result);
+        });
 }
 
 void ReaderModel::onPages(Start start, const api::ApiResult<core::PageList>& result) {
@@ -258,7 +259,10 @@ void ReaderModel::onPages(Start start, const api::ApiResult<core::PageList>& res
 std::vector<ReaderModel::Slot> ReaderModel::makeSlots(const core::PageList& list) const {
     std::vector<Slot> slots(list.pages.size());
     for (std::size_t i = 0; i < slots.size(); ++i) {
-        if (!list.pages[i].empty()) {
+        if (isDownloadedPage(list.pages[i])) {
+            slots[i].url = list.pages[i];  // the loader's name for the file (image::loadId)
+            slots[i].file = downloadedPagePath(list.pages[i]);
+        } else if (!list.pages[i].empty()) {
             slots[i].url = client_.absoluteUrl(list.pages[i]);
         }
     }
@@ -416,7 +420,9 @@ void ReaderModel::startLoad(Slot& slot, int chapterId, int index, net::Priority 
         slot.page.state = ReaderPage::State::Loading;
     }
     const net::CancelToken token = slot.cancel;
-    images_.load(image::LoadRequest{slot.url, box, priority, image::ImageKind::Page}, token,
+    images_.load(image::LoadRequest{slot.file.empty() ? slot.url : std::string(), box, priority, image::ImageKind::Page,
+                                    slot.file},
+                 token,
                  [this, token, chapterId, index](const image::ImageResult& result) {
                      if (token.cancelled()) {
                          return;  // left the window, or the model is gone
@@ -460,6 +466,13 @@ void ReaderModel::onLoaded(int chapterId, int index, const image::ImageResult& r
         } else {
             page.state = ReaderPage::State::Failed;
             page.error = result.error();
+            if (!slot.file.empty() && isDamagedPageError(page.error)) {
+                // WP-18: no silent fall-back to the server; the chapter shows "damaged" and Retry download fetches it.
+                page.error.message = kDamagedPageMessage;
+                if (options_.pages.onDamaged) {
+                    options_.pages.onDamaged(chapterId, index);
+                }
+            }
         }
     }
     changed();
@@ -490,7 +503,7 @@ void ReaderModel::requestNext() {
     next_->chapterId = chapterId;
     nextCancel_ = net::CancelToken();
     const net::CancelToken token = nextCancel_;
-    client_.pages(chapterId, options_.format, token, net::Priority::Prefetch)
+    openChapterPages(client_, options_.pages, *next, options_.format, token, net::Priority::Prefetch)
         .then([this, token, chapterId](const api::ApiResult<core::PageList>& result) {
             if (token.cancelled()) {
                 return;
@@ -664,7 +677,9 @@ void ReaderModel::setPageZoom(float zoom) {
     const int chapterId = chapter_.id;
     const int index = position_;
     const int half = zoom_.half;
-    images_.load(image::LoadRequest{slot.url, box, net::Priority::Reader, image::ImageKind::Page}, token,
+    images_.load(image::LoadRequest{slot.file.empty() ? slot.url : std::string(), box, net::Priority::Reader,
+                                    image::ImageKind::Page, slot.file},
+                 token,
                  [this, token, chapterId, index, half, box](const image::ImageResult& result) {
                      if (token.cancelled() || zoom_.chapterId != chapterId || zoom_.index != index ||
                          zoom_.half != half || zoom_.box != box) {

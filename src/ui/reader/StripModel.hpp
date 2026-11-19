@@ -17,6 +17,7 @@
 #include "core/models/PageList.hpp"
 #include "image/ImageLoader.hpp"
 #include "net/CancelToken.hpp"
+#include "ui/reader/ChapterPages.hpp"
 #include "ui/reader/ProgressSaver.hpp"
 #include "ui/reader/ReaderModel.hpp"  // ReaderPage
 
@@ -46,6 +47,7 @@ struct StripOptions {
     int progressSyncMs = 5000;
     int progressRetryMaxMs = 60000;
     api::PageFormat format = api::PageFormat::AsStored;
+    PageSource pages;  // WP-18: chapters downloaded to the Switch open from their files (ChapterPages.hpp)
     // Milliseconds on a steady clock (the app: appClockMs). Required.
     std::function<std::int64_t()> clock;
     // After every progress save, ok or not (also after the model is gone). May be empty. The "progress" test event.
@@ -164,7 +166,8 @@ class StripModel {
   private:
     struct Slot {
         ReaderPage page;
-        std::string url;  // full URL; empty: the server listed the page in a form we can't use
+        std::string url;  // full URL, or "file:" + file; empty: the server listed the page in a form we can't use
+        std::string file;  // WP-18: the page's file on the SD card (a downloaded chapter), else empty
         net::CancelToken cancel;
         std::optional<core::ImageSize> source;  // known once decoded; kept when let go, so the height stays
         // WP-13d: the page decoded again for the zoom (only pages on screen), the box asked for, and that load.
@@ -222,6 +225,7 @@ class StripModel {
     const Part* partOf(int chapterId) const;
     const Slot* slotAt(int item) const;
     int chapterIndex(int chapterId) const;  // in chapters_, -1 if unknown
+    core::Chapter listed(int chapterId) const;  // as chapters_ knows it, or only its id (openChapterPages)
     void changed();
 
     api::SuwayomiClient& client_;

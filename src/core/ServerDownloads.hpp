@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -73,10 +74,12 @@ std::string percentText(double share);
 
 // The details screen's "Download on server..." choices (the web UI's list).
 enum class DownloadChoice { Next1, Next5, Next10, Next25, Unread, All };
-// The chapters a choice queues, as ids in reading order (oldest first, by sourceOrder): not downloaded on the server and
-// not in `queuedIds`. Next N and Unread take unread chapters only, All read ones too; Next N takes the first N of them.
-std::vector<int> chaptersToDownload(const std::vector<Chapter>& chapters, DownloadChoice choice,
-                                    const std::vector<int>& queuedIds);
+// The chapters a choice queues, as ids in reading order (oldest first, by sourceOrder), none of them in `skip` (WP-17:
+// core::serverSkipIds, downloaded on the server or queued there; WP-18: on this Switch or queued here). Next N and Unread
+// take unread chapters only, All read ones too; Next N takes the first N of them.
+std::vector<int> chaptersToDownload(const std::vector<Chapter>& chapters, DownloadChoice choice, const std::set<int>& skip);
+// WP-17's skip set: the chapters downloaded on the server, and `queuedIds` (queued there).
+std::set<int> serverSkipIds(const std::vector<Chapter>& chapters, const std::vector<int>& queuedIds);
 
 // Ids in pieces of at most `batchMax` (RuntimeProfile::serverDownloadBatchMax, at least 1), in their order.
 std::vector<std::vector<int>> idBatches(const std::vector<int>& ids, int batchMax);

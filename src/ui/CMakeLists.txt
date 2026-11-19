@@ -13,6 +13,7 @@ add_library(snx_ui_models STATIC
     categories/CategoryPickerModel.cpp
     library/LibraryModel.cpp
     manga/MangaModel.cpp
+    reader/ChapterPages.cpp
     reader/ReaderModel.cpp
     reader/ProgressSaver.cpp
     reader/StripModel.cpp
@@ -20,7 +21,9 @@ add_library(snx_ui_models STATIC
     main/MainModel.cpp
     updates/ChapterRowsModel.cpp
     updates/LibraryUpdater.cpp
+    downloads/DownloadStore.cpp
     downloads/ServerDownloads.cpp
+    downloads/SwitchDownloads.cpp
     reader/WaitingSaves.cpp
     setup/SetupModel.cpp
 )

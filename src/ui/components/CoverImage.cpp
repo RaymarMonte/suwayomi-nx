@@ -45,7 +45,7 @@ void CoverImage::load(const std::string& url, app::AppContext& context) {
     if (url.empty()) {
         return;
     }
-    const image::LoadRequest request{url, decodeBox(width_, height_), net::Priority::Interactive, image::ImageKind::Cover};
+    const image::LoadRequest request{url, decodeBox(width_, height_), net::Priority::Interactive, image::ImageKind::Cover, {}};
     if (image::ImagePtr ready = context.images.cached(request.url, request.box, image::ImageKind::Cover)) {
         show(ready, context.textures);
         return;

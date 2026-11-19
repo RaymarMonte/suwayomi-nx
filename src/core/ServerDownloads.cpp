@@ -135,9 +135,7 @@ std::string percentText(double share) {
     return std::to_string(std::clamp(percent, 0, 100)) + " %";
 }
 
-std::vector<int> chaptersToDownload(const std::vector<Chapter>& chapters, DownloadChoice choice,
-                                    const std::vector<int>& queuedIds) {
-    const std::set<int> queued(queuedIds.begin(), queuedIds.end());
+std::vector<int> chaptersToDownload(const std::vector<Chapter>& chapters, DownloadChoice choice, const std::set<int>& skip) {
     std::vector<const Chapter*> order;
     order.reserve(chapters.size());
     for (const Chapter& chapter : chapters) {
@@ -160,12 +158,22 @@ std::vector<int> chaptersToDownload(const std::vector<Chapter>& chapters, Downlo
         if (ids.size() >= limit) {
             break;
         }
-        if (chapter->isDownloaded || queued.count(chapter->id) > 0 || (chapter->isRead && !readToo)) {
+        if (skip.count(chapter->id) > 0 || (chapter->isRead && !readToo)) {
             continue;
         }
         ids.push_back(chapter->id);
     }
     return ids;
+}
+
+std::set<int> serverSkipIds(const std::vector<Chapter>& chapters, const std::vector<int>& queuedIds) {
+    std::set<int> skip(queuedIds.begin(), queuedIds.end());
+    for (const Chapter& chapter : chapters) {
+        if (chapter.isDownloaded) {
+            skip.insert(chapter.id);
+        }
+    }
+    return skip;
 }
 
 std::vector<std::vector<int>> idBatches(const std::vector<int>& ids, int batchMax) {

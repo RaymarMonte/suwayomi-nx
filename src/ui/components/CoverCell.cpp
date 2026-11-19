@@ -98,7 +98,7 @@ void CoverCell::show(const core::Manga& manga, std::string url, app::AppContext&
     if (url.empty()) {
         return;
     }
-    const image::LoadRequest request{std::move(url), coverBox(), net::Priority::Interactive, image::ImageKind::Cover};
+    const image::LoadRequest request{std::move(url), coverBox(), net::Priority::Interactive, image::ImageKind::Cover, {}};
     if (image::ImagePtr ready = context.images.cached(request.url, request.box, image::ImageKind::Cover)) {
         setCover(ready, context.textures);
         return;
@@ -159,7 +159,7 @@ void prefetchCovers(app::AppContext& context, const std::vector<core::Manga>& it
             continue;
         }
         image::LoadRequest request{context.client.absoluteUrl(items[i].thumbnailUrl), CoverCell::coverBox(),
-                                   net::Priority::Prefetch, image::ImageKind::Cover};
+                                   net::Priority::Prefetch, image::ImageKind::Cover, {}};
         context.images.load(std::move(request), token, [](const image::ImageResult&) {});
     }
 }

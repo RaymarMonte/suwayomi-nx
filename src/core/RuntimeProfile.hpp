@@ -75,6 +75,17 @@ struct RuntimeProfile {
     int serverDownloadBatchMax = 1000;     // chapter ids per enqueue / delete request; more go in several
     int serverDownloadCheckMs = 500;       // an action without an answer this long: one read shows whether it went through
 
+    // Downloads to the Switch's SD card (WP-18, D59). One chapter at a time; its pages this many at once, at Background
+    // priority (the server makes at most 5 source calls at once: 2 leave room for the reader). Safe mode and applet: 1.
+    int switchDownloadPagesAtOnce = 2;
+    int switchDownloadPageTries = 3;      // a page that fails is tried this often in all before its chapter fails
+    int switchDownloadRetryMs = 1000;     // ... this long after the first failure, doubled each time
+    std::uint64_t switchDownloadLimitBytes = 8 * 1024ULL * 1024ULL * 1024ULL;  // Settings' "Space for downloads" default
+    int switchQueueMax = 1000;            // chapters in the queue at most (S6)
+    std::uint64_t switchQueueFileBytes = 512 * 1024;  // queue.json read back at most this big (S6), written to fit
+    std::uint64_t switchMangaFileBytes = 1024 * 1024; // one manga.json read back at most this big (S6)
+    int switchOpenWaitMs = 3000;          // a downloaded chapter opens without the server's progress after this long
+
     // Library tools (WP-24, D54).
     int searchMaxChars = 64;        // characters a library search keeps (the keyboard stops there too)
     int categoryNameMaxChars = 64;  // characters of a category name

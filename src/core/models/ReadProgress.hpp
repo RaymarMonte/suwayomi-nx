@@ -28,6 +28,9 @@ struct ServerProgress {
     bool read = false;            // isRead
     std::int64_t lastReadAt = 0;  // seconds; 0 = never stamped
     std::string spotNote;         // the strip's meta note "snx_strip_spot" ("" if none); not part of a base
+    // WP-18 (ChapterState only; not part of a base): a chapter read from the Switch's SD card learns these here.
+    bool bookmarked = false;      // isBookmarked
+    bool downloaded = false;      // isDownloaded: downloaded on the server
 
     // The same page, read flag and stamp (the note isn't compared).
     bool sameAs(const ServerProgress& other) const {

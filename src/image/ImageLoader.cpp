@@ -34,6 +34,10 @@ struct ImageLoader::Lifeline {
     ImageLoader* loader = nullptr;
 };
 
+std::string loadId(const LoadRequest& request) {
+    return request.file.empty() ? request.url : "file:" + request.file;
+}
+
 LoaderOptions loaderOptionsFrom(const core::RuntimeProfile& profile) {
     LoaderOptions options;
     options.pageCacheBytes = profile.imageCacheBytes;
@@ -102,6 +106,7 @@ core::ImageSize ImageLoader::clampBox(core::ImageSize box) const {
 }
 
 void ImageLoader::load(LoadRequest request, net::CancelToken cancel, LoadCallback done) {
+    const std::string id = loadId(request);
     Waiter waiter{clampBox(request.box), request.kind, cancel, std::move(done)};
     ImagePtr hit;
     std::optional<ImageError> refused;
@@ -110,12 +115,12 @@ void ImageLoader::load(LoadRequest request, net::CancelToken cancel, LoadCallbac
         std::lock_guard<std::mutex> lock(mutex_);
         if (stopped_ || cancel.cancelled()) {
             refused = imageError(ImageErrorKind::Cancelled, "cancelled");
-        } else if ((hit = cacheFor(request.kind).get(cacheKey(request.url, waiter.box)))) {
+        } else if ((hit = cacheFor(request.kind).get(cacheKey(id, waiter.box)))) {
             // answered below, outside the lock
         } else if (prefetchPaused_.load() && request.priority >= net::Priority::Prefetch) {
             refused = imageError(ImageErrorKind::Paused, "memory is low, prefetching is paused");
         } else {
-            const auto found = jobs_.find(request.url);
+            const auto found = jobs_.find(id);
             if (found != jobs_.end() && !found->second->cancel.cancelled()) {
                 // The same URL is on its way already: wait for that one.
                 Job& job = *found->second;
@@ -127,17 +132,18 @@ void ImageLoader::load(LoadRequest request, net::CancelToken cancel, LoadCallbac
                 refused = imageError(ImageErrorKind::Busy, "too many images are loading");
             } else {
                 start = std::make_shared<Job>();
-                start->url = request.url;
+                start->url = id;
+                start->file = request.file;
                 start->priority = request.priority;
                 start->startMs = steadyMs();
                 start->waiters.push_back(std::move(waiter));
-                jobs_[request.url] = start;  // replaces a job whose callers have all cancelled; that one ends by itself
+                jobs_[id] = start;  // replaces a job whose callers have all cancelled; that one ends by itself
             }
         }
     }
     if (hit) {
         core::testevents::ImageEvent event;
-        event.url = request.url;
+        event.url = id;
         event.source = "memory";
         event.format = imageFormatName(hit->format());
         event.width = hit->size().width;
@@ -202,7 +208,9 @@ bool ImageLoader::allCancelled(const JobPtr& job) {
 
 void ImageLoader::startJob(const JobPtr& job) {
     scheduleSweep();
-    if (disk_) {
+    if (!job->file.empty()) {
+        diskPool_.post(priorityNumber(job->priority), [this, job] { readFile(job); });
+    } else if (disk_) {
         diskPool_.post(priorityNumber(job->priority), [this, job] { readDisk(job); });
     } else {
         fetch(job);
@@ -221,6 +229,35 @@ void ImageLoader::readDisk(const JobPtr& job) {
     }
     job->source = "disk";
     job->fetchMs = steadyMs() - job->startMs;
+    auto shared = std::make_shared<const std::string>(std::move(*bytes));
+    decodePool_.post(priorityNumber(job->priority), [this, job, shared] { decodeJob(job, shared); });
+}
+
+void ImageLoader::readFile(const JobPtr& job) {
+    if (allCancelled(job)) {
+        fail(job, imageError(ImageErrorKind::Cancelled, "cancelled"));
+        return;
+    }
+    job->source = "download";
+    if (options_.files == nullptr) {
+        fail(job, imageError(ImageErrorKind::Corrupt, "no folder to read downloaded files from"));
+        return;
+    }
+    // At most maxImageBytes, like a download (S6). SafeFs answers nothing for a missing file and for one that is bigger.
+    std::optional<std::string> bytes = options_.files->readFile(job->file, options_.maxImageBytes);
+    job->fetchMs = steadyMs() - job->startMs;
+    if (!bytes) {
+        if (options_.files->exists(job->file)) {
+            fail(job, imageError(ImageErrorKind::TooLarge, "the downloaded file is bigger than an image may be"));
+        } else {
+            fail(job, imageError(ImageErrorKind::Corrupt, "the downloaded file is missing"));
+        }
+        return;
+    }
+    if (bytes->empty()) {
+        fail(job, imageError(ImageErrorKind::Corrupt, "the downloaded file is empty"));
+        return;
+    }
     auto shared = std::make_shared<const std::string>(std::move(*bytes));
     decodePool_.post(priorityNumber(job->priority), [this, job, shared] { decodeJob(job, shared); });
 }
@@ -378,7 +415,8 @@ void ImageLoader::finish(const JobPtr& job, const std::map<std::string, ImageRes
             deliverTo(waiter, result->second);
         } else {
             // Joined while the decode ran, with another box: load again for it (the bytes are probably on disk now).
-            load(LoadRequest{job->url, waiter.box, job->priority, waiter.kind}, waiter.cancel, std::move(waiter.done));
+            LoadRequest again{job->file.empty() ? job->url : std::string(), waiter.box, job->priority, waiter.kind, job->file};
+            load(std::move(again), waiter.cancel, std::move(waiter.done));
         }
     }
 }

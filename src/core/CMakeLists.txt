@@ -34,6 +34,7 @@ add_library(snx_core STATIC
     SafePath.cpp
     SaveScheduler.cpp
     ServerDownloads.cpp
+    SwitchDownloads.cpp
     SourceFilters.cpp
     SourceLanguages.cpp
     TestConfig.cpp

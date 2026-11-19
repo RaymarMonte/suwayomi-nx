@@ -150,6 +150,17 @@ struct ServerDownloadSettings {
     bool deleteAfterReading = false;
 };
 
+// Downloads on the Switch's SD card (WP-18, D59). A new section, so old files simply don't have it (no migration).
+struct SwitchDownloadSettings {
+    // "Space for downloads" in GB (1 GB = 1024^3 bytes): one of kSwitchLimitChoicesGb, 0 = no limit. Nothing = not chosen:
+    // RuntimeProfile::switchDownloadLimitBytes (8 GB). Another number in the file is read as not chosen.
+    std::optional<int> limitGb;
+    // A chapter finished in the reader is deleted from this Switch once the reader closes (not bookmarked ones).
+    bool deleteAfterReading = false;
+};
+// Settings' choices for SwitchDownloadSettings::limitGb, in its order (0 = "No limit", last).
+inline constexpr std::array<int, 6> kSwitchLimitChoicesGb = {2, 4, 8, 16, 32, 0};
+
 // At most this many hidden languages are read back, each at most kMaxLanguageCodeBytes long (S6: the file stays small).
 inline constexpr std::size_t kMaxHiddenLanguages = 200;
 inline constexpr std::size_t kMaxLanguageCodeBytes = 32;
@@ -161,6 +172,7 @@ struct AppConfig {
     LibrarySettings library;
     BrowseSettings browse;
     ServerDownloadSettings serverDownloads;
+    SwitchDownloadSettings switchDownloads;
 };
 
 struct ConfigLoad {
