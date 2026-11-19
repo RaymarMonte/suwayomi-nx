@@ -41,7 +41,7 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-14](wp/WP-14-browse.md) | **Browse**: sources by language (a Languages checklist, an 18+ tag), popular / latest / search, every filter type, search across sources (a row per source), a preview loaded from the source, add with WP-24's picker like the web UI (its "default" categories ticked, Don't ask again) after a same-title warning, remove from the library (planned 2026-11-17, D56; split point: Search all → WP-14b) | 24, 23 | Opus | L | Optional: try it on your server | done 2026-11-17 (split: Search all, Tick for new manga, Languages → WP-14b) |
 | WP-14b | **Browse 2**: Search all (a row per source: a card + up to 5 covers, `GlobalSearchModel` with the queue at `globalSearchConcurrency`, the 6-column grid and `GridSource::focusable`), **Tick for new manga** on the Categories screen (`setCategoryDefault`, already in the api), the **Languages** checklist (SourcesModel already hides languages; the screen and its config save are missing). Split from WP-14 on 2026-11-17 (usage limit); the rest of WP-14's doc applies (D56) | 14 | Opus | M | Optional: try it on your server | done 2026-11-19 (D56 as built) |
 | [WP-17](wp/WP-17-download-on-server.md) | **Download on server**: a **Server downloads** tab (the server's queue: Pause / Resume, Remove, Retry, Move to top / bottom, Clear), chapter actions and the web UI's bulk list (Next 1 / 5 / 10 / 25, Unread, All) on the details screen, a "Downloaded on server" filter, a "delete after reading" setting. **Runs next** (owner 2026-11-19, D57; planned the same day, D58; split point: delete after reading + top / bottom → WP-17b) | 15, 23 | Opus (owner, D58) | M | Optional: try it on your server | done |
-| WP-18 | **Offline 1: download chapters to the SD card**: a queue on the Switch, a storage limit, delete; the reader reads downloaded pages first. **Runs after WP-17**, before WP-21, so application mode only (owner 2026-11-19, D57) | 13b, 13d | Opus | L | – | todo |
+| [WP-18](wp/WP-18-download-to-switch.md) | **Offline 1: download to Switch**: chapters onto the SD card, one at a time in the background ("Download to Switch" entries, the bulk list, tags and a filter on the details screen), a **Switch downloads** tab before Server downloads (space used, the queue, the downloaded manga), a space limit in Settings (8 GB), "Delete Switch downloads after reading", paused at HOME / sleep; the reader reads downloaded chapters from the SD card. **Runs next**, before WP-18b and WP-21, so application mode only (owner 2026-11-19, D57; planned the same day, D59; split point: top / bottom, delete after reading, "same server?", keep-awake → WP-18c) | 13b, 13d, 17 | Opus | L | Optional: try it on your server | todo |
 | WP-18b | **Offline 2: read away from home**: start without the server, show the downloaded manga, keep offline progress and send it when the server is back. **Runs right after WP-18**, before WP-21, so application mode only (owner 2026-11-19, D57) | 18 | Opus | M | **Yes**: try it away from home | todo |
 | WP-21 | Applet mode (Album) support, `Lite` profile, and a crash ending that doesn't take the system down from the Album (D41); also brings WP-18 / 18b's downloads and offline start to applet mode. **Runs after WP-18b** (owner 2026-11-19, D57; D21) | 12 (the offline parts: 18, 18b) | Opus | M | **Yes**: console (wanted: the owner moved it up, D57) | todo |
 | WP-16 | **Extensions**: installed / updates / available, install, update, uninstall, extension repos, permission errors | 14, 23 | Opus | M | – | todo |
@@ -183,8 +183,19 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
   WP-23's source. Sonnet once WP-15's polling and WP-23 exist (both do now: `ui/updates/LibraryUpdater`, SNX Test, whose
   chapters the server downloads); Opus if they don't fit. WP-18's "Download" (to the Switch) joins the same chapter menu
   right after, so the planner names this one so the two can't be mixed up.
-- **WP-18 Offline 1: download to the SD card (after WP-17, before WP-21, owner 2026-11-19, D57).** "Download" means to
-  the Switch, like Mihon (owner, D47). The chapter row menu and the bulk actions get Download / Delete download, next to
+- **WP-18 Offline 1: download to the SD card (after WP-17, before WP-21, owner 2026-11-19, D57).** Planned: full doc
+  `wp/WP-18-download-to-switch.md` (2026-11-19, D59). Owner's answers: words that name the Switch ("Download to Switch",
+  "Delete from Switch", tag "On Switch", MINUS "Download to Switch..." with WP-17's six choices); a **"Switch downloads"
+  tab** before Server downloads (amends D58's "Downloads"): the space line, the queue, then "On this Switch" with one row per
+  manga (opens its downloaded chapters, "Delete all downloads..."); "Space for downloads" in Settings (2–32 GB / No limit,
+  default 8 GB, 1 GB always free; full = the queue pauses, nothing deleted by itself); "Delete Switch downloads after
+  reading" of its own; paused at HOME and sleep, the console kept awake while the tab shows a running download (S9 widened,
+  owner OK); Updates rows not now. Checked on the test server: page answers are chunked and their Content-Type changes once
+  the server caches them (sniff the bytes), the server makes at most 5 source calls at once (the downloader uses 2), a
+  withdrawn chapter that comes back gets a new id, `chapterState` gives the progress without a source call (the reader uses
+  it for downloaded chapters), `aboutServer` has no server id (downloads are filed by address). Split point: top / bottom,
+  delete after reading, the "same server?" question and the keep-awake → **WP-18c** (before WP-18b). The original stub:
+  "Download" means to the Switch, like Mihon (owner, D47). The chapter row menu and the bulk actions get Download / Delete download, next to
   WP-17's "Download on server" (the two must read clearly apart); a queue on the Switch downloads one chapter at a time in the
   background through the image path (the same page URLs, so the test server's Local source works), stops at sleep, and goes on
   after a restart. Every write goes through SafeFs, atomic, with the free-space guard and a storage limit from the profile
@@ -198,7 +209,10 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
   spot note, WP-13b) is kept on the SD card (a small queue, written atomically) and sent once the server answers, with
   conflict rules (the server moved further meanwhile, a chapter read on another device). It builds on WP-15b's waiting-save
   queue (`progress-queue.json`, D53; D45's leftover, moved to WP-15, D51). Like WP-18 it comes before WP-21, so application
-  mode only (D21). The owner tries it away from home.
+  mode only (D21). The owner tries it away from home. From WP-18 (D59): each downloaded manga's fields and cover are on the
+  SD card (`downloads/<server>/m<id>/manga.json`, `cover.img`), and the reader already opens a downloaded chapter without
+  `fetchChapterPages` (its progress from `chapterState`, else the chapter list's values). Left for WP-18b: downloaded
+  chapters the server no longer lists, and what "delete after reading" does with a read save that couldn't reach the server.
 - **WP-21 Applet mode (after WP-18b, owner 2026-11-19, D57; D21).** The owner wants it (moved up from the nice to haves on
   2026-11-19). Make the app usable when opened from the Album: measure applet memory (alone and with a game suspended), build
   the `Lite` profile (ARCHITECTURE.md "Lite" column, D12), replace the refusal screen with a one-time tip on how to open it with

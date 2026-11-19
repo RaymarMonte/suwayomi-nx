@@ -1,22 +1,18 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-17 done** (download on server, D58, 2026-11-19).
-**Next: plan WP-18** (offline 1: download to the SD card; a fresh Opus planning session at max effort with the owner's answers, D47),
-then run it. Order (D57): 18 → 18b → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28.
+**Phase 3 – Features. Now:** **WP-18 planned** (download to Switch, D59, `docs/wp/WP-18-download-to-switch.md`).
+**Next: run WP-18** (Opus, L, max effort). Order (D57): 18 → 18b → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28.
 Done: WP-00a … 13, 13b, 13c, 13d, **14, 14b, 15, 15b, 17, 23, 24**, 22; **v0.2.0** (13…24, 17 unreleased).
-## Last session (2026-11-19, WP-17, Opus)
-- **Built:** the Server downloads tab (tab 4, Settings = 5), the details screen's entries / MINUS list / filter / tags, Settings
-  "Delete server downloads after reading", model `ui/downloads/ServerDownloads`, events, unit / integration / e2e tests, docs.
-- **Found in the e2e (D58 as built, SUWAYOMI-API):** the server can hold a reorder's answer 30 s ("Timed out") though it
-  applied it at once → remove / top / bottom / pause / resume / clear read the queue after `serverDownloadCheckMs` (500 ms)
-  without an answer and after a failed one. An action's answer counts as newer than reads sent meanwhile. A clear or stop
-  during a source call waits for it on the server, so the e2e stops the queue by GraphQL before its Clear.
-- **Green:** unit + contract, integration (3 modes), `npm test`, typecheck, Switch build + gate PASS; desktop e2e all (one
-  `reader-spread-split` flake: 30 s in the reader's settings menu once, green twice alone). Switch: `server-downloads`
-  (13 actions ≤ 573 ms, 100 rows applied ≤ 38 ms), `smoke`, `manga-details`, `touch-pass`, `browse`, `updates-history`,
-  `reader-paged`, `resume-progress`, `library-browse`, `library-tools`. The new tab moved the tab list in their goldens
-  (updated on both drivers; desktop had passed anyway, TESTING.md "Golden screenshots").
-- Desktop X = the middle mouse button (the next key focuses what's under the pointer): the desktop scenario taps, the
-  Switch presses X. Details row taps need a fresh screen (a sort / filter change scrolls to the focused row).
+## Last session (2026-11-19, WP-18 planning, Opus) – plan committed, no code
+- Wrote the WP-18 doc, D59, the ROADMAP row and stubs (WP-18b's too). Owner's answers: words that name the Switch
+  ("Download to Switch", "Delete from Switch", tag "On Switch"), a **"Switch downloads" tab** before Server downloads
+  (amends D58's "Downloads"; space line, queue, downloaded manga), "Space for downloads" (default 8 GB, 1 GB always free,
+  pause when full, nothing deleted by itself), its own "Delete Switch downloads after reading", paused at HOME / sleep, kept
+  awake while the tab downloads (**S9 widened, owner OK**: SAFETY.md is updated in the build), Updates rows not now.
+- Checked on the test server (facts in the WP doc; they go into SUWAYOMI-API.md during the WP): chunked page answers, a
+  Content-Type that changes once cached, at most 5 source calls at once, new ids for returning chapters, `chapterState`
+  without a source call. The probes left the test server `reset` + running (no auth).
+- From WP-17's run, still true: desktop X = the middle mouse button (the next key focuses what's under the pointer), so the
+  desktop scenario taps and the Switch presses X; details row taps need a fresh screen (a sort / filter change scrolls).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

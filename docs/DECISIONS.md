@@ -1254,7 +1254,8 @@ owner's answers the same day; `wp/WP-17-download-on-server.md`). Carries out D47
 and D55's test source; amends D57's "WP-17 stays S".
 - **A "Server downloads" tab** after Browse (Settings moves down one) holds the server's queue: progress, Pause / Resume,
   Clear, and per chapter Remove, Retry (failed ones), Move to top / Move to bottom (no step up / down). WP-18's downloads to
-  the Switch get **their own "Downloads" tab**: two tabs, never mixed. Every word of WP-17 says "server".
+  the Switch get **their own "Downloads" tab**: two tabs, never mixed. Every word of WP-17 says "server". **Amended by
+  D59 (2026-11-19): that tab is called "Switch downloads" and sits before Server downloads.**
 - **The details screen like Suwayomi's web UI** (its code checked): a chapter's menu gets Download on server / Cancel
   server download / Delete server download; MINUS → Download on server → Next chapter, Next 5, Next 10, Next 25, Unread,
   All (reading order, not downloaded, not queued; Next N and Unread only unread ones; the web UI's "Download ahead" left
@@ -1294,3 +1295,45 @@ read chapter's download, Sorayomi's step-by-step reordering, Mihon's "Bookmarked
   mode, handheld):** `server-downloads` green; 13 actions, the slowest 573 ms (resume, through the check read); a status of
   100 rows applied in ≤ 38 ms; memory under the 16 MiB limit over the 10 tab rounds; `smoke`, `manga-details`,
   `touch-pass`, `browse`, `updates-history`, `reader-paged`, `resume-progress` green.
+
+**D59 Download to Switch: chapters on the SD card, a Switch downloads tab, the reader reads them first** (WP-18, planned
+2026-11-19; the owner's answers the same day; `wp/WP-18-download-to-switch.md`). Carries out D47's "Download means to the
+Switch"; amends D58's tab name and SAFETY.md S9 (owner OK).
+- **Words name the Switch:** "Download to Switch", "Cancel download to Switch", "Delete from Switch", tag "On Switch" (next
+  to WP-17's "On server"), MINUS "Download to Switch..." with WP-17's six choices, Show "Downloaded to Switch". WP-17's
+  words keep saying "server". Local manga may download to the Switch (the server serves their pages like any other).
+- **The tab "Switch downloads"** (not D58's "Downloads"), before Server downloads: Library, Updates, History, Browse, Switch
+  downloads, Server downloads, Settings. It shows the space used, the queue while anything waits (Pause / Resume, Clear,
+  per chapter Move to top / bottom, Remove, Retry) and "On this Switch": one row per downloaded manga, which opens its
+  details screen showing only its downloaded chapters and has "Delete all downloads...".
+- **Space:** a Settings choice "Space for downloads" (2 / 4 / 8 / 16 / 32 GB / No limit, default 8 GB from the profile),
+  and at least 1 GB (`minSdFreeBytes`) always stays free. When full the queue pauses with a message; nothing is deleted by
+  itself; a delete or a higher limit lets it go on.
+- **"Delete Switch downloads after reading"**, a switch of its own (off), WP-17's rules: finished in the reader, not
+  bookmarked, deleted once the reader has closed.
+- **In the background:** downloads pause while the app isn't on screen (HOME, sleep: S5's no writes there) and go on when
+  it is back. **S9 amended (owner, 2026-11-19):** while the Switch downloads tab is on screen and a chapter downloads, the
+  console doesn't dim or sleep by itself (`keepScreenOn`), besides the reader.
+- **Files** (SafeFs, names are ids): `downloads/<16 hex of the server's address>/` with `server.json` (the addresses of that
+  server; a new address the user saves asks "the same server?" once), `queue.json` (+ .bak, written like config.json),
+  `m<mangaId>/manga.json` (+ .bak: the manga's fields and its finished chapters; a chapter counts only once it is in it),
+  `cover.img`, `c<chapterId>/<page>.<format>` (each page written once, atomically). Read back with S6's limits, fuzzed; a
+  damaged index is never deleted by itself.
+- **The downloader:** one chapter at a time, 2 pages at once (`switchDownloadPagesAtOnce`) at Background priority, plain
+  GETs of the reader's page URLs, each page checked before it is written (status, format by its bytes, header sides, S6),
+  no decoding. A page tried 3 times, then the chapter is Failed and the next one goes on; the server away costs no try.
+  The queue goes on after a restart. Every limit is in `RuntimeProfile` (application mode only, D21, D57).
+- **The reader** opens a downloaded chapter from its files, with `chapterState` for the progress instead of
+  `fetchChapterPages` (no page request; at most `switchOpenWaitMs`, then the chapter list's values), through
+  `LoadRequest::file`. A damaged page shows as damaged (no silent fall-back to the network); Retry downloads it again.
+  Progress still goes to the server; offline start and offline progress are WP-18b's.
+- **Server facts that shape it** (v2.4.2366, checked 2026-11-19, SUWAYOMI-API.md once built): page answers are chunked
+  (no size up front) and their Content-Type changes once the server caches a page, so formats are sniffed; the server makes
+  at most 5 source calls at once (6 pages with a 1 s delay took 2 s), so 2 at a time leave room for the reader; a chapter
+  that comes back after the source withdrew it gets a new id; `aboutServer` has no server id, so downloads are filed by
+  address.
+- **Not now:** downloads on Updates rows (owner: later), auto-download, download ahead, cover badges. Split point: top /
+  bottom, delete after reading, the "same server?" question and the keep-awake → WP-18c.
+Rejected: plain "Download" words (the owner chose to name the Switch), one submenu for both kinds, no limit (only the
+1 GB floor), deleting read chapters by itself when full, one switch for both "delete after reading" rules, a queue-only tab,
+downloading at the HOME menu (S5), the tab after Library, a network fall-back for damaged pages, folders by title.
