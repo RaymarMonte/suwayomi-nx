@@ -72,6 +72,14 @@ void ConfigStore::setBrowse(const core::BrowseSettings& browse) {
     scheduler_.changed(appClockMs());
 }
 
+void ConfigStore::setServerDownloads(const core::ServerDownloadSettings& settings) {
+    if (settings.deleteAfterReading == config_.serverDownloads.deleteAfterReading) {
+        return;
+    }
+    config_.serverDownloads = settings;
+    scheduler_.changed(appClockMs());
+}
+
 void ConfigStore::setMangaReader(const core::MangaReaderSettings& settings) {
     const core::MangaReaderSettings now = core::readerSettingsFor(config_.reader, settings.mangaId);
     const bool own = std::any_of(config_.reader.manga.begin(), config_.reader.manga.end(),

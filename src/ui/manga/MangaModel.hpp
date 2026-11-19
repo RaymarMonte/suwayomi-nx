@@ -25,9 +25,9 @@
 namespace snx::ui {
 
 enum class ChapterSort { NewestFirst, OldestFirst };    // by the chapters' order in the manga (sourceOrder)
-enum class ChapterFilter { All, Unread, Bookmarked };
+enum class ChapterFilter { All, Unread, Bookmarked, DownloadedOnServer };  // the last: WP-17, isDownloaded
 std::string_view chapterSortName(ChapterSort sort);        // "newest", "oldest" (test events)
-std::string_view chapterFilterName(ChapterFilter filter);  // "all", "unread", "bookmarked"
+std::string_view chapterFilterName(ChapterFilter filter);  // "all", "unread", "bookmarked", "downloaded_on_server"
 
 // Where "Continue" starts (D43).
 struct ContinuePoint {
@@ -140,6 +140,8 @@ class MangaModel {
     std::uint64_t itemsRevision() const { return itemsRevision_; }
     // An action, reload or refresh failed since the last call (empty afterwards): the view tells the user.
     std::optional<api::ApiError> takeActionError();
+    // WP-17: chapters whose server download was deleted (or made): isDownloaded as the server answered, in place.
+    void applyDownloaded(const std::vector<core::Chapter>& chapters);
 
     // The chapter that had the focus, so the list comes back to it after a reload.
     void rememberFocus(std::size_t index);

@@ -39,9 +39,20 @@ class MangaActivity : public brls::Activity, private GridSource {
 
     CONTENT_FROM_XML_RES("activity/manga.xml");
     void onContentAvailable() override;
+    void onPause() override;   // WP-17: the reader or a menu on top: stop watching the server's queue
     void onResume() override;  // back on top (from the reader or a menu): the "screen" test event again
 
   private:
+    // WP-17 (D58): a chapter menu's server entry, from the queue the app knows and the chapter's isDownloaded.
+    enum class ServerEntry { None, Download, Cancel, Delete };
+    bool isLocal() const;  // source "0": no server download entries
+    ServerEntry serverEntry(const core::Chapter& chapter) const;
+    std::string serverTag(const core::Chapter& chapter) const;  // "On server", "Server: queued", "Server: 40 %", ...
+    void serverAct(int chapterId, ServerEntry entry);
+    void openDownloadMenu();  // MINUS -> Download on server... -> Next chapter / 5 / 10 / 25, Unread, All
+    void downloadsChanged(const ServerDownloads::Change& change);
+    void reloadForDownloads();  // chapters left the queue: reload, at most every serverDownloadReloadMs
+
     // GridSource
     std::size_t count() const override;
     GridCell* makeCell() override;
@@ -113,6 +124,11 @@ class MangaActivity : public brls::Activity, private GridSource {
     int reportedUnread_;
     net::CancelToken alive_;      // cancelled when this screen goes (the reader's onClosed checks it)
     int savesListener_ = 0;       // on context_.saves: a waiting save of this manga went, the chapters reload (WP-15b)
+    int downloadsListener_ = 0;   // on context_.downloads (WP-17)
+    int watcher_ = 0;             // watching context_.downloads while on top; 0 = not
+    int pendingQueuedNote_ = 0;   // "12 chapters queued on the server." once the enqueue answered
+    std::int64_t lastDownloadReload_ = 0;
+    bool reloadScheduled_ = false;
     std::string pendingAction_;  // the action under way, for its "chapter_action" test event
     int pendingChapter_ = 0;
     std::string reported_;

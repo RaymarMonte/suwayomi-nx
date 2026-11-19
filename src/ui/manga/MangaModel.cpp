@@ -20,6 +20,8 @@ std::string_view chapterFilterName(ChapterFilter filter) {
             return "unread";
         case ChapterFilter::Bookmarked:
             return "bookmarked";
+        case ChapterFilter::DownloadedOnServer:
+            return "downloaded_on_server";
     }
     return "all";
 }
@@ -415,7 +417,8 @@ void MangaModel::rebuildItems(bool fieldsChanged) {
     next.reserve(loaded_.size());
     for (const core::Chapter& chapter : loaded_) {
         const bool shown = filter_ == ChapterFilter::All || (filter_ == ChapterFilter::Unread && !chapter.isRead) ||
-                           (filter_ == ChapterFilter::Bookmarked && chapter.isBookmarked);
+                           (filter_ == ChapterFilter::Bookmarked && chapter.isBookmarked) ||
+                           (filter_ == ChapterFilter::DownloadedOnServer && chapter.isDownloaded);
         if (shown) {
             next.push_back(chapter);
         }
@@ -578,6 +581,25 @@ void MangaModel::applyChanged(const std::vector<core::Chapter>& changedChapters)
     }
     rebuildItems(true);
     updateUnreadCount();
+}
+
+void MangaModel::applyDownloaded(const std::vector<core::Chapter>& chapters) {
+    std::map<int, bool> byId;
+    for (const core::Chapter& chapter : chapters) {
+        byId[chapter.id] = chapter.isDownloaded;
+    }
+    bool any = false;
+    for (core::Chapter& chapter : loaded_) {
+        const auto found = byId.find(chapter.id);
+        if (found != byId.end() && chapter.isDownloaded != found->second) {
+            chapter.isDownloaded = found->second;
+            any = true;
+        }
+    }
+    if (any) {
+        rebuildItems(true);
+        changed();
+    }
 }
 
 std::optional<api::ApiError> MangaModel::takeActionError() {

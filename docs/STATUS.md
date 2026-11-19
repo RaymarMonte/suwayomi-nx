@@ -1,18 +1,18 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-17 planned** (download on server, D58, `docs/wp/WP-17-download-on-server.md`).
-**Next: run WP-17** (Opus, M). Order (D57): WP-17 → 18 → 18b → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28.
+**Phase 3 – Features. Now:** **WP-17 under way, paused** (download on server, D58, `docs/wp/WP-17-download-on-server.md`).
+**Next: resume WP-17** (Opus, M) from "Paused" below. Order (D57): WP-17 → 18 → 18b → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28.
 Done: WP-00a … 13, 13b, 13c, 13d, **14, 14b, 15, 15b, 23, 24**, 22; **v0.2.0** (13…24 unreleased). WP-13d: the console's
 longest strip frame is 31–32 ms (limit 34).
-## Last session (2026-11-19, WP-17 planning, Opus) – plan committed, no code
-- Wrote the WP-17 doc, D58, the ROADMAP row and stubs (WP-18's too). Owner's answers: the queue on a **"Server downloads"
-  tab** (WP-18 gets its own "Downloads" tab), the details screen like Suwayomi's web UI (Next 1 / 5 / 10 / 25, Unread, All +
-  a "Downloaded on server" filter), Move to top / bottom only, a Settings switch "Delete server downloads after reading",
-  and **Opus** for it (it grew to size M; D57 had allowed Sonnet).
-- Checked on the test server (facts in the WP doc; they go into SUWAYOMI-API.md during the WP): finished chapters leave the
-  queue at once, an enqueue answers STOPPED and starts ~1 s later, `startDownloader` with nothing queued and removing a
-  chapter no longer queued each hang 30 s, ERROR rows stay until enqueued again, Local chapters are dropped from the queue.
-- The test server is left running (no auth); the probes browsed SNX Test (rows from manga 158 / chapter 462 on) and left
-  server downloads on its disk (queue empty, no switch file): a `reset` wipes it. Before: WP-14b done. The console sleeps.
+## Paused (2026-11-19 ~16:22, WP-17, Opus) – usage limit (90 %); the 5-hour window resets 16:50 (UTC+8)
+- **Done, green** (unit + contract, desktop builds; 3 WIP commits): core rules + 8 documents, client calls, the queue model
+  `ui/downloads/ServerDownloads` (method `removeFromQueue`: the write gate reads `remove(` as a file delete), the Server
+  downloads tab (tab 4, Settings 5; MainActivity `onPause`/`onResume` watch, `reset()` on a server change), the details
+  screen (menu entry, MINUS list, filter, tags, reload on "left"), the Settings switch, events, e2e `TABS`, unit tests.
+- **Next step:** ReaderActivity "delete after reading" (`ProgressSaver` isRead ok, unread at open, isDownloaded, not
+  bookmarked → one `deleteDownloads(ids, DeleteAfterReading, Background)` once `close` is done); then the desktop e2e suite
+  (Settings moved), `test_ui_manga` cases, integration, e2e `server-downloads`, docs, Switch build + runs.
+- As built: header "Downloading · 14 in the queue" (plan: "2 of 14"), for D58. `app-download-status.json` is hand-written.
+  Test server may still run (no auth). The Switch wasn't used.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

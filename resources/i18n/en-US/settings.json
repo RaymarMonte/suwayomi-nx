@@ -1,6 +1,9 @@
 {
     "browse": "Browse",
     "ask_categories": "Ask for categories when adding",
+    "server_downloads": "Server downloads",
+    "delete_after_reading": "Delete server downloads after reading",
+    "delete_after_reading_note": "A chapter you finish in the reader loses its download on the server. Bookmarked chapters keep theirs. Other apps using this server see it gone too.",
     "server": "Server",
     "address": "Address",
     "login": "Login",

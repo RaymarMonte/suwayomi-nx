@@ -68,6 +68,15 @@ SettingsTab::SettingsTab(MainActivity& main) : main_(main) {
         context.config.setBrowse(browse);
         app::testhooks::write("setting", nlohmann::ordered_json{{"name", "askCategories"}, {"value", on}});
     });
+    // WP-17 (D58): a chapter finished in the reader loses its download on the server (ReaderActivity, on closing).
+    deleteAfterReading->init("settings/delete_after_reading"_i18n,
+                             context.config.config().serverDownloads.deleteAfterReading, [&context](bool on) {
+                                 core::ServerDownloadSettings settings = context.config.config().serverDownloads;
+                                 settings.deleteAfterReading = on;
+                                 context.config.setServerDownloads(settings);
+                                 app::testhooks::write("setting",
+                                                       nlohmann::ordered_json{{"name", "deleteAfterReading"}, {"value", on}});
+                             });
     version->setDetailText(core::versionLabel());
     mode->setDetailText(modeText(context));
     memory->setDetailText(memoryText());

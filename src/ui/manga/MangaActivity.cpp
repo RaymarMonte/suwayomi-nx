@@ -4,7 +4,9 @@
 #include <utility>
 #include <vector>
 
+#include "app/ConfigStore.hpp"
 #include "app/TestHooks.hpp"
+#include "core/ServerDownloads.hpp"
 #include "ui/browse/AddFlow.hpp"
 #include "ui/categories/CategoryPickerActivity.hpp"
 #include "ui/components/TextFit.hpp"
@@ -34,8 +36,16 @@ constexpr float kRowTextWidth = kRowWidth - 6 - 14 - 10 - 14 - kMenuWidth - 8;
 
 const ChapterSort kSorts[] = {ChapterSort::NewestFirst, ChapterSort::OldestFirst};
 const char* const kSortKeys[] = {"manga/sort_newest", "manga/sort_oldest"};
-const ChapterFilter kFilters[] = {ChapterFilter::All, ChapterFilter::Unread, ChapterFilter::Bookmarked};
-const char* const kFilterKeys[] = {"manga/filter_all", "manga/filter_unread", "manga/filter_bookmarked"};
+const ChapterFilter kFilters[] = {ChapterFilter::All, ChapterFilter::Unread, ChapterFilter::Bookmarked,
+                                  ChapterFilter::DownloadedOnServer};
+const char* const kFilterKeys[] = {"manga/filter_all", "manga/filter_unread", "manga/filter_bookmarked",
+                                   "manga/filter_on_server"};
+// WP-17: the "Download on server..." choices, in the menu's order.
+const core::DownloadChoice kDownloadChoices[] = {core::DownloadChoice::Next1,  core::DownloadChoice::Next5,
+                                                 core::DownloadChoice::Next10, core::DownloadChoice::Next25,
+                                                 core::DownloadChoice::Unread, core::DownloadChoice::All};
+const char* const kDownloadKeys[] = {"manga/download_next1",  "manga/download_next5",  "manga/download_next10",
+                                     "manga/download_next25", "manga/download_unread", "manga/download_all"};
 // Secondary text (author, a row's details): lighter than the theme's "disabled" grey, which is hard to read there; it
 // reads on the dark and the light background alike.
 const NVGcolor kSecondaryText = nvgRGB(150, 150, 150);
@@ -202,11 +212,12 @@ class ChapterCell : public GridCell {
         addView(menu);
     }
 
-    void show(const core::Chapter& chapter) {
+    // tag: the server download (WP-17) "On server", "Server: queued", ...; first on the second line, so never cut off.
+    void show(const core::Chapter& chapter, const std::string& tag) {
         name_->setText(chapter.name.empty() ? brls::getStr("manga/chapter_number", chapterNumberText(chapter.chapterNumber))
                                             : chapter.name);
         name_->setTextColor(themeColor(chapter.isRead ? "brls/text_disabled" : "brls/text"));
-        info_->setText(chapterInfo(chapter));
+        info_->setText(tag.empty() ? chapterInfo(chapter) : tag + "  ·  " + chapterInfo(chapter));
         stripe_->setBackgroundColor(chapter.isBookmarked ? themeColor("brls/accent") : nvgRGBA(0, 0, 0, 0));
         dot_->setBackgroundColor(chapter.isRead ? nvgRGBA(0, 0, 0, 0) : themeColor("brls/accent"));
     }
@@ -242,6 +253,10 @@ MangaActivity::MangaActivity(app::AppContext& context, core::Manga manga,
 
 MangaActivity::~MangaActivity() {
     context_.saves.removeListener(savesListener_);
+    context_.downloads.removeListener(downloadsListener_);
+    if (watcher_ != 0) {
+        context_.downloads.unwatch(watcher_);
+    }
     alive_.cancel();  // a reader closing later doesn't call back into this screen
     if (list_ != nullptr) {
         list_->setSource(nullptr);  // unbinds the rows while this screen still exists
@@ -323,6 +338,12 @@ void MangaActivity::onContentAvailable() {
         return true;
     });
 
+    // WP-17: the server's queue, watched while this screen is on top (onPause / onResume).
+    downloadsListener_ = context_.downloads.addListener([this](const ServerDownloads::Change& change) { downloadsChanged(change); });
+    if (!isLocal()) {
+        watcher_ = context_.downloads.watch();
+    }
+
     ready_ = true;
     model_.setListener([this] { modelChanged(); });
     list_->setSource(this);
@@ -332,7 +353,17 @@ void MangaActivity::onContentAvailable() {
     reportScreen();
 }
 
+void MangaActivity::onPause() {
+    if (watcher_ != 0) {
+        context_.downloads.unwatch(watcher_);  // the reader (or a menu) on top: the queue isn't polled for this screen
+        watcher_ = 0;
+    }
+}
+
 void MangaActivity::onResume() {
+    if (watcher_ == 0 && !isLocal()) {
+        watcher_ = context_.downloads.watch();
+    }
     reportScreen();
 }
 
@@ -375,8 +406,10 @@ void MangaActivity::modelChanged() {
         case MangaModel::State::Ready: {
             const std::size_t count = model_.items().size();
             if (count == 0) {
-                const bool unread = model_.filter() == ChapterFilter::Unread;
-                statusView_->showMessage(unread ? "manga/none_unread"_i18n : "manga/none_bookmarked"_i18n,
+                const ChapterFilter filter = model_.filter();
+                statusView_->showMessage(filter == ChapterFilter::Unread               ? "manga/none_unread"_i18n
+                                         : filter == ChapterFilter::DownloadedOnServer ? "manga/none_on_server"_i18n
+                                                                                       : "manga/none_bookmarked"_i18n,
                                          "manga/filter_empty_text"_i18n);
                 showList(false);
                 break;
@@ -562,7 +595,7 @@ GridCell* MangaActivity::makeCell() {
 
 void MangaActivity::bind(GridCell& cell, std::size_t index) {
     cell.setId("manga/chapter-" + std::to_string(index));  // the "focus" test event says which row has the focus
-    static_cast<ChapterCell&>(cell).show(model_.items()[index]);
+    static_cast<ChapterCell&>(cell).show(model_.items()[index], serverTag(model_.items()[index]));
 }
 
 void MangaActivity::unbind(GridCell& cell) {
@@ -626,7 +659,18 @@ void MangaActivity::openChapterMenu(std::size_t index) {
         names.push_back(brls::getStr(actionKey(action)));
     }
     const int chapterId = chapter.id;
-    auto* dropdown = new brls::Dropdown(chapter.name, names, [this, actions, chapterId](int selected) {
+    // WP-17: a 5th entry from the server's queue: Download on server, Cancel server download or Delete server download.
+    const ServerEntry server = serverEntry(chapter);
+    if (server != ServerEntry::None) {
+        names.push_back(brls::getStr(server == ServerEntry::Download ? "manga/server_download"
+                                     : server == ServerEntry::Cancel ? "manga/server_cancel"
+                                                                     : "manga/server_delete"));
+    }
+    auto* dropdown = new brls::Dropdown(chapter.name, names, [this, actions, chapterId, server](int selected) {
+        if (selected >= 0 && static_cast<std::size_t>(selected) == actions.size() && server != ServerEntry::None) {
+            brls::sync([this, chapterId, server] { serverAct(chapterId, server); });
+            return;
+        }
         if (selected < 0 || static_cast<std::size_t>(selected) >= actions.size()) {
             return;
         }
@@ -717,9 +761,13 @@ void MangaActivity::openMenu() {
     if (inLibrary) {
         entries.push_back("manga/menu_remove"_i18n);
     }
-    auto* dropdown = new brls::Dropdown("manga/menu_title"_i18n, entries, [this](int selected) {
+    const int downloadEntry = isLocal() ? -1 : static_cast<int>(entries.size());  // WP-17, never for Local
+    if (downloadEntry >= 0) {
+        entries.push_back("manga/menu_download"_i18n);
+    }
+    auto* dropdown = new brls::Dropdown("manga/menu_title"_i18n, entries, [this, downloadEntry](int selected) {
         // The menu closes first; the next one opens on the following frame.
-        brls::sync([this, selected] {
+        brls::sync([this, selected, downloadEntry] {
             if (selected == 0) {
                 openSortMenu();
             } else if (selected == 1) {
@@ -728,6 +776,8 @@ void MangaActivity::openMenu() {
                 refresh();
             } else if (selected == 3) {
                 addOrPick();
+            } else if (selected == downloadEntry) {
+                openDownloadMenu();
             } else if (selected == 4) {
                 addFlow_->removeFromLibrary(model_.manga());
             }
@@ -819,6 +869,19 @@ void MangaActivity::report() {
     fields["complete"] = model_.complete();
     fields["sort"] = std::string(chapterSortName(model_.sort()));
     fields["filter"] = std::string(chapterFilterName(model_.filter()));
+    {
+        // WP-17: the chapters downloaded on the server, and this manga's rows in the server's queue.
+        int downloaded = 0, queued = 0, downloading = 0, failed = 0;
+        for (const core::Chapter& c : model_.chapters()) {
+            downloaded += c.isDownloaded ? 1 : 0;
+            if (const core::DownloadRow* row = context_.downloads.row(c.id)) {
+                queued += row->state == core::DownloadState::Queued ? 1 : 0;
+                downloading += row->state == core::DownloadState::Downloading ? 1 : 0;
+                failed += row->state == core::DownloadState::Error ? 1 : 0;
+            }
+        }
+        fields["server"] = {{"downloaded", downloaded}, {"queued", queued}, {"downloading", downloading}, {"failed", failed}};
+    }
     fields["first"] = model_.items().empty() ? 0 : model_.items().front().sourceOrder;
     fields["unread"] = model_.manga().unreadCount;
     fields["inLibrary"] = model_.manga().inLibrary;
@@ -831,6 +894,133 @@ void MangaActivity::report() {
         reported_ = key;
         app::testhooks::write("manga", fields);
     }
+}
+
+// --- WP-17 (D58): downloads on the server ---
+
+bool MangaActivity::isLocal() const {
+    const auto& source = model_.manga().source;
+    return source && source->id == "0";  // Local: the server drops its chapters from the queue (they are on its disk)
+}
+
+MangaActivity::ServerEntry MangaActivity::serverEntry(const core::Chapter& chapter) const {
+    if (isLocal()) {
+        return ServerEntry::None;
+    }
+    if (context_.downloads.row(chapter.id) != nullptr) {
+        return ServerEntry::Cancel;
+    }
+    return chapter.isDownloaded ? ServerEntry::Delete : ServerEntry::Download;
+}
+
+std::string MangaActivity::serverTag(const core::Chapter& chapter) const {
+    if (const core::DownloadRow* row = context_.downloads.row(chapter.id)) {
+        switch (row->state) {
+            case core::DownloadState::Error:
+                return "manga/tag_failed"_i18n;
+            case core::DownloadState::Downloading:
+                return brls::getStr("manga/tag_percent", core::percentText(row->progress));
+            case core::DownloadState::Queued:
+                if (row->progress > 0 && context_.downloads.view() == core::QueueView::Paused) {
+                    return brls::getStr("manga/tag_paused", core::percentText(row->progress));
+                }
+                return "manga/tag_queued"_i18n;
+        }
+    }
+    return chapter.isDownloaded ? "manga/tag_on_server"_i18n : std::string();
+}
+
+void MangaActivity::serverAct(int chapterId, ServerEntry entry) {
+    switch (entry) {
+        case ServerEntry::Download:
+            context_.downloads.enqueue({chapterId});
+            break;
+        case ServerEntry::Cancel:
+            context_.downloads.removeFromQueue(chapterId);
+            break;
+        case ServerEntry::Delete:
+            context_.downloads.deleteDownloads({chapterId});
+            break;
+        case ServerEntry::None:
+            break;
+    }
+}
+
+void MangaActivity::openDownloadMenu() {
+    std::vector<std::string> names;
+    for (const char* key : kDownloadKeys) {
+        names.push_back(brls::getStr(key));
+    }
+    auto* dropdown = new brls::Dropdown("manga/menu_download"_i18n, names, [this](int selected) {
+        if (selected < 0 || selected >= static_cast<int>(sizeof(kDownloadChoices) / sizeof(kDownloadChoices[0]))) {
+            return;
+        }
+        const core::DownloadChoice choice = kDownloadChoices[selected];
+        brls::sync([this, choice] {
+            const std::vector<int> ids =
+                core::chaptersToDownload(model_.chapters(), choice, context_.downloads.queuedIds());
+            if (ids.empty()) {
+                brls::Application::notify("manga/download_nothing"_i18n);
+                return;
+            }
+            pendingQueuedNote_ = static_cast<int>(ids.size());
+            context_.downloads.enqueue(ids);
+        });
+    });
+    brls::Application::pushActivity(new brls::Activity(dropdown));
+}
+
+void MangaActivity::downloadsChanged(const ServerDownloads::Change& change) {
+    if (!change.deleted.empty()) {
+        model_.applyDownloaded(change.deleted);  // at once: the server answered isDownloaded
+    }
+    if (change.action && change.action->action == ServerDownloads::Action::Enqueue && pendingQueuedNote_ > 0) {
+        if (change.action->ok) {
+            brls::Application::notify(pendingQueuedNote_ == 1 ? "manga/download_queued_one"_i18n
+                                                              : brls::getStr("manga/download_queued", pendingQueuedNote_));
+        }
+        pendingQueuedNote_ = 0;
+    }
+    if (auto error = context_.downloads.takeError()) {
+        brls::Application::notify(error->kind == api::ApiErrorKind::Permission ? "server_downloads/permission"_i18n
+                                                                               : errorText(*error));
+    }
+    // Chapters of this manga that left the queue by themselves are most likely downloaded: the truth is isDownloaded, so
+    // the list reloads, at most every serverDownloadReloadMs while more keep leaving, and once after the last.
+    bool ours = false;
+    for (int id : change.left) {
+        ours = ours || model_.chapter(id) != nullptr;
+    }
+    if (ours) {
+        reloadForDownloads();
+    }
+    if (listShown_ && list_ != nullptr) {
+        list_->rebind();  // the tags
+    }
+    report();
+}
+
+void MangaActivity::reloadForDownloads() {
+    const std::int64_t now = app::appClockMs();
+    const int wait = std::max(0, context_.profile.serverDownloadReloadMs);
+    if (now - lastDownloadReload_ >= wait) {
+        lastDownloadReload_ = now;
+        model_.reloadChapters();
+        return;
+    }
+    if (reloadScheduled_) {
+        return;
+    }
+    reloadScheduled_ = true;
+    const net::CancelToken alive = alive_;
+    brls::delay(static_cast<int>(wait - (now - lastDownloadReload_)), [this, alive] {
+        if (alive.cancelled()) {
+            return;
+        }
+        reloadScheduled_ = false;
+        lastDownloadReload_ = app::appClockMs();
+        model_.reloadChapters();
+    });
 }
 
 }  // namespace snx::ui
