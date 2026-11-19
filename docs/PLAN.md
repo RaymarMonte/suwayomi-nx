@@ -27,7 +27,7 @@ sources, manage extensions, and read offline.
 | 0. Foundations | WP-00 … WP-03b | Tools installed, a "hello" .nro deployed and screenshotted by a script, repo + CI, test server with fixture manga, E2E harness, **safety layer + crash drills** |
 | 1. Core (no UI) | WP-04 … WP-07 | Models, GraphQL, HTTP, Suwayomi client with auth, image pipeline + caches, all unit/integration-tested on PC |
 | 2. MVP UI | WP-08 … WP-12 | Server setup/login, library, manga details, paged reader with progress sync, hardening. **Release v0.1** |
-| 3. Features | WP-22, WP-13 … WP-26 | **Portrait reader first** (WP-22, console held sideways), then zoom, webtoon, updates/history, library tools, browse/search, then download on server, offline reading (downloads to the SD card, then reading away from home), applet mode, then extensions, tracking, polish, user docs (D47, D51, D57). Nice to have: in-app updates |
+| 3. Features | WP-22, WP-13 … WP-26 | **Portrait reader first** (WP-22, console held sideways), then zoom, webtoon, updates/history, library tools, browse/search, then download on server, offline reading (downloads to the SD card, then reading away from home), applet mode, then extensions, tracking, polish, user docs (D47, D51, D57). Nice to have: in-app updates, chapter selection, local files on the SD card (D57) |
 
 Phase 0 matters most. WP-00 proves the whole loop (build → deploy → launch → screenshot → read log) on *your* console
 before any real app code exists. If something in the chain doesn't work (controller order, memory mode, network),
@@ -46,7 +46,7 @@ we find out on day one, not in week four.
 
 ## Model assignment (summary, details in ROADMAP.md)
 
-- **Opus 5.5 is the default for every WP** (32 of 34). The owner prioritises accuracy over token savings.
+- **Opus 5.5 is the default for every WP** (all but WP-17 and WP-20). The owner prioritises accuracy over token savings.
 - **Sonnet** only where the path is clear and the result is easy to check: WP-17 (the server's download queue, once WP-15's
   polling and WP-23's test source exist), WP-20 (user docs), plus short chores
   (adding fixtures/test cases, re-running goldens after an intended change, CI version bumps, making an Opus-written failing test pass).

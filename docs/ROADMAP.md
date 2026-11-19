@@ -49,6 +49,8 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | WP-19 | Settings polish, i18n, theming, optional HTTPS, config saves off the main thread, small reader leftovers | 12 | Opus (string extraction: **H**) | M/L | – | todo |
 | WP-20 | User docs (README for users, screenshots), release notes, (optional) hardware CI runner | 12 ∥ any (docs only) | **S** | S | Publish releases | todo |
 | WP-26 | **In-app updates** (nice to have): fetch the new .nro from GitHub Releases, checksum-checked, old one kept | 19 | Opus | M | **Yes**: OK for a safety-rule exception (D15, S11) | todo |
+| WP-27 | **Chapter selection** (nice to have): tick chapters on the details screen (one by one, a range, Select all), then mark them read / unread or bookmark them in one go (owner 2026-11-19, D57) | 10 | Opus | S/M | Optional: try it on your server | todo |
+| WP-28 | **Local files** (nice to have): read manga copied onto the Switch's own SD card (CBZ / ZIP archives, folders of images) without the server (owner 2026-11-19, D57) | 18, 18b | Opus | M/L | **Yes**: copy a file to the SD card and read it | todo |
 
 **Touch first (D16):** every UI WP from WP-08 on ships touch for its own screens, tested on desktop with the mouse
 (plus a test hook for multi-finger gestures) and on the console with the touch-capable sys-autopilot (D19) or a manual checklist.
@@ -59,7 +61,8 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 (spreads) → WP-13b (webtoon) → WP-13d (strip zoom) → WP-15 / 15b (updates, history) → WP-24 (library tools) → WP-14 / 14b
 (browse), with WP-23 (test source) alongside. **Next: WP-17** (download on server) → **WP-18** (offline 1: download to the SD
 card) → **WP-18b** (offline 2: read away from home) → **WP-21** (applet mode) → WP-16 (extensions) → WP-25 (tracking) → WP-19
-(polish). WP-20 (user docs) touches no app code and can run alongside. Nice to have, when the owner asks: WP-26, WP-08b.
+(polish). WP-20 (user docs) touches no app code and can run alongside. Nice to have, when the owner asks: WP-26, WP-08b,
+WP-27 (chapter selection), WP-28 (local files on the SD card).
 Phase 3 is listed in that order, not by number.
 
 ### Sonnet / Haiku work outside the WPs
@@ -79,7 +82,7 @@ on-device debugging, **the safety layer (`src/app/crash/`, `SafeFs`, `check-elf.
 The stubs below are kept short on purpose. Right before a WP runs, a fresh Opus **planning session** writes its
 `docs/wp/WP-xx-*.md` from `wp/_TEMPLATE.md`: it reads STATUS.md, the stub, and the READMEs and headers of the modules the WP
 touches, checks the stub's queries on the test server, asks the owner the product questions, updates the stub and the table if the
-plan changes them, and commits `WP-xx: plan ...`. No code. Effort: **max** for WP-13, 13b, 18, 18b, 21 and 26 (GPU, memory, sync,
+plan changes them, and commits `WP-xx: plan ...`. No code. Effort: **max** for WP-13, 13b, 18, 18b, 21, 26 and 28 (GPU, memory, sync,
 safety), **xhigh** for the rest. A planning session only changes docs, so it may run while the previous WP runs, on its own branch
 (a worktree, merged after that WP), when it doesn't depend on that WP's result: WP-24 can be planned during WP-15, WP-18b can't
 be planned during WP-18. Then the WP itself runs in its own session, as before.
@@ -217,6 +220,26 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
 - **WP-26 In-app updates (nice to have).** Settings → About checks GitHub Releases (needs WP-19's HTTPS), shows what's new, and on
   the user's OK downloads the .nro, checks it against `SHA256SUMS.txt`, and swaps it in atomically, keeping the old one. Today
   D15/S11 rule out self-update and SafeFs refuses to write any `.nro` (D33): the owner's OK for that exception comes first.
+- **WP-27 Chapter selection (nice to have, owner 2026-11-19, D57).** Today the details screen marks one chapter, or all
+  before one (D43's row menu; X toggles read). WP-27 adds a selection mode like Mihon's: tick chapters one by one (A / tap), a
+  range (from the last ticked one to this one), Select all and Invert (all = the chapters the filter shows), then Mark read /
+  Mark unread / Bookmark for every ticked chapter as one `updateChapters` (the same patches as today's one-chapter actions,
+  D43). How the mode starts and ends (the row menu, a long press by touch, D16; B leaves it) is the planner's to settle with
+  the owner. If WP-17 / WP-18 are done by then, the selection also gets their download actions (WP-18's "bulk actions").
+  Open for the planner: the same selection on the Updates tab (WP-15 left Mihon's batch mark read out). Opus: a selection
+  mode in `CoverGrid` that other lists will copy.
+- **WP-28 Local files on the SD card (nice to have, owner 2026-11-19, D57).** Read manga the user copied onto the Switch's
+  own SD card, with no server: CBZ / ZIP archives and folders of images (the planner checks CBR / RAR, PDF and EPUB: likely
+  out, for licences and size). Not the server's Local source, which reads the server's disk. To settle while planning: where
+  the files go (a fixed folder such as `sdmc:/switch/suwayomi-nx/local/`, or a small file browser) and where they show (a
+  "Local files" grid, or WP-18's Downloads tab); reading through WP-18's SD page path, so the paged reader and the strip both
+  work; progress kept on the SD card through SafeFs, atomic (no server to save it on). Safety (S6, D14): the files are
+  untrusted input, so limits on archive size, entry count, unpacked size (zip bombs) and image dimensions; a ZIP reader
+  under a licence we can use (MIT / BSD / zlib, no GPL), pinned like libwebp (D39) and fuzzed (`tools/build.sh fuzz`); reads
+  only, and writes only our own progress file. Needs WP-18 (the reader's SD path) and WP-18b (starting without a server).
+  Test files: the fixture generator makes chapters as folders of images (TESTING.md); a CBZ is such a folder zipped, so
+  it can make those too. UX ideas: nxmanga, a local CBZ reader
+  (RESEARCH.md; no licence, so ideas only). Opus (untrusted files, memory). Size M/L; split point: the file browser (if it gets one).
 
 ## How to start a session (copy-paste prompt)
 

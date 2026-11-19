@@ -1223,8 +1223,8 @@ Rejected: Mihon's way (nothing pre-ticked, no "don't ask"), adding without a que
 setting for asking (it is the web UI's internal metadata), a list of sources or one mixed grid for Search all, English only
 at first, hiding 18+ sources, a duplicate title pair with a Local fixture (WP-23 keeps Local titles out of the catalog).
 
-**D57 WP-17, WP-18, WP-18b and WP-21 run next, then the rest in their old order** (owner, 2026-11-19, a roadmap chore;
-amends D51's order and D47's).
+**D57 WP-17, WP-18, WP-18b and WP-21 run next, then the rest in their old order; two new nice to haves** (owner,
+2026-11-19, a roadmap chore; amends D51's order and D47's).
 - **Order now:** WP-17 download on server → WP-18 offline 1 (download to the SD card) → WP-18b offline 2 (read away from
   home) → WP-21 applet mode → WP-16 extensions → WP-25 tracking → WP-19 polish, with WP-20 (user docs) alongside. Nice to
   have, when the owner asks: WP-26 (in-app updates), WP-08b. The owner's words: WP-17 first, then WP-18, then WP-21, "then
@@ -1241,4 +1241,9 @@ amends D51's order and D47's).
   source both exist now; Opus if they don't fit.
 - **WP-18b follows WP-18 right away**, so reading away from home without the server (D18's first option) no longer waits
   at the bottom.
-- Nothing built changes: no code exists for WP-17, WP-18, WP-18b or WP-21 yet.
+- **Two new nice to haves at the end** (owner, the same day; neither was in a WP: D43 marks one chapter or "all before",
+  WP-15 left Mihon's batch mark read out, nothing reads the Switch's own files): **WP-27 chapter selection** (tick
+  chapters, a range, Select all, then mark read / unread or bookmark them in one request) and **WP-28 local files on the SD
+  card** (CBZ / ZIP and image folders read without the server; untrusted input, so S6 limits and a fuzzed, pinned ZIP
+  reader; needs WP-18 and WP-18b). Planning effort: xhigh for WP-27, max for WP-28.
+- Nothing built changes: no code exists for WP-17, WP-18, WP-18b, WP-21, WP-27 or WP-28 yet.
