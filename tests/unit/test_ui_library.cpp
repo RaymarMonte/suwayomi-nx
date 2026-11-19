@@ -21,7 +21,9 @@ using namespace snx;
 using core::LibrarySort;
 using net::FakeHttpClient;
 using net::Request;
+using ui::GridFocusable;
 using ui::GridLayout;
+using ui::GridMetrics;
 using ui::GridMove;
 using ui::LibraryModel;
 
@@ -409,6 +411,53 @@ TEST_CASE("grid: columns, positions, the visible rows and focus moves") {
     CHECK(grid.neighbour(8, GridMove::Down, 12) == 11u);  // the last row is short: its last cell
     CHECK_FALSE(grid.neighbour(11, GridMove::Down, 12).has_value());
     CHECK_FALSE(grid.neighbour(12, GridMove::Down, 12).has_value());
+}
+
+TEST_CASE("grid (WP-14b): exactly N columns; empty places can't take the focus") {
+    // Search all: 6 columns whatever the width; the cells keep their own width, centred.
+    const GridMetrics six{192, 230, 16, 24, 6};
+    CHECK(GridLayout(1280, six).columns() == 6);
+    CHECK(GridLayout(600, six).columns() == 6);
+    CHECK(GridLayout(1280, six).origin(0).x == doctest::Approx(24));  // 6 * 192 + 5 * 16 = 1232 = 1280 - 2 * 24
+    CHECK(GridLayout(1280, six).origin(7).x == doctest::Approx(24 + 208));
+    CHECK(GridLayout(1280, six).origin(7).y == doctest::Approx(24 + 246));
+
+    // Rows of a card + 5 covers: row 0 has 5 covers, row 1 has 2, row 2 none, row 3 has 3.
+    const GridLayout grid(1280, six);
+    const std::vector<int> covers = {5, 2, 0, 3};
+    const GridFocusable focusable = [&](std::size_t i) {
+        const std::size_t row = i / 6;
+        const std::size_t column = i % 6;
+        return column == 0 || static_cast<int>(column) <= covers[row];
+    };
+    const std::size_t count = 24;
+    // Right stops at a row's last cover; Left goes back over covers to the card.
+    CHECK(grid.neighbour(6, GridMove::Right, count, focusable) == 7u);
+    CHECK(grid.neighbour(7, GridMove::Right, count, focusable) == 8u);
+    CHECK_FALSE(grid.neighbour(8, GridMove::Right, count, focusable).has_value());
+    CHECK_FALSE(grid.neighbour(12, GridMove::Right, count, focusable).has_value());  // Nothing found: only the card
+    CHECK(grid.neighbour(8, GridMove::Left, count, focusable) == 7u);
+    CHECK_FALSE(grid.neighbour(6, GridMove::Left, count, focusable).has_value());
+    // Down from cover 5 of row 0 into row 1 (2 covers) lands on its last cover; into row 2 on its card.
+    CHECK(grid.neighbour(5, GridMove::Down, count, focusable) == 8u);
+    CHECK(grid.neighbour(8, GridMove::Down, count, focusable) == 12u);
+    CHECK(grid.neighbour(12, GridMove::Down, count, focusable) == 18u);
+    CHECK(grid.neighbour(21, GridMove::Up, count, focusable) == 12u);  // row 3's cover 3 → row 2's card
+    CHECK(grid.neighbour(12, GridMove::Up, count, focusable) == 6u);
+    CHECK(grid.neighbour(8, GridMove::Up, count, focusable) == 2u);
+    CHECK_FALSE(grid.neighbour(21, GridMove::Down, count, focusable).has_value());
+    // A row nothing in can take the focus is skipped (not our rows, which always have their card).
+    const GridFocusable noRow2 = [&](std::size_t i) { return i / 6 != 2 && focusable(i); };
+    CHECK(grid.neighbour(8, GridMove::Down, count, noRow2) == 20u);
+    CHECK(grid.neighbour(19, GridMove::Up, count, noRow2) == 7u);
+    // Without a rule: as before.
+    CHECK(grid.neighbour(8, GridMove::Right, count) == 9u);
+
+    // The focus asked for an empty place goes to the nearest one before it in the row.
+    CHECK(grid.focusableNear(10, count, focusable) == 8u);
+    CHECK(grid.focusableNear(15, count, focusable) == 12u);
+    CHECK(grid.focusableNear(7, count, focusable) == 7u);
+    CHECK(grid.focusableNear(10, count, {}) == 10u);
 }
 
 TEST_CASE("library: updateManga (WP-10) changes the unread count everywhere, sorts again, the focus follows") {

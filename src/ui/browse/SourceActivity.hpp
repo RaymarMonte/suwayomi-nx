@@ -30,7 +30,9 @@ class AddFlow;
 class SourceActivity : public brls::Activity, private GridSource {
   public:
     // onLibraryChanged: a manga was added or removed here or on a preview opened from here (the library updates).
-    SourceActivity(app::AppContext& context, core::Source source, std::function<void(const core::Manga&)> onLibraryChanged);
+    // searchText (WP-14b, a Search all card): the screen opens searching it, else on Popular.
+    SourceActivity(app::AppContext& context, core::Source source, std::function<void(const core::Manga&)> onLibraryChanged,
+                   std::string searchText = {});
     ~SourceActivity() override;
 
     CONTENT_FROM_XML_RES("activity/source.xml");
@@ -77,6 +79,7 @@ class SourceActivity : public brls::Activity, private GridSource {
     SourceBrowseModel model_;
     SourceFiltersModel filters_;
     std::function<void(const core::Manga&)> onLibraryChanged_;
+    std::string searchText_;  // opens searching this (Search all)
     std::shared_ptr<AddFlow> flow_;
     net::CancelToken alive_;     // cancelled when this screen goes
     net::CancelToken prefetch_;  // the row below the screen

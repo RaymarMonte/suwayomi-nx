@@ -17,6 +17,7 @@ constexpr float kRowWidth = 1120;
 constexpr float kRowHeight = 80;
 constexpr GridMetrics kListMetrics{kRowWidth, kRowHeight, 4, 0};
 constexpr float kCountWidth = 200;
+constexpr float kTickWidth = 260;  // WP-14b: "Ticked for new manga"
 const NVGcolor kSecondaryText = nvgRGB(150, 150, 150);
 
 bool inside(brls::View* view, const brls::View* parent) {
@@ -42,11 +43,13 @@ const char* actionName(CategoriesModel::Action action) {
             return "move";
         case CategoriesModel::Action::Delete:
             return "delete";
+        case CategoriesModel::Action::Tick:
+            return "tick";
     }
     return "add";
 }
 
-// One category: its name and how many manga it holds.
+// One category: its name, "Ticked for new manga" when it is (WP-14b), and how many manga it holds.
 class CategoryCell : public GridCell {
   public:
     CategoryCell() {
@@ -58,11 +61,18 @@ class CategoryCell : public GridCell {
         setPaddingLeft(20);
         setPaddingRight(20);
         name_ = new brls::Label();
-        name_->setWidth(kRowWidth - 40 - kCountWidth);
+        name_->setWidth(kRowWidth - 40 - kCountWidth - kTickWidth);
         name_->setFontSize(20);
         name_->setSingleLine(true);
         name_->setAutoAnimate(false);
         addView(name_);
+        tick_ = new brls::Label();
+        tick_->setWidth(kTickWidth);
+        tick_->setFontSize(16);
+        tick_->setHorizontalAlign(brls::HorizontalAlign::RIGHT);
+        tick_->setAutoAnimate(false);
+        tick_->setTextColor(kSecondaryText);
+        addView(tick_);
         count_ = new brls::Label();
         count_->setWidth(kCountWidth);
         count_->setFontSize(16);
@@ -74,11 +84,13 @@ class CategoryCell : public GridCell {
 
     void show(const core::Category& category) {
         name_->setText(category.name);
+        tick_->setText(category.isDefault ? "categories/ticked_for_new"_i18n : std::string());
         count_->setText(countText(category.mangaCount));
     }
 
   private:
     brls::Label* name_;
+    brls::Label* tick_;
     brls::Label* count_;
 };
 
@@ -231,7 +243,7 @@ void CategoriesActivity::report() {
     static const char* const kStates[] = {"loading", "ready", "empty", "failed"};
     nlohmann::ordered_json rows = nlohmann::ordered_json::array();
     for (const core::Category& c : model_.items()) {
-        rows.push_back({{"id", c.id}, {"name", c.name}, {"count", c.mangaCount}});
+        rows.push_back({{"id", c.id}, {"name", c.name}, {"count", c.mangaCount}, {"tick", c.isDefault}});
     }
     nlohmann::ordered_json fields = nlohmann::ordered_json::object();
     fields["state"] = kStates[static_cast<int>(model_.state())];
@@ -338,12 +350,15 @@ void CategoriesActivity::openRowMenu(std::size_t index) {
         return;
     }
     model_.rememberFocus(index);
+    // WP-14b: the last entry ticks the category for new manga (the add flow's picker starts with it ticked) or not.
+    const bool ticked = model_.items()[index].isDefault;
     const std::vector<std::string> entries = {"categories/rename"_i18n, "categories/move_up"_i18n,
-                                              "categories/move_down"_i18n, "categories/delete"_i18n};
+                                              "categories/move_down"_i18n, "categories/delete"_i18n,
+                                              ticked ? "categories/untick_for_new"_i18n : "categories/tick_for_new"_i18n};
     const int id = model_.items()[index].id;
-    auto* dropdown = new brls::Dropdown(model_.items()[index].name, entries, [this, id](int selected) {
+    auto* dropdown = new brls::Dropdown(model_.items()[index].name, entries, [this, id, ticked](int selected) {
         // The menu closes first; what comes next opens on the following frame.
-        brls::sync([this, id, selected] {
+        brls::sync([this, id, ticked, selected] {
             for (std::size_t i = 0; i < model_.items().size(); ++i) {
                 if (model_.items()[i].id != id) {
                     continue;
@@ -356,6 +371,8 @@ void CategoriesActivity::openRowMenu(std::size_t index) {
                     model_.move(i, 1);
                 } else if (selected == 3) {
                     askDelete(i);
+                } else if (selected == 4) {
+                    model_.setTickForNew(i, !ticked);
                 }
                 return;
             }

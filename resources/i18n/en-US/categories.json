@@ -31,5 +31,8 @@
     "save": "Save",
     "toggle": "Tick",
     "saving": "Saving...",
-    "default_name": "Default"
+    "default_name": "Default",
+    "tick_for_new": "Tick for new manga",
+    "untick_for_new": "Don't tick for new manga",
+    "ticked_for_new": "Ticked for new manga"
 }

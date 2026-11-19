@@ -116,8 +116,10 @@ brls::View* MainActivity::makeTab(std::size_t index) {
         status->showMessage(brls::getStr(kTabLabels[index]), "main/connect_first"_i18n);
         view = status;
     } else {
+        // Every tab has a screen now; only an unknown index gets here (GCC warns about reading past the labels otherwise).
+        constexpr std::size_t kTabCount = sizeof(kTabLabels) / sizeof(kTabLabels[0]);
         auto* status = new TabStatus(*this);
-        status->showMessage(brls::getStr(kTabLabels[index]), "main/coming_soon"_i18n);
+        status->showMessage(brls::getStr(kTabLabels[index < kTabCount ? index : 0]), "main/coming_soon"_i18n);
         view = status;
     }
     if (index == kLibraryTab) {

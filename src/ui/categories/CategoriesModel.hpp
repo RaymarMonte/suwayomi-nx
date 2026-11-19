@@ -13,7 +13,7 @@
 #include "net/CancelToken.hpp"
 
 // The Categories screen's state (WP-24, D54): the user's categories with their manga counts, and the actions on them
-// (add, rename, move up / down, delete). Without borealis, so it is unit-tested (FakeHttpClient, test_ui_categories.cpp).
+// (add, rename, move up / down, delete; WP-14b: Tick for new manga, the server's "default" flag). Without borealis, so it is unit-tested (FakeHttpClient, test_ui_categories.cpp).
 // Default (id 0) is never listed nor changed. One action at a time; the list shows what the server answered.
 // The server checks almost nothing (D54), so names go through checkName() first: the actions refuse a name it refuses.
 namespace snx::ui {
@@ -26,7 +26,7 @@ class CategoriesModel {
         Empty,    // only Default: the user has no categories yet
         Failed,   // nothing to show: error() says why, the screen offers Retry
     };
-    enum class Action { Add, Rename, Move, Delete };
+    enum class Action { Add, Rename, Move, Delete, Tick };
 
     // A finished action (for the screen's message and the "category_action" test event).
     struct Done {
@@ -60,8 +60,12 @@ class CategoriesModel {
     bool renameAt(std::size_t index, const std::string& typed);
     bool move(std::size_t index, int step);  // -1 up, +1 down
     bool deleteAt(std::size_t index);
+    // WP-14b: ticks the category for new manga or not (the server's "default" flag; the add flow's picker starts with
+    // these ticked, and adds straight into them after "Don't ask again"). False also when it already is so.
+    bool setTickForNew(std::size_t index, bool on);
 
-    // Something changed on the server since the screen opened (the Library loads everything again when it closes).
+    // Something changed on the server since the screen opened (the Library loads everything again when it closes). A
+    // Tick doesn't count: the library doesn't show it.
     bool changedAnything() const { return changedAnything_; }
     // The action that finished since the last call (empty afterwards), and its error when it failed.
     std::optional<Done> takeDone();

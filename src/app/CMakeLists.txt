@@ -18,6 +18,8 @@ set(SNX_APP_SOURCES
     ${PROJECT_SOURCE_DIR}/src/ui/browse/AddFlow.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/browse/BrowseTab.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/browse/FiltersActivity.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/browse/GlobalSearchActivity.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/browse/LanguagesActivity.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/browse/SourceActivity.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/categories/CategoriesActivity.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/categories/CategoryPickerActivity.cpp

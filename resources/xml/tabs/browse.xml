@@ -1,4 +1,4 @@
-<!-- The Browse tab (src/ui/browse/BrowseTab, WP-14, D56): a bar (a note, Refresh) and below it the sources, one per row
+<!-- The Browse tab (src/ui/browse/BrowseTab, WP-14, D56): a bar (a note, Search all, Languages, Refresh) and below it the sources, one per row
      (a one-column list, added in code), or a status. Touch targets are 72 px high (D16). -->
 <brls:Box
     width="auto"
@@ -21,6 +21,26 @@
             shrink="1.0"
             fontSize="18"
             text="@i18n/browse/sources" />
+
+        <!-- WP-14b: one text in every shown source. -->
+        <brls:Button
+            id="browse/searchAll"
+            style="bordered"
+            height="72"
+            marginLeft="16"
+            paddingLeft="12"
+            paddingRight="12"
+            text="@i18n/browse/search_all" />
+
+        <!-- WP-14b: the Languages checklist (hide some languages). -->
+        <brls:Button
+            id="browse/languages"
+            style="bordered"
+            height="72"
+            marginLeft="16"
+            paddingLeft="12"
+            paddingRight="12"
+            text="@i18n/browse/languages" />
 
         <brls:Button
             id="browse/refresh"

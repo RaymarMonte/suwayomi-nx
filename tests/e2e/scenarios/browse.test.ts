@@ -12,25 +12,34 @@
 //   Reading → Add: in the library in exactly Reading; its cover gets the "In library" tag (golden "source-tagged");
 // - Paper Garden → Add with nothing ticked: Default. SNX Mature installed: its row has "18+" (golden "sources-mature"); its
 //   Paper Garden → Add → the same-title box (golden "same-title") → Show entry opens SNX Test's; Add anyway: in the library twice;
+// - WP-14b: Languages (golden "languages"): Japanese hidden → its row goes; the last shown language can't be unticked;
+//   Japanese shown again;
+// - WP-14b: Search all "comet" with every test-source call slowed by 2 s: Local, SNX Mature (EN), SNX Test (EN), SNX Test
+//   (JA) (the list's order, Last used not twice), 3 searching and 1 waiting at first; done (golden "search-all"): only SNX
+//   Test (EN) found, its 3 comets; a move into an empty place lands on the next row's card; A on SNX Test (EN)'s card →
+//   its search for "comet". Then over the 3 sources (SNX Mature uninstalled), unslowed: done ≤ 3 s;
 // - the Library's Reading tab has Comet Courier; Remove from its preview's menu → the confirm (golden "remove-confirm") → out;
+// - WP-14b: Tick for new manga on the Categories screen (golden "categories-ticked"): Long series gets the server's
+//   "default" flag, and a preview's Add then opens the picker with Long series ticked;
+// - Switch only: the Y menus, Don't ask again (the next add goes straight into Long series), Settings, L / R;
 // - 10 rounds of opening SNX Test (EN) and scrolling to the end: the memory in use grows by less than 16 MiB;
 // - the D56 times, on the app's clock (D54's way): the sources ≤ 1 s, a first page ≤ 2 s, the next pages ≤ 2 s, the filters
-//   ≤ 0.5 s, an add and a remove ≤ 1 s.
-// Left for WP-14b: Search all (step 8), the Switch-only Y / MINUS / L / R steps (step 10, with Tick for new manga).
-// Known state first and at the end, also after a failure: the test source as seeded, no test-source manga in the library.
+//   ≤ 0.5 s, an add and a remove ≤ 1 s, Search all over 3 sources ≤ 3 s.
+// Known state first and at the end, also after a failure: the test source as seeded, no test-source manga in the library,
+// the seed's categories (none ticked for new manga).
 // Needs the test server (tools/test-server/test-server.sh start).
 
 import { expect } from 'vitest';
 
-import { mangaCategoryIds, serverCategories } from '../lib/categories.ts';
+import { mangaCategoryIds, restoreSeed, serverCategories } from '../lib/categories.ts';
 import type { AppEvent } from '../lib/events.ts';
 import { scenario, type Scenario } from '../lib/scenario.ts';
-import { CLOCK_MASK, LIBRARY, MANGA, PICKER, tab } from '../lib/screens.ts';
+import { CATEGORIES, CLOCK_MASK, LANGUAGES, LIBRARY, MANGA, PICKER, tab } from '../lib/screens.ts';
 import { appServerUrl, optionsFromEnv, SuwayomiClient } from '../lib/suwayomi.ts';
 import { playTouches, tapFrames, typedText } from '../lib/touches.ts';
 import {
     clearTestSourceControl, EXTENSIONS, installExtension, removeTestSourceMangaFromLibrary, resetTestSource,
-    setTestSourceControl, TEST_SOURCE_IDS,
+    setTestSourceControl, TEST_SOURCE_IDS, uninstallExtension,
 } from '../lib/test-source.ts';
 import { CATALOG_EN, selectManga } from '../../../tools/gen-fixtures/test-source.ts';
 
@@ -38,14 +47,16 @@ const MiB = 1024 * 1024;
 const ROUNDS = 10;
 /** D56's limits (WP-14 Acceptance), all on the app's own clock. */
 const LIMITS = { sourcesMs: 1_000, firstPageMs: 2_000, nextPageMs: 2_000, filtersMs: 500, addMs: 1_000, removeMs: 1_000,
-    roundsBytes: 16 * MiB };
+    searchAllMs: 3_000, roundsBytes: 16 * MiB };
 
 /** The details screen's footer hint "Menu" (MINUS): a tap opens the menu, the desktop's way to it. */
 const MENU_HINT = { x: 945, y: 683 };
 
-/** The Browse tab's rows (BrowseTab: one column of 80 px rows, 4 px apart, under the 72 px bar). */
+/** The Browse tab's rows (BrowseTab: one column of 80 px rows, 4 px apart, under the 72 px bar) and its bar's buttons. */
 const BROWSE = {
     row: (i: number) => ({ x: 834, y: 223 + 84 * i }),
+    searchAll: { x: 959, y: 123 },
+    languages: { x: 1090, y: 123 },
     refresh: { x: 1200, y: 123 },
 };
 /**
@@ -82,6 +93,8 @@ const FILTERS = {
 };
 
 type SourceRowEvent = { id: string; name: string; lang: string; nsfw: boolean; label: string; lastUsed: boolean };
+type LanguageRowEvent = { code: string; name: string; shown: boolean };
+type SearchRowEvent = { id: string; name: string; state: string; found: number; more: boolean; shown: number; titles: string[] };
 
 /** Taps (x, y), waits for the first event that `match` accepts and for the screen to settle. */
 async function tapUntil(s: Scenario, at: { x: number; y: number }, what: string, match: (e: AppEvent) => boolean): Promise<AppEvent> {
@@ -224,12 +237,12 @@ async function pressSettled(s: Scenario, button: 'Y' | 'L' | 'R' | 'MINUS' | 'A'
 }
 
 /**
- * WP doc step 10, Switch only. On SNX Test (EN): Y on Comet Courier → Add to library... → the picker → Don't ask again →
- * Add (Default); Y on Midnight Knight → Add to library... goes straight in, no picker (Default: no category is marked for
- * new manga; marking one is WP-14b's Tick); R / L switch Latest / Popular. Settings: "Ask for categories when adding" back
+ * WP doc step 10, Switch only. On SNX Test (EN): Y on Comet Courier → Add to library... → the picker (Long series ticked:
+ * the step before ticked it for new manga) → Don't ask again → Add (Long series); Y on Midnight Knight → Add to library...
+ * goes straight into Long series, no picker; R / L switch Latest / Popular. Settings: "Ask for categories when adding" back
  * on. Library: search "Midnight Knight", Y on its cover → Remove from library... → the confirm → out. Ends on the Browse tab.
  */
-async function switchButtons(s: Scenario, comet: number): Promise<void> {
+async function switchButtons(s: Scenario, comet: number, longSeries: number): Promise<void> {
     await tapUntil(s, BROWSE.row(sourceRow(s, TEST_SOURCE_IDS.en)), 'SNX Test (EN)',
         isEv('browse', { source: TEST_SOURCE_IDS.en, mode: 'popular', state: 'ready' }));
     await pressUntilFocus(s, 'RIGHT', 'source/cover-1');
@@ -238,17 +251,18 @@ async function switchButtons(s: Scenario, comet: number): Promise<void> {
     await tapUntil(s, MANGA.menuEntry(1, 2), 'the picker from the cover menu', isEv('category_picker', { state: 'ready', mode: 'choose' }));
     await tapUntil(s, PICKER_DONT_ASK, "Don't ask again: yes", (e) => e.ev === 'category_picker' && e.dontAsk === true);
     const chosen = await tapUntil(s, PICKER.save, 'the add', isEv('library_add', { ok: true }));
-    expect(chosen).toMatchObject({ manga: comet, categories: [], asked: true });
+    expect(chosen).toMatchObject({ manga: comet, categories: [longSeries], asked: true });
 
-    // The next add asks nothing.
+    // The next add asks nothing: straight into the category ticked for new manga.
     await pressUntilFocus(s, 'RIGHT', 'source/cover-2');  // Midnight Knight
     await pressSettled(s, 'Y');
     const direct = await tapUntil(s, MANGA.menuEntry(1, 2), 'the add without a question', isEv('library_add', { ok: true }));
-    expect(direct).toMatchObject({ categories: [], asked: false });
+    expect(direct).toMatchObject({ categories: [longSeries], asked: false });
     expect(s.events.events.slice(s.events.events.indexOf(chosen)).some((e) => e.ev === 'screen' && e.name === 'CategoryPicker'))
         .toBe(false);
     const midnight = Number(direct.manga);
     expect(await isInLibrary(midnight)).toBe(true);
+    expect(await mangaCategoryIds(midnight)).toEqual([longSeries]);
 
     // R: Latest, L: Popular.
     let mark = await pressSettled(s, 'R');
@@ -297,6 +311,12 @@ async function libraryIdsIn(category: number): Promise<number[]> {
 async function knownState(): Promise<void> {
     await resetTestSource();
     await removeTestSourceMangaFromLibrary();
+    await restoreSeed();  // WP-14b ticks Long series for new manga
+}
+
+/** The latest "global_search" event's rows. */
+function searchRows(e: AppEvent): SearchRowEvent[] {
+    return (e.rows ?? []) as SearchRowEvent[];
 }
 
 scenario('browse', async (s) => {
@@ -319,6 +339,36 @@ scenario('browse', async (s) => {
         expect(rows.some((r) => r.lastUsed)).toBe(false);
         expect(list.lastUsed).toBe('');
         await s.expectGolden('sources', { masks: [CLOCK_MASK] });
+
+        // Languages (WP-14b): every language ticked; untick Japanese (golden "languages"); the last one shown can't be
+        // unticked; Done → the Japanese row goes. Then Japanese again.
+        const languages = await tapUntil(s, BROWSE.languages, 'the Languages checklist', isEv('languages', { state: 'open' }));
+        expect((languages.rows as LanguageRowEvent[]).map((r) => [r.code, r.name, r.shown])).toEqual(
+            [['localsourcelang', 'Local', true], ['en', 'English', true], ['ja', 'Japanese', true]]);
+        await tapUntil(s, LANGUAGES.row(2), 'Japanese unticked',
+            (e) => e.ev === 'languages' && (e.rows as LanguageRowEvent[])[2]?.shown === false);
+        await s.expectGolden('languages', { masks: [CLOCK_MASK] });
+        await tapUntil(s, LANGUAGES.row(0), 'Local unticked',
+            (e) => e.ev === 'languages' && (e.rows as LanguageRowEvent[])[0]?.shown === false);
+        const refused = await tapUntil(s, LANGUAGES.row(1), 'English stays', isEv('languages', { state: 'refused' }));
+        expect((refused.rows as LanguageRowEvent[])[1].shown).toBe(true);
+        await tapUntil(s, LANGUAGES.row(0), 'Local ticked again',
+            (e) => e.ev === 'languages' && (e.rows as LanguageRowEvent[])[0]?.shown === true);
+        const hiding = await tapUntil(s, LANGUAGES.done, 'Japanese hidden',
+            (e) => e.ev === 'sources' && e.state === 'ready' && JSON.stringify(e.hidden) === '["ja"]');
+        expect((hiding.rows as SourceRowEvent[]).map((r) => r.id)).toEqual(['0', TEST_SOURCE_IDS.en]);
+        await tapUntil(s, BROWSE.languages, 'the Languages checklist again', isEv('languages', { state: 'open' }));
+        await tapUntil(s, LANGUAGES.row(2), 'Japanese ticked',
+            (e) => e.ev === 'languages' && (e.rows as LanguageRowEvent[])[2]?.shown === true);
+        const showing = await tapUntil(s, LANGUAGES.done, 'every language again',
+            (e) => e.ev === 'sources' && e.state === 'ready' && (e.hidden as string[]).length === 0);
+        expect((showing.rows as SourceRowEvent[]).map((r) => r.id)).toEqual(['0', TEST_SOURCE_IDS.en, TEST_SOURCE_IDS.ja]);
+        // Those taps were driver taps: borealis is in touch mode now and hides the focus frame. One D-pad press only brings
+        // the frame back (it moves nothing), so the source below opens with the frame on its first cover, as before.
+        const leaveTouch = s.events.mark();
+        await s.driver.press('UP');
+        await s.events.waitForEvent('idle', {}, { from: leaveTouch });
+        expect(focusedView(s)).toContain('browse/languages');
 
         // 2. SNX Test (EN) → Popular: page 1 (25), then the pages as the grid scrolls, 60 in all, no more.
         let mark = s.events.mark();
@@ -492,6 +542,63 @@ scenario('browse', async (s) => {
         await backTo(s, 'Source');
         await backTo(s, 'Browse');
 
+        // 8. Search all "comet" (WP-14b), every test-source call 2 s slower: 4 sources, 3 at a time. The order is the list's
+        // without its Last used row (SNX Mature (EN), opened in step 7, isn't searched twice). Done: golden "search-all".
+        setTestSourceControl({ delayMs: 2000 });
+        await typedText(s, 'comet');
+        mark = s.events.mark();
+        await s.driver.touch(BROWSE.searchAll.x, BROWSE.searchAll.y);
+        const started = await s.events.waitForEvent('global_search', { query: 'comet' }, { from: mark, timeoutMs: 30_000 });
+        expect(searchRows(started).map((r) => r.id)).toEqual(
+            ['0', TEST_SOURCE_IDS.matureEn, TEST_SOURCE_IDS.en, TEST_SOURCE_IDS.ja]);
+        expect(searchRows(started).map((r) => r.state)).toEqual(['searching', 'searching', 'searching', 'waiting']);
+        const searched = await s.events.waitFor('Search all done', (e) => e.ev === 'global_search' && e.finished === true,
+            { from: mark, timeoutMs: 60_000 });
+        await s.events.waitForEvent('idle', {}, { from: s.events.events.indexOf(searched) });
+        expect(searchRows(searched).map((r) => r.state)).toEqual(['nothing_found', 'nothing_found', 'found', 'nothing_found']);
+        const comets = searchRows(searched)[2];
+        expect(comets).toMatchObject({ found: 3, more: false, shown: 3 });
+        expect([...comets.titles].sort()).toEqual(['Comet Courier', 'Comet Over the Bay', 'The Last Comet']);
+        // Every row waited for its own answer: nothing jumped while the others came in.
+        const order = s.events.events.slice(mark).filter((e) => e.ev === 'global_search').map((e) => searchRows(e).map((r) => r.id).join());
+        expect(new Set(order).size).toBe(1);
+
+        // The D-pad: down to SNX Test (EN)'s card, right to its last cover; down into SNX Test (JA)'s row (nothing found:
+        // only its card can take the focus) lands on that card; up again; A on the card: the source's search for "comet".
+        await pressUntilFocus(s, 'DOWN', 'search/card-2', 4);
+        await s.expectGolden('search-all', { masks: [CLOCK_MASK] });  // SNX Test (EN)'s row in the middle, its card focused
+        await pressUntilFocus(s, 'RIGHT', 'search/cover-2-2', 3);
+        mark = s.events.mark();
+        await s.driver.press('RIGHT');  // no more covers: the focus stays (nothing moves, so no "focus" or "idle" event)
+        const moved = await s.events.waitForEvent('focus', {}, { from: mark, timeoutMs: 1_500 }).then(() => true, () => false);
+        expect(moved, 'RIGHT past the last cover moves the focus').toBe(false);
+        expect(focusedView(s)).toContain('search/cover-2-2');
+        await pressUntilFocus(s, 'DOWN', 'search/card-3', 1);
+        await pressUntilFocus(s, 'UP', 'search/card-2', 1);
+        clearTestSourceControl();
+        mark = await pressSettled(s, 'A');
+        const fromCard = await s.events.waitForEvent('browse', { source: TEST_SOURCE_IDS.en, mode: 'search', query: 'comet', state: 'ready' },
+            { from: mark, timeoutMs: 30_000 });
+        expect(fromCard.items).toBe(3);
+        mark = s.events.mark();
+        await s.driver.press('B');  // ends the search (the source's own rule), then B leaves
+        await s.events.waitForEvent('browse', { mode: 'popular', state: 'ready' }, { from: mark, timeoutMs: 30_000 });
+        await s.events.waitForEvent('idle', {}, { from: mark });
+        await backTo(s, 'GlobalSearch');
+        await backTo(s, 'Browse');
+
+        // Over the 3 sources (SNX Mature uninstalled, nothing slowed): the time from the text to the last answer.
+        await uninstallExtension(EXTENSIONS.mature.pkg);
+        await tapUntil(s, BROWSE.refresh, 'the sources without SNX Mature',
+            (e) => e.ev === 'sources' && e.state === 'ready' && !(e.rows as SourceRowEvent[]).some((r) => r.id === TEST_SOURCE_IDS.matureEn));
+        await typedText(s, 'comet');
+        const quick = await tapUntil(s, BROWSE.searchAll, 'Search all over 3 sources',
+            (e) => e.ev === 'global_search' && e.finished === true);
+        expect(searchRows(quick).map((r) => r.id)).toEqual(['0', TEST_SOURCE_IDS.en, TEST_SOURCE_IDS.ja]);
+        expect(searchRows(quick)[1].found).toBe(3);
+        times.searchAll = Number(quick.ms);
+        await backTo(s, 'Browse');
+
         // The Library's Reading tab has Comet Courier (step 6).
         await tapUntil(s, tab('Library'), 'the library', isEv('library', { state: 'ready' }));
         const shelf = await tapUntil(s, LIBRARY.categories.reading, 'Reading', isEv('library', { state: 'ready', category: reading }));
@@ -523,10 +630,36 @@ scenario('browse', async (s) => {
         await backTo(s, 'Source');
         await backTo(s, 'Browse');
 
-        // 10. Switch only (the desktop can't press Y, L, R or MINUS): the Y menus, Don't ask again, Settings, L / R.
-        if (s.driver.name === 'switch') await switchButtons(s, comet);
+        // 10. Tick for new manga (WP-14b): Library → Edit → Long series → its menu's Tick for new manga: the row says so
+        // (golden "categories-ticked") and the server has the "default" flag. A preview's Add then opens the picker with
+        // Long series ticked (B: no add).
+        const longSeries = (await serverCategories()).find((c) => c.name === 'Long series')!.id;
+        await tapUntil(s, tab('Library'), 'the library', isEv('library', { state: 'ready' }));
+        await tapUntil(s, LIBRARY.edit, 'the Categories screen', isEv('categories', { state: 'ready' }));
+        await tapUntil(s, CATEGORIES.row(1), 'the row menu', (e) => e.ev === 'focus');
+        const ticked = await tapUntil(s, MANGA.menuEntry(4, 5), 'the tick', isEv('category_action', { action: 'tick', ok: true }));
+        expect(ticked.id).toBe(longSeries);
+        await s.events.waitFor('the ticked row', (e) => e.ev === 'categories' &&
+            (e.rows as { id: number; tick: boolean }[]).some((r) => r.id === longSeries && r.tick), { from: s.events.events.indexOf(ticked) });
+        expect((await serverCategories()).find((c) => c.id === longSeries)?.default).toBe(true);
+        await s.expectGolden('categories-ticked', { masks: [CLOCK_MASK] });
+        await backTo(s, 'Library');
+        await tapUntil(s, tab('Browse'), 'the Browse tab', isEv('screen', { name: 'Browse' }));
+        await tapUntil(s, BROWSE.row(sourceRow(s, TEST_SOURCE_IDS.en)), 'SNX Test (EN)',
+            isEv('browse', { source: TEST_SOURCE_IDS.en, mode: 'popular', state: 'ready' }));
+        await tapUntil(s, SOURCE.cover(2), 'the Midnight Knight preview',
+            (e) => e.ev === 'manga' && e.state === 'ready' && e.categoriesButton === 'Add to library');
+        const preticked = await tapUntil(s, MANGA.categories, 'the picker', isEv('category_picker', { state: 'ready', mode: 'choose' }));
+        expect((preticked.rows as { name: string; checked: boolean }[]).map((r) => [r.name, r.checked])).toEqual(
+            [['Reading', false], ['Long series', true], ['Big shelf', false], ['Empty', false]]);
+        await backTo(s, 'Manga');
+        await backTo(s, 'Source');
+        await backTo(s, 'Browse');
 
-        // 11. Memory: 10 rounds of opening SNX Test (EN) and scrolling to the end; the memory in use stays flat.
+        // 11. Switch only (the desktop can't press Y, L, R or MINUS): the Y menus, Don't ask again, Settings, L / R.
+        if (s.driver.name === 'switch') await switchButtons(s, comet, longSeries);
+
+        // 12. Memory: 10 rounds of opening SNX Test (EN) and scrolling to the end; the memory in use stays flat.
         const before = await memNow(s);
         for (let i = 0; i < ROUNDS; i++) {
             const round = await tapUntil(s, BROWSE.row(sourceRow(s, TEST_SOURCE_IDS.en)), `round ${i + 1}: SNX Test (EN)`,
@@ -550,6 +683,7 @@ scenario('browse', async (s) => {
         expect(times.filters, 'the filters screen ready (ms)').toBeLessThanOrEqual(LIMITS.filtersMs);
         expect(times.add, 'an add answered (ms)').toBeLessThanOrEqual(LIMITS.addMs);
         expect(times.remove, 'a remove answered (ms)').toBeLessThanOrEqual(LIMITS.removeMs);
+        expect(times.searchAll, 'Search all over 3 sources done (ms)').toBeLessThanOrEqual(LIMITS.searchAllMs);
     } finally {
         await knownState();
     }

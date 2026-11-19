@@ -8,7 +8,9 @@ namespace snx::ui {
 GridLayout::GridLayout(float width, GridMetrics metrics) : metrics_(metrics) {
     const float step = metrics.cellWidth + metrics.spacing;
     const float usable = width - 2 * metrics.padding;
-    if (step > 0 && usable > 0) {
+    if (metrics.columns > 0) {
+        columns_ = metrics.columns;  // the screen chose the cell width for this many
+    } else if (step > 0 && usable > 0) {
         // n cells need n * cellWidth + (n - 1) * spacing.
         columns_ = std::max(1, static_cast<int>(std::floor((usable + metrics.spacing) / step)));
     }
@@ -56,35 +58,78 @@ GridLayout::Range GridLayout::visible(float scrollTop, float viewHeight, std::si
     return {std::min(firstRow * columns, count), std::min(endRow * columns, count)};
 }
 
-std::optional<std::size_t> GridLayout::neighbour(std::size_t index, GridMove move, std::size_t count) const {
+std::optional<std::size_t> GridLayout::inRow(std::size_t row, std::size_t column, std::size_t count,
+                                             const GridFocusable& focusable) const {
+    const auto columns = static_cast<std::size_t>(columns_);
+    const std::size_t first = row * columns;
+    if (first >= count) {
+        return std::nullopt;
+    }
+    const std::size_t last = std::min(first + columns, count) - 1;  // the row's last cell
+    const std::size_t start = std::min(first + column, last);
+    for (std::size_t i = start + 1; i-- > first;) {  // at or before the column, nearest first
+        if (!focusable || focusable(i)) {
+            return i;
+        }
+    }
+    for (std::size_t i = start + 1; i <= last; ++i) {  // else after it
+        if (focusable(i)) {
+            return i;
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<std::size_t> GridLayout::neighbour(std::size_t index, GridMove move, std::size_t count,
+                                                 const GridFocusable& focusable) const {
     if (index >= count) {
         return std::nullopt;
     }
     const auto columns = static_cast<std::size_t>(columns_);
     const std::size_t column = index % columns;
+    const std::size_t row = index / columns;
+    const std::size_t rowStart = row * columns;
+    const std::size_t rowEnd = std::min(rowStart + columns, count);  // one past the row's last cell
     switch (move) {
         case GridMove::Left:
-            if (column == 0) {
-                return std::nullopt;
+            for (std::size_t i = index; i-- > rowStart;) {
+                if (!focusable || focusable(i)) {
+                    return i;
+                }
             }
-            return index - 1;
+            return std::nullopt;
         case GridMove::Right:
-            if (column + 1 == columns || index + 1 >= count) {
-                return std::nullopt;
+            for (std::size_t i = index + 1; i < rowEnd; ++i) {
+                if (!focusable || focusable(i)) {
+                    return i;
+                }
             }
-            return index + 1;
+            return std::nullopt;
         case GridMove::Up:
-            if (index < columns) {
-                return std::nullopt;
+            for (std::size_t r = row; r-- > 0;) {
+                if (const auto found = inRow(r, column, count, focusable)) {
+                    return found;
+                }
             }
-            return index - columns;
+            return std::nullopt;
         case GridMove::Down:
-            if (index / columns + 1 >= rows(count)) {
-                return std::nullopt;
+            for (std::size_t r = row + 1; r < rows(count); ++r) {
+                if (const auto found = inRow(r, column, count, focusable)) {
+                    return found;
+                }
             }
-            return std::min(index + columns, count - 1);
+            return std::nullopt;
     }
     return std::nullopt;
+}
+
+std::size_t GridLayout::focusableNear(std::size_t index, std::size_t count, const GridFocusable& focusable) const {
+    if (!focusable || index >= count || focusable(index)) {
+        return index;
+    }
+    const auto columns = static_cast<std::size_t>(columns_);
+    const auto found = inRow(index / columns, index % columns, count, focusable);
+    return found ? *found : index;
 }
 
 }  // namespace snx::ui

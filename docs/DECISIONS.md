@@ -1206,6 +1206,18 @@ couldn't change it, pages packed in the jar), committing built jars.
   7 ms, an add ≤ 439 ms (the slowest loads the manga from the source first), a remove ≤ 25 ms; memory + 0.1 MiB over 10
   rounds. A source opens with the focus on its first cover. The test packages are `snx.testsource`, `snx.testextra`,
   `snx.testmature`: the server finds a cached extension icon by name prefix (SUWAYOMI-API.md).
+- **As built (WP-14b, 2026-11-19), within the above:** Search all, the Languages checklist and Tick for new manga.
+  Search all's cells are 192 px wide (6 columns over the 1280 px screen; `GridMetrics::columns` fixes the count) and as
+  high as a library cover cell; a cover keeps the library's 120 × 180 size, centred, so it shares the cover cache. A card
+  says "3 found", or "25+ found" when the source has more pages, "Nothing found", "Failed: " + the error. The focus starts
+  on the first card; a move into an empty place lands on the row's nearest cover to the left (else the card), Right past
+  the last cover stays. A on a card opens the source's screen searching the text (B there first ends the search, as
+  always, then leaves); opening a source from Search all doesn't make it Last used. Search all and Languages are buttons
+  on the Browse tab's bar and MINUS menu entries; both say "The sources aren't loaded yet." before the list is in. The
+  Languages checklist: Done saves (only when something changed), B leaves without saving, unticking the last shown
+  language is refused with a note, a hidden code that no source has now stays hidden. Tick for new manga is the 5th entry
+  of a category's row menu ("Don't tick for new manga" when ticked) and doesn't make the Library reload. Times, desktop:
+  Search all over the 3 sources 12 ms.
 Rejected: Mihon's way (nothing pre-ticked, no "don't ask"), adding without a question, the web UI's own server-side
 setting for asking (it is the web UI's internal metadata), a list of sources or one mixed grid for Search all, English only
 at first, hiding 18+ sources, a duplicate title pair with a Local fixture (WP-23 keeps Local titles out of the catalog).

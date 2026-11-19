@@ -12,6 +12,8 @@
 #include "ApiTestKit.hpp"
 #include "api/SuwayomiClient.hpp"
 #include "net/FakeHttpClient.hpp"
+#include "ui/browse/GlobalSearchModel.hpp"
+#include "ui/browse/LanguagesModel.hpp"
 #include "ui/browse/LibraryAdder.hpp"
 #include "ui/browse/SourceBrowseModel.hpp"
 #include "ui/browse/SourceFiltersModel.hpp"
@@ -22,6 +24,8 @@
 using namespace snx;
 using net::FakeHttpClient;
 using net::Request;
+using ui::GlobalSearchModel;
+using ui::LanguagesModel;
 using ui::LibraryAdder;
 using ui::SourceBrowseModel;
 using ui::SourceFiltersModel;
@@ -63,6 +67,9 @@ struct FakeServer {
     bool initialized = true;     // the Manga answer
     std::set<int> mangaCategories;  // AddToLibrary's last set
     std::map<int, std::vector<int>> shelves = {{0, {1, 2}}, {1, {3, 4, 5}}};  // LibraryModel: category -> manga ids
+    std::map<std::string, int> catalogs;    // WP-14b: a source's catalog size when not catalogSize (by source id)
+    std::set<std::string> failingSources;   // WP-14b: BrowseSource for these answers HTTP 500
+    bool doubleFirst = false;               // WP-14b: every page lists its first manga twice
 
     static net::HttpResult data(nlohmann::json value) {
         return FakeHttpClient::answer(200, nlohmann::json{{"data", std::move(value)}}.dump());
@@ -90,6 +97,12 @@ struct FakeServer {
             return data({{"source", {{"id", vars["id"]}, {"filters", nlohmann::json::parse(kFilters)}}}});
         }
         if (operation == "BrowseSource") {
+            const std::string source = vars["source"].get<std::string>();
+            if (failingSources.count(source) > 0) {
+                return FakeHttpClient::answer(500, "oops");
+            }
+            const int size = catalogs.count(source) > 0 ? catalogs.at(source) : catalogSize;
+            const int base = source == "12" ? 1000 : 10000 + 1000 * std::stoi(source);  // ids unique across sources
             const int page = vars["page"].get<int>();
             if (page == failPage) {
                 failPage = 0;
@@ -97,13 +110,16 @@ struct FakeServer {
             }
             const int shownPage = repeatsPages ? 1 : page;
             const int from = ignoresPage ? 0 : (shownPage - 1) * pageSize;
-            const int to = ignoresPage ? catalogSize : std::min(catalogSize, from + pageSize);
+            const int to = ignoresPage ? size : std::min(size, from + pageSize);
             nlohmann::json manga = nlohmann::json::array();
             for (int i = from; i < to; ++i) {
-                manga.push_back({{"id", 1000 + i}, {"title", "Manga " + std::to_string(i)}, {"inLibrary", false},
+                manga.push_back({{"id", base + i}, {"title", "Manga " + std::to_string(i)}, {"inLibrary", false},
                                  {"initialized", false}});
+                if (doubleFirst && i == from) {
+                    manga.push_back(manga.back());
+                }
             }
-            const bool more = ignoresPage ? false : repeatsPages ? true : to < catalogSize;
+            const bool more = ignoresPage ? false : repeatsPages ? true : to < size;
             return data({{"fetchSourceManga", {{"mangas", manga}, {"hasNextPage", more}}}});
         }
         if (operation == "LibraryDuplicates") {
@@ -197,6 +213,28 @@ core::Source snxEn(bool supportsLatest = true) {
     s.lang = "en";
     s.supportsLatest = supportsLatest;
     return s;
+}
+
+core::Source source(std::string id, std::string displayName, std::string lang) {
+    core::Source s;
+    s.id = std::move(id);
+    s.name = displayName;
+    s.displayName = std::move(displayName);
+    s.lang = std::move(lang);
+    return s;
+}
+
+// Local, SNX Mature (EN), SNX Test (EN), SNX Test (JA): the WP doc's step 8 (the list's order is Local, then English by
+// name, then Japanese, whatever order the server sends them in).
+std::vector<core::Source> fourSources() {
+    return {source("12", "SNX Test (EN)", "en"), source("11", "SNX Test (JA)", "ja"),
+            source("0", "Local source", "localsourcelang"), source("13", "SNX Mature (EN)", "en")};
+}
+
+std::vector<GlobalSearchModel::RowState> states(const GlobalSearchModel& model) {
+    std::vector<GlobalSearchModel::RowState> out;
+    for (const auto& row : model.rows()) out.push_back(row.state);
+    return out;
 }
 
 core::Manga bare(int id, std::string title, bool initialized = false) {
@@ -601,6 +639,173 @@ TEST_CASE("details: a bare manga asks its source first; a failure there retries 
 
     own.setInLibrary(false, {});
     CHECK_FALSE(own.manga().inLibrary);
+}
+
+
+TEST_CASE("search all (WP-14b): the list's order, 3 at a time, the rest wait; covers, found, more, nothing, failed") {
+    using S = GlobalSearchModel::RowState;
+    Harness h;
+    h.server.catalogs = {{"0", 0}, {"13", 3}, {"11", 0}};  // SNX Test (EN) finds 60: 25 on its first page, more
+    h.http.hold(true);
+    GlobalSearchModel model(*h.client, fourSources(), {}, {3, 5, 100});
+    int changes = 0;
+    model.setListener([&] { ++changes; });
+    REQUIRE(model.rows().size() == 4);
+    CHECK(model.rows()[0].source.id == "0");
+    CHECK(model.rows()[1].source.id == "13");
+    CHECK(model.rows()[2].source.id == "12");
+    CHECK(model.rows()[3].source.id == "11");
+    CHECK(states(model) == std::vector<S>{S::Waiting, S::Waiting, S::Waiting, S::Waiting});
+    CHECK_FALSE(model.finished());
+
+    CHECK_FALSE(model.search(""));  // no text: nothing
+    CHECK(h.asked("BrowseSource") == 0);
+    const auto list = model.listRevision();
+    REQUIRE(model.search("comet"));
+    CHECK(model.listRevision() > list);
+    CHECK(model.query() == "comet");
+    CHECK(states(model) == std::vector<S>{S::Searching, S::Searching, S::Searching, S::Waiting});
+    CHECK(model.runningCount() == 3);
+    CHECK(changes > 0);
+    REQUIRE(h.asked("BrowseSource") == 3);
+    const nlohmann::json first = variablesOf(h.sent("BrowseSource").at(0));
+    CHECK(first["source"] == "0");
+    CHECK(first["type"] == "SEARCH");
+    CHECK(first["page"] == 1);
+    CHECK(first["query"] == "comet");
+    CHECK(variablesOf(h.sent("BrowseSource").at(2))["source"] == "12");
+
+    // Local answers first: its place goes to SNX Test (JA), which waited.
+    REQUIRE(h.http.releaseNext());
+    CHECK(states(model) == std::vector<S>{S::NothingFound, S::Searching, S::Searching, S::Searching});
+    CHECK(h.asked("BrowseSource") == 4);
+    CHECK(variablesOf(h.sent("BrowseSource").at(3))["source"] == "11");
+    CHECK(model.doneCount() == 1);
+
+    h.http.releaseAll();
+    CHECK(states(model) == std::vector<S>{S::NothingFound, S::Found, S::Found, S::NothingFound});
+    CHECK(model.finished());
+    CHECK(model.doneCount() == 4);
+    CHECK(model.runningCount() == 0);
+    const auto& mature = model.rows()[1];
+    CHECK(mature.found == 3);
+    CHECK_FALSE(mature.more);
+    CHECK(mature.manga.size() == 3);
+    CHECK(mature.manga[0].id == 23000);
+    REQUIRE(mature.manga[0].source);
+    CHECK(mature.manga[0].source->id == "13");  // the preview says "Loading from SNX Mature (EN)..."
+    const auto& test = model.rows()[2];
+    CHECK(test.found == 25);
+    CHECK(test.more);  // "25+ found"
+    CHECK(test.manga.size() == 5);  // the first 5 covers
+    CHECK(test.manga[4].id == 1004);
+    CHECK(h.asked("BrowseSource") == 4);  // each source once
+
+    // A source that fails: Failed with the error; the others go on.
+    Harness failing;
+    failing.server.failingSources = {"12"};
+    GlobalSearchModel withFailure(*failing.client, fourSources(), {}, {3, 5, 100});
+    withFailure.search("comet");
+    CHECK(withFailure.finished());
+    CHECK(withFailure.rows()[2].state == S::Failed);
+    CHECK(withFailure.rows()[2].error.kind == api::ApiErrorKind::Server);
+    CHECK(withFailure.rows()[1].state == S::Found);
+    CHECK(withFailure.rows()[3].state == S::Found);
+}
+
+TEST_CASE("search all (WP-14b): hidden languages, the source limit, one at a time, a manga once, the In library tag") {
+    using S = GlobalSearchModel::RowState;
+    Harness h;
+    // Japanese hidden: three sources; at most 2 of them.
+    GlobalSearchModel hidden(*h.client, fourSources(), {"ja"}, {3, 5, 2});
+    REQUIRE(hidden.rows().size() == 2);
+    CHECK(hidden.rows()[0].source.id == "0");
+    CHECK(hidden.rows()[1].source.id == "13");
+
+    // Concurrency 1: strictly one after the other.
+    h.http.hold(true);
+    GlobalSearchModel single(*h.client, fourSources(), {}, {1, 5, 100});
+    single.search("x");
+    CHECK(states(single) == std::vector<S>{S::Searching, S::Waiting, S::Waiting, S::Waiting});
+    CHECK(h.http.waitingCount() == 1);
+    h.http.releaseNext();
+    CHECK(states(single) == std::vector<S>{S::Found, S::Searching, S::Waiting, S::Waiting});
+    h.http.releaseAll();
+    CHECK(single.finished());
+
+    // A manga listed twice on a page shows (and counts) once.
+    h.http.hold(false);
+    h.server.doubleFirst = true;
+    h.server.catalogs = {{"13", 2}};
+    GlobalSearchModel twice(*h.client, fourSources(), {}, {3, 5, 100});
+    twice.search("x");
+    CHECK(twice.rows()[1].found == 2);
+    CHECK(twice.rows()[1].manga.size() == 2);
+
+    // The "In library" tag: only the cover that shows that manga changes.
+    const auto items = twice.itemsRevision();
+    twice.setInLibrary(23001, true);
+    CHECK(twice.rows()[1].manga[1].inLibrary);
+    CHECK_FALSE(twice.rows()[1].manga[0].inLibrary);
+    CHECK(twice.itemsRevision() > items);
+    const auto after = twice.itemsRevision();
+    twice.setInLibrary(23001, true);  // no change
+    twice.setInLibrary(777, true);    // not shown
+    CHECK(twice.itemsRevision() == after);
+}
+
+TEST_CASE("search all (WP-14b): a new text starts over and drops the old answers; destroyed while searching") {
+    using S = GlobalSearchModel::RowState;
+    Harness h;
+    h.server.catalogs = {{"0", 1}};
+    h.http.hold(true);
+    GlobalSearchModel model(*h.client, fourSources(), {}, {3, 5, 100});
+    model.search("first");
+    model.search("second");  // the first text's three requests are cancelled
+    CHECK(states(model) == std::vector<S>{S::Searching, S::Searching, S::Searching, S::Waiting});
+    h.http.releaseAll();
+    CHECK(model.finished());
+    CHECK(model.query() == "second");
+    int secondAsked = 0;
+    for (const Request& r : h.sent("BrowseSource")) secondAsked += variablesOf(r)["query"] == "second" ? 1 : 0;
+    CHECK(secondAsked == 4);
+    CHECK(h.asked("BrowseSource") == 7);  // 3 for the first text, never answered, and 4
+
+    {
+        GlobalSearchModel gone(*h.client, fourSources(), {}, {3, 5, 100});
+        gone.search("x");
+    }
+    CHECK(h.http.waitingCount() == 3);
+    h.http.releaseAll();  // the answers find the model gone; the waiting source never starts
+    CHECK(h.asked("BrowseSource") == 10);
+}
+
+TEST_CASE("languages (WP-14b): every language once, hidden unticked, at least one stays, unknown hidden codes kept") {
+    LanguagesModel model({"localsourcelang", "en", "ja", "en"}, {"ja", "fr"});
+    REQUIRE(model.rows().size() == 3);
+    CHECK(model.rows()[0].name == "Local");
+    CHECK(model.rows()[1].name == "English");
+    CHECK(model.rows()[2].code == "ja");
+    CHECK(model.rows()[0].shown);
+    CHECK_FALSE(model.rows()[2].shown);
+    CHECK(model.hidden() == std::vector<std::string>{"fr", "ja"});  // SNX Extra's French stays hidden
+    CHECK_FALSE(model.changed());
+
+    CHECK(model.toggle(2));  // Japanese shown again
+    CHECK(model.hidden() == std::vector<std::string>{"fr"});
+    CHECK(model.changed());
+    CHECK(model.toggle(0));
+    CHECK(model.toggle(1));
+    CHECK(model.shownCount() == 1);
+    CHECK_FALSE(model.toggle(2));  // the last one shown stays
+    CHECK(model.rows()[2].shown);
+    CHECK_FALSE(model.toggle(3));  // no such row
+    CHECK(model.hidden() == std::vector<std::string>{"fr", "localsourcelang", "en"});
+
+    // A file that hides every language: the first shows again.
+    LanguagesModel all({"en", "ja"}, {"en", "ja"});
+    CHECK(all.rows()[0].shown);
+    CHECK(all.hidden() == std::vector<std::string>{"ja"});
 }
 
 }  // TEST_SUITE

@@ -134,7 +134,7 @@ scenario('library-tools', async (s) => {
         // Rename (the row's menu, entry 1 of 4).
         await tapUntil(s, CATEGORIES.row(4), 'the row menu', (e) => e.ev === 'focus');
         await typedText(s, 'Renamed shelf');
-        const renamed = await timedTap(s, MANGA.menuEntry(0, 4), 'rename', isEv('category_action', { action: 'rename' }));
+        const renamed = await timedTap(s, MANGA.menuEntry(0, 5), 'rename', isEv('category_action', { action: 'rename' }));
         times.renameMs = renamed.ms;
         expect(renamed.e.ok).toBe(true);
         list = await s.events.waitFor('the list with Renamed shelf', (e) => e.ev === 'categories' && names(e).includes('Renamed shelf'));
@@ -142,7 +142,7 @@ scenario('library-tools', async (s) => {
 
         // Move up: before Empty.
         await tapUntil(s, CATEGORIES.row(4), 'the row menu', (e) => e.ev === 'focus');
-        const moved = await timedTap(s, MANGA.menuEntry(1, 4), 'move', isEv('category_action', { action: 'move' }));
+        const moved = await timedTap(s, MANGA.menuEntry(1, 5), 'move', isEv('category_action', { action: 'move' }));
         times.moveMs = moved.ms;
         expect(moved.e.ok).toBe(true);
         list = await s.events.waitFor('the moved list', (e) => e.ev === 'categories' && names(e)[3] === 'Renamed shelf');
@@ -151,7 +151,7 @@ scenario('library-tools', async (s) => {
         // Delete: a question first (golden "dialog"), then the category goes.
         const asked = await tapUntil(s, CATEGORIES.row(3), 'the row menu', (e) => e.ev === 'focus');
         void asked;
-        const dialog = await tapUntil(s, MANGA.menuEntry(3, 4), 'the delete question', (e) => e.ev === 'dialog');
+        const dialog = await tapUntil(s, MANGA.menuEntry(3, 5), 'the delete question', (e) => e.ev === 'dialog');
         expect(String(dialog.e.text)).toContain('Renamed shelf');
         await s.expectGolden('dialog', { masks: [CLOCK_MASK] });
         const deleted = await timedTap(s, DIALOG.confirm, 'delete', isEv('category_action', { action: 'delete' }));

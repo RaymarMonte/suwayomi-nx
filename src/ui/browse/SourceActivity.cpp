@@ -36,11 +36,12 @@ std::string displayName(const core::Source& source) {
 }  // namespace
 
 SourceActivity::SourceActivity(app::AppContext& context, core::Source source,
-                               std::function<void(const core::Manga&)> onLibraryChanged)
+                               std::function<void(const core::Manga&)> onLibraryChanged, std::string searchText)
     : context_(context),
       model_(context.client, source, static_cast<std::size_t>(std::max(1, context.profile.browseMaxItems))),
       filters_(context.client, source.id),
-      onLibraryChanged_(std::move(onLibraryChanged)) {}
+      onLibraryChanged_(std::move(onLibraryChanged)),
+      searchText_(std::move(searchText)) {}
 
 SourceActivity::~SourceActivity() {
     alive_.cancel();
@@ -132,7 +133,11 @@ void SourceActivity::onContentAvailable() {
     filters_.setListener([this] { updateBar(); });
     grid_->setSource(this);
     startedAtMs_ = app::appClockMs();
-    model_.start();
+    if (searchText_.empty()) {
+        model_.start();
+    } else {
+        model_.search(searchText_, nlohmann::json::array(), 0);  // from Search all: its text, no filters
+    }
     filters_.start();  // the filters are loaded when the screen opens (D56)
     modelChanged();
     reportScreen();

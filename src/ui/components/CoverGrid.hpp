@@ -46,6 +46,12 @@ class GridSource {
     virtual void select(std::size_t index) = 0;
     // Item `index` got the focus.
     virtual void focused(std::size_t index) { (void)index; }
+    // WP-14b: whether item `index` can take the focus (and a tap). An empty place in Search all's rows can't: a move into
+    // one lands on the row's nearest cell that can (GridLayout::neighbour). Asked again whenever the cell is filled.
+    virtual bool focusable(std::size_t index) const {
+        (void)index;
+        return true;
+    }
     // The cells on screen are now the items [first, last).
     virtual void showing(std::size_t first, std::size_t last) {
         (void)first;
@@ -80,6 +86,7 @@ class CoverGrid : public brls::ScrollingFrame {
     class Content;
 
     brls::View* nextFocus(brls::FocusDirection direction, brls::View* current);
+    GridFocusable focusRule() const;  // the source's focusable(), for GridLayout
     brls::View* focusCell();       // the cell for focus_, made if it isn't there
     void recycle();                // cells for the rows on screen, the others back into the pool
     GridCell* cellFor(std::size_t index);  // the cell showing `index`, made if needed

@@ -1,7 +1,8 @@
 // The test server's categories for library-tools (WP-24): the seed (tools/fixtures seed.ts) has Default plus Reading,
 // Long series, Big shelf and Empty, in that order, and Alpha is in Reading only. The scenario adds, renames, moves and
 // deletes categories and changes Alpha's; restoreSeed() puts all of that back (also after a failed run), straight over
-// GraphQL, so the scenarios after it see the seed again.
+// GraphQL, so the scenarios after it see the seed again. WP-14b's browse scenario ticks one for new manga (the server's
+// "default" flag): restoreSeed() unticks every one.
 
 import { optionsFromEnv, SuwayomiClient } from './suwayomi.ts';
 
@@ -14,10 +15,13 @@ export interface ServerCategory {
     default: boolean;
 }
 
-/** Every category but Default, in the server's order. */
+/**
+ * Every category but Default (id 0), in the server's order. `default` is the server's "tick for new manga" flag (Default has
+ * it too, WP-14b), so it doesn't tell Default apart: the id does.
+ */
 export async function serverCategories(client = new SuwayomiClient(optionsFromEnv())): Promise<ServerCategory[]> {
     const r = await client.query<{ categories: { nodes: ServerCategory[] } }>('{ categories { nodes { id name order default } } }');
-    return r.categories.nodes.filter((c) => !c.default && c.id !== 0).sort((a, b) => a.order - b.order);
+    return r.categories.nodes.filter((c) => c.id !== 0).sort((a, b) => a.order - b.order);
 }
 
 /** The id of the library manga called `title` (the seed's titles are unique). */
@@ -36,7 +40,7 @@ export async function mangaCategoryIds(id: number, client = new SuwayomiClient(o
     return r.manga.categories.nodes.map((c) => c.id).filter((c) => c !== 0).sort((a, b) => a - b);
 }
 
-/** Puts the seed's categories (names, order) and Alpha's membership back. */
+/** Puts the seed's categories (names, order, none ticked for new manga) and Alpha's membership back. */
 export async function restoreSeed(client = new SuwayomiClient(optionsFromEnv())): Promise<void> {
     for (const c of await serverCategories(client)) {
         if (!(SEED_CATEGORIES as readonly string[]).includes(c.name)) {
@@ -59,6 +63,10 @@ export async function restoreSeed(client = new SuwayomiClient(optionsFromEnv()))
         }
     }
     now = await serverCategories(client);
+    for (const c of now.filter((x) => x.default)) {
+        await client.query('mutation T($id: Int!) { updateCategory(input: { id: $id, patch: { default: false } }) { category { id } } }',
+            { id: c.id });
+    }
     const reading = now.find((c) => c.name === 'Reading');
     if (!reading) throw new Error('restoreSeed: no Reading category');
     const alpha = await libraryMangaId('Alpha', client);

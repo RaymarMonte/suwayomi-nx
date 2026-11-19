@@ -87,6 +87,7 @@ void CoverGrid::rebind() {
         auto* cell = static_cast<GridCell*>(child);
         source_->unbind(*cell);
         source_->bind(*cell, cell->index_);
+        cell->setFocusable(source_->focusable(cell->index_));
         cell->invalidate();
     }
 }
@@ -181,6 +182,7 @@ GridCell* CoverGrid::cellFor(std::size_t index) {
     content_->getChildren().push_back(cell);
     cell->setParent(content_);
     source_->bind(*cell, index);
+    cell->setFocusable(source_->focusable(index));  // an empty place takes neither the focus nor a tap (hitTest)
     cell->View::willAppear(true);
     cell->invalidate();  // a detached view lays itself out
     return cell;
@@ -212,7 +214,13 @@ brls::View* CoverGrid::focusCell() {
     if (source_ == nullptr || source_->count() == 0 || layoutWidth_ <= 0) {
         return nullptr;
     }
-    return cellFor(std::min(focus_, source_->count() - 1));
+    const std::size_t count = source_->count();
+    return cellFor(layout_.focusableNear(std::min(focus_, count - 1), count, focusRule()));
+}
+
+GridFocusable CoverGrid::focusRule() const {
+    GridSource* source = source_;
+    return [source](std::size_t index) { return source == nullptr || source->focusable(index); };
 }
 
 brls::View* CoverGrid::getDefaultFocus() {
@@ -254,7 +262,7 @@ brls::View* CoverGrid::nextFocus(brls::FocusDirection direction, brls::View* cur
                 move = GridMove::Right;
                 break;
         }
-        next = layout_.neighbour(static_cast<GridCell*>(current)->index_, move, source_->count());
+        next = layout_.neighbour(static_cast<GridCell*>(current)->index_, move, source_->count(), focusRule());
     }
     if (next) {
         return cellFor(*next);  // made now if its row isn't on screen yet; the focus scrolls it into view

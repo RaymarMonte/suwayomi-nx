@@ -28,6 +28,7 @@ struct FakeCategory {
     int id;
     std::string name;
     int count;
+    bool tick = false;  // WP-14b: the "default" flag ("tick for new manga")
 };
 
 struct FakeServer {
@@ -37,7 +38,7 @@ struct FakeServer {
     bool fail = false;  // every answer is an HTTP 500
 
     nlohmann::json node(const FakeCategory& c, std::size_t order, bool withCount) const {
-        nlohmann::json n = {{"id", c.id}, {"name", c.name}, {"order", order}, {"default", c.id == 0}};
+        nlohmann::json n = {{"id", c.id}, {"name", c.name}, {"order", order}, {"default", c.id == 0 || c.tick}};
         if (withCount) {
             n["mangas"] = {{"totalCount", c.count}};
         }
@@ -83,6 +84,14 @@ struct FakeServer {
             for (std::size_t i = 0; i < categories.size(); ++i) {
                 if (categories[i].id == vars["id"].get<int>()) {
                     categories[i].name = vars["name"].get<std::string>();
+                    return data({{"updateCategory", {{"category", node(categories[i], i, false)}}}});
+                }
+            }
+        }
+        if (operation == "SetCategoryDefault") {
+            for (std::size_t i = 0; i < categories.size(); ++i) {
+                if (categories[i].id == vars["id"].get<int>()) {
+                    categories[i].tick = vars["on"].get<bool>();
                     return data({{"updateCategory", {{"category", node(categories[i], i, false)}}}});
                 }
             }
@@ -378,6 +387,51 @@ TEST_CASE("picker: a failed load and retry; destroyed while loading") {
     gone.reset();
     h.http.hold(false);
     h.http.releaseAll();  // the answers find no model
+}
+
+
+TEST_CASE("categories (WP-14b): Tick for new manga sets the server's default flag; not twice; a failure says so") {
+    Harness h;
+    CategoriesModel model(*h.client, 64);
+    model.start();
+    REQUIRE(model.state() == CategoriesModel::State::Ready);
+    CHECK_FALSE(model.items()[1].isDefault);  // Long series
+
+    const auto revision = model.revision();
+    REQUIRE(model.setTickForNew(1, true));
+    CHECK(h.asked("SetCategoryDefault") == 1);
+    CHECK(h.server.categories[2].tick);
+    CHECK(model.items()[1].isDefault);
+    CHECK(model.revision() > revision);
+    CHECK(model.rememberedFocus() == 1);
+    auto done = model.takeDone();
+    REQUIRE(done);
+    CHECK(done->action == CategoriesModel::Action::Tick);
+    CHECK(done->ok);
+    CHECK(done->categoryId == 2);
+    CHECK_FALSE(model.changedAnything());  // the library doesn't show it: no reload when the screen closes
+
+    CHECK_FALSE(model.setTickForNew(1, true));  // already ticked: nothing sent
+    CHECK_FALSE(model.setTickForNew(9, true));  // no such row
+    CHECK(h.asked("SetCategoryDefault") == 1);
+
+    h.http.hold(true);
+    REQUIRE(model.setTickForNew(1, false));
+    CHECK(model.busy());
+    CHECK_FALSE(model.setTickForNew(0, true));  // one action at a time
+    h.http.hold(false);
+    h.http.releaseAll();
+    CHECK_FALSE(model.items()[1].isDefault);
+    CHECK_FALSE(h.server.categories[2].tick);
+
+    h.server.fail = true;
+    REQUIRE(model.setTickForNew(0, true));
+    done = model.takeDone();
+    REQUIRE(done);
+    CHECK_FALSE(done->ok);
+    CHECK(model.takeActionError());
+    CHECK_FALSE(model.items()[0].isDefault);
+    CHECK_FALSE(model.busy());
 }
 
 }  // TEST_SUITE

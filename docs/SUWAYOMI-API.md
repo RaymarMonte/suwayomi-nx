@@ -223,7 +223,7 @@ Checked with our own test extension (`tools/test-source/`, live check `tools/tes
 - **Removing** (`RemoveFromLibrary.graphql`, `updateManga(… {inLibrary: false})`) **keeps the manga's categories**, so an add
   always sends clear + the chosen set.
 - **Categories' `default` flag** means "tick for new manga" (the web UI's meaning; Default id 0 has it too and never counts);
-  `updateCategory(… {default: …})` sets it (`SetCategoryDefault.graphql`, the screen comes with WP-14b).
+  `updateCategory(… {default: …})` sets it (`SetCategoryDefault.graphql`; the Categories screen's row menu, WP-14b).
 - **Same title** (`LibraryDuplicates.graphql`): `mangas(condition: {inLibrary: true}, filter: {title: {likeInsensitive: $t}})`
   with `likeEscape` (`_` and `%` are wildcards otherwise); there is no `equalToInsensitive`; a leading space matters.
 

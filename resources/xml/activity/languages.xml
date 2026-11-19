@@ -1,0 +1,51 @@
+<!-- The Languages checklist (src/ui/browse/LanguagesActivity, WP-14b, D56): a note and Done on top, the languages below (a
+     one-column list, added in code). The category picker's layout. Touch targets are at least 72 px high (D16). -->
+<brls:AppletFrame
+    iconInterpolation="linear"
+    footerHidden="false">
+
+    <brls:Box
+        width="auto"
+        height="auto"
+        axis="column"
+        grow="1.0"
+        paddingLeft="80"
+        paddingRight="80">
+
+        <brls:Box
+            width="auto"
+            height="72"
+            axis="row"
+            alignItems="center"
+            marginTop="12"
+            marginBottom="12">
+
+            <brls:Label
+                id="languages/note"
+                width="auto"
+                grow="1.0"
+                shrink="1.0"
+                fontSize="18"
+                text="@i18n/browse/languages_note" />
+
+            <brls:Button
+                id="languages/done"
+                style="primary"
+                height="72"
+                marginLeft="16"
+                paddingLeft="12"
+                paddingRight="12"
+                text="@i18n/browse/done" />
+
+        </brls:Box>
+
+        <brls:Box
+            id="languages/body"
+            width="auto"
+            height="auto"
+            grow="1.0"
+            axis="column" />
+
+    </brls:Box>
+
+</brls:AppletFrame>

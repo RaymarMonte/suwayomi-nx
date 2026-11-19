@@ -3,8 +3,12 @@
 #include <utility>
 
 #include "app/TestHooks.hpp"
+#include "core/LibraryTools.hpp"
 #include "core/SourceLanguages.hpp"
+#include "ui/browse/GlobalSearchActivity.hpp"
+#include "ui/browse/LanguagesActivity.hpp"
 #include "ui/browse/SourceActivity.hpp"
+#include "ui/components/AskText.hpp"
 #include "ui/components/CoverImage.hpp"
 
 using namespace brls::literals;  // for _i18n
@@ -116,6 +120,19 @@ BrowseTab::BrowseTab(app::AppContext& context, std::function<void(const core::Ma
     });
     registerAction("browse/refresh"_i18n, brls::BUTTON_X, [this](brls::View*) {
         refresh();
+        return true;
+    });
+    searchAllButton->registerClickAction([this](brls::View*) {
+        searchAll();
+        return true;
+    });
+    languagesButton->registerClickAction([this](brls::View*) {
+        openLanguages();
+        return true;
+    });
+    // PLUS quits the app everywhere, so the menu is on MINUS (D42).
+    registerAction("browse/menu"_i18n, brls::BUTTON_BACK, [this](brls::View*) {
+        openMenu();
         return true;
     });
 }
@@ -286,6 +303,66 @@ void BrowseTab::refresh() {
     if (model_ != nullptr) {
         model_->refresh();
     }
+}
+
+bool BrowseTab::listReady() const {
+    return model_ != nullptr &&
+           (model_->state() == SourcesModel::State::Ready || model_->state() == SourcesModel::State::OnlyLocal);
+}
+
+void BrowseTab::searchAll() {
+    if (!listReady()) {
+        brls::Application::notify("browse/sources_not_ready"_i18n);
+        return;
+    }
+    // The answer comes after the keyboard: this tab may be gone by then (a tab change), the model and context are not
+    // (MainActivity owns the model).
+    SourcesModel* model = model_;
+    app::AppContext& context = context_;
+    const std::function<void(const core::Manga&)> changed = onLibraryChanged_;
+    const int maxChars = context.profile.searchMaxChars;
+    askText("browse/search_all_header"_i18n, "", maxChars, [model, &context, changed, maxChars](std::string text) {
+        const std::string trimmed = core::utf8Cut(core::trimText(text), static_cast<std::size_t>(maxChars));
+        if (trimmed.empty()) {
+            return;
+        }
+        brls::Application::pushActivity(
+            new GlobalSearchActivity(context, model->sources(), model->hiddenLanguages(), trimmed, changed));
+    });
+}
+
+void BrowseTab::openLanguages() {
+    if (!listReady()) {
+        brls::Application::notify("browse/sources_not_ready"_i18n);
+        return;
+    }
+    SourcesModel* model = model_;
+    app::AppContext& context = context_;
+    brls::Application::pushActivity(new LanguagesActivity(
+        context, model->languages(), model->hiddenLanguages(), [model, &context](std::vector<std::string> hidden) {
+            core::BrowseSettings browse = context.config.config().browse;
+            browse.hiddenLanguages = hidden;
+            context.config.setBrowse(browse);
+            model->setHiddenLanguages(std::move(hidden));  // the list changes now (the tab shows it when it comes back)
+        }));
+}
+
+void BrowseTab::openMenu() {
+    const std::vector<std::string> entries = {"browse/menu_search_all"_i18n, "browse/menu_languages"_i18n,
+                                              "browse/menu_refresh"_i18n};
+    auto* dropdown = new brls::Dropdown("browse/sources"_i18n, entries, [this](int selected) {
+        // The menu closes first; what comes next opens on the following frame. The tab stays while its menu is open.
+        brls::sync([this, selected] {
+            if (selected == 0) {
+                searchAll();
+            } else if (selected == 1) {
+                openLanguages();
+            } else if (selected == 2) {
+                refresh();
+            }
+        });
+    });
+    brls::Application::pushActivity(new brls::Activity(dropdown));
 }
 
 }  // namespace snx::ui

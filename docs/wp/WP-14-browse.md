@@ -166,19 +166,19 @@ MainActivity, CategoryPickerActivity, CategoriesActivity, SettingsTab).
 - [x] api: `sources()`, `sourceFilters(sourceId)`, `browseSource(sourceId, kind, page, query, changes)`,
       `libraryDuplicates(title, exceptId)`, `addToLibrary(mangaId, categoryIds)`, `removeFromLibrary(mangaId)`,
       `setCategoryDefault(id, on)`; mutations (`fetchSourceManga` is one) never repeated. Tests in `test_api_client.cpp`.
-- [x] ui models (`GlobalSearchModel` → WP-14b): `SourcesModel`, `SourceBrowseModel` (modes, paging, dedupe, the no-new-page stop, the limit, Failed + retry,
+- [x] ui models (`GlobalSearchModel`: WP-14b, done 2026-11-19, with `LanguagesModel` and `CategoriesModel::setTickForNew`): `SourcesModel`, `SourceBrowseModel` (modes, paging, dedupe, the no-new-page stop, the limit, Failed + retry,
       more failed), `SourceFiltersModel` (rows with open groups, edits, apply, reset), `GlobalSearchModel` (the queue at the
       concurrency, states, cancel), `LibraryAdder` (duplicate → categories → details → add; remove), `LibraryModel::mangaAdded`
       / `mangaRemoved`, `MangaModel` (load from source first; in-library state), `CategoryPickerModel` choose mode,
       `GridLayout` neighbour with a focusable check. Tests: new `test_ui_browse.cpp` (each model: loading, Failed + retry, busy,
       destroyed while loading, every branch of the add flow), additions to `test_ui_library.cpp`, `test_ui_manga.cpp`,
       `test_ui_categories.cpp`, the GridLayout tests.
-- [x] ui views (GlobalSearchActivity, LanguagesActivity, CategoriesActivity's Tick → WP-14b): BrowseTab (replaces the placeholder), SourceActivity, FiltersActivity, GlobalSearchActivity,
+- [x] ui views (GlobalSearchActivity, LanguagesActivity, CategoriesActivity's Tick: WP-14b, done 2026-11-19): BrowseTab (replaces the placeholder), SourceActivity, FiltersActivity, GlobalSearchActivity,
       LanguagesActivity, `components/CoverCell` (+ tag), MangaActivity (Add / Remove, loading from source), LibraryTab (Y:
       Remove), CategoryPickerActivity (choose mode, Don't ask again), CategoriesActivity (Tick for new manga), SettingsTab (Ask
       for categories when adding). Layouts in `resources/xml/`, texts in `resources/i18n/en-US/`. Touch targets ≥ 72 px, every
       action also by touch (D16).
-- [x] Test events (`global_search`, `languages` → WP-14b): `sources` (rows: id, name, lang, nsfw, the label; last used; hidden), `browse` (source, mode, query,
+- [x] Test events (`global_search`, `languages`: WP-14b, done 2026-11-19): `sources` (rows: id, name, lang, nsfw, the label; last used; hidden), `browse` (source, mode, query,
       filters changed, items, hasNext, state), `filters` (rows: kind, name, value, depth, open; changed), `global_search`
       (query; per source: id, state, found, shown), `library_add` / `library_remove` (manga, ok, categories, duplicate,
       asked), `category_picker` gains `mode`, `languages` (rows).

@@ -208,6 +208,35 @@ bool CategoriesModel::deleteAt(std::size_t index) {
     return true;
 }
 
+bool CategoriesModel::setTickForNew(std::size_t index, bool on) {
+    if (busy_ || state_ != State::Ready || index >= items_.size() || items_[index].isDefault == on) {
+        return false;
+    }
+    busy_ = true;
+    changed();
+    const int id = items_[index].id;
+    const net::CancelToken token = cancel_;
+    client_.setCategoryDefault(id, on, token).then([this, token, id](const api::ApiResult<core::Category>& result) {
+        if (token.cancelled()) {
+            return;
+        }
+        if (!result.ok()) {
+            finish(Action::Tick, id, &result.error());
+            return;
+        }
+        std::vector<core::Category> all = all_;
+        for (core::Category& c : all) {
+            if (c.id == id) {
+                c.isDefault = result.value().isDefault;  // what the server saved
+            }
+        }
+        setAll(std::move(all));
+        focusId_ = id;
+        finish(Action::Tick, id, nullptr);
+    });
+    return true;
+}
+
 void CategoriesModel::finish(Action action, int categoryId, const api::ApiError* error) {
     busy_ = false;
     Done done;

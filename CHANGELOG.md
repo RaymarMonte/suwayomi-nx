@@ -10,6 +10,13 @@ with 0, any release may change things.
   sources with an "18+" tag). Open one to see its Popular or Latest manga, search it, or narrow it down with its filters
   (Filters: text, choices, ticks, include / exclude, sort order and groups; Apply searches, Reset puts the defaults back).
   Covers already in your library have an "In library" tag. A manga you open is loaded from its source first.
+- **Search all:** Browse → Search all (or MINUS → Search all...) searches every source at once, a row per source with
+  how many it found and its first 5 covers (3 sources at a time; the rest wait their turn). A on a source's card opens
+  its full results; A on a cover opens the manga, Y adds it to your library.
+- **Languages:** Browse → Languages hides the languages you don't read: their sources leave the list and Search all skips
+  them (at least one language stays shown).
+- **Tick for new manga:** on the Categories screen, a category's menu can mark it "Ticked for new manga": adding a manga
+  then starts with it ticked (and goes straight into it after "Don't ask again").
 - **Add to and remove from the library:** a manga that isn't in your library has Add to library on its page (and in the
   MINUS menu, and Y on a cover in a source). If you already have a manga with the same name you're asked first (Show
   entry / Add anyway / Cancel); then you pick its categories, with the ones your server marks for new manga already ticked

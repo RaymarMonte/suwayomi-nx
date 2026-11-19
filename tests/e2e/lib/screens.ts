@@ -133,7 +133,7 @@ export const MANGA = {
  */
 export const CATEGORIES = {
     add: { x: 1169, y: 136 },
-    /** The middle of row `index` (a tap opens its menu: Rename, Move up, Move down, Delete). */
+    /** The middle of row `index` (a tap opens its menu: Rename, Move up, Move down, Delete, WP-14b's Tick for new manga). */
     row(index: number): { x: number; y: number } {
         return { x: 640, y: 224 + 84 * index };
     },
@@ -142,6 +142,15 @@ export const CATEGORIES = {
 export const PICKER = {
     newCategory: { x: 1041, y: 136 },
     save: { x: 1167, y: 136 },
+    /** The middle of row `index` (a tap ticks or unticks it). */
+    row(index: number): { x: number; y: number } {
+        return { x: 640, y: 224 + 84 * index };
+    },
+};
+
+/** WP-14b: the Languages checklist (Browse → Languages), the category picker's layout with only Done on top. */
+export const LANGUAGES = {
+    done: { x: 1167, y: 136 },
     /** The middle of row `index` (a tap ticks or unticks it). */
     row(index: number): { x: number; y: number } {
         return { x: 640, y: 224 + 84 * index };

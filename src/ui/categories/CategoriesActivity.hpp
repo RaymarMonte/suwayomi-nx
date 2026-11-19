@@ -12,8 +12,9 @@
 #include "ui/components/StatusView.hpp"
 
 // The Categories screen (WP-24, D54): the user's categories as a list (name, "3 manga"), Add on top.
-// Controller: A on a row opens its menu (Rename..., Move up, Move down, Delete...), Y adds, L / R move the row up / down,
-// B goes back. Touch: tap a row for its menu, tap Add. Names come from the keyboard (askText). The state lives in
+// Controller: A on a row opens its menu (Rename..., Move up, Move down, Delete..., and WP-14b's Tick for new manga / Don't
+// tick for new manga: the server's "default" flag; the row then says "Ticked for new manga"), Y adds, L / R move the row
+// up / down, B goes back. Touch: tap a row for its menu, tap Add. Names come from the keyboard (askText). The state lives in
 // CategoriesModel. Layout: resources/xml/activity/categories.xml.
 namespace snx::ui {
 
