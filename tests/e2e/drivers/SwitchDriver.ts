@@ -228,6 +228,10 @@ export class SwitchDriver implements Driver {
         return (await this.autopilot.getFile(this.sdPath(path), offset)) ?? Buffer.alloc(0);
     }
 
+    async removeFolder(_dir: string): Promise<void> {
+        throw new NotSupportedError('sys-autopilot deletes nothing on the SD card (S10): the app deletes its own downloads');
+    }
+
     async writeFile(path: string, data: Buffer | string): Promise<void> {
         const bytes = Buffer.isBuffer(data) ? data : Buffer.from(data, 'utf8');
         // The app plays a touch command file and deletes it within about 100 ms of its landing, often before its hash can be

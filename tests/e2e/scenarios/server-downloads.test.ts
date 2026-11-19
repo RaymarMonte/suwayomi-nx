@@ -13,7 +13,7 @@
 // - the switch file fails "image": Chapter 2 → Download on server → "Failed after 3 tries" in the tab; failure cleared →
 //   the row's Retry → downloaded;
 // - slowed again: MINUS → Unread → 3 chapters queued; the tab's Clear... → the question → Clear queue → empty, the server too;
-// - Alpha (Local): its chapter menu has no server entry (golden "local-chapter-menu");
+// - Alpha (Local): its chapter menu has no server entry, only WP-18's Download to Switch (golden "local-chapter-menu");
 // - Settings → "Delete server downloads after reading" on → Chapter 3 read to its last page → closed: its download goes;
 //   Chapter 4 (bookmarked) read too: its download stays → the switch off;
 // - while the Library tab shows, no polls (the next tab's first answer counts at most one more poll than before);
@@ -159,16 +159,16 @@ async function sortBy(s: Scenario, sort: 'newest' | 'oldest'): Promise<void> {
         (e) => e.ev === 'manga' && e.sort === sort && e.state === 'ready');
 }
 
-/** The details screen's Show filter: entry `index` of All, Unread, Bookmarked, Downloaded on server. */
+/** The details screen's Show filter: entry `index` of All, Unread, Bookmarked, Downloaded to Switch (WP-18), Downloaded on server. */
 async function showOnly(s: Scenario, index: number, name: string): Promise<AppEvent> {
     await tapSettled(s, MANGA.filter);
-    return tapUntil(s, MANGA.menuEntry(index, 4), `Show: ${name}`, (e) => e.ev === 'manga' && e.filter === name && e.state === 'ready');
+    return tapUntil(s, MANGA.menuEntry(index, 5), `Show: ${name}`, (e) => e.ev === 'manga' && e.filter === name && e.state === 'ready');
 }
 
-/** A chapter row's menu (4 chapter actions + the server entry) → its 5th entry; waits for the action's answer. */
+/** A chapter row's menu (4 chapter actions, WP-18's Switch entry, the server entry) → its 6th entry; waits for the answer. */
 async function serverEntry(s: Scenario, row: number, action: string): Promise<AppEvent> {
     await tapSettled(s, MANGA.rowMenu(row));
-    const done = await tapUntil(s, MANGA.menuEntry(4, 5), `row ${row}: ${action}`, isEv('server_download_action', { action }));
+    const done = await tapUntil(s, MANGA.menuEntry(5, 6), `row ${row}: ${action}`, isEv('server_download_action', { action }));
     expect(done.ok, `${action} answered ok`).toBe(true);
     return done;
 }
@@ -176,7 +176,8 @@ async function serverEntry(s: Scenario, row: number, action: string): Promise<Ap
 /** MINUS → Download on server... → choice `index` (Next 1, Next 5, Next 10, Next 25, Unread, All); waits for the enqueue. */
 async function downloadChoice(s: Scenario, index: number): Promise<AppEvent> {
     await tapSettled(s, MENU_HINT);
-    await tapSettled(s, MANGA.menuEntry(4, 5));  // not in the library: Sort, Show, Refresh, Add to library, Download on server...
+    // Not in the library: Sort, Show, Refresh, Add to library, Download to Switch... (WP-18), Download on server...
+    await tapSettled(s, MANGA.menuEntry(5, 6));
     const done = await tapUntil(s, MANGA.menuEntry(index, 6), `download choice ${index}`, isEv('server_download_action', { action: 'enqueue' }));
     expect(done.ok, 'the enqueue answered ok').toBe(true);
     return done;
@@ -226,7 +227,7 @@ async function readToEnd(s: Scenario, row: number, chapterId: number): Promise<A
 async function setDeleteAfterReading(s: Scenario, on: boolean): Promise<void> {
     await tapUntil(s, tab('Settings'), 'the Settings tab', isEv('screen', { name: 'Settings' }));
     await pressUntilFocus(s, 'RIGHT', 'settings/', 3);
-    await pressUntilFocus(s, 'DOWN', 'settings/delete_after_reading', 14);
+    await pressUntilFocus(s, 'DOWN', 'settings/delete_after_reading', 16);
     await pressUntil(s, 'A', `delete after reading: ${on}`, isEv('setting', { name: 'deleteAfterReading', value: on }));
 }
 
@@ -326,7 +327,7 @@ scenario('server-downloads', async (s) => {
         details = await openPaperGarden(s, paper.id);
         expect(countsOf(details)).toMatchObject({ downloaded: 5, queued: 0, downloading: 0, failed: 0 });
         await sortBy(s, 'newest');
-        const onServer = await showOnly(s, 3, 'downloaded_on_server');
+        const onServer = await showOnly(s, 4, 'downloaded_on_server');
         expect(onServer.items).toBe(5);
         await s.expectGolden('chapters-on-server', { masks: [CLOCK_MASK] });
         mark = s.events.mark();
@@ -380,7 +381,7 @@ scenario('server-downloads', async (s) => {
         expect((await serverQueue(client)).rows).toEqual([]);
         clearTestSourceControl();
 
-        // 8. Alpha (Local): its chapter menu has the 4 chapter actions only (golden "local-chapter-menu").
+        // 8. Alpha (Local): its chapter menu has the 4 chapter actions and Download to Switch, no server entry (golden "local-chapter-menu").
         await tapUntil(s, tab('Library'), 'the Library tab', isEv('library', { state: 'ready' }));
         const alpha = await openManga(s, LIBRARY_MORE.reading, 0, 3);
         expect(countsOf(alpha)).toEqual({ downloaded: 0, queued: 0, downloading: 0, failed: 0 });

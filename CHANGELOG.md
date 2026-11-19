@@ -6,6 +6,20 @@ with 0, any release may change things.
 ## [Unreleased]
 
 ### Added
+- **Download to Switch:** chapters can be saved on this Switch's SD card and read from there, with no page coming over the
+  network (the reader still asks the server for your progress). On a manga's page, a chapter's menu has Download to Switch,
+  Cancel download to Switch, Retry download to Switch or Delete from Switch, and MINUS → Download to Switch... queues the
+  next 1, 5, 10 or 25 unread chapters, every unread one or all of them (Local manga too). Rows show "On Switch",
+  "Switch: queued" or the download's progress, and Show → Downloaded to Switch lists only those. One chapter downloads at a
+  time in the background; HOME and sleep pause it, and it goes on where it stopped after a restart.
+- **Switch downloads tab** (before Server downloads; Server downloads and Settings move one place down): the space used,
+  the queue (Pause / Resume, Retry failed, Clear...; A on a chapter moves it to the top or bottom, removes it, retries it
+  or opens its manga) and the manga on this Switch (A opens its downloaded chapters, Y → Delete all downloads...). While
+  this tab shows a running download the screen doesn't dim.
+- **Space for downloads** (Settings, 8 GB by default, 2–32 GB or No limit; 1 GB of the SD card always stays free): when it's
+  full the queue waits until you delete something; nothing is deleted by itself. **Delete Switch downloads after reading**
+  (off by default): a chapter you finish in the reader is deleted from the Switch when you close the reader. Bookmarked
+  chapters stay.
 - **Download on server:** your server can download chapters onto its own disk (they open faster and stay readable if the
   source goes away; nothing is stored on the Switch). On a manga's page, a chapter's menu has Download on server, Cancel
   server download or Delete server download, and MINUS → Download on server... queues the next 1, 5, 10 or 25 unread

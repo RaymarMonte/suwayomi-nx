@@ -616,6 +616,7 @@ scenario('browse', async (s) => {
         mark = s.events.mark();
         await s.driver.touch(MENU_HINT.x, MENU_HINT.y);
         await s.events.waitForEvent('idle', {}, { from: mark });
+        // 7 entries since WP-18 (Download to Switch...): the dropdown shows 6 at a time, so Remove keeps its 6-entry place.
         const ask = await tapUntil(s, MANGA.menuEntry(4, 6), 'the remove question', isEv('dialog', {}));
         expect(ask.text).toBe('Remove Comet Courier from your library? Reading progress stays on the server.');
         await s.expectGolden('remove-confirm', { masks: [CLOCK_MASK] });

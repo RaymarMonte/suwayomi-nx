@@ -231,41 +231,43 @@ handler, the exit steps); SAFETY.md S4–S6, S9, S10; `tests/e2e/README.md`, `li
 `screens.ts`; TESTING.md "Test source" and the `server-downloads` scenario.
 
 ## Deliverables
-- [ ] core: `core/SwitchDownloads.hpp`: the paths (`switchServerKey`, the manga / chapter / page file names), the file
+- [x] core: `core/SwitchDownloads.hpp`: the paths (`switchServerKey`, the manga / chapter / page file names), the file
       formats with tolerant readers and writers (`manga.json`, `queue.json`, `server.json`; S6 limits), the space rule
       (fits / limit full / SD full / unknown), `switchQueueView`, `bytesText`; `chaptersToDownload` over a skip set (WP-17's
       callers unchanged in effect). Profile values above; `AppConfig::switchDownloads` (`limitGb`, 0 = no limit;
       `deleteAfterReading`); test config `switchDownloadLimitBytes` and `sdFreeBytes` (a fake free space). Tests
       `test_core_switch_downloads.cpp`; fuzz target `fuzz_switch_downloads` (the three readers) with seeds.
-- [ ] core GraphQL: `ChapterState` gains `isBookmarked isDownloaded`; the contract test green.
-- [ ] image: `LoadRequest::file` (read through SafeFs on the disk thread, never cached on the disk, memory key by file,
+- [x] core GraphQL: `ChapterState` gains `isBookmarked isDownloaded`; the contract test green.
+- [x] image: `LoadRequest::file` (read through SafeFs on the disk thread, never cached on the disk, memory key by file,
       `"source":"download"`); tests in `test_image_loader.cpp` (a file loads, a missing / cut / too big file fails Corrupt /
       TooLarge, no disk-cache write, no request).
-- [ ] ui store: `DownloadStore` (scan, orphans, `.tmp`, pages, commit, cover, deletes, queue file debounced + flush, space,
+- [x] ui store: `DownloadStore` (scan, orphans, `.tmp`, pages, commit, cover, deletes, queue file debounced + flush, space,
       a damaged `manga.json` kept); tests in temp folders with a fake free space.
-- [ ] ui model: `SwitchDownloads` in `AppContext`; tests `test_ui_switch_downloads.cpp` (FakeHttpClient, a played clock): one
+- [x] ui model: `SwitchDownloads` in `AppContext`; tests `test_ui_switch_downloads.cpp` (FakeHttpClient, a played clock): one
       chapter at a time, ≤ N pages at once at Background priority, the S6 checks, page tries then Failed and the next goes
       on, Offline waits without a try, Auth waits for a login, space waits and goes on after a delete, the memory pause,
       focus lost cancels and writes nothing, a restart goes on from the kept pages, a page list of another length starts
       over, remove / clear delete pages, top / bottom, `setServer()`, destroyed while requests are out.
-- [ ] reader: a downloaded chapter opens from its files with `chapterState` (no `fetchChapterPages`, no page request), the
+- [x] reader: a downloaded chapter opens from its files with `chapterState` (no `fetchChapterPages`, no page request), the
       `switchOpenWaitMs` fall-back, the next chapter and the strip's joins from files, the damaged page; tests in
       `test_ui_reader.cpp` / `test_ui_strip.cpp`.
-- [ ] ui views: `SwitchDownloadsTab` (+ `resources/xml/`, `resources/i18n/en-US/switch_downloads.json`), MainActivity (the
+- [x] ui views: `SwitchDownloadsTab` (+ `resources/xml/`, `resources/i18n/en-US/switch_downloads.json`), MainActivity (the
       tab, `setServer()`), MangaActivity / MangaModel (menu entry, MINUS submenu, Show filter, tag, live updates),
       SettingsTab (the limit, the switch), the setup / Settings address save ("Same server?"), ReaderActivity (delete after
-      reading), `main.cpp` (focus → background, exit order). Touch ≥ 72 px.
-- [ ] Test events: `switch_downloads` (view, reason, entries, failed, used / limit / free bytes, `keepAwake`, `queueWrites`
+      reading), `main.cpp` (focus → background, exit order). Touch ≥ 72 px. **Built, except the "Same server?" question
+      (→ WP-18c).**
+- [x] Test events: `switch_downloads` (view, reason, entries, failed, used / limit / free bytes, `keepAwake`, `queueWrites`
       so far, the first 10 entries: chapter, manga, state, pages done / total; written when what the tab shows changes),
       `switch_download_action` (enqueue / remove / top / bottom / pause / resume / retry / retry_failed / clear / delete /
       delete_manga / delete_after_reading, chapters, ok, error, `ms` from the tap), `switch_download` (a chapter committed or
       failed: chapter, pages, bytes, ms, error); `image` `source` `download`; `manga` gains `switch` (on Switch, queued,
-      downloading, failed counts) and filter `downloaded_to_switch`.
-- [ ] Integration (`tests/integration/`, all 3 auth modes): `SwitchDownloads` with the real client into a temp SafeFs:
+      downloading, failed counts) and filter `downloaded_to_switch`. **As built (D59): filter `on_switch`; `switch_downloads` has the queue's ids
+      instead of the per-row list, no `keepAwake`; no `ms` in `switch_download_action` (→ WP-18c).**
+- [x] Integration (`tests/integration/`, all 3 auth modes): `SwitchDownloads` with the real client into a temp SafeFs:
       Alpha chapter 1 (Local) and Comet Courier chapter 1 (SNX Test) → the files' sha256 equal the server's pages; in
       ui_login a download that spans the 20 s token expiry (`delayMs`); Missing Page Mansion chapter 1 → Failed at page 2;
-      cleans up after itself.
-- [ ] e2e `switch-downloads` (desktop + Switch), helpers in `tests/e2e/lib/switch-downloads.ts`. Known state first and last:
+      cleans up after itself. **Built without the ui_login token-expiry download (→ WP-18c).**
+- [x] e2e `switch-downloads` (desktop + Switch), helpers in `tests/e2e/lib/switch-downloads.ts`. Known state first and last:
       the queue empty and only **the test server's** downloads folder deleted (found by its `server.json`; never another
       `downloads/<key>/`: on the console the owner's own downloads live next to it), the switch file cleared, Settings back.
       Steps: Alpha → Chapter 1's menu → Download to Switch → "Switch: queued" → "On Switch"; two page files' hashes equal the
@@ -283,7 +285,9 @@ handler, the exit steps); SAFETY.md S4–S6, S9, S10; `tests/e2e/README.md`, `li
       pages, then the server starts again. Switch only: HOME → `switch_downloads` Waiting (background) and no request,
       HOME again → Running; `keepAwake` true on the tab while Running, false on Library; 100 entries queued (`delayMs`
       10000) → 10 rounds tab ↔ Library (memory), then Clear.
-- [ ] Docs: SUWAYOMI-API.md "Pages for downloads" (the facts above), ARCHITECTURE.md (the downloads folder), SAFETY.md S5
+      **Built (desktop green): Alpha's download + hashes, the reader from its files, Unread, Show, the tab, Delete all,
+      delete after reading (bookmarked stays), the 1-byte limit with Pause / Resume / Clear, HOME (Switch). The rest → WP-18c.**
+- [x] Docs: SUWAYOMI-API.md "Pages for downloads" (the facts above), ARCHITECTURE.md (the downloads folder), SAFETY.md S5
       (pages written once, the `manga.json` commit, the background pause) and **S9** (keep-awake on the Switch downloads
       tab, owner OK 2026-11-19), ui / core / image / platform READMEs, TESTING.md (scenario, events, test config keys),
       `screens.ts`, CHANGELOG.md, D59 "as built", ROADMAP (row done), STATUS.

@@ -276,6 +276,23 @@ switch file's `delayMs`, polling every 250 ms. Our documents: `DownloadStatus`, 
   download settings (`downloadAsCbz`, `autoDownloadNewChapters`, …) stay the web UI's business. The multi-user
   `DOWNLOAD_CHAPTERS` permission (preview servers) answers D38's `Permission` kind; only a unit test covers it.
 
+## Pages for downloads ✅ (test server v2.4.2366, 2026-11-19, for WP-18, D59)
+Downloads onto the Switch's SD card use the reader's own page path: `fetchChapterPages`, then a GET per page. Probed with
+Alpha (Local), SNX Test chapters and the test source's switch file:
+- Page URLs `/api/v1/manga/<mangaId>/chapter/<sourceOrder>/page/<index>` (`?format=image%2Fjpeg` when a format is asked),
+  the same bytes every time. Past the end: 404, empty body. Answers are **chunked, no Content-Length**: the size is known
+  only once a page is in, so progress counts pages.
+- **Content-Type changes** (`image/jpeg` the first time, `image/jpg` once the server caches it): the format is sniffed
+  from the bytes.
+- The server makes **at most 5 source calls at once** (6 slowed pages: five after ~1 s, the sixth after 2 s). The
+  downloader asks 2 pages at a time, leaving room for the reader.
+- A failing page is HTTP 500 `text/plain` ("SNX test failure: image"); Missing Page Mansion's chapter 1 page index 1
+  always fails. `fetchChapterPages` failing is a GraphQL error with a long Java stack: show its first line.
+- A withdrawn chapter that comes back gets a **new id**: downloads are kept by chapter id and never move.
+- `chapterState` (`ChapterState.graphql`: `lastPageRead isRead lastReadAt isBookmarked isDownloaded` + the strip note)
+  makes no source call: the reader asks it for a downloaded chapter instead of `fetchChapterPages`.
+- `aboutServer` has no server id: downloads are filed by the server's address (`switchServerKey`).
+
 ## Useful for tests ✅
 - The test server: `tools/test-server/` (README there, D29). Fixture manga: docs/TESTING.md.
 - Jar: `java -Dsuwayomi.tachidesk.config.server.rootDir=<dir> -Dsuwayomi.tachidesk.config.server.port=4568 … -jar Suwayomi-Server-*.jar`.

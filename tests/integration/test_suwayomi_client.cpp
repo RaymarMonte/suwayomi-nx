@@ -1,7 +1,12 @@
 #include <doctest/doctest.h>
 
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <algorithm>
 #include <atomic>
+#include <ctime>
+#include <functional>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -13,11 +18,15 @@
 #include <vector>
 
 #include "ApiTestKit.hpp"
+#include "MainQueue.hpp"
 #include "api/SuwayomiClient.hpp"
 #include "core/RuntimeProfile.hpp"
 #include "core/UpdatesHistory.hpp"
 #include "image/ImageLoader.hpp"
 #include "net/CurlHttpClient.hpp"
+#include "platform/SafeFs.hpp"
+#include "ui/downloads/DownloadStore.hpp"
+#include "ui/downloads/SwitchDownloads.hpp"
 
 // SuwayomiClient against the real Suwayomi test server (tools/test-server, fixture library in docs/TESTING.md). The server's
 // address and login come from the environment (tools/test-server/test-server.sh env): SNX_SERVER_URL, SNX_AUTH
@@ -59,13 +68,18 @@ struct Live {
     std::atomic<int> logins{0};
     std::unique_ptr<SuwayomiClient> client;
 
-    explicit Live(ServerSettings settings = serverSettings()) {
+    // deliver: where the client's answers go (WP-18's downloader: a MainQueue the test thread runs); empty = any thread.
+    explicit Live(ServerSettings settings = serverSettings(), std::function<void(std::function<void()>)> deliver = {}) {
         http.addResponseObserver([this](const snx::net::Request& sent, const snx::net::HttpResult&) {
             const std::string operation = operationOf(sent.body);
             if (operation == "RefreshToken") refreshes++;
             if (operation == "Login") logins++;
         });
-        client = std::make_unique<SuwayomiClient>(http, std::move(settings), clientOptionsFrom(profile));
+        ClientOptions options = clientOptionsFrom(profile);
+        if (deliver) {
+            options.deliver = std::move(deliver);
+        }
+        client = std::make_unique<SuwayomiClient>(http, std::move(settings), options);
     }
     ~Live() { client.reset(); }  // before http
 
@@ -350,6 +364,16 @@ TEST_CASE("chapterState (WP-15b): the waiting-save queue's question reads what a
 
     CHECK(mustFail(live->chapterState(999999, CancelToken())).kind == ApiErrorKind::Server);
     CHECK(must(live->setProgress(chapterId, 0, false, CancelToken())).lastPageRead == 0);  // back to the start
+
+    // WP-18 (D59): a chapter read from the Switch's SD card learns its bookmark from the same question.
+    CHECK_FALSE(state.bookmarked);
+    snx::core::ChapterPatch bookmark;
+    bookmark.isBookmarked = true;
+    must(live->updateChapters({chapterId}, bookmark, CancelToken()));
+    CHECK(must(live->chapterState(chapterId, CancelToken())).bookmarked);
+    bookmark.isBookmarked = false;
+    must(live->updateChapters({chapterId}, bookmark, CancelToken()));
+    CHECK_FALSE(must(live->chapterState(chapterId, CancelToken())).bookmarked);
 }
 
 TEST_CASE("Updates and History (WP-15): newest first, a chapter with progress in History") {
@@ -680,12 +704,181 @@ TEST_CASE("server downloads (WP-17, D58): enqueue, status, reorder, remove, stop
         return false;
     };
     CHECK(isDownloaded(a));
+    CHECK(must(live->chapterState(a, CancelToken())).downloaded);  // WP-18: the same flag through ChapterState
     const std::vector<snx::core::Chapter> deleted = must(live->deleteServerDownloads({a, b}, CancelToken()));
     REQUIRE(deleted.size() == 2);
     CHECK_FALSE(deleted[0].isDownloaded);
     CHECK_FALSE(isDownloaded(a));
+    CHECK_FALSE(must(live->chapterState(a, CancelToken())).downloaded);
     CHECK(must(live->deleteServerDownloads({999999}, CancelToken())).empty());  // an unknown id: harmless
     must(live->clearDownloads(CancelToken()));
+}
+
+// WP-18 (D59): the Switch downloader with the real client, into a temp folder (a SafeFs of its own). The test thread
+// plays the main thread: the client's answers, the store's and the model's posts run here, and so do the model's timers.
+struct SwitchRig {
+    std::string parent;
+    MainQueue main;
+    Live live{serverSettings(), main.deliver()};
+    std::unique_ptr<snx::platform::SafeFs> fs;
+    std::unique_ptr<snx::ui::DownloadStore> store;
+    std::unique_ptr<snx::ui::SwitchDownloads> model;
+    std::vector<std::pair<std::chrono::steady_clock::time_point, std::function<void()>>> timers;
+
+    SwitchRig() {
+        char pattern[] = "/tmp/snx-integration-switchdl-XXXXXX";
+        const char* made = ::mkdtemp(pattern);
+        REQUIRE(made != nullptr);
+        parent = std::string(made) + "/";
+        REQUIRE(::mkdir((parent + "data/").c_str(), 0755) == 0);
+        fs = std::make_unique<snx::platform::SafeFs>(parent + "data/");
+        snx::ui::DownloadStore::Options options = snx::ui::DownloadStore::optionsFrom(live.profile);
+        options.freeBytes = [] { return std::optional<std::uint64_t>(100ULL * snx::core::kGiB); };
+        store = std::make_unique<snx::ui::DownloadStore>(*fs, options, main.deliver());
+        snx::ui::SwitchDownloads::Hooks hooks;
+        hooks.clockMs = [] {
+            return static_cast<std::int64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                 std::chrono::steady_clock::now().time_since_epoch())
+                                                 .count());
+        };
+        hooks.later = [this](int ms, std::function<void()> fn) {
+            timers.emplace_back(std::chrono::steady_clock::now() + std::chrono::milliseconds(ms), std::move(fn));
+        };
+        hooks.post = main.deliver();
+        hooks.nowSeconds = [] { return static_cast<std::int64_t>(std::time(nullptr)); };
+        hooks.memoryLow = [] { return false; };
+        model = std::make_unique<snx::ui::SwitchDownloads>(*live.client, live.http, *store,
+                                                           snx::ui::SwitchDownloads::limitsFrom(live.profile), hooks);
+        model->setLimit(0);
+        model->setServer(env("SNX_SERVER_URL"));
+        REQUIRE(drive([this] { return model->loaded(); }, 10s));
+        model->connected();
+    }
+    ~SwitchRig() {
+        model->shutdown();
+        main.settle(100);
+        model.reset();
+        store.reset();
+        snx::platform::SafeFs(parent).removeTree("data");
+        ::rmdir(parent.c_str());
+    }
+
+    // Runs the main thread's work and the due timers until done() (false after `limit`).
+    bool drive(const std::function<bool()>& done, std::chrono::seconds limit) {
+        const auto deadline = std::chrono::steady_clock::now() + limit;
+        while (!done()) {
+            if (std::chrono::steady_clock::now() > deadline) {
+                return false;
+            }
+            main.settle(20);
+            const auto now = std::chrono::steady_clock::now();
+            std::vector<std::function<void()>> due;
+            for (auto it = timers.begin(); it != timers.end();) {
+                if (it->first <= now) {
+                    due.push_back(std::move(it->second));
+                    it = timers.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+            for (auto& fn : due) fn();
+        }
+        return true;
+    }
+
+    // must() for a call whose answer comes through the main queue.
+    template <typename T>
+    T mustOnMain(ApiFuture<T> future) {
+        REQUIRE(drive([&] { return future.waitFor(0ms); }, 60s));
+        const ApiResult<T>& result = future.get();
+        REQUIRE_MESSAGE(result.ok(), apiErrorKindName(result.error().kind) << ": " << result.error().detail);
+        return result.value();
+    }
+
+    // Queues the chapter and waits until it is on the Switch or failed.
+    snx::ui::SwitchDownloads::ChapterStatus download(int mangaId, const snx::core::Chapter& chapter) {
+        using State = snx::ui::SwitchDownloads::ChapterState;
+        const snx::core::Manga manga = mustOnMain(live->manga(mangaId, CancelToken()));
+        REQUIRE(model->enqueue(manga, {chapter}) == 1);
+        REQUIRE(drive(
+            [&] {
+                const State state = model->chapterState(chapter.id).state;
+                return state == State::OnSwitch || state == State::Failed;
+            },
+            90s));
+        return model->chapterState(chapter.id);
+    }
+
+    // Every page file of the chapter equals the server's page, byte for byte (the page GET waits on its own: the
+    // HttpClient's answers don't go through the main queue).
+    void checkPagesEqualServer(int chapterId) {
+        const auto files = model->pageFiles(chapterId);
+        REQUIRE(files.has_value());
+        const snx::core::PageList pages = mustOnMain(live->pages(chapterId, PageFormat::AsStored, CancelToken()));
+        REQUIRE(files->size() == pages.pages.size());
+        for (std::size_t i = 0; i < pages.pages.size(); ++i) {
+            const auto bytes = fs->readFile((*files)[i], 64 * 1024 * 1024);
+            REQUIRE_MESSAGE(bytes.has_value(), "page " << i << ": " << (*files)[i]);
+            const snx::net::HttpResult page = live.get(pages.pages[i]);
+            REQUIRE(page.ok());
+            CHECK_MESSAGE(*bytes == page.value().body, "page " << i);
+        }
+    }
+};
+
+TEST_CASE("Switch downloads (WP-18, D59): Local and SNX Test chapters onto a temp SD card equal the server's pages") {
+    using State = snx::ui::SwitchDownloads::ChapterState;
+    setSwitchFile("");
+    SwitchRig rig;
+    // Alpha (Local): chapter 1 = the last of the list (newest first). (libraryId() can't be used here: this client's
+    // answers come through the main queue, which only mustOnMain runs.)
+    int alpha = 0;
+    for (const int category : {0, 1, 2}) {
+        for (const snx::core::Manga& manga : rig.mustOnMain(rig.live->library(category, 0, CancelToken())).nodes) {
+            if (manga.title == "Alpha") alpha = manga.id;
+        }
+    }
+    REQUIRE(alpha > 0);
+    const auto alphaChapters = rig.mustOnMain(rig.live->chapters(alpha, 0, CancelToken())).nodes;
+    REQUIRE_FALSE(alphaChapters.empty());
+    const auto t0 = std::chrono::steady_clock::now();
+    const auto local = rig.download(alpha, alphaChapters.back());
+    const auto localMs =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+    REQUIRE(local.state == State::OnSwitch);
+    MESSAGE("Alpha chapter 1 (" << local.pages << " pages) downloaded in " << localMs << " ms");
+    rig.checkPagesEqualServer(alphaChapters.back().id);
+
+    // Paper Garden (SNX Test EN, the first Latest), its chapters fetched from the source first.
+    const auto latest = rig.mustOnMain(rig.live->browseSource(kSnxEn, snx::core::gql::BrowseKind::Latest, 1, "",
+                                                              nlohmann::json::array(), CancelToken()));
+    REQUIRE_FALSE(latest.manga.empty());
+    const int garden = latest.manga[0].id;
+    rig.mustOnMain(rig.live->refreshManga(garden, CancelToken()));
+    const auto gardenChapters = rig.mustOnMain(rig.live->chapters(garden, 0, CancelToken())).nodes;
+    REQUIRE_FALSE(gardenChapters.empty());
+    REQUIRE(rig.download(garden, gardenChapters.back()).state == State::OnSwitch);
+    rig.checkPagesEqualServer(gardenChapters.back().id);
+
+    // Missing Page Mansion: chapter 1's page 2 answers 404 → Failed at page 2 (index 1), nothing of it on the Switch.
+    const auto found = rig.mustOnMain(rig.live->browseSource(kSnxEn, snx::core::gql::BrowseKind::Search, 1,
+                                                             "Missing Page Mansion", nlohmann::json::array(),
+                                                             CancelToken()));
+    REQUIRE_FALSE(found.manga.empty());
+    const int mansion = found.manga[0].id;
+    rig.mustOnMain(rig.live->refreshManga(mansion, CancelToken()));
+    const auto mansionChapters = rig.mustOnMain(rig.live->chapters(mansion, 0, CancelToken())).nodes;
+    REQUIRE_FALSE(mansionChapters.empty());
+    const auto failed = rig.download(mansion, mansionChapters.back());
+    CHECK(failed.state == State::Failed);
+    CHECK(failed.failedPage == 1);
+    CHECK_FALSE(rig.model->pageFiles(mansionChapters.back().id).has_value());
+
+    // Delete: the manga go from the model's view (the folders on the store's thread).
+    rig.model->deleteManga(alpha);
+    rig.model->deleteManga(garden);
+    rig.model->clear();
+    REQUIRE(rig.drive([&] { return rig.model->downloadedManga().empty(); }, 10s));
 }
 
 TEST_CASE("errors from the real server: unknown id, wrong sub-path, nobody listening") {

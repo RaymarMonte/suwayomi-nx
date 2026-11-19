@@ -88,6 +88,12 @@ path rules in `core::jailPath`. It also refuses any `.nro` (no self-update, D15)
   and never edited. The one exception: a progress save that fails as the reader closes waits in `progress-queue.json` (WP-15b, D53),
   written like config (atomic, `.bak`, debounced 2 s, not while the reader moves, flushed at HOME / sleep / exit), at most 100 entries
   and 64 KiB; read back with S6's limits, fuzzed (`fuzz_progress_queue`).
+- WP-18 (D59), downloads to the Switch (`downloads/<server key>/`): each page file is written once (atomic, never edited); a
+  chapter counts as downloaded only when its manga's `manga.json` (atomic, `.bak`) names it, so a power cut leaves only
+  pages that the next start deletes or reuses; `queue.json` is written like config (debounced 2 s, flushed at HOME /
+  sleep / exit). All of it on one worker thread through SafeFs. HOME / sleep stops the downloads at once: requests
+  cancelled, nothing more written. The space rule keeps 1 GB of the SD card free and never deletes by itself. Read back
+  with S6's limits, fuzzed (`fuzz_switch_downloads`).
 - No file stays open between frames.
 - On exit request / HOME / sleep: stop new writes, finish or abandon in-flight cache writes (temp files are just deleted next start),
   flush config and the waiting-save queue, all within 1.5 s. borealis already calls `appletLockExit()`, so the system waits for us.
@@ -107,7 +113,9 @@ textures. Only release deko3d is shipped. Any remaining deko3d failure goes thro
 **S8 Resource hygiene.** Explicit thread stack sizes (workers 256 KB, decoders 1 MB), bounded queues, no unbounded recursion.
 A **main-loop watchdog** thread logs and exits cleanly if the UI loop stalls for > 10 s, instead of leaving the user stuck.
 
-**S9 Power/thermal.** Never touch clocks or performance modes (also in S3). vsync frame pacing. Keep-awake only inside the reader.
+**S9 Power/thermal.** Never touch clocks or performance modes (also in S3). vsync frame pacing. Keep-awake only inside the reader,
+and (WP-18, D59, owner OK 2026-11-19) on the Switch downloads tab while it shows a running download: off when the tab is
+covered or left, the queue stops or the app quits.
 
 **S10 Test-tool safety.** The E2E harness talks to sys-autopilot through an **allowlist**: `GET /status`, `GET /screenshot`, `/input/*`
 (this includes our fork's `/input/touch` and `/input/swipe`, D19), `/controller/*`; `GET /files` (and `/files/hash`) only under our folder, `atmosphere/crash_reports`, `atmosphere/fatal_errors`,

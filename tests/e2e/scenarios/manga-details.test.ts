@@ -25,13 +25,13 @@ async function tapAction(s: Scenario, tap: { x: number; y: number }, action: str
     await s.events.waitForEvent('idle', {}, { from: mark });
 }
 
-/** Opens a row's "..." menu and taps entry `entry` of its four. */
+/** Opens a row's "..." menu and taps entry `entry` of its five (WP-18: the 5th is Download to Switch). */
 async function rowAction(s: Scenario, row: number, entry: number, action: string, chapter: number): Promise<void> {
     const mark = s.events.mark();
     const menu = MANGA.rowMenu(row);
     await s.driver.touch(menu.x, menu.y);
     await s.events.waitForEvent('idle', {}, { from: mark });
-    await tapAction(s, MANGA.menuEntry(entry, 4), action, chapter);
+    await tapAction(s, MANGA.menuEntry(entry, 5), action, chapter);
 }
 
 /** Opens a bar menu (Sort or Show), taps an entry, and waits for the "manga" event that shows the result. */
@@ -117,8 +117,8 @@ scenario('manga-details', async (s) => {
     expect((await chaptersOf(client, alpha))[2].isRead).toBe(false);
     await rowAction(s, 0, 1, 'bookmark', alphaId(3));
     expect((await chaptersOf(client, alpha))[2].isBookmarked).toBe(true);
-    await barChoice(s, MANGA.filter, 2, 3, { filter: 'bookmarked', items: 1, first: 3 });
-    await barChoice(s, MANGA.filter, 0, 3, { filter: 'all', items: 3 });
+    await barChoice(s, MANGA.filter, 2, 4, { filter: 'bookmarked', items: 1, first: 3 });
+    await barChoice(s, MANGA.filter, 0, 4, { filter: 'all', items: 3 });
 
     if (s.driver.name === 'switch') await buttons(s);
 
@@ -146,7 +146,7 @@ scenario('manga-details', async (s) => {
     expect(marked).toMatchObject({ unread: 297, continue: { kind: 'continue', chapter: deltaId(4), page: 0 } });
 
     // Show unread: chapter 4 comes first.
-    await barChoice(s, MANGA.filter, 1, 3, { filter: 'unread', items: 297, first: 4 });
+    await barChoice(s, MANGA.filter, 1, 4, { filter: 'unread', items: 297, first: 4 });
     await s.expectGolden('delta', { masks: [CLOCK_MASK] });
 
     // Progress saved elsewhere (page index 1 of chapter 4) shows after Refresh; Continue opens that page.

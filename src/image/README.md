@@ -7,7 +7,9 @@ tiles ≤ 2048 px → the answer on the main thread. The UI turns tiles into tex
 **Public headers** (include as `"image/<Name>.hpp"`):
 - `ImageLoader.hpp`: `ImageLoader(http, loaderOptionsFrom(profile) + deliver/fs/memory/log)`, `load(LoadRequest{url, box,
   priority, kind}, cancel, done)` → `done(ImageResult)` on the main thread; `cached()`, `clearMemory()`, `shutdown()`, event and
-  memory-pressure observers. Same URL at once = one download. `ImageKind` Page/Cover = two memory caches.
+  memory-pressure observers. Same URL at once = one download. `ImageKind` Page/Cover = two memory caches. WP-18:
+  `LoadRequest::file` reads a downloaded page from the SD card through SafeFs on the disk thread instead (never written to
+  the disk cache, memory key `file:<path>`, event `source` `download`; a missing, cut or too big file fails Corrupt / TooLarge).
 - `Decode.hpp`: `sniffFormat`, `readHeader`, `decodeImage(bytes, box, DecodeLimits, cancel)`, `shrinkImage`, `RgbaImage`.
 - `DecodedImage.hpp`: the finished image (`ImagePtr`): size, source size, tiles, `tilePixels()` (no copy for full-width tiles).
 - `Caches.hpp`: `MemoryCache`, `cacheKey`, `TextureBudget` + `TextureLease`. `DiskCache.hpp`: the SD cache. `WorkerPool.hpp`.

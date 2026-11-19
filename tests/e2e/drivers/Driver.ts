@@ -90,6 +90,12 @@ export interface Driver {
     readFile(path: string, offset?: number): Promise<Buffer>;
     /** Writes a file in the app's data folder (D10), e.g. "test/config.json". */
     writeFile(path: string, data: Buffer | string): Promise<void>;
+    /**
+     * WP-18: deletes a folder of the app's data folder with everything in it (the switch-downloads scenario's known state:
+     * the test server's downloads folder). Desktop only. The Switch can't (sys-autopilot deletes nothing, S10):
+     * NotSupportedError; there the app deletes its own downloads.
+     */
+    removeFolder(dir: string): Promise<void>;
 
     /** The events of the current launch. Throws before the first launch(). */
     events(): EventStream;

@@ -248,6 +248,11 @@ export class DesktopDriver implements Driver {
         await writeFile(full, data);
     }
 
+    async removeFolder(dir: string): Promise<void> {
+        if (!dir || dir === '.') throw new Error('removeFolder: name a folder inside the data folder');
+        await rm(dataPath(this.dataDir, dir), { recursive: true, force: true });
+    }
+
     events(): EventStream {
         if (!this.stream) throw new Error('launch() first: there are no events before the app starts');
         return this.stream;

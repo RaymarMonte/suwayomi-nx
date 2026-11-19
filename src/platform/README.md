@@ -15,6 +15,7 @@
   - `networkConnected()` (WP-08): Switch: nifm reports an IP address; desktop: true. Words an offline error.
   - `setResumeHandler(fn)` (WP-08): Switch: runs after a wake from sleep (libnx OnResume hook, main thread); the app resets the HTTP connections. Desktop: never.
   - `keepScreenOn(on)` (WP-11): Switch: `appletSetMediaPlaybackState` (no dimming, no auto-sleep while the reader is open; ends with the app). Desktop: nothing.
+    WP-18 (S9 widened, owner OK): also the Switch downloads tab while it shows a running download.
   - `handheldMode()` (WP-22): Switch: `appletGetOperationMode() == AppletOperationMode_Handheld` (libnx keeps it from the applet
     messages: cheap every frame, read-only). Desktop: true unless `--simulate-docked`. The reader is always landscape docked.
   - `utcOffsetSeconds(utc)` (WP-15): the console's time zone in seconds east of UTC, for the Updates / History days. Switch:

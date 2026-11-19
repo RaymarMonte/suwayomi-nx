@@ -2,8 +2,9 @@
 // the Switch draws the same layout. Rows of cells and tabs are 72 px apart (D16: 72 px touch targets).
 
 /** The main screen's tabs, top to bottom (MainModel::tabs()). */
-// WP-17 added Server downloads before Settings, so Settings moved down 72 px.
-export const TABS = ['Library', 'Updates', 'History', 'Browse', 'ServerDownloads', 'Settings'] as const;
+// WP-17 added Server downloads before Settings, WP-18 Switch downloads before that: Server downloads and Settings moved down
+// 72 px each time (Settings is at y 588 now).
+export const TABS = ['Library', 'Updates', 'History', 'Browse', 'SwitchDownloads', 'ServerDownloads', 'Settings'] as const;
 export function tab(name: (typeof TABS)[number]): { x: number; y: number } {
     return { x: 225, y: 156 + 72 * TABS.indexOf(name) };
 }

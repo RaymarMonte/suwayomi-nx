@@ -1,20 +1,23 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-18 planned** (download to Switch, D59, `docs/wp/WP-18-download-to-switch.md`).
-**Next: run WP-18** (Opus, L, max effort). Order (D57): 18 → 18b → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28.
-Done: WP-00a … 13, 13b, 13c, 13d, **14, 14b, 15, 15b, 17, 23, 24**, 22; **v0.2.0** (13…24, 17 unreleased).
-Side fix (2026-11-19, no WP): Settings → Server → **Wait for sources** (30 s default, 1/2/5 min) for browse, refresh and
-chapter pages (D60; owner's server uses FlareSolverr). Desktop + Switch checked by hand; no e2e scenario covers it yet.
-## Last session (2026-11-19, WP-18 planning, Opus) – plan committed, no code
-- Wrote the WP-18 doc, D59, the ROADMAP row and stubs (WP-18b's too). Owner's answers: words that name the Switch
-  ("Download to Switch", "Delete from Switch", tag "On Switch"), a **"Switch downloads" tab** before Server downloads
-  (amends D58's "Downloads"; space line, queue, downloaded manga), "Space for downloads" (default 8 GB, 1 GB always free,
-  pause when full, nothing deleted by itself), its own "Delete Switch downloads after reading", paused at HOME / sleep, kept
-  awake while the tab downloads (**S9 widened, owner OK**: SAFETY.md is updated in the build), Updates rows not now.
-- Checked on the test server (facts in the WP doc; they go into SUWAYOMI-API.md during the WP): chunked page answers, a
-  Content-Type that changes once cached, at most 5 source calls at once, new ids for returning chapters, `chapterState`
-  without a source call. The probes left the test server `reset` + running (no auth).
-- From WP-17's run, still true: desktop X = the middle mouse button (the next key focuses what's under the pointer), so the
-  desktop scenario taps and the Switch presses X; details row taps need a fresh screen (a sort / filter change scrolls).
+**Phase 3 – Features. Now:** **WP-18 built** (download to Switch, D59), desktop layers green; **its Switch runs are open**.
+**Next:** the console runs below (console on, Spelunky 2 first on HOME) → then WP-18 is done → **WP-18c** (the rest of
+WP-18, ROADMAP) → 18b → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28. Side fix D60 (Wait for sources) is in.
+Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 23, 24, 22; v0.2.0 (13…24; 17 and 18 unreleased).
+## Last session (2026-11-19, WP-18, Opus) – built, Switch runs open (owner away: PC put to sleep at the end)
+- Built: the store + queue (`ui/downloads/`), the reader reads the SD card first (`ui/reader/ChapterPages`), the details
+  screen's entries, MINUS list, Show filter and tags, the Switch downloads tab (tab 5: Server downloads and Settings one
+  down), Settings' space + delete after reading, the HOME pause, keep-awake on the tab (S9). Not built: the "Same
+  server?" question → WP-18c, with the e2e steps left over (D59 "as built").
+- Green: unit tests, contract, fuzz seeds, npm test + typecheck, integration (3 modes, a new real-server downloader test),
+  all desktop e2e incl. the new `switch-downloads` (~41 s), `tools/build.sh switch` + gate PASS. Flaky, not WP-18's:
+  `server-downloads`' "resume ≤ 1 s" check is the server's own start (0.5–2 s across 3 runs; it passed alone).
+- e2e: `screens.ts` TABS has Switch downloads at index 4; menus got one more entry (chapter menu, Show, MINUS; a dropdown
+  shows 6 at a time, so a 7th entry scrolls and the first 6 keep their places). Desktop goldens with the sidebar re-made
+  (checked by script: only the sidebar moved). Switch goldens not re-made: they fail on the sidebar until one run with
+  `--update-goldens` (then look at them). Desktop has no Y: the scenario taps the footer's Y hint (x 812).
+- **Open Switch runs:** `switch-downloads` (new), `smoke`, `manga-details`, `touch-pass`, `browse`, `server-downloads`,
+  `reader-paged`, `reader-webtoon`, `resume-progress`, `offline-errors`; D59's numbers (first page ≤ 300 ms, a 10-page
+  Local chapter ≤ 20 s, HOME pause ≤ 1 s, `freeBytes()` time). Then mark WP-18 done in ROADMAP and STATUS.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
