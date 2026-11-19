@@ -624,6 +624,70 @@ TEST_CASE("browse (WP-14, D56): sources, filters, paging, search, filters narrow
     CHECK_FALSE(must(live->setCategoryDefault(longSeries, false, CancelToken())).isDefault);
 }
 
+TEST_CASE("server downloads (WP-17, D58): enqueue, status, reorder, remove, stop, start, clear; download, delete") {
+    using namespace std::chrono_literals;
+    using snx::core::gql::BrowseKind;
+    Live live;
+    setSwitchFile("");
+    must(live->clearDownloads(CancelToken()));  // a known state: nothing queued
+    // Paper Garden (SNX Test EN, the first Latest), its chapters fetched from the source. Reading order: oldest first.
+    const auto latest = must(live->browseSource(kSnxEn, BrowseKind::Latest, 1, "", nlohmann::json::array(), CancelToken()));
+    REQUIRE_FALSE(latest.manga.empty());
+    const int mangaId = latest.manga[0].id;
+    must(live->refreshManga(mangaId, CancelToken()));
+    std::vector<snx::core::Chapter> chapters = must(live->chapters(mangaId, 0, CancelToken())).nodes;
+    REQUIRE(chapters.size() >= 4);
+    std::reverse(chapters.begin(), chapters.end());
+    const int a = chapters[0].id, b = chapters[1].id, c = chapters[2].id, d = chapters[3].id;
+    const auto ids = [](const snx::core::DownloadQueue& q) {
+        std::vector<int> out;
+        for (const auto& row : q.rows) out.push_back(row.chapterId);
+        return out;
+    };
+    const auto has = [&](const snx::core::DownloadQueue& q, int id) {
+        const std::vector<int> all = ids(q);
+        return std::find(all.begin(), all.end(), id) != all.end();
+    };
+
+    // Slowed down (each source call waits 1.5 s), so the queue stands still long enough to look at.
+    setSwitchFile(R"({"delayMs":1500})");
+    const auto queued = must(live->enqueueDownloads({a, b, c, d}, CancelToken()));
+    CHECK(ids(queued) == std::vector<int>{a, b, c, d});
+    CHECK_FALSE(queued.started);  // the enqueue's own answer: the downloader starts by itself a moment later
+    CHECK(queued.rows[0].mangaTitle == "Paper Garden");
+    CHECK(ids(must(live->downloadStatus(CancelToken()))) == std::vector<int>{a, b, c, d});
+    CHECK(ids(must(live->enqueueDownloads({b}, CancelToken()))).size() == 4);  // not added twice
+    CHECK(ids(must(live->reorderDownload(d, 0, CancelToken())))[0] == d);   // top = place 0 of the whole queue
+    CHECK(ids(must(live->reorderDownload(d, 3, CancelToken())))[3] == d);   // bottom = rows - 1
+    CHECK_FALSE(has(must(live->dequeueDownload(c, CancelToken())), c));
+    CHECK_FALSE(must(live->stopDownloads(CancelToken())).started);
+    CHECK(must(live->startDownloads(CancelToken())).started);  // waits until STARTED (about a second)
+    CHECK(must(live->clearDownloads(CancelToken())).total() == 0);
+
+    // At full speed: a downloads, leaves the queue, and the chapter says isDownloaded; delete takes it away again.
+    setSwitchFile("");
+    must(live->enqueueDownloads({a}, CancelToken()));
+    bool left = false;
+    for (int i = 0; i < 120 && !left; ++i) {
+        std::this_thread::sleep_for(250ms);
+        left = !has(must(live->downloadStatus(CancelToken())), a);
+    }
+    REQUIRE(left);
+    const auto isDownloaded = [&](int id) {
+        for (const auto& chapter : must(live->chapters(mangaId, 0, CancelToken())).nodes) {
+            if (chapter.id == id) return chapter.isDownloaded;
+        }
+        return false;
+    };
+    CHECK(isDownloaded(a));
+    const std::vector<snx::core::Chapter> deleted = must(live->deleteServerDownloads({a, b}, CancelToken()));
+    REQUIRE(deleted.size() == 2);
+    CHECK_FALSE(deleted[0].isDownloaded);
+    CHECK_FALSE(isDownloaded(a));
+    CHECK(must(live->deleteServerDownloads({999999}, CancelToken())).empty());  // an unknown id: harmless
+    must(live->clearDownloads(CancelToken()));
+}
+
 TEST_CASE("errors from the real server: unknown id, wrong sub-path, nobody listening") {
     Live live;
     CHECK(mustFail(live->manga(999999, CancelToken())).kind == ApiErrorKind::Server);
