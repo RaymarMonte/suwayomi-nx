@@ -379,6 +379,28 @@ TEST_CASE("manga: details and all 300 chapters, a page of 100 at a time; newest 
     CHECK(h.http.releaseAll() == 0);
 }
 
+TEST_CASE("manga: Downloaded to Switch lists the chapters on the Switch and follows its changes (WP-18)") {
+    Harness h(6);
+    auto model = h.model();
+    model->start();
+    REQUIRE(model->state() == State::Ready);
+    CHECK(ui::chapterFilterName(ChapterFilter::OnSwitch) == "on_switch");
+    model->setSort(ChapterSort::OldestFirst);
+    const int second = model->items()[1].id;
+    const int fifth = model->items()[4].id;
+    model->setOnSwitch({second, fifth});  // before the filter: nothing changes on screen
+    model->setFilter(ChapterFilter::OnSwitch);
+    CHECK(sourceOrders(model->items()) == std::vector<int>{2, 5});
+    const auto revision = model->listRevision();
+    model->setOnSwitch({fifth});  // chapter 2 deleted from the Switch
+    CHECK(sourceOrders(model->items()) == std::vector<int>{5});
+    CHECK(model->listRevision() > revision);
+    model->setOnSwitch({});
+    CHECK(model->items().empty());
+    model->setFilter(ChapterFilter::All);
+    CHECK(model->items().size() == 6);
+}
+
 TEST_CASE("manga: Downloaded on server lists isDownloaded chapters; a delete's answer changes them in place (WP-17)") {
     Harness h(6);
     h.server.chapters[1].isDownloaded = true;  // chapter 2

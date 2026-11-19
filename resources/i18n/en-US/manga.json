@@ -84,5 +84,22 @@
     "loading_from_source": "Loading from the source...",
     "categories": "Categories",
     "categories_list": "Categories: {}",
-    "open": "Read"
+    "open": "Read",
+    "filter_on_switch": "Downloaded to Switch",
+    "none_on_switch": "No chapters downloaded to this Switch",
+    "menu_download_switch": "Download to Switch...",
+    "switch_download": "Download to Switch",
+    "switch_cancel": "Cancel download to Switch",
+    "switch_retry": "Retry download to Switch",
+    "switch_delete": "Delete from Switch",
+    "switch_download_nothing": "Every chapter is already on this Switch or queued.",
+    "switch_download_queued": "{} chapters queued to download to this Switch.",
+    "switch_download_queued_one": "1 chapter queued to download to this Switch.",
+    "switch_queue_full": "The Switch's download queue is full: some chapters weren't queued.",
+    "switch_tag_on": "On Switch",
+    "switch_tag_queued": "Switch: queued",
+    "switch_tag_percent": "Switch: {}",
+    "switch_tag_paused": "Switch: paused {}",
+    "switch_tag_failed": "Switch: failed",
+    "switch_tag_damaged": "Switch: damaged"
 }

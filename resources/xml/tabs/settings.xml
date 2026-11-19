@@ -69,6 +69,29 @@
                 width="auto"
                 height="auto"
                 marginTop="30"
+                title="@i18n/settings/switch_downloads" />
+
+            <brls:SelectorCell
+                minHeight="72"
+                id="settings/switch_space" />
+
+            <brls:BooleanCell
+                minHeight="72"
+                id="settings/switch_delete_after_reading" />
+
+            <brls:Label
+                width="auto"
+                height="auto"
+                marginTop="8"
+                marginLeft="16"
+                fontSize="16"
+                textColor="@theme/brls/text_disabled"
+                text="@i18n/settings/switch_delete_after_reading_note" />
+
+            <brls:Header
+                width="auto"
+                height="auto"
+                marginTop="30"
                 title="@i18n/settings/server_downloads" />
 
             <brls:BooleanCell

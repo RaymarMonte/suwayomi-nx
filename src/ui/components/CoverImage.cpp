@@ -45,8 +45,11 @@ void CoverImage::load(const std::string& url, app::AppContext& context) {
     if (url.empty()) {
         return;
     }
-    const image::LoadRequest request{url, decodeBox(width_, height_), net::Priority::Interactive, image::ImageKind::Cover, {}};
-    if (image::ImagePtr ready = context.images.cached(request.url, request.box, image::ImageKind::Cover)) {
+    // WP-18: "file:" + a path in the app's folder is a cover on the SD card (a manga downloaded to the Switch).
+    const bool file = url.rfind("file:", 0) == 0;
+    const image::LoadRequest request{file ? std::string() : url, decodeBox(width_, height_), net::Priority::Interactive,
+                                     image::ImageKind::Cover, file ? url.substr(5) : std::string()};
+    if (image::ImagePtr ready = context.images.cached(image::loadId(request), request.box, image::ImageKind::Cover)) {
         show(ready, context.textures);
         return;
     }

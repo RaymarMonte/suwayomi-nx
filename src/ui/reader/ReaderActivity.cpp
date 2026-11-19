@@ -138,6 +138,17 @@ std::function<void(const core::ReadProgress&, bool)> savedInto(std::shared_ptr<s
     };
 }
 
+// WP-18: chapters downloaded to this Switch open from their files (ChapterPages.hpp).
+PageSource pageSourceFor(app::AppContext& context) {
+    PageSource source;
+    SwitchDownloads* downloads = &context.switchDownloads;
+    source.files = [downloads](int chapterId) { return downloads->pageFiles(chapterId); };
+    source.openWaitMs = context.profile.switchOpenWaitMs;
+    source.later = [](int ms, std::function<void()> fn) { brls::delay(ms, std::move(fn)); };
+    source.onDamaged = [downloads](int chapterId, int page) { downloads->markDamaged(chapterId, page); };
+    return source;
+}
+
 ReaderOptions optionsFor(app::AppContext& context, std::shared_ptr<std::set<int>> finished) {
     ReaderOptions options = readerOptionsFrom(context.profile, context.config.config().reader);
     const int width = static_cast<int>(brls::Application::windowWidth);
@@ -148,6 +159,7 @@ ReaderOptions optionsFor(app::AppContext& context, std::shared_ptr<std::set<int>
     options.clock = app::appClockMs;
     options.onSaved = savedInto(std::move(finished));
     options.queue = &context.saves;  // a save that fails as the reader closes waits there (WP-15b)
+    options.pages = pageSourceFor(context);
     return options;
 }
 
@@ -938,6 +950,7 @@ std::function<void()> ReaderActivity::afterClosing() {
     // downloaded on the server and not bookmarked (as the server answered last: the opened chapter's own answer wins over
     // the details screen's list) count; which of them the reader saved as read is known once every save has ended.
     std::set<int> candidates;
+    std::set<int> onSwitch;  // WP-18, "Delete Switch downloads after reading": the same rule for chapters on this Switch
     for (const core::Chapter& listed : chapters_) {
         core::Chapter latest = listed;
         if (strip_) {
@@ -950,11 +963,25 @@ std::function<void()> ReaderActivity::afterClosing() {
         if (!listed.isRead && latest.isDownloaded && !latest.isBookmarked) {
             candidates.insert(listed.id);
         }
+        if (!listed.isRead && !latest.isBookmarked && context_.switchDownloads.pageFiles(listed.id)) {
+            onSwitch.insert(listed.id);
+        }
     }
     // No `this`: it runs after this screen is gone. The context outlives every screen.
-    return [onClosed = onClosed_, finished = finished_, candidates, &context = context_] {
+    return [onClosed = onClosed_, finished = finished_, candidates, onSwitch, &context = context_] {
         if (onClosed) {
             onClosed();
+        }
+        if (context.config.config().switchDownloads.deleteAfterReading) {
+            std::vector<int> ids;
+            for (int id : *finished) {
+                if (onSwitch.count(id) > 0) {
+                    ids.push_back(id);
+                }
+            }
+            if (!ids.empty()) {
+                context.switchDownloads.deleteChapters(ids, SwitchDownloads::Action::DeleteAfterReading);
+            }
         }
         if (!context.config.config().serverDownloads.deleteAfterReading) {
             return;
@@ -1273,6 +1300,7 @@ void ReaderActivity::startStrip(int chapterId, int page, StripModel::Open how, c
     options.clock = app::appClockMs;
     options.onSaved = savedInto(finished_);
     options.queue = &context_.saves;  // the same waiting-save queue (WP-15b)
+    options.pages = pageSourceFor(context_);
     strip_ = std::make_unique<StripModel>(context_.client, context_.images, model_.manga(), chapters_, options);
     canvas_ = std::make_unique<StripCanvas>(*strip_, context_.textures, context_.profile.webtoonTilesAround);
     canvas_->textFor = [this](int item) { return stripText(item); };

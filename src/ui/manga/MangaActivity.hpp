@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <set>
 #include <string>
 
 #include "app/AppContext.hpp"
@@ -41,6 +42,8 @@ class MangaActivity : public brls::Activity, private GridSource {
     void onContentAvailable() override;
     void onPause() override;   // WP-17: the reader or a menu on top: stop watching the server's queue
     void onResume() override;  // back on top (from the reader or a menu): the "screen" test event again
+    // WP-18: opened from the Switch downloads tab's manga row: Show starts at "Downloaded to Switch" (this visit only).
+    void showOnSwitch() { startOnSwitch_ = true; }
 
   private:
     // WP-17 (D58): a chapter menu's server entry, from the queue the app knows and the chapter's isDownloaded.
@@ -52,6 +55,15 @@ class MangaActivity : public brls::Activity, private GridSource {
     void openDownloadMenu();  // MINUS -> Download on server... -> Next chapter / 5 / 10 / 25, Unread, All
     void downloadsChanged(const ServerDownloads::Change& change);
     void reloadForDownloads();  // chapters left the queue: reload, at most every serverDownloadReloadMs
+    // WP-18 (D59): downloads to this Switch (context_.switchDownloads), for Local manga too.
+    enum class SwitchEntry { None, Download, Cancel, Retry, Delete };
+    SwitchEntry switchEntry(const core::Chapter& chapter) const;
+    std::string switchTag(const core::Chapter& chapter) const;  // "On Switch", "Switch: queued", "Switch: 40 %", ...
+    std::string rowTag(const core::Chapter& chapter) const;     // the Switch tag, then the server's
+    void switchAct(int chapterId, SwitchEntry entry);
+    void openSwitchDownloadMenu();  // MINUS -> Download to Switch... -> the same six choices
+    void switchChanged(const SwitchDownloads::Change& change);
+    std::set<int> onSwitchIds() const;  // this manga's chapters on the Switch
 
     // GridSource
     std::size_t count() const override;
@@ -125,6 +137,8 @@ class MangaActivity : public brls::Activity, private GridSource {
     net::CancelToken alive_;      // cancelled when this screen goes (the reader's onClosed checks it)
     int savesListener_ = 0;       // on context_.saves: a waiting save of this manga went, the chapters reload (WP-15b)
     int downloadsListener_ = 0;   // on context_.downloads (WP-17)
+    int switchListener_ = 0;      // on context_.switchDownloads (WP-18)
+    bool startOnSwitch_ = false;  // showOnSwitch()
     int watcher_ = 0;             // watching context_.downloads while on top; 0 = not
     int pendingQueuedNote_ = 0;   // "12 chapters queued on the server." once the enqueue answered
     std::int64_t lastDownloadReload_ = 0;

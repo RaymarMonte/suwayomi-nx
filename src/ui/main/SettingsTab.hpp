@@ -30,6 +30,8 @@ class SettingsTab : public brls::Box {
     BRLS_BIND(brls::DetailCell, serverVersion, "settings/server_version");
     BRLS_BIND(brls::SelectorCell, sourceWait, "settings/source_wait");  // D60
     BRLS_BIND(brls::BooleanCell, askCategories, "settings/ask_categories");  // WP-14
+    BRLS_BIND(brls::SelectorCell, switchSpace, "settings/switch_space");                             // WP-18
+    BRLS_BIND(brls::BooleanCell, switchDeleteAfterReading, "settings/switch_delete_after_reading");  // WP-18
     BRLS_BIND(brls::BooleanCell, deleteAfterReading, "settings/delete_after_reading");  // WP-17
     BRLS_BIND(brls::DetailCell, version, "settings/version");
     BRLS_BIND(brls::DetailCell, mode, "settings/mode");

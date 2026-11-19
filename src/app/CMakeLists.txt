@@ -35,6 +35,7 @@ set(SNX_APP_SOURCES
     ${PROJECT_SOURCE_DIR}/src/ui/library/LibraryTab.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/updates/ChapterRowsTab.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/downloads/ServerDownloadsTab.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/downloads/SwitchDownloadsTab.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/login/LoginActivity.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/main/MainActivity.cpp
     ${PROJECT_SOURCE_DIR}/src/ui/main/SettingsTab.cpp

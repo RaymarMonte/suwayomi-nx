@@ -10,6 +10,7 @@
 #include "net/HttpClient.hpp"
 #include "platform/SafeFs.hpp"
 #include "ui/downloads/ServerDownloads.hpp"
+#include "ui/downloads/SwitchDownloads.hpp"
 #include "ui/reader/WaitingSaves.hpp"
 
 // Everything the screens share (WP-08), made once in main() in this order and handed to each screen as `AppContext&`. No
@@ -29,6 +30,7 @@ struct AppContext {
     image::TextureBudget& textures;    // GPU memory for images on screen (S7, RuntimeProfile::textureBudgetBytes, WP-09)
     ui::WaitingSaves& saves;           // the waiting-save queue: progress saves that failed as the reader closed (WP-15b)
     ui::ServerDownloads& downloads;    // the server's download queue (WP-17): the Server downloads tab and the details screen
+    ui::SwitchDownloads& switchDownloads;  // downloads to this Switch's SD card (WP-18): its tab, the details screen, the reader
 };
 
 }  // namespace snx::app

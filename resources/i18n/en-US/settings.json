@@ -1,6 +1,12 @@
 {
     "browse": "Browse",
     "ask_categories": "Ask for categories when adding",
+    "switch_downloads": "Switch downloads",
+    "switch_space": "Space for downloads",
+    "switch_delete_after_reading": "Delete Switch downloads after reading",
+    "switch_delete_after_reading_note": "A chapter you finish in the reader is deleted from this Switch when the reader closes. Bookmarked chapters stay.",
+    "no_limit": "No limit",
+    "gigabytes": "{} GB",
     "server_downloads": "Server downloads",
     "delete_after_reading": "Delete server downloads after reading",
     "delete_after_reading_note": "A chapter you finish in the reader loses its download on the server. Bookmarked chapters keep theirs. Other apps using this server see it gone too.",

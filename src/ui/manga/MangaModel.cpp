@@ -20,6 +20,8 @@ std::string_view chapterFilterName(ChapterFilter filter) {
             return "unread";
         case ChapterFilter::Bookmarked:
             return "bookmarked";
+        case ChapterFilter::OnSwitch:
+            return "on_switch";
         case ChapterFilter::DownloadedOnServer:
             return "downloaded_on_server";
     }
@@ -412,12 +414,24 @@ void MangaModel::setFilter(ChapterFilter filter) {
     changed();
 }
 
+void MangaModel::setOnSwitch(std::set<int> ids) {
+    if (ids == onSwitch_) {
+        return;
+    }
+    onSwitch_ = std::move(ids);
+    if (filter_ == ChapterFilter::OnSwitch && firstPage_) {
+        rebuildItems(false);
+        changed();
+    }
+}
+
 void MangaModel::rebuildItems(bool fieldsChanged) {
     std::vector<core::Chapter> next;
     next.reserve(loaded_.size());
     for (const core::Chapter& chapter : loaded_) {
         const bool shown = filter_ == ChapterFilter::All || (filter_ == ChapterFilter::Unread && !chapter.isRead) ||
                            (filter_ == ChapterFilter::Bookmarked && chapter.isBookmarked) ||
+                           (filter_ == ChapterFilter::OnSwitch && onSwitch_.count(chapter.id) > 0) ||
                            (filter_ == ChapterFilter::DownloadedOnServer && chapter.isDownloaded);
         if (shown) {
             next.push_back(chapter);

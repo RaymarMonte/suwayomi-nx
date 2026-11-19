@@ -18,7 +18,8 @@ class CoverImage : public brls::Box {
     CoverImage(float width, float height);
     ~CoverImage() override;
 
-    // Shows the cover at `url` (a full URL; empty: just the placeholder). `context` must outlive this view.
+    // Shows the cover at `url` (a full URL, or "file:" + a path in the app's folder for a cover on the SD card, WP-18;
+    // empty: just the placeholder). `context` must outlive this view.
     void load(const std::string& url, app::AppContext& context);
     void clear();  // back to the placeholder: cancels the load, frees the texture
 

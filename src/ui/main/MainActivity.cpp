@@ -7,6 +7,7 @@
 #include "app/TestHooks.hpp"
 #include "ui/browse/BrowseTab.hpp"
 #include "ui/downloads/ServerDownloadsTab.hpp"
+#include "ui/downloads/SwitchDownloadsTab.hpp"
 #include "ui/components/ServerCheck.hpp"
 #include "ui/library/LibraryTab.hpp"
 #include "ui/login/LoginActivity.hpp"
@@ -24,12 +25,13 @@ constexpr std::size_t kLibraryTab = 0;
 constexpr std::size_t kUpdatesTab = 1;
 constexpr std::size_t kHistoryTab = 2;
 constexpr std::size_t kBrowseTab = 3;
-constexpr std::size_t kServerDownloadsTab = 4;  // WP-17
-constexpr std::size_t kSettingsTab = 5;
+constexpr std::size_t kSwitchDownloadsTab = 4;  // WP-18
+constexpr std::size_t kServerDownloadsTab = 5;  // WP-17
+constexpr std::size_t kSettingsTab = 6;
 
 // The i18n key of each tab's label, in MainModel::tabs() order.
-const char* const kTabLabels[] = {"main/library", "main/updates", "main/history", "main/browse", "main/server_downloads",
-                                  "main/settings"};
+const char* const kTabLabels[] = {"main/library",          "main/updates",         "main/history", "main/browse",
+                                  "main/switch_downloads", "main/server_downloads", "main/settings"};
 
 // A tab's StatusView that tells the main screen when the frame deletes it.
 class TabStatus : public StatusView {
@@ -57,6 +59,17 @@ class ServerDownloadsTabView : public ServerDownloadsTab {
     ServerDownloadsTabView(MainActivity& main, std::function<void(const core::Manga&)> onMangaChanged)
         : ServerDownloadsTab(main.context(), std::move(onMangaChanged)), main_(main) {}
     ~ServerDownloadsTabView() override { main_.forgetTab(this); }
+
+  private:
+    MainActivity& main_;
+};
+
+// The Switch downloads tab, the same (WP-18). It works without the server too: it reads the SD card.
+class SwitchDownloadsTabView : public SwitchDownloadsTab {
+  public:
+    SwitchDownloadsTabView(MainActivity& main, std::function<void(const core::Manga&)> onMangaChanged)
+        : SwitchDownloadsTab(main.context(), std::move(onMangaChanged)), main_(main) {}
+    ~SwitchDownloadsTabView() override { main_.forgetTab(this); }
 
   private:
     MainActivity& main_;
@@ -125,6 +138,9 @@ brls::View* MainActivity::makeTab(std::size_t index) {
         view = makeRowsTab(index == kUpdatesTab);
     } else if (index == kBrowseTab && model_.connection() == MainModel::Connection::Connected) {
         view = makeBrowseTab();
+    } else if (index == kSwitchDownloadsTab) {
+        switchView_ = new SwitchDownloadsTabView(*this, [this](const core::Manga& manga) { mangaChanged(manga); });
+        view = switchView_;
     } else if (index == kServerDownloadsTab && model_.connection() == MainModel::Connection::Connected) {
         downloadsView_ = new ServerDownloadsTabView(*this, [this](const core::Manga& manga) { mangaChanged(manga); });
         view = downloadsView_;
@@ -158,6 +174,9 @@ void MainActivity::forgetTab(const brls::View* tab) {
     }
     if (tab == downloadsView_) {
         downloadsView_ = nullptr;
+    }
+    if (tab == switchView_) {
+        switchView_ = nullptr;
     }
 }
 
@@ -198,12 +217,18 @@ void MainActivity::onPause() {
     if (downloadsView_ != nullptr) {
         downloadsView_->setCovered(true);  // a screen on top: the queue isn't polled for this tab meanwhile
     }
+    if (switchView_ != nullptr) {
+        switchView_->setCovered(true);  // its keep-awake goes off (S9)
+    }
 }
 
 void MainActivity::onResume() {
     covered_ = false;
     if (downloadsView_ != nullptr) {
         downloadsView_->setCovered(false);
+    }
+    if (switchView_ != nullptr) {
+        switchView_->setCovered(false);
     }
     reportScreen();
     // A screen on top closed (the details screen, a reader, a menu): chapters may have been read there. The list on
@@ -236,6 +261,7 @@ void MainActivity::startCheck() {
     showConnection();
     const net::CancelToken token = cancel_;
     brls::Logger::info("main: checking {}", context_.client.settings().url);
+    context_.switchDownloads.setServer(context_.client.settings().url);  // WP-18: that server's folder (the same: nothing)
     checkServer(context_.client, token, [this](const api::ApiResult<core::ServerInfo>& result) { onCheck(result); });
 }
 
@@ -257,6 +283,7 @@ void MainActivity::onCheck(const api::ApiResult<core::ServerInfo>& result) {
     app::testhooks::write("server_check", fields);
     if (result.ok()) {
         context_.saves.connected();  // the server is there: saves waiting for it go now (WP-15b)
+        context_.switchDownloads.connected();  // and the Switch's download queue (WP-18)
     }
     showConnection();
     if (settingsView_ != nullptr) {

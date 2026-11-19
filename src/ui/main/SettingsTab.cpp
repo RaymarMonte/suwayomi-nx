@@ -1,3 +1,4 @@
+#include "core/SwitchDownloads.hpp"
 #include "ui/main/SettingsTab.hpp"
 
 #include <algorithm>
@@ -94,6 +95,40 @@ SettingsTab::SettingsTab(MainActivity& main) : main_(main) {
         context.config.setBrowse(browse);
         app::testhooks::write("setting", nlohmann::ordered_json{{"name", "askCategories"}, {"value", on}});
     });
+    // WP-18 (D59): the Switch downloads' space and their delete after reading (ReaderActivity, on closing).
+    {
+        const std::uint64_t chosen =
+            core::switchLimitBytes(context.config.config().switchDownloads, context.profile.switchDownloadLimitBytes);
+        std::vector<std::string> labels;
+        int selected = 0;
+        for (std::size_t i = 0; i < core::kSwitchLimitChoicesGb.size(); ++i) {
+            const int gb = core::kSwitchLimitChoicesGb[i];
+            labels.push_back(gb == 0 ? "settings/no_limit"_i18n : brls::getStr("settings/gigabytes", gb));
+            if (static_cast<std::uint64_t>(gb) * core::kGiB == chosen) {
+                selected = static_cast<int>(i);
+            }
+        }
+        switchSpace->init("settings/switch_space"_i18n, labels, selected, [&context](int index) {
+            if (index < 0 || index >= static_cast<int>(core::kSwitchLimitChoicesGb.size())) {
+                return;
+            }
+            const int gb = core::kSwitchLimitChoicesGb[static_cast<std::size_t>(index)];
+            core::SwitchDownloadSettings settings = context.config.config().switchDownloads;
+            settings.limitGb = gb;
+            context.config.setSwitchDownloads(settings);
+            context.switchDownloads.setLimit(core::switchLimitBytes(settings, context.profile.switchDownloadLimitBytes));
+            app::testhooks::write("setting", nlohmann::ordered_json{{"name", "switchLimitGb"}, {"value", gb}});
+        });
+    }
+    switchDeleteAfterReading->init("settings/switch_delete_after_reading"_i18n,
+                                   context.config.config().switchDownloads.deleteAfterReading, [&context](bool on) {
+                                       core::SwitchDownloadSettings settings = context.config.config().switchDownloads;
+                                       settings.deleteAfterReading = on;
+                                       context.config.setSwitchDownloads(settings);
+                                       app::testhooks::write("setting", nlohmann::ordered_json{
+                                                                            {"name", "switchDeleteAfterReading"},
+                                                                            {"value", on}});
+                                   });
     // WP-17 (D58): a chapter finished in the reader loses its download on the server (ReaderActivity, on closing).
     deleteAfterReading->init("settings/delete_after_reading"_i18n,
                              context.config.config().serverDownloads.deleteAfterReading, [&context](bool on) {

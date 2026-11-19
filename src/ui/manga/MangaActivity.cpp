@@ -36,10 +36,11 @@ constexpr float kRowTextWidth = kRowWidth - 6 - 14 - 10 - 14 - kMenuWidth - 8;
 
 const ChapterSort kSorts[] = {ChapterSort::NewestFirst, ChapterSort::OldestFirst};
 const char* const kSortKeys[] = {"manga/sort_newest", "manga/sort_oldest"};
+// In ChapterFilter's order (the filter button's label is kFilterKeys[filter]).
 const ChapterFilter kFilters[] = {ChapterFilter::All, ChapterFilter::Unread, ChapterFilter::Bookmarked,
-                                  ChapterFilter::DownloadedOnServer};
+                                  ChapterFilter::OnSwitch, ChapterFilter::DownloadedOnServer};
 const char* const kFilterKeys[] = {"manga/filter_all", "manga/filter_unread", "manga/filter_bookmarked",
-                                   "manga/filter_on_server"};
+                                   "manga/filter_on_switch", "manga/filter_on_server"};
 // WP-17: the "Download on server..." choices, in the menu's order.
 const core::DownloadChoice kDownloadChoices[] = {core::DownloadChoice::Next1,  core::DownloadChoice::Next5,
                                                  core::DownloadChoice::Next10, core::DownloadChoice::Next25,
@@ -254,6 +255,7 @@ MangaActivity::MangaActivity(app::AppContext& context, core::Manga manga,
 MangaActivity::~MangaActivity() {
     context_.saves.removeListener(savesListener_);
     context_.downloads.removeListener(downloadsListener_);
+    context_.switchDownloads.removeListener(switchListener_);
     if (watcher_ != 0) {
         context_.downloads.unwatch(watcher_);
     }
@@ -344,6 +346,14 @@ void MangaActivity::onContentAvailable() {
         watcher_ = context_.downloads.watch();
     }
 
+    // WP-18: the Switch's downloads (no polling: the app's own).
+    switchListener_ =
+        context_.switchDownloads.addListener([this](const SwitchDownloads::Change& change) { switchChanged(change); });
+    model_.setOnSwitch(onSwitchIds());
+    if (startOnSwitch_) {
+        model_.setFilter(ChapterFilter::OnSwitch);
+    }
+
     ready_ = true;
     model_.setListener([this] { modelChanged(); });
     list_->setSource(this);
@@ -409,6 +419,7 @@ void MangaActivity::modelChanged() {
                 const ChapterFilter filter = model_.filter();
                 statusView_->showMessage(filter == ChapterFilter::Unread               ? "manga/none_unread"_i18n
                                          : filter == ChapterFilter::DownloadedOnServer ? "manga/none_on_server"_i18n
+                                         : filter == ChapterFilter::OnSwitch           ? "manga/none_on_switch"_i18n
                                                                                        : "manga/none_bookmarked"_i18n,
                                          "manga/filter_empty_text"_i18n);
                 showList(false);
@@ -595,7 +606,7 @@ GridCell* MangaActivity::makeCell() {
 
 void MangaActivity::bind(GridCell& cell, std::size_t index) {
     cell.setId("manga/chapter-" + std::to_string(index));  // the "focus" test event says which row has the focus
-    static_cast<ChapterCell&>(cell).show(model_.items()[index], serverTag(model_.items()[index]));
+    static_cast<ChapterCell&>(cell).show(model_.items()[index], rowTag(model_.items()[index]));
 }
 
 void MangaActivity::unbind(GridCell& cell) {
@@ -659,15 +670,30 @@ void MangaActivity::openChapterMenu(std::size_t index) {
         names.push_back(brls::getStr(actionKey(action)));
     }
     const int chapterId = chapter.id;
-    // WP-17: a 5th entry from the server's queue: Download on server, Cancel server download or Delete server download.
+    // WP-18: an entry for this Switch (Download to Switch, Cancel download to Switch, Retry download to Switch, Delete from
+    // Switch), above WP-17's entry from the server's queue (Download on server, Cancel or Delete server download).
+    const SwitchEntry onSwitch = switchEntry(chapter);
+    const int switchIndex = onSwitch == SwitchEntry::None ? -1 : static_cast<int>(names.size());
+    if (onSwitch != SwitchEntry::None) {
+        names.push_back(brls::getStr(onSwitch == SwitchEntry::Download ? "manga/switch_download"
+                                     : onSwitch == SwitchEntry::Cancel ? "manga/switch_cancel"
+                                     : onSwitch == SwitchEntry::Retry  ? "manga/switch_retry"
+                                                                       : "manga/switch_delete"));
+    }
     const ServerEntry server = serverEntry(chapter);
+    const int serverIndex = server == ServerEntry::None ? -1 : static_cast<int>(names.size());
     if (server != ServerEntry::None) {
         names.push_back(brls::getStr(server == ServerEntry::Download ? "manga/server_download"
                                      : server == ServerEntry::Cancel ? "manga/server_cancel"
                                                                      : "manga/server_delete"));
     }
-    auto* dropdown = new brls::Dropdown(chapter.name, names, [this, actions, chapterId, server](int selected) {
-        if (selected >= 0 && static_cast<std::size_t>(selected) == actions.size() && server != ServerEntry::None) {
+    auto* dropdown = new brls::Dropdown(chapter.name, names, [this, actions, chapterId, onSwitch, switchIndex, server,
+                                                              serverIndex](int selected) {
+        if (selected >= 0 && selected == switchIndex) {
+            brls::sync([this, chapterId, onSwitch] { switchAct(chapterId, onSwitch); });
+            return;
+        }
+        if (selected >= 0 && selected == serverIndex) {
             brls::sync([this, chapterId, server] { serverAct(chapterId, server); });
             return;
         }
@@ -765,14 +791,18 @@ void MangaActivity::openMenu() {
     if (inLibrary) {
         entries.push_back("manga/menu_remove"_i18n);
     }
+    const int switchEntry = static_cast<int>(entries.size());  // WP-18, Local too
+    entries.push_back("manga/menu_download_switch"_i18n);
     const int downloadEntry = isLocal() ? -1 : static_cast<int>(entries.size());  // WP-17, never for Local
     if (downloadEntry >= 0) {
         entries.push_back("manga/menu_download"_i18n);
     }
-    auto* dropdown = new brls::Dropdown("manga/menu_title"_i18n, entries, [this, downloadEntry](int selected) {
+    auto* dropdown = new brls::Dropdown("manga/menu_title"_i18n, entries, [this, switchEntry, downloadEntry](int selected) {
         // The menu closes first; the next one opens on the following frame.
-        brls::sync([this, selected, downloadEntry] {
-            if (selected == 0) {
+        brls::sync([this, selected, switchEntry, downloadEntry] {
+            if (selected == switchEntry) {
+                openSwitchDownloadMenu();
+            } else if (selected == 0) {
                 openSortMenu();
             } else if (selected == 1) {
                 openFilterMenu();
@@ -885,6 +915,23 @@ void MangaActivity::report() {
             }
         }
         fields["server"] = {{"downloaded", downloaded}, {"queued", queued}, {"downloading", downloading}, {"failed", failed}};
+    }
+    {
+        // WP-18: this manga's chapters on the Switch and in its queue.
+        int onSwitch = 0, damaged = 0, queued = 0, downloading = 0, failed = 0;
+        for (const core::Chapter& c : model_.chapters()) {
+            switch (context_.switchDownloads.chapterState(c.id).state) {
+                case SwitchDownloads::ChapterState::OnSwitch: onSwitch += 1; break;
+                case SwitchDownloads::ChapterState::Damaged: damaged += 1; break;
+                case SwitchDownloads::ChapterState::Queued:
+                case SwitchDownloads::ChapterState::Paused: queued += 1; break;
+                case SwitchDownloads::ChapterState::Downloading: downloading += 1; break;
+                case SwitchDownloads::ChapterState::Failed: failed += 1; break;
+                case SwitchDownloads::ChapterState::None: break;
+            }
+        }
+        fields["switch"] = {{"onSwitch", onSwitch}, {"damaged", damaged}, {"queued", queued},
+                            {"downloading", downloading}, {"failed", failed}};
     }
     fields["first"] = model_.items().empty() ? 0 : model_.items().front().sourceOrder;
     fields["unread"] = model_.manga().unreadCount;
@@ -1026,6 +1073,133 @@ void MangaActivity::reloadForDownloads() {
         lastDownloadReload_ = app::appClockMs();
         model_.reloadChapters();
     });
+}
+
+// --- WP-18 (D59): downloads to this Switch ---
+
+MangaActivity::SwitchEntry MangaActivity::switchEntry(const core::Chapter& chapter) const {
+    if (!context_.switchDownloads.loaded()) {
+        return SwitchEntry::None;
+    }
+    switch (context_.switchDownloads.chapterState(chapter.id).state) {
+        case SwitchDownloads::ChapterState::None: return SwitchEntry::Download;
+        case SwitchDownloads::ChapterState::Queued:
+        case SwitchDownloads::ChapterState::Downloading:
+        case SwitchDownloads::ChapterState::Paused: return SwitchEntry::Cancel;
+        case SwitchDownloads::ChapterState::Failed:
+        case SwitchDownloads::ChapterState::Damaged: return SwitchEntry::Retry;
+        case SwitchDownloads::ChapterState::OnSwitch: return SwitchEntry::Delete;
+    }
+    return SwitchEntry::None;
+}
+
+std::string MangaActivity::switchTag(const core::Chapter& chapter) const {
+    const SwitchDownloads::ChapterStatus status = context_.switchDownloads.chapterState(chapter.id);
+    const double done = status.pages > 0 ? static_cast<double>(status.pagesDone) / status.pages : 0.0;
+    switch (status.state) {
+        case SwitchDownloads::ChapterState::None: return {};
+        case SwitchDownloads::ChapterState::Queued: return "manga/switch_tag_queued"_i18n;
+        case SwitchDownloads::ChapterState::Downloading:
+            return brls::getStr("manga/switch_tag_percent", core::percentText(done));
+        case SwitchDownloads::ChapterState::Paused:
+            return brls::getStr("manga/switch_tag_paused", core::percentText(done));
+        case SwitchDownloads::ChapterState::Failed: return "manga/switch_tag_failed"_i18n;
+        case SwitchDownloads::ChapterState::Damaged: return "manga/switch_tag_damaged"_i18n;
+        case SwitchDownloads::ChapterState::OnSwitch: return "manga/switch_tag_on"_i18n;
+    }
+    return {};
+}
+
+std::string MangaActivity::rowTag(const core::Chapter& chapter) const {
+    const std::string first = switchTag(chapter);
+    const std::string second = serverTag(chapter);
+    if (first.empty() || second.empty()) {
+        return first.empty() ? second : first;
+    }
+    return first + "  ·  " + second;
+}
+
+std::set<int> MangaActivity::onSwitchIds() const {
+    std::set<int> ids;
+    if (const core::SwitchManga* manga = context_.switchDownloads.manga(model_.manga().id)) {
+        for (const core::SwitchChapter& c : manga->chapters) {
+            ids.insert(c.id);
+        }
+    }
+    return ids;
+}
+
+void MangaActivity::switchAct(int chapterId, SwitchEntry entry) {
+    SwitchDownloads& downloads = context_.switchDownloads;
+    switch (entry) {
+        case SwitchEntry::Download:
+            if (const core::Chapter* chapter = model_.chapter(chapterId)) {
+                downloads.enqueue(model_.manga(), {*chapter});
+            }
+            break;
+        case SwitchEntry::Cancel:
+            downloads.removeFromQueue(chapterId);
+            break;
+        case SwitchEntry::Retry:
+            downloads.retry(chapterId);
+            break;
+        case SwitchEntry::Delete:
+            downloads.deleteChapters({chapterId});
+            break;
+        case SwitchEntry::None:
+            break;
+    }
+}
+
+void MangaActivity::openSwitchDownloadMenu() {
+    std::vector<std::string> names;
+    for (const char* key : kDownloadKeys) {
+        names.push_back(brls::getStr(key));
+    }
+    auto* dropdown = new brls::Dropdown("manga/menu_download_switch"_i18n, names, [this](int selected) {
+        if (selected < 0 || selected >= static_cast<int>(sizeof(kDownloadChoices) / sizeof(kDownloadChoices[0]))) {
+            return;
+        }
+        const core::DownloadChoice choice = kDownloadChoices[selected];
+        brls::sync([this, choice] {
+            SwitchDownloads& downloads = context_.switchDownloads;
+            const std::vector<int> ids = core::chaptersToDownload(model_.chapters(), choice, downloads.skipIds());
+            std::vector<core::Chapter> chapters;
+            for (int id : ids) {
+                if (const core::Chapter* chapter = model_.chapter(id)) {
+                    chapters.push_back(*chapter);
+                }
+            }
+            if (chapters.empty()) {
+                brls::Application::notify("manga/switch_download_nothing"_i18n);
+                return;
+            }
+            bool capped = false;
+            const int added = downloads.enqueue(model_.manga(), chapters, &capped);
+            if (added > 0) {
+                brls::Application::notify(added == 1 ? "manga/switch_download_queued_one"_i18n
+                                                     : brls::getStr("manga/switch_download_queued", added));
+            }
+            if (capped) {
+                brls::Application::notify("manga/switch_queue_full"_i18n);
+            }
+        });
+    });
+    brls::Application::pushActivity(new brls::Activity(dropdown));
+}
+
+void MangaActivity::switchChanged(const SwitchDownloads::Change& change) {
+    if (auto error = context_.switchDownloads.takeError()) {
+        brls::Application::notify(*error);
+    }
+    model_.setOnSwitch(onSwitchIds());
+    if (!change.state && !change.action) {
+        return;
+    }
+    if (listShown_ && list_ != nullptr) {
+        list_->rebind();  // the tags
+    }
+    report();
 }
 
 }  // namespace snx::ui

@@ -25,6 +25,7 @@ namespace snx::ui {
 
 class BrowseTab;
 class ServerDownloadsTab;
+class SwitchDownloadsTab;
 class LibraryTab;
 class SettingsTab;
 
@@ -86,6 +87,7 @@ class MainActivity : public brls::Activity {
     LibraryTab* libraryView_ = nullptr;  // the Library tab's view while it exists
     BrowseTab* browseView_ = nullptr;
     ServerDownloadsTab* downloadsView_ = nullptr;  // WP-17
+    SwitchDownloadsTab* switchView_ = nullptr;     // WP-18
     SettingsTab* settingsView_ = nullptr;
     bool covered_ = false;  // setup or login is on top: tab changes underneath aren't reported as screens
     bool listsStale_ = false;  // a screen on top closed since the lists last reloaded (reloadStaleLists)

@@ -81,6 +81,15 @@ void ConfigStore::setServerDownloads(const core::ServerDownloadSettings& setting
     scheduler_.changed(appClockMs());
 }
 
+void ConfigStore::setSwitchDownloads(const core::SwitchDownloadSettings& settings) {
+    if (settings.limitGb == config_.switchDownloads.limitGb &&
+        settings.deleteAfterReading == config_.switchDownloads.deleteAfterReading) {
+        return;
+    }
+    config_.switchDownloads = settings;
+    scheduler_.changed(appClockMs());
+}
+
 void ConfigStore::setMangaReader(const core::MangaReaderSettings& settings) {
     const core::MangaReaderSettings now = core::readerSettingsFor(config_.reader, settings.mangaId);
     const bool own = std::any_of(config_.reader.manga.begin(), config_.reader.manga.end(),

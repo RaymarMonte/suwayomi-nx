@@ -54,6 +54,10 @@ bool diskCache();
 // The test config's "maxDecodeScale" (WP-13c: the measurement that chose the profile's value), 0 when not given. Release
 // builds: always 0.
 float maxDecodeScale();
+// WP-18: the test config's "switchDownloadLimitBytes" (the Switch downloads' space limit instead of Settings') and
+// "sdFreeBytes" (the SD card's free space as the downloads see it). Nothing when not given; release builds: always nothing.
+std::optional<std::uint64_t> switchDownloadLimitBytes();
+std::optional<std::uint64_t> sdFreeBytes();
 
 // Writes a {"ev":"net",...} event for every request the client finishes (WP-05). The observer runs on the network thread and
 // hands the event to the main thread with brls::sync. Release builds: nothing.

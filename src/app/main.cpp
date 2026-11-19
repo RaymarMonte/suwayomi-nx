@@ -33,7 +33,9 @@
 #include "ui/components/StatusView.hpp"
 #include "ui/crash/CrashActivity.hpp"
 #include "ui/diagnostics/DiagnosticsActivity.hpp"
+#include "ui/downloads/DownloadStore.hpp"
 #include "ui/downloads/ServerDownloads.hpp"
+#include "ui/downloads/SwitchDownloads.hpp"
 #include "ui/main/MainActivity.hpp"
 
 using namespace brls::literals;  // for _i18n
@@ -128,6 +130,82 @@ void reportDownloadAction(const snx::ui::ServerDownloads::Change& change) {
     }
     fields["ms"] = done.ms;
     snx::app::testhooks::write("server_download_action", fields);
+}
+
+// Every Switch download event (WP-18): the log, and in test builds {"ev":"switch_download",...} for a chapter that finished,
+// {"ev":"switch_download_action",...} for an action and {"ev":"switch_downloads",...} when what the tab shows changed.
+void reportSwitchDownloads(const snx::ui::SwitchDownloads& downloads, const snx::ui::SwitchDownloads::Change& change,
+                           std::string& reported) {
+    namespace testhooks = snx::app::testhooks;
+    if (change.finished) {
+        const auto& done = *change.finished;
+        nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+        fields["chapter"] = done.chapterId;
+        fields["ok"] = done.ok;
+        fields["pages"] = done.pages;
+        fields["bytes"] = done.bytes;
+        fields["ms"] = done.ms;
+        if (!done.ok) {
+            fields["error"] = done.error;
+            brls::Logger::warning("switch downloads: chapter {} failed: {}", done.chapterId, done.error);
+        }
+        testhooks::write("switch_download", fields);
+    }
+    if (change.action) {
+        const char* name = snx::ui::SwitchDownloads::actionName(*change.action);
+        brls::Logger::info("switch downloads: {} ({} chapters) {}", name, change.actionChapters, change.actionOk ? "ok" : "failed");
+        nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+        fields["action"] = name;
+        fields["chapters"] = change.actionChapters;
+        fields["ok"] = change.actionOk;
+        testhooks::write("switch_download_action", fields);
+    }
+#ifndef SNX_TEST_HOOKS
+    return;  // the state event is for tests only
+#endif
+    if (!change.state) {
+        return;
+    }
+    const snx::ui::SwitchDownloads::Space space = downloads.space();
+    int chapters = 0;
+    int damaged = 0;
+    const auto rows = downloads.downloadedManga();
+    for (const auto& row : rows) {
+        chapters += row.chapters;
+        damaged += row.damagedChapters;
+    }
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["loaded"] = downloads.loaded();
+    fields["view"] = snx::core::switchQueueViewName(downloads.view());
+    fields["wait"] = snx::core::switchWaitName(downloads.wait());
+    fields["queued"] = downloads.queue().entries.size();
+    fields["failed"] = downloads.failedCount();
+    fields["paused"] = downloads.queue().paused;
+    fields["downloading"] = downloads.downloadingChapter();
+    if (const int id = downloads.downloadingChapter(); id > 0) {
+        const auto status = downloads.chapterState(id);
+        fields["pagesDone"] = status.pagesDone;
+        fields["pages"] = status.pages;
+    }
+    fields["manga"] = rows.size();
+    fields["chapters"] = chapters;
+    fields["damaged"] = damaged;
+    fields["used"] = space.used;
+    fields["limit"] = space.limit;
+    fields["free"] = space.free ? nlohmann::ordered_json(*space.free) : nlohmann::ordered_json(nullptr);
+    nlohmann::ordered_json ids = nlohmann::ordered_json::array();
+    for (const auto& entry : downloads.queue().entries) {
+        ids.push_back(entry.chapter.id);
+    }
+    fields["ids"] = ids;
+    const std::string key = fields.dump();
+    if (key == reported) {
+        return;
+    }
+    reported = key;
+    fields["queueWrites"] = downloads.queueWrites();
+    fields["freeMs"] = downloads.freeMs();
+    testhooks::write("switch_downloads", fields);
 }
 
 // Test builds: the diagnostics screen (WP-05's server check and request burst, WP-07's image benchmark) over the main screen.
@@ -271,6 +349,7 @@ int main(int argc, char* argv[]) {
         return snx::core::MemorySample{info.usedMem, info.totalMem};
     };
     imageOptions.log = [](const std::string& line) { brls::sync([line] { brls::Logger::info("image: {}", line); }); };
+    imageOptions.files = &fs;  // WP-18: downloaded pages and covers, read from the SD card
     snx::image::ImageLoader images(http, imageOptions);
     testhooks::watchImages(images);
 
@@ -283,14 +362,64 @@ int main(int argc, char* argv[]) {
                                        [](int ms, std::function<void()> fn) { brls::delay(ms, std::move(fn)); });
     downloads.addListener(reportDownloadAction);
 
-    app::AppContext context{fs, runtime, profile, lastRun, config, http, client, images, textures, saves, downloads};
+    // Downloads to this Switch (WP-18, D59): the files under downloads/ (one worker thread, SafeFs only) and the queue,
+    // one chapter at a time at Background priority. It starts once the main screen's server check worked (connected()).
+    snx::ui::DownloadStore::Options storeOptions = snx::ui::DownloadStore::optionsFrom(profile);
+    if (const auto fakeFree = testhooks::sdFreeBytes()) {
+        brls::Logger::info("app: test config: sdFreeBytes {}", *fakeFree);
+        storeOptions.freeBytes = [free = *fakeFree] { return std::optional<std::uint64_t>(free); };
+    }
+    snx::ui::DownloadStore switchStore(fs, storeOptions, [](std::function<void()> task) { brls::sync(std::move(task)); },
+                                       [](bool warning, const std::string& line) {
+                                           brls::sync([warning, line] {
+                                               if (warning) {
+                                                   brls::Logger::warning("{}", line);
+                                               } else {
+                                                   brls::Logger::info("{}", line);
+                                               }
+                                           });
+                                       });
+    snx::ui::SwitchDownloads::Hooks switchHooks;
+    switchHooks.clockMs = snx::app::appClockMs;
+    switchHooks.later = [](int ms, std::function<void()> fn) { brls::delay(ms, std::move(fn)); };
+    switchHooks.post = [](std::function<void()> fn) { brls::sync(std::move(fn)); };
+    switchHooks.nowSeconds = [] { return static_cast<std::int64_t>(std::time(nullptr)); };
+    switchHooks.memoryLow = [&images] { return images.prefetchPaused(); };
+    switchHooks.log = [](bool warning, const std::string& line) {
+        if (warning) {
+            brls::Logger::warning("{}", line);
+        } else {
+            brls::Logger::info("{}", line);
+        }
+    };
+    snx::ui::SwitchDownloads switchDownloads(client, http, switchStore, snx::ui::SwitchDownloads::limitsFrom(profile),
+                                             switchHooks);
+    if (const auto limit = testhooks::switchDownloadLimitBytes()) {
+        brls::Logger::info("app: test config: switchDownloadLimitBytes {}", *limit);
+        switchDownloads.setLimit(*limit);
+    } else {
+        switchDownloads.setLimit(snx::core::switchLimitBytes(config.config().switchDownloads, profile.switchDownloadLimitBytes));
+    }
+    switchDownloads.setPageFormat(config.config().reader.serverConvertsToJpeg ? snx::api::PageFormat::Jpeg
+                                                                              : snx::api::PageFormat::AsStored);
+    std::string switchReported;
+    switchDownloads.addListener([&switchDownloads, &switchReported](const snx::ui::SwitchDownloads::Change& change) {
+        reportSwitchDownloads(switchDownloads, change, switchReported);
+    });
+    if (config.serverSetUp()) {
+        switchDownloads.setServer(config.config().server.url);  // reads the SD card at once; downloads after connected()
+    }
+
+    app::AppContext context{fs,       runtime, profile, lastRun,   config,          http,
+                            client,   images,  textures, saves,    downloads,       switchDownloads};
     // Test builds' idle rule: no network request or image load pending, and no animation (TESTING.md).
     testhooks::watchApp([&http, &images] { return http.inFlight() > 0 || images.activeJobs() > 0; });
 
     // HOME, sleep, another app on top: write what is waiting now (S5), and pause the watchdog (borealis keeps the loop
     // running in the background, but slowly). Waking up from sleep: fresh network connections.
-    brls::Application::getWindowFocusChangedEvent()->subscribe([&config, &saves](bool focused) {
+    brls::Application::getWindowFocusChangedEvent()->subscribe([&config, &saves, &switchDownloads](bool focused) {
         crash::setFocused(focused);
+        switchDownloads.setFocused(focused);  // S5: HOME / sleep: its requests stop, nothing is written, queue.json saved
         if (!focused) {
             brls::Logger::info("app: in the background, saving");
             config.flush();
@@ -339,6 +468,8 @@ int main(int argc, char* argv[]) {
     brls::Logger::info("app: main loop ended, exiting");
     config.flush();
     saves.flush();  // the waiting saves, written the safe way like config.json (S5)
+    switchDownloads.shutdown();  // WP-18: its requests end, queue.json is written (S5)
+    switchStore.stop();          // the file thread: the task under way ends, the rest are dropped
     images.shutdown();  // its loads end, its threads stop, no more cache writes (S5)
     snx::platform::setResumeHandler(nullptr);
     gResumeHttp = nullptr;

@@ -25,9 +25,11 @@
 namespace snx::ui {
 
 enum class ChapterSort { NewestFirst, OldestFirst };    // by the chapters' order in the manga (sourceOrder)
-enum class ChapterFilter { All, Unread, Bookmarked, DownloadedOnServer };  // the last: WP-17, isDownloaded
+// OnSwitch: WP-18, the chapters on this Switch (setOnSwitch); DownloadedOnServer: WP-17, isDownloaded. The order is the
+// Show menu's.
+enum class ChapterFilter { All, Unread, Bookmarked, OnSwitch, DownloadedOnServer };
 std::string_view chapterSortName(ChapterSort sort);        // "newest", "oldest" (test events)
-std::string_view chapterFilterName(ChapterFilter filter);  // "all", "unread", "bookmarked", "downloaded_on_server"
+std::string_view chapterFilterName(ChapterFilter filter);  // "all", "unread", "bookmarked", "on_switch", "downloaded_on_server"
 
 // Where "Continue" starts (D43).
 struct ContinuePoint {
@@ -98,6 +100,8 @@ class MangaModel {
 
     void setSort(ChapterSort sort);
     void setFilter(ChapterFilter filter);
+    // WP-18: the ids of this manga's chapters on the Switch (SwitchDownloads), for the OnSwitch filter.
+    void setOnSwitch(std::set<int> ids);
     // WP-24: the category picker saved the manga's categories (the server's answer).
     void setCategories(std::vector<core::Category> categories);
     // WP-14: the manga joined or left the library (LibraryAdder's answer), with its categories now.
@@ -197,6 +201,7 @@ class MangaModel {
 
     ChapterSort sort_ = ChapterSort::NewestFirst;
     ChapterFilter filter_ = ChapterFilter::All;
+    std::set<int> onSwitch_;
     std::vector<core::Chapter> items_;
     std::uint64_t listRevision_ = 0;
     std::uint64_t itemsRevision_ = 0;

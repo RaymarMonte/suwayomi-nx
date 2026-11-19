@@ -382,6 +382,14 @@ float maxDecodeScale() {
     return gConfig.maxDecodeScale;
 }
 
+std::optional<std::uint64_t> switchDownloadLimitBytes() {
+    return gConfig.switchDownloadLimitBytes;
+}
+
+std::optional<std::uint64_t> sdFreeBytes() {
+    return gConfig.sdFreeBytes;
+}
+
 void watchNet(net::HttpClient& http) {
     http.addResponseObserver([](const net::Request& request, const net::HttpResult& result) {
         core::testevents::NetEvent event;
@@ -562,6 +570,12 @@ bool diskCache() {
 }
 float maxDecodeScale() {
     return 0;
+}
+std::optional<std::uint64_t> switchDownloadLimitBytes() {
+    return std::nullopt;
+}
+std::optional<std::uint64_t> sdFreeBytes() {
+    return std::nullopt;
 }
 void watchNet(net::HttpClient&) {}
 void watchImages(image::ImageLoader&) {}
