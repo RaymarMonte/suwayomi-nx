@@ -1217,7 +1217,7 @@ couldn't change it, pages packed in the jar), committing built jars.
   Languages checklist: Done saves (only when something changed), B leaves without saving, unticking the last shown
   language is refused with a note, a hidden code that no source has now stays hidden. Tick for new manga is the 5th entry
   of a category's row menu ("Don't tick for new manga" when ticked) and doesn't make the Library reload. Times, desktop:
-  Search all over the 3 sources 12 ms.
+  Search all over the 3 sources 12 ms; Switch (application mode, 2 runs): 73–86 ms, memory + 0.1 MiB over 10 rounds.
 Rejected: Mihon's way (nothing pre-ticked, no "don't ask"), adding without a question, the web UI's own server-side
 setting for asking (it is the web UI's internal metadata), a list of sources or one mixed grid for Search all, English only
 at first, hiding 18+ sources, a duplicate title pair with a Local fixture (WP-23 keeps Local titles out of the catalog).

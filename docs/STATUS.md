@@ -1,18 +1,17 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-14b** desktop done (Search all, Languages, Tick for new manga; D56 as built); **Switch
-runs next**. Done: WP-00a … 13, 13b, 13c, 13d, **14, 15, 15b, 23, 24**, 22; **v0.2.0** (13…24 unreleased).
+**Phase 3 – Features. Now:** **WP-14b done** (2026-11-19). **Next: WP-16** (Extensions, Opus; no WP doc yet: write
+`docs/wp/WP-16-*.md` first). Done: WP-00a … 13, 13b, 13c, 13d, **14, 14b, 15, 15b, 23, 24**, 22; **v0.2.0** (13…24 unreleased).
 Nice to have: WP-08b, 17, 21, 26, last 18 / 18b (D51). WP-13d: the console's longest strip frame is 31–32 ms (limit 34).
 ## Last session (2026-11-19, WP-14b, Opus)
-- **Built:** `GlobalSearchModel` + `GlobalSearchActivity` (Search all: 6 columns = card + 5 covers, 3 sources at a time),
-  `LanguagesModel` + `LanguagesActivity` (Browse → Languages, saved in config.json), `CategoriesModel::setTickForNew` (the
-  Categories row menu's 5th entry, "Ticked for new manga" on the row), Browse bar buttons Search all / Languages + MINUS
-  menu, `SourceActivity` can open searching a text, `GridMetrics::columns` + `GridSource::focusable` (empty places skip the
-  focus). Fixed: e2e `serverCategories()` dropped categories with the `default` flag; `restoreSeed()` now unticks them.
-- **Tests:** unit 7/7 (new: grid focus rules, Search all queue, Languages, Tick), contract 48/48, desktop `browse` green
-  (new goldens `languages`, `search-all`, `categories-ticked`; `sources`, `sources-mature` re-recorded: the new bar).
-- **Switch next (console ready, Spelunky 2 first):** `tools/build.sh switch` (gate), then `tools/e2e.sh switch browse
-  --update-goldens` (new + bar goldens; check them, then restore unrelated ones with git checkout), `library-tools`,
-  `smoke`, `touch-pass`; step 11 (Y adds into the ticked Long series) runs only there. Then ROADMAP row done, STATUS, push.
+- **Built:** Search all (`GlobalSearchModel` + `GlobalSearchActivity`: 6 columns = card + 5 covers, 3 sources at a time),
+  Browse → Languages (`LanguagesModel` + `LanguagesActivity`, saved in config.json), Tick for new manga (the Categories
+  row menu's 5th entry, `CategoriesModel::setTickForNew`), `GridMetrics::columns` + `GridSource::focusable`. D56 as built.
+- **Tests:** unit 7/7, contract 48/48, npm 142, typecheck; desktop all 26 e2e green; Switch (gate PASS) `browse`,
+  `library-tools`, `smoke`, `touch-pass`, `library-browse`, `manga-details`, `updates-history` green; Search all 73–86 ms.
+  New goldens (both drivers): `languages`, `search-all`, `categories-ticked`; `sources`, `sources-mature`: the new bar.
+- **Flake seen (desktop, not WP-14b):** `soak` and `reader-portrait` each lost one D-pad press once (fast presses; the
+  reader reads the D-pad once a frame); both green on the rerun. If it comes back: look at frame times there.
+- The console is asleep: the next Switch run needs the owner to wake it (HOME).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

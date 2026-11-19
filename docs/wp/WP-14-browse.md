@@ -191,8 +191,8 @@ MainActivity, CategoryPickerActivity, CategoriesActivity, SettingsTab).
       type narrows as the catalog predicts, a source failure (switch file) comes back as a Server error with the short message,
       add with two categories → a query shows exactly those, the duplicate check finds a same-title library manga, remove →
       not in the library; it cleans up after itself.
-- [ ] Desktop + Switch e2e `browse` (below).
-- [ ] Docs: SUWAYOMI-API.md (the facts above), ui / core / api READMEs, TESTING.md (scenario, the Mature rename),
+- [x] Desktop + Switch e2e `browse` (below; WP-14b's steps green on both 2026-11-19).
+- [x] Docs: SUWAYOMI-API.md (the facts above), ui / core / api READMEs, TESTING.md (scenario, the Mature rename),
       `tests/e2e/README.md` if a new helper pattern comes up, CHANGELOG.md, D56 (as built), ROADMAP (row done), STATUS.
 
 ## The scenario `browse` (desktop + Switch)
