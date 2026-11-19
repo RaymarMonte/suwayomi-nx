@@ -102,6 +102,10 @@ Tailscale Serve in front of Suwayomi, a Let's Encrypt certificate (ECDSA, chain 
 - Auth is still **none** on both addresses, so anyone on the home Wi-Fi can use the server fully. `basic_auth` stays the recommendation;
   turning it on is the owner's call. Until then the app's setup uses "no login" for this server.
 - The real name and LAN IP stay out of the public repo (D23): they're in the git-ignored `docs/local/real-server.md` on the owner's PC.
+**Update 2026-11-19 (owner):** the server now lives at **`http://<server-lan-ip>:4567`** (a new LAN IP, plain HTTP), the address both
+the web UI (PC) and the Switch use. Auth is **ui_login**. The old Tailscale name and `:4568` path are no longer used (that day the
+tailnet node had been offline for 16 days and the old LAN IP didn't answer). The server has FlareSolverr on (the owner's own addition,
+time limit 90 s), which is why D60 made "Wait for sources" a Settings choice.
 
 **D19 sys-autopilot: use our own slim fork that can inject touch** (owner OK 2026-10-21, after comparing it with "try stock 1.5.0 first").
 It's called **sys-autopilot-nx** and lives in this repo at `tools/sys-autopilot-nx/`: upstream's code copied in at a pinned commit (not a git submodule),

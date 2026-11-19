@@ -72,7 +72,8 @@ The owner's own server runs the same version (v2.4.2366 Stable, checked 2026-10-
      `chapter { meta { key value } }` when it opens a chapter; the chapter list and `chapter(id)` have the same field. `deleteChapterMeta(input:{chapterId, key})` removes
      it (tests). Checked on the test server (v2.4.2366, 2026-11-10).
 4. Downloaded chapters are served from disk, others are fetched from the source on demand. The first load can be slow,
-   so use generous timeouts for page requests (≥ 30 s) and show progress.
+   so use generous timeouts for page requests (≥ 30 s) and show progress. `fetchChapterPages` asks the source too, so it
+   uses the "Wait for sources" limit (D60, see "Slow source answers" under Browsing a source).
 
 ## Library and browsing ✅
 - Server info: `aboutServer { name version buildType buildTime }` → `"Suwayomi-Server"`, `"v2.4.2366"`, `"Stable"`. Also `github`,
@@ -215,6 +216,14 @@ Checked with our own test extension (`tools/test-source/`, live check `tools/tes
   chapters that isn't in the library). `Manga.graphql` and `FetchMangaAndChapters.graphql` ask `initialized`.
 - **Errors:** a failing source call answers `fetchSourceManga: null` with "Exception while fetching data (/fetchSourceManga) :
   SNX test failure: search" and a stack trace; the app shows the part after " : ", first line only.
+- **Slow source answers** (owner's server, v2.4.2366, Weeb Central, 2026-11-19, D60): `fetchSourceManga`,
+  `fetchMangaAndChapters` and `fetchChapterPages` answer only once the server has asked the source's website, so how long
+  they take is the site's time. The server has an optional **FlareSolverr** setting (Settings → Server → Cloudflare
+  bypass: URL, request time limit 60 s by default, session name and TTL; off on a fresh install). With it on, a Cloudflare
+  check makes the server wait for FlareSolverr before it answers. The web UI sets no time limit and simply waits. Measured
+  on that day: Weeb Central pages took 1–3 s from the web UI and 1–16 s from the Switch while all was well (covers came
+  from the Switch's cache, so the wait was the server's); once the server sent nothing for over 2.5 minutes to every
+  client, the web UI included. The app's limit for these three calls is Settings → "Wait for sources" (30 s default).
 - **Adding** (`AddToLibrary.graphql`): `updateManga(… {inLibrary: true})` sets `inLibrary` and `inLibraryAt` **and nothing
   else** (no category, not even a `default`-marked one on this server; an unopened manga stays bare). `updateMangaCategories`
   alone doesn't add. Both in one document work (top-level mutation fields run in order): `added: updateManga(…)`,

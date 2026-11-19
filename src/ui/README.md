@@ -32,7 +32,7 @@
 5. Test events: one when what the screen shows changes (like `library`), and the grid's `grid` range. A scenario then waits
    for those, never for time (`tests/e2e/scenarios/library-browse.test.ts`; touch coordinates in `tests/e2e/lib/screens.ts`).
 
-**Screens:** `main/MainActivity` (tab frame, always the first screen, the connection check, owns the library model; `SettingsTab`,
+**Screens:** `main/MainActivity` (tab frame, always the first screen, the connection check, owns the library model; `SettingsTab` (D60: Server → "Wait for sources", a `SelectorCell` over `core::kSourceWaitChoices`; a choice is saved in `browse.sourceWaitSeconds` and goes to `SuwayomiClient::setSourceTimeoutMs` at once),
 `CrashLogsActivity`), `library/LibraryTab` (categories, sort, refresh, the cover grid; WP-24, D54: Search (the search bar takes the tabs' place, B or Clear ends it, `LibraryModel::search` shows the results as the shelf `kSearchShelf`), Edit, Y on a cover = its menu (Open, Categories...), `mangaCategoriesChanged` after a picker save), `manga/MangaActivity` (details + chapter list, WP-10,
 D43: `MangaModel` holds the list, sort, filter, Continue and the actions), `reader/ReaderActivity` (the paged reader, WP-11,
 D44: `ReaderModel` holds the pages, the prefetch window, chapter changes and the progress saves; `ReaderView` draws the page

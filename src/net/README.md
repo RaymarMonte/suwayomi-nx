@@ -12,7 +12,7 @@ network thread driving a curl multi handle, request priorities, cancellation, re
 - `Future.hpp`: `Future<T>` / `Promise<T>`. `then(fn)` runs fn once on the completing thread (the network thread); `wait()` is for tests.
 - `CurlHttpClient.hpp`: the real client. Build it with `CurlHttpClient(curlOptionsFrom(profile))`: every limit comes from the
   `RuntimeProfile` (`httpConcurrency`, `json.maxBytes`, `httpConnectTimeoutMs`, `httpTimeoutMs`, `httpMaxRedirects`,
-  `httpMaxHeaderBytes`, `httpRetry`, `netThreadStackBytes`).
+  `httpMaxHeaderBytes`, `httpRetry`, `netThreadStackBytes`). A request's own `timeoutMs` wins: the api module sets it for calls that ask the source (D60), the image module for images.
 - `FakeHttpClient.hpp`: for unit tests. A handler answers each request (default 404), requests are recorded, `hold(true)` keeps them
   waiting until `releaseNext()`/`releaseAll()` (most urgent first).
 
