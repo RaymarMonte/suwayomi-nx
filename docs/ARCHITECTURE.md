@@ -96,7 +96,7 @@ Results come back to the UI with `brls::sync([]{…})`. No locks in UI code. Sha
 ## Launch modes and runtime profiles (D12, amended by D21)
 
 Homebrew on the Switch starts one of two ways. **For now the app supports only application mode** (D21). In applet mode it shows a short
-message and exits. Applet support (`Lite`) is a later nice-to-have (WP-21), so this section keeps its design as a reference.
+message and exits. Applet support (`Lite`) comes with WP-21 (after WP-17 and WP-18, D57), so this section keeps its design as a reference.
 
 | | **Applet mode** → not supported yet: message + exit (later: profile `Lite`) | **Application mode** → profile `Full` |
 |---|---|---|

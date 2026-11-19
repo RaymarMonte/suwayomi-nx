@@ -40,25 +40,26 @@ Size is a rough guide to session length: S = small, M = medium, L = large (consi
 | [WP-23](wp/WP-23-test-source.md) | **Test source** for the test server: our own extension (a plain jar built with the PC's JDK), an offline extension store and a test site on the PC's loopback: sources in en / ja with every filter type and paging, chapters the server can download, a switch file for errors and delays, store entries for WP-16 (planned and done 2026-11-17, D55; no split needed) | 02 ∥ any | Opus | M | – (nothing to install, D55) | **done** 2026-11-17 |
 | [WP-14](wp/WP-14-browse.md) | **Browse**: sources by language (a Languages checklist, an 18+ tag), popular / latest / search, every filter type, search across sources (a row per source), a preview loaded from the source, add with WP-24's picker like the web UI (its "default" categories ticked, Don't ask again) after a same-title warning, remove from the library (planned 2026-11-17, D56; split point: Search all → WP-14b) | 24, 23 | Opus | L | Optional: try it on your server | done 2026-11-17 (split: Search all, Tick for new manga, Languages → WP-14b) |
 | WP-14b | **Browse 2**: Search all (a row per source: a card + up to 5 covers, `GlobalSearchModel` with the queue at `globalSearchConcurrency`, the 6-column grid and `GridSource::focusable`), **Tick for new manga** on the Categories screen (`setCategoryDefault`, already in the api), the **Languages** checklist (SourcesModel already hides languages; the screen and its config save are missing). Split from WP-14 on 2026-11-17 (usage limit); the rest of WP-14's doc applies (D56) | 14 | Opus | M | Optional: try it on your server | done 2026-11-19 (D56 as built) |
+| WP-17 | **Download on server**: a chapter action and the server's download queue, like Sorayomi. **Runs next** (owner 2026-11-19, D57) | 15, 23 | **S** (Opus if 15's polling doesn't fit) | S | – | todo |
+| WP-18 | **Offline 1: download chapters to the SD card**: a queue on the Switch, a storage limit, delete; the reader reads downloaded pages first. **Runs after WP-17**, before WP-21, so application mode only (owner 2026-11-19, D57) | 13b, 13d | Opus | L | – | todo |
+| WP-21 | Applet mode (Album) support, `Lite` profile, and a crash ending that doesn't take the system down from the Album (D41); also brings WP-18's downloads to applet mode. **Runs after WP-18** (owner 2026-11-19, D57; D21) | 12 (WP-18's downloads: 18) | Opus | M | **Yes**: console (wanted: the owner moved it up, D57) | todo |
 | WP-16 | **Extensions**: installed / updates / available, install, update, uninstall, extension repos, permission errors | 14, 23 | Opus | M | – | todo |
 | WP-25 | **Tracking**: a manga's tracker entries (AniList, MyAnimeList, …): find and link, status, score, chapter | 12 | Opus | M | **Yes**: a tracker account to try it | todo |
 | WP-19 | Settings polish, i18n, theming, optional HTTPS, config saves off the main thread, small reader leftovers | 12 | Opus (string extraction: **H**) | M/L | – | todo |
 | WP-20 | User docs (README for users, screenshots), release notes, (optional) hardware CI runner | 12 ∥ any (docs only) | **S** | S | Publish releases | todo |
-| WP-17 | **Download on server** (nice to have): a chapter action and the server's download queue, like Sorayomi | 15, 23 | **S** (Opus if 15's polling doesn't fit) | S | – | todo |
 | WP-26 | **In-app updates** (nice to have): fetch the new .nro from GitHub Releases, checksum-checked, old one kept | 19 | Opus | M | **Yes**: OK for a safety-rule exception (D15, S11) | todo |
-| WP-21 | Applet mode (Album) support, `Lite` profile, and a crash ending that doesn't take the system down from the Album (D41). **Nice to have** (D21) | 12 | Opus | M | **Yes**: decide if wanted; console | todo |
-| WP-18 | **Offline 1: download chapters to the SD card**: a queue on the Switch, a storage limit, delete; the reader reads downloaded pages first. **Nice to have, lowest** (below WP-21, owner 2026-11-13, D51) | 13b, 13d | Opus | L | – | todo |
-| WP-18b | **Offline 2: read away from home**: start without the server, show the downloaded manga, keep offline progress and send it when the server is back. **Nice to have, lowest** (D51) | 18 | Opus | M | **Yes**: try it away from home | todo |
+| WP-18b | **Offline 2: read away from home**: start without the server, show the downloaded manga, keep offline progress and send it when the server is back. **Nice to have, last** (D51, D57) | 18 | Opus | M | **Yes**: try it away from home | todo |
 
 **Touch first (D16):** every UI WP from WP-08 on ships touch for its own screens, tested on desktop with the mouse
 (plus a test hook for multi-finger gestures) and on the console with the touch-capable sys-autopilot (D19) or a manual checklist.
 **Stock clocks (D17):** performance is judged at stock clocks only.
 **Application mode only (D21):** every WP builds, tunes and tests for application mode (hold R on a game). Applet mode only gets the
 "can't run from the Album yet" screen (WP-08) until WP-21.
-**Order after WP-22 (owner, 2026-10-30, D47; changed 2026-11-13, D51):** WP-13 (zoom) → WP-13c (spreads, split from 13 on 2026-11-07) → WP-13b (webtoon) → WP-13d (strip zoom) → WP-15 (updates,
-history) → WP-24 (library tools) → WP-14 (browse) → WP-16 (extensions) → WP-25 (tracking) → WP-19 (polish). WP-23 (test source)
-and WP-20 (user docs) touch no app code and can run alongside; WP-23 must be done before WP-14. Nice to have, when the owner asks:
-WP-17, WP-26, WP-21, WP-08b, and last of all WP-18 → WP-18b (offline: the owner put it below applet mode on 2026-11-13, D51).
+**Order after WP-22 (owner, 2026-10-30, D47; changed 2026-11-13, D51, and 2026-11-19, D57):** done: WP-13 (zoom) → WP-13c
+(spreads) → WP-13b (webtoon) → WP-13d (strip zoom) → WP-15 / 15b (updates, history) → WP-24 (library tools) → WP-14 / 14b
+(browse), with WP-23 (test source) alongside. **Next: WP-17** (download on server) → **WP-18** (offline 1: download to the SD
+card) → **WP-21** (applet mode) → WP-16 (extensions) → WP-25 (tracking) → WP-19 (polish). WP-20 (user docs) touches no app code
+and can run alongside. Nice to have, when the owner asks: WP-26, WP-08b, and last of all WP-18b (offline 2; it needs WP-18).
 Phase 3 is listed in that order, not by number.
 
 ### Sonnet / Haiku work outside the WPs
@@ -166,6 +167,29 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
   pattern (D42). Test seed: some Local manga left out of the library (WP-23's test source already gives 70+ manga that aren't in
   the library, every filter type, a failing / slow source by its switch file and "Comet" for the search across sources: the
   planner checks whether that's enough). Plan it after WP-23 is built: its queries get checked against the test source.
+- **WP-17 Download on server (runs next, owner 2026-11-19, D57).** A chapter action "Download on server"
+  (`enqueueChapterDownloads`), the server's queue with progress, remove, start / stop (`downloadStatus` polled like WP-15; the
+  `downloadChanged` subscription needs a WebSocket we don't have), delete server downloads (`deleteDownloadedChapters`). Needs
+  WP-23's source. Sonnet once WP-15's polling and WP-23 exist (both do now: `ui/updates/LibraryUpdater`, SNX Test, whose
+  chapters the server downloads); Opus if they don't fit. WP-18's "Download" (to the Switch) joins the same chapter menu
+  right after, so the planner names this one so the two can't be mixed up.
+- **WP-18 Offline 1: download to the SD card (after WP-17, before WP-21, owner 2026-11-19, D57).** "Download" means to
+  the Switch, like Mihon (owner, D47). The chapter row menu and the bulk actions get Download / Delete download, next to
+  WP-17's "Download on server" (the two must read clearly apart); a queue on the Switch downloads one chapter at a time in the
+  background through the image path (the same page URLs, so the test server's Local source works), stops at sleep, and goes on
+  after a restart. Every write goes through SafeFs, atomic, with the free-space guard and a storage limit from the profile
+  (S5, D14). A downloaded chapter reads from the SD card first, so pages turn without the network. Where downloads show: the
+  planner's default is a new **Downloads** tab (queue, downloaded manga, space used, delete), to confirm while planning.
+  WP-21 comes after it (D57), so WP-18 builds and tests for application mode only (D21), with every download limit (how many
+  at once, buffers, the storage limit) in `RuntimeProfile`, so WP-21 can give `Lite` its own.
+- **WP-21 Applet mode (after WP-18, owner 2026-11-19, D57; D21).** The owner wants it (moved up from the nice to haves on
+  2026-11-19). Make the app usable when opened from the Album: measure applet memory (alone and with a game suspended), build
+  the `Lite` profile (ARCHITECTURE.md "Lite" column, D12), replace the refusal screen with a one-time tip on how to open it with
+  R, check the software keyboard, HOME/return and networking with 2 socket sessions, crash drills in applet mode, and run every
+  scenario in both modes (the device test matrix doubles). WP-18's SD downloads come before it now (D57), so WP-21 also brings
+  them to applet mode: `Lite`'s download limits (one at a time, small buffers, the storage limit) and WP-18's scenarios in both
+  modes; the planner checks whether that makes it size L (split point: the downloads). Background: RESEARCH.md "Applet mode vs
+  application mode". Always Opus (memory, crash safety).
 - **WP-16 Extensions.** Inside Browse (like Mihon: Sources | Extensions): installed, with updates, available, by language; install,
   update, uninstall (`updateExtension`), check for updates (`fetchExtensions`), extension repos (`extensionStores`,
   `addExtensionStore`, `removeExtensionStore`: a fresh stable server has none), content warnings, multi-user permission errors
@@ -184,28 +208,10 @@ be planned during WP-18. Then the WP itself runs in its own session, as before.
 - **WP-20 User docs.** A README for users (install, hold R, first run, controls, screenshots from the desktop build), release
   notes. Releases already exist (`tools/release.sh`, D45). The hardware CI runner (device E2E on a self-hosted runner) stays
   optional; this pass suggests skipping it (the console must be on and someone must watch for fatals). Docs only.
-- **WP-17 Download on server (nice to have).** A chapter action "Download on server" (`enqueueChapterDownloads`), the server's
-  queue with progress, remove, start / stop (`downloadStatus` polled like WP-15; the `downloadChanged` subscription needs a
-  WebSocket we don't have), delete server downloads (`deleteDownloadedChapters`). Needs WP-23's source. Sonnet once WP-15's
-  polling and WP-23 exist; Opus if they don't fit.
 - **WP-26 In-app updates (nice to have).** Settings → About checks GitHub Releases (needs WP-19's HTTPS), shows what's new, and on
   the user's OK downloads the .nro, checks it against `SHA256SUMS.txt`, and swaps it in atomically, keeping the old one. Today
   D15/S11 rule out self-update and SafeFs refuses to write any `.nro` (D33): the owner's OK for that exception comes first.
-- **WP-21 Applet mode (nice to have, D21).** Only if the owner still wants it after the MVP. Make the app usable when opened from the Album:
-  measure applet memory (alone and with a game suspended), build the `Lite` profile (ARCHITECTURE.md "Lite" column, D12), replace the
-  refusal screen with a one-time tip on how to open it with R, check the software keyboard, HOME/return and networking with 2 socket sessions,
-  crash drills in applet mode, and run every scenario in both modes (the device test matrix doubles). Offline downloads (WP-18) now
-  come after WP-21 (D51), so WP-18 brings their applet-mode limits itself. Background: RESEARCH.md "Applet mode vs application
-  mode". Always Opus (memory, crash safety).
-- **WP-18 Offline 1: download to the SD card (nice to have, lowest: below WP-21, owner 2026-11-13, D51).** "Download" means to
-  the Switch, like Mihon (owner, D47). The chapter row menu and the bulk actions get Download / Delete download; a queue on the
-  Switch downloads one chapter at a time in the background through the image path (the same page URLs, so the test server's
-  Local source works), stops at sleep, and goes on after a restart. Every write goes through SafeFs, atomic, with the free-space
-  guard and a storage limit from the profile (S5, D14). A downloaded chapter reads from the SD card first, so pages turn without
-  the network. Where downloads show: the planner's default is a new **Downloads** tab (queue, downloaded manga, space used,
-  delete), to confirm while planning. If WP-21 is done by then, downloads also run in applet mode, one at a time with small
-  buffers from the `Lite` profile, and its scenarios run in both modes.
-- **WP-18b Offline 2: read away from home (nice to have, lowest, D51).** Starting without the server (no network, or it can't be
+- **WP-18b Offline 2: read away from home (nice to have, last: after the rest, D51, D57).** Starting without the server (no network, or it can't be
   reached) opens the downloaded manga instead of an error. Progress made offline (with the strip's spot note, WP-13b) is kept on
   the SD card (a small queue, written atomically) and sent once the server answers, with conflict rules (the server moved
   further meanwhile, a chapter read on another device). It builds on WP-15's retry of a save that failed as the reader closed

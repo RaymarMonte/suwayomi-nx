@@ -334,7 +334,7 @@ Every scenario runs in **application mode** with the `Full` profile. Applet mode
 
 - `app_start` reports `mode`/`profile`. The first assertion of every scenario is that it says `application`/`full`.
 - `tools/e2e.sh <driver> <scenario>` always launches in application mode. Low memory is tested on desktop with `--mem-limit`.
-- Applet mode comes back only with WP-21 (nice to have). Then this section gets the two-profile matrix from D12 back.
+- Applet mode comes back only with WP-21 (after WP-17 and WP-18, D57; it also runs WP-18's download scenarios in applet mode). Then this section gets the two-profile matrix from D12 back.
 
 ## Scenarios (written once, run on both drivers)
 

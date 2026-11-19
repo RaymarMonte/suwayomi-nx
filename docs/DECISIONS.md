@@ -91,7 +91,7 @@ Anyone on the same Wi-Fi could read a Basic-auth password sent over HTTP, so use
 Tailscale: there's no Tailscale client for the Switch, so the Switch reaches the server only on the home network. Away from home, the options are,
 in order: offline reading (WP-18, download at home and read anywhere); a travel router with Tailscale built in that lets devices on its Wi-Fi reach
 the tailnet (no app change, but check the router supports it); Tailscale Funnel (a public HTTPS URL, which needs our HTTPS support from WP-19 and a strong password).
-Consequences: the MVP is HTTP + basic auth on the LAN. HTTPS stays optional (WP-19). Offline reading matters more (no longer: since D51, 2026-11-13, it is the lowest nice to have). Tests still never touch this server (D11).
+Consequences: the MVP is HTTP + basic auth on the LAN. HTTPS stays optional (WP-19). Offline reading matters more (D51, 2026-11-13, made it the lowest nice to have; since D57, 2026-11-19, WP-18's downloads run right after WP-17 and only WP-18b stays last). Tests still never touch this server (D11).
 **Update 2026-10-26 (owner):** the real server is running. Checked from the PC that day: Suwayomi-Server **v2.4.2366 Stable** (D9's version) on an
 always-on **Linux machine** at home (not the laptop). The owner's address for it is `https://<server-tailnet-name>:4567` (web UI under `/library`):
 Tailscale Serve in front of Suwayomi, a Let's Encrypt certificate (ECDSA, chain YE2 → Root YE → ISRG Root X2, renewed by Tailscale every
@@ -802,6 +802,7 @@ answers 2026-10-30). Stubs and the planning steps: ROADMAP.md.
   Nice to have: WP-17, WP-26, WP-21, WP-08b. The owner picked zoom before webtoon and offline before the other features;
   offline waits for both reader halves, so downloaded chapters work in every reading mode from the start.
   **Amended by D51 (2026-11-13): WP-18 / WP-18b are now the lowest nice to have (below WP-21); WP-15 runs next.**
+  **Amended again by D57 (2026-11-19): WP-17 → WP-18 → WP-21 run next, then WP-16 → WP-25 → WP-19; WP-18b last.**
 - **Splits:** WP-13 (L) became zoom/pan/spreads (WP-13) and the webtoon strip (WP-13b). WP-18 (L) became downloading and
   reading from the SD card (WP-18) and starting and syncing without the server (WP-18b).
 - **"Download" means to the Switch's SD card, like Mihon.** Suwayomi's own clients (web UI, Sorayomi, Suwayomi-JUI) only
@@ -1002,7 +1003,7 @@ strip's width changes, so the same zoom shows a different part); decoding every 
 sharper page has up to 4 × the pixels of its plain decode, and strip pages are tall).
 
 **D51 Offline reading moves to the bottom of the nice to haves; WP-15 runs next** (owner, 2026-11-13, a roadmap chore;
-amends D47's order).
+amends D47's order). **Amended by D57 (2026-11-19): WP-17 → WP-18 → WP-21 now run next; only WP-18b stays last.**
 - **Order now:** WP-15 updates and history → WP-24 library tools → WP-14 browse → WP-16 extensions → WP-25 tracking →
   WP-19 polish, with WP-23 (test source) and WP-20 (user docs) alongside, as in D47. Nice to have, when the owner asks:
   WP-17, WP-26, WP-21, WP-08b, and last of all WP-18 → WP-18b. The owner's words: WP-18 is now lower priority even than
@@ -1221,3 +1222,21 @@ couldn't change it, pages packed in the jar), committing built jars.
 Rejected: Mihon's way (nothing pre-ticked, no "don't ask"), adding without a question, the web UI's own server-side
 setting for asking (it is the web UI's internal metadata), a list of sources or one mixed grid for Search all, English only
 at first, hiding 18+ sources, a duplicate title pair with a Local fixture (WP-23 keeps Local titles out of the catalog).
+
+**D57 WP-17, WP-18 and WP-21 run next, then the rest in their old order** (owner, 2026-11-19, a roadmap chore; amends
+D51's order and D47's).
+- **Order now:** WP-17 download on server → WP-18 offline 1 (download to the SD card) → WP-21 applet mode → WP-16
+  extensions → WP-25 tracking → WP-19 polish, with WP-20 (user docs) alongside. Nice to have, when the owner asks: WP-26
+  (in-app updates), WP-08b, and last of all WP-18b (offline 2; it needs WP-18). The owner's words: WP-17 first, then
+  WP-18, then WP-21, "then all the rest in their regular ordering". Each still gets its planning session first (D47:
+  xhigh for WP-17, max for WP-18 and WP-21).
+- **WP-17, WP-18 and WP-21 are no longer nice to haves.** The owner wants applet mode, so WP-21's "decide if wanted" is
+  answered. Until WP-21 is built, the app stays application mode only (D21).
+- **WP-18 now comes before WP-21**, so D51's "if WP-21 is done first" turns around: WP-18 builds and tests for
+  application mode only, with every download limit (how many at once, buffers, the storage limit) in `RuntimeProfile`;
+  WP-21 then gives `Lite` its download limits (one at a time, small buffers) and runs WP-18's scenarios in applet mode too.
+- **WP-17 comes before WP-18:** the chapter menu gets "Download on server" first, then WP-18's "Download" (to the Switch,
+  D47); WP-18's planner keeps the two clearly apart. WP-17 stays **S** (Sonnet allowed): WP-15's polling and WP-23's
+  source both exist now; Opus if they don't fit.
+- **WP-18b stays last**, and with it reading away from home without the server (D18's first option).
+- Nothing built changes: no code exists for WP-17, WP-18 or WP-21 yet.
