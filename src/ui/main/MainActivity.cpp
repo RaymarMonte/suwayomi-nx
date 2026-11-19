@@ -6,6 +6,7 @@
 
 #include "app/TestHooks.hpp"
 #include "ui/browse/BrowseTab.hpp"
+#include "ui/downloads/ServerDownloadsTab.hpp"
 #include "ui/components/ServerCheck.hpp"
 #include "ui/library/LibraryTab.hpp"
 #include "ui/login/LoginActivity.hpp"
@@ -23,10 +24,12 @@ constexpr std::size_t kLibraryTab = 0;
 constexpr std::size_t kUpdatesTab = 1;
 constexpr std::size_t kHistoryTab = 2;
 constexpr std::size_t kBrowseTab = 3;
-constexpr std::size_t kSettingsTab = 4;
+constexpr std::size_t kServerDownloadsTab = 4;  // WP-17
+constexpr std::size_t kSettingsTab = 5;
 
 // The i18n key of each tab's label, in MainModel::tabs() order.
-const char* const kTabLabels[] = {"main/library", "main/updates", "main/history", "main/browse", "main/settings"};
+const char* const kTabLabels[] = {"main/library", "main/updates", "main/history", "main/browse", "main/server_downloads",
+                                  "main/settings"};
 
 // A tab's StatusView that tells the main screen when the frame deletes it.
 class TabStatus : public StatusView {
@@ -43,6 +46,17 @@ class LibraryTabView : public LibraryTab {
   public:
     explicit LibraryTabView(MainActivity& main) : LibraryTab(main.context()), main_(main) {}
     ~LibraryTabView() override { main_.forgetTab(this); }
+
+  private:
+    MainActivity& main_;
+};
+
+// The Server downloads tab, the same (WP-17).
+class ServerDownloadsTabView : public ServerDownloadsTab {
+  public:
+    ServerDownloadsTabView(MainActivity& main, std::function<void(const core::Manga&)> onMangaChanged)
+        : ServerDownloadsTab(main.context(), std::move(onMangaChanged)), main_(main) {}
+    ~ServerDownloadsTabView() override { main_.forgetTab(this); }
 
   private:
     MainActivity& main_;
@@ -111,7 +125,10 @@ brls::View* MainActivity::makeTab(std::size_t index) {
         view = makeRowsTab(index == kUpdatesTab);
     } else if (index == kBrowseTab && model_.connection() == MainModel::Connection::Connected) {
         view = makeBrowseTab();
-    } else if (index == kUpdatesTab || index == kHistoryTab || index == kBrowseTab) {
+    } else if (index == kServerDownloadsTab && model_.connection() == MainModel::Connection::Connected) {
+        downloadsView_ = new ServerDownloadsTabView(*this, [this](const core::Manga& manga) { mangaChanged(manga); });
+        view = downloadsView_;
+    } else if (index == kUpdatesTab || index == kHistoryTab || index == kBrowseTab || index == kServerDownloadsTab) {
         auto* status = new TabStatus(*this);
         status->showMessage(brls::getStr(kTabLabels[index]), "main/connect_first"_i18n);
         view = status;
@@ -138,6 +155,9 @@ void MainActivity::forgetTab(const brls::View* tab) {
     }
     if (tab == browseView_) {
         browseView_ = nullptr;
+    }
+    if (tab == downloadsView_) {
+        downloadsView_ = nullptr;
     }
 }
 
@@ -174,8 +194,17 @@ void MainActivity::reportScreen() {
     }
 }
 
+void MainActivity::onPause() {
+    if (downloadsView_ != nullptr) {
+        downloadsView_->setCovered(true);  // a screen on top: the queue isn't polled for this tab meanwhile
+    }
+}
+
 void MainActivity::onResume() {
     covered_ = false;
+    if (downloadsView_ != nullptr) {
+        downloadsView_->setCovered(false);
+    }
     reportScreen();
     // A screen on top closed (the details screen, a reader, a menu): chapters may have been read there. The list on
     // screen reloads now, the other one when its tab opens.
@@ -278,6 +307,7 @@ void MainActivity::dropLibrary() {
     }
     library_.reset();
     sources_.reset();  // another server: other sources
+    context_.downloads.reset();  // another server or login: another download queue (WP-17)
     // Another server or login: other updates and history. A tab view still showing keeps its own share until it goes.
     if (updater_) {
         updater_->removeListener(updaterListener_);

@@ -5,7 +5,7 @@
 namespace snx::ui {
 
 const std::vector<std::string_view>& MainModel::tabs() {
-    static const std::vector<std::string_view> kTabs = {"Library", "Updates", "History", "Browse", "Settings"};
+    static const std::vector<std::string_view> kTabs = {"Library", "Updates", "History", "Browse", "ServerDownloads", "Settings"};
     return kTabs;
 }
 

@@ -188,7 +188,8 @@ TEST_CASE("login: fields, one login at a time, failures keep what was typed") {
 TEST_CASE("main: tabs and the connection check") {
     CHECK(ui::MainModel::tabs().front() == "Library");
     CHECK(ui::MainModel::tabs().back() == "Settings");
-    CHECK(ui::MainModel::tabs().size() == 5);
+    CHECK(ui::MainModel::tabs().size() == 6);
+    CHECK(ui::MainModel::tabs()[4] == "ServerDownloads");  // WP-17, before Settings
 
     ui::MainModel notSetUp(false);
     CHECK(notSetUp.connection() == ui::MainModel::Connection::NotSetUp);

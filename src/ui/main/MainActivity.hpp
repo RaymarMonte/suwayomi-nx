@@ -24,6 +24,7 @@
 namespace snx::ui {
 
 class BrowseTab;
+class ServerDownloadsTab;
 class LibraryTab;
 class SettingsTab;
 
@@ -35,6 +36,7 @@ class MainActivity : public brls::Activity {
     ~MainActivity() override;
 
     void onContentAvailable() override;
+    void onPause() override;   // a screen went on top of it (WP-17: the Server downloads tab stops watching)
     void onResume() override;  // a screen on top of it closed
 
     // For the tabs.
@@ -83,6 +85,7 @@ class MainActivity : public brls::Activity {
     std::string updaterReported_;        // the last library_update event, so a poll with no news writes none
     LibraryTab* libraryView_ = nullptr;  // the Library tab's view while it exists
     BrowseTab* browseView_ = nullptr;
+    ServerDownloadsTab* downloadsView_ = nullptr;  // WP-17
     SettingsTab* settingsView_ = nullptr;
     bool covered_ = false;  // setup or login is on top: tab changes underneath aren't reported as screens
     bool listsStale_ = false;  // a screen on top closed since the lists last reloaded (reloadStaleLists)

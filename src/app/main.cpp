@@ -33,6 +33,7 @@
 #include "ui/components/StatusView.hpp"
 #include "ui/crash/CrashActivity.hpp"
 #include "ui/diagnostics/DiagnosticsActivity.hpp"
+#include "ui/downloads/ServerDownloads.hpp"
 #include "ui/main/MainActivity.hpp"
 
 using namespace brls::literals;  // for _i18n
@@ -91,6 +92,41 @@ snx::ui::WaitingSaves::Hooks waitingSaveHooks() {
         snx::app::testhooks::write("progress_queue", fields);
     };
     return hooks;
+}
+
+// The server download queue's limits, from the profile (WP-17).
+snx::ui::ServerDownloads::Limits serverDownloadLimits(const snx::core::RuntimeProfile& profile) {
+    snx::ui::ServerDownloads::Limits limits;
+    limits.pollMs = profile.serverDownloadPollMs;
+    limits.startWaitMs = profile.serverDownloadStartWaitMs;
+    limits.retryMs = profile.progressSyncMs;
+    limits.retryMaxMs = profile.progressRetryMaxMs;
+    limits.batchMax = profile.serverDownloadBatchMax;
+    return limits;
+}
+
+// Every server download action's answer: the log, and {"ev":"server_download_action",...} in test builds.
+void reportDownloadAction(const snx::ui::ServerDownloads::Change& change) {
+    if (!change.action) {
+        return;
+    }
+    const snx::ui::ServerDownloads::ActionDone& done = *change.action;
+    const char* name = snx::ui::ServerDownloads::actionName(done.action);
+    if (done.ok) {
+        brls::Logger::info("server downloads: {} ({} chapters) ok, {} ms", name, done.chapters, done.ms);
+    } else {
+        brls::Logger::warning("server downloads: {} ({} chapters) failed: {}", name, done.chapters,
+                              done.error ? done.error->message : std::string());
+    }
+    nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+    fields["action"] = name;
+    fields["chapters"] = done.chapters;
+    fields["ok"] = done.ok;
+    if (done.error) {
+        fields["error"] = snx::api::apiErrorKindName(done.error->kind);
+    }
+    fields["ms"] = done.ms;
+    snx::app::testhooks::write("server_download_action", fields);
 }
 
 // Test builds: the diagnostics screen (WP-05's server check and request burst, WP-07's image benchmark) over the main screen.
@@ -239,7 +275,13 @@ int main(int argc, char* argv[]) {
     // GPU memory for the images on screen (S7): every texture a screen makes is reserved here first (WP-09).
     snx::image::TextureBudget textures(profile.textureBudgetBytes);
 
-    app::AppContext context{fs, runtime, profile, lastRun, config, http, client, images, textures, saves};
+    // The server's download queue (WP-17, D58): one for the app, watched by the Server downloads tab and the details
+    // screen. Every action's answer is logged and written as a test event here, wherever it was tapped.
+    snx::ui::ServerDownloads downloads(client, serverDownloadLimits(profile), snx::app::appClockMs,
+                                       [](int ms, std::function<void()> fn) { brls::delay(ms, std::move(fn)); });
+    downloads.addListener(reportDownloadAction);
+
+    app::AppContext context{fs, runtime, profile, lastRun, config, http, client, images, textures, saves, downloads};
     // Test builds' idle rule: no network request or image load pending, and no animation (TESTING.md).
     testhooks::watchApp([&http, &images] { return http.inFlight() > 0 || images.activeJobs() > 0; });
 
