@@ -23,6 +23,10 @@ struct GqlRequest {
     std::string_view document;  // the embedded text
     nlohmann::json variables = nlohmann::json::object();
     bool mutation = false;      // changes server state (don't repeat it blindly)
+    // The server answers only after asking the source's website (browse a source, fetch a manga's details and chapters,
+    // fetch a chapter's page list). That can take long: a Cloudflare check makes the server wait for FlareSolverr (up to
+    // its own time limit, 60-90 s). Such a request gets RuntimeProfile::httpSourceTimeoutMs instead of httpTimeoutMs (D60).
+    bool asksSource = false;
 
     // The POST body for {base}/api/graphql: {"query": ..., "variables": {...}}. Never throws (bad UTF-8 is replaced).
     std::string body() const;

@@ -65,7 +65,8 @@ void ConfigStore::setLibrary(const core::LibrarySettings& library) {
 
 void ConfigStore::setBrowse(const core::BrowseSettings& browse) {
     if (browse.hiddenLanguages == config_.browse.hiddenLanguages && browse.askCategories == config_.browse.askCategories &&
-        browse.lastSourceId == config_.browse.lastSourceId) {
+        browse.lastSourceId == config_.browse.lastSourceId &&
+        browse.sourceWaitSeconds == config_.browse.sourceWaitSeconds) {
         return;
     }
     config_.browse = browse;

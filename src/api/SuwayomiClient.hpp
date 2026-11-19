@@ -51,6 +51,9 @@ struct ClientOptions {
     std::size_t sourcesMax = 500; // RuntimeProfile::sourcesMax: sources() keeps at most this many (WP-14)
     std::size_t serverQueueMax = 1000;  // RuntimeProfile::serverQueueMax: queue rows the download calls keep (WP-17)
     core::FilterLimits filterLimits;  // RuntimeProfile::sourceFiltersMax, filterValuesMax, filterNameMaxBytes
+    // The time limit of a request that asks the source (GqlRequest::asksSource, D60): RuntimeProfile::httpSourceTimeoutMs,
+    // or Settings' choice (core::sourceWaitMs). 0 = the HTTP client's usual limit (httpTimeoutMs). setSourceTimeoutMs changes it.
+    int sourceTimeoutMs = 0;
     Deliver deliver;
     SettingsChanged onSettingsChanged;
 };
@@ -92,6 +95,9 @@ class SuwayomiClient {
     void configure(core::ServerSettings server);
     // The settings in use now, with the latest tokens.
     core::ServerSettings settings() const;
+    // D60: the time limit of calls that ask the source (GqlRequest::asksSource), from Settings -> Wait for sources. Calls
+    // that start afterwards use it; 0 = the HTTP client's usual limit.
+    void setSourceTimeoutMs(int ms);
     // A page or thumbnail path from the server -> its full URL (absoluteUrl with the configured base URL).
     std::string absoluteUrl(std::string_view path) const;
 

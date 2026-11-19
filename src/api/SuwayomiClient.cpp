@@ -34,6 +34,7 @@ struct ClientState {
     // The last renewal was refused (Auth). Until the login changes, calls fail with this at once instead of asking the
     // server again (a page of thumbnails must not cause dozens of failed logins).
     std::optional<ApiError> renewalRefused;
+    int sourceTimeoutMs = 0;  // options.sourceTimeoutMs, then setSourceTimeoutMs (Settings, D60)
 };
 
 }  // namespace detail
@@ -201,6 +202,9 @@ void postGraphql(const StatePtr& state, const core::GqlRequest& gql, bool withTo
     {
         std::lock_guard<std::mutex> lock(state->mutex);
         request.url = state->graphqlUrl;
+        if (gql.asksSource && state->sourceTimeoutMs > 0) {
+            request.timeoutMs = state->sourceTimeoutMs;  // Settings -> Wait for sources (D60)
+        }
         switch (state->server.auth) {
             case core::AuthMode::None:
                 break;
@@ -421,6 +425,7 @@ ClientOptions clientOptionsFrom(const core::RuntimeProfile& profile) {
     options.filterLimits.maxFilters = static_cast<std::size_t>(std::max(0, profile.sourceFiltersMax));
     options.filterLimits.maxValues = static_cast<std::size_t>(std::max(0, profile.filterValuesMax));
     options.filterLimits.maxNameBytes = static_cast<std::size_t>(std::max(0, profile.filterNameMaxBytes));
+    options.sourceTimeoutMs = std::max(0, profile.httpSourceTimeoutMs);
     return options;
 }
 
@@ -447,6 +452,7 @@ SuwayomiClient::SuwayomiClient(net::HttpClient& http, core::ServerSettings serve
     : state_(std::make_shared<detail::ClientState>()) {
     state_->http = &http;
     state_->options = std::move(options);
+    state_->sourceTimeoutMs = std::max(0, state_->options.sourceTimeoutMs);
     applySettingsLocked(*state_, std::move(server));  // nobody else can see the state yet
 
     const std::weak_ptr<detail::ClientState> weak = state_;
@@ -497,6 +503,11 @@ void SuwayomiClient::configure(core::ServerSettings server) {
 core::ServerSettings SuwayomiClient::settings() const {
     std::lock_guard<std::mutex> lock(state_->mutex);
     return state_->server;
+}
+
+void SuwayomiClient::setSourceTimeoutMs(int ms) {
+    std::lock_guard<std::mutex> lock(state_->mutex);
+    state_->sourceTimeoutMs = std::max(0, ms);
 }
 
 std::string SuwayomiClient::absoluteUrl(std::string_view path) const {

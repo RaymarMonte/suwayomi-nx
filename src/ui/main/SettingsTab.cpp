@@ -61,6 +61,32 @@ SettingsTab::SettingsTab(MainActivity& main) : main_(main) {
         main_.retry();
         return true;
     });
+    // D60: how long calls that make the server ask a source's website may take. Not chosen = the profile's (30 s).
+    {
+        const int chosenMs = core::sourceWaitMs(context.config.config().browse, context.profile.httpSourceTimeoutMs);
+        std::vector<std::string> labels;
+        int selected = 0;
+        for (std::size_t i = 0; i < core::kSourceWaitChoices.size(); ++i) {
+            const int seconds = core::kSourceWaitChoices[i];
+            labels.push_back(seconds < 60    ? brls::getStr("settings/seconds", seconds)
+                             : seconds == 60 ? "settings/one_minute"_i18n
+                                             : brls::getStr("settings/minutes", seconds / 60));
+            if (seconds * 1000 == chosenMs) {
+                selected = static_cast<int>(i);
+            }
+        }
+        sourceWait->init("settings/source_wait"_i18n, labels, selected, [&context](int index) {
+            if (index < 0 || index >= static_cast<int>(core::kSourceWaitChoices.size())) {
+                return;
+            }
+            const int seconds = core::kSourceWaitChoices[static_cast<std::size_t>(index)];
+            core::BrowseSettings browse = context.config.config().browse;
+            browse.sourceWaitSeconds = seconds;
+            context.config.setBrowse(browse);
+            context.client.setSourceTimeoutMs(seconds * 1000);
+            app::testhooks::write("setting", nlohmann::ordered_json{{"name", "sourceWaitSeconds"}, {"value", seconds}});
+        });
+    }
     // WP-14 (D56): the add flow's category question; the picker's "Don't ask again" turns it off.
     askCategories->init("settings/ask_categories"_i18n, context.config.config().browse.askCategories, [&context](bool on) {
         core::BrowseSettings browse = context.config.config().browse;

@@ -1337,3 +1337,21 @@ Switch"; amends D58's tab name and SAFETY.md S9 (owner OK).
 Rejected: plain "Download" words (the owner chose to name the Switch), one submenu for both kinds, no limit (only the
 1 GB floor), deleting read chapters by itself when full, one switch for both "delete after reading" rules, a queue-only tab,
 downloading at the HOME menu (S5), the tab after Library, a network fall-back for damaged pages, folders by title.
+
+**D60 "Wait for sources": a Settings choice for calls that make the server ask a source** (bug fix outside a WP,
+2026-11-19, owner OK; D37's limits stay; owner's report: Weeb Central loads in the web UI, the Switch says "The server took
+too long to answer")
+- **What happened:** the owner's server has FlareSolverr on (their own change, time limit 90 s). When a source's site shows
+  a Cloudflare check, the server waits for FlareSolverr before it answers; the web UI waits as long as that takes, the app
+  gave up after 30 s. Measured the same day: Weeb Central pages took 1-16 s from the Switch and 1-3 s from the web UI when
+  all was well, and once the server hung for over 2.5 minutes for every client (web UI included).
+- **Rule:** a GraphQL request the server answers only after asking the source's website (`GqlRequest::asksSource`:
+  `fetchSourceManga`, `FetchMangaAndChapters`, `fetchChapterPages`) gets Settings -> Server -> "Wait for sources": 30 s
+  (default, `RuntimeProfile::httpSourceTimeoutMs`, the same as every other call, made for an out-of-the-box server),
+  1, 2 or 5 minutes. Saved as `browse.sourceWaitSeconds` only once chosen; other values are ignored. A change applies to
+  calls that start afterwards. Every other call keeps `httpTimeoutMs` (30 s); images keep `httpImageTimeoutMs` (60 s).
+  Leaving the screen still cancels the wait (the Loading screen has Back).
+- **Not fixed by this:** a server that hangs on a source for longer than the choice; the app then still says "took too long".
+Rejected: a longer default (the owner wants out-of-the-box defaults; FlareSolverr is their own addition), no limit (a hung
+server would leave the screen loading for ever), reading FlareSolverr's time limit from the server's settings (more calls and
+rights for one value the owner can pick).

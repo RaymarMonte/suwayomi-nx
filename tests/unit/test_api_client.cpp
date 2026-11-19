@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <map>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -716,7 +717,41 @@ TEST_CASE("client: clientOptionsFrom takes the limits from the profile") {
     CHECK(options.updatesPageSize == 20);
     CHECK(options.historyPageSize == 30);
     CHECK(options.jsonLimits.maxBytes == 1234);
+    CHECK(options.sourceTimeoutMs == snx::core::RuntimeProfile{}.httpSourceTimeoutMs);
     CHECK_FALSE(options.deliver);
+}
+
+TEST_CASE("client: calls that ask the source get the source time limit, the others the usual one (D60)") {
+    // The bug: a server with FlareSolverr answered a Weeb Central page after more than 30 s; the app had given up.
+    FakeHttpClient http;
+    ClientOptions options;
+    options.sourceTimeoutMs = 120000;
+    SuwayomiClient client(http, settingsFor(AuthMode::None), std::move(options));
+    http.setHandler([](const Request&) { return FakeHttpClient::answer(404); });
+
+    client.browseSource("1", snx::core::gql::BrowseKind::Popular, 1, "", nlohmann::json::array(), CancelToken()).get();
+    client.refreshManga(7, CancelToken()).get();
+    client.pages(8, PageFormat::AsStored, CancelToken()).get();
+    client.categories(CancelToken()).get();
+    client.serverInfo(CancelToken()).get();
+
+    std::map<std::string, int> limits;
+    for (const Request& request : http.requests()) {
+        limits[operationOf(request)] = request.timeoutMs;
+    }
+    CHECK(limits.at("BrowseSource") == 120000);
+    CHECK(limits.at("FetchMangaAndChapters") == 120000);
+    CHECK(limits.at("FetchChapterPages") == 120000);
+    CHECK(limits.at("Categories") == 0);   // 0 = the HTTP client's httpTimeoutMs (30 s)
+    CHECK(limits.at("AboutServer") == 0);
+
+    // Settings -> Wait for sources changes it for the calls that start afterwards.
+    client.setSourceTimeoutMs(300000);
+    client.browseSource("1", snx::core::gql::BrowseKind::Latest, 1, "", nlohmann::json::array(), CancelToken()).get();
+    CHECK(http.requests().back().timeoutMs == 300000);
+    client.setSourceTimeoutMs(0);  // 0 = the HTTP client's usual limit
+    client.refreshManga(7, CancelToken()).get();
+    CHECK(http.requests().back().timeoutMs == 0);
 }
 
 TEST_CASE("client: the library tools' calls (WP-24, D54): requests as sent, mutations never repeated, answers read") {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -130,7 +131,18 @@ struct BrowseSettings {
     std::vector<std::string> hiddenLanguages;  // language codes the Languages checklist hid (Local's: "localsourcelang")
     bool askCategories = true;  // adding a manga asks for its categories; "Don't ask again" turns it off, Settings back on
     std::string lastSourceId;   // the source opened last (the "Last used" row); "" = none yet
+    // D60, Settings -> "Wait for sources": how long a call that makes the server ask a source's website may take (browse,
+    // refresh a manga, open a chapter). 0 = not chosen: RuntimeProfile::httpSourceTimeoutMs (30 s, like every other call).
+    // Only kSourceWaitChoices are read back.
+    int sourceWaitSeconds = 0;
 };
+
+// The choices Settings offers for BrowseSettings::sourceWaitSeconds: 30 s, 1, 2 and 5 minutes. A server with FlareSolverr
+// (Cloudflare checks) can take as long as its own time limit (60 s by default) before it answers.
+inline constexpr std::array<int, 4> kSourceWaitChoices = {30, 60, 120, 300};
+
+// The time limit in ms for calls that ask the source: the chosen one, or the profile's when none is chosen.
+int sourceWaitMs(const BrowseSettings& browse, int profileDefaultMs);
 
 // Downloads on the server's own disk (WP-17, D58). A new section, so old files simply don't have it (no migration).
 struct ServerDownloadSettings {

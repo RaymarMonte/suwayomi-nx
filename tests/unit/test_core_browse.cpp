@@ -252,16 +252,31 @@ TEST_CASE("browse: config section") {
     CHECK(fresh.browse.askCategories);
     CHECK(fresh.browse.hiddenLanguages.empty());
     CHECK(fresh.browse.lastSourceId.empty());
+    CHECK(fresh.browse.sourceWaitSeconds == 0);  // not chosen: the profile's limit
+    CHECK(sourceWaitMs(fresh.browse, 30000) == 30000);
 
     AppConfig config;
     config.browse.hiddenLanguages = {"ja", "fr"};
     config.browse.askCategories = false;
     config.browse.lastSourceId = "1105946461371740061";
+    config.browse.sourceWaitSeconds = 120;
     const ConfigLoad back = loadAppConfig(saveAppConfig(config));
     CHECK(back.problems.empty());
     CHECK(back.config.browse.hiddenLanguages == std::vector<std::string>{"ja", "fr"});
     CHECK_FALSE(back.config.browse.askCategories);
     CHECK(back.config.browse.lastSourceId == "1105946461371740061");
+    CHECK(back.config.browse.sourceWaitSeconds == 120);
+    CHECK(sourceWaitMs(back.config.browse, 30000) == 120000);
+    // Not chosen: not written. Only the offered choices are read back.
+    CHECK(saveAppConfig(AppConfig{}).find("sourceWaitSeconds") == std::string::npos);
+    for (const int seconds : kSourceWaitChoices) {
+        const std::string text = R"({"schemaVersion":1,"browse":{"sourceWaitSeconds":)" + std::to_string(seconds) + "}}";
+        CHECK(loadAppConfig(text).config.browse.sourceWaitSeconds == seconds);
+    }
+    const ConfigLoad odd = loadAppConfig(R"({"schemaVersion":1,"browse":{"sourceWaitSeconds":45}})");
+    CHECK(odd.config.browse.sourceWaitSeconds == 0);
+    CHECK_FALSE(odd.problems.empty());
+    CHECK_FALSE(loadAppConfig(R"({"schemaVersion":1,"browse":{"sourceWaitSeconds":"2 min"}})").problems.empty());
 
     // Old files have no section: the defaults. Bad entries are skipped.
     CHECK(loadAppConfig(R"({"schemaVersion":1})").config.browse.askCategories);

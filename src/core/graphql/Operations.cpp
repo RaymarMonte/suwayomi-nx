@@ -87,6 +87,7 @@ GqlRequest chapters(int mangaId, int first, int offset, bool newestFirst) {
 
 GqlRequest fetchChapterPages(int chapterId, std::string_view format) {
     GqlRequest r = request("FetchChapterPages");
+    r.asksSource = true;  // the server asks the source for the page list (unless downloaded)
     r.variables["chapterId"] = chapterId;
     if (!format.empty()) {
         r.variables["format"] = std::string(format);
@@ -138,6 +139,7 @@ GqlRequest updateChapters(const std::vector<int>& ids, const ChapterPatch& patch
 
 GqlRequest fetchMangaAndChapters(int mangaId) {
     GqlRequest r = request("FetchMangaAndChapters");
+    r.asksSource = true;
     r.variables["id"] = mangaId;
     return r;
 }
@@ -272,6 +274,7 @@ std::string_view browseKindName(BrowseKind kind) {
 GqlRequest browseSource(std::string_view sourceId, BrowseKind kind, int page, std::string_view query,
                         const nlohmann::json& filters) {
     GqlRequest r = request("BrowseSource");
+    r.asksSource = true;
     r.variables["source"] = std::string(sourceId);
     r.variables["type"] = std::string(browseKindName(kind));
     r.variables["page"] = std::max(page, 1);

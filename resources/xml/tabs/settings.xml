@@ -42,6 +42,19 @@
                 id="settings/server_version"
                 title="@i18n/settings/server_version" />
 
+            <brls:SelectorCell
+                minHeight="72"
+                id="settings/source_wait" />
+
+            <brls:Label
+                width="auto"
+                height="auto"
+                marginTop="8"
+                marginLeft="16"
+                fontSize="16"
+                textColor="@theme/brls/text_disabled"
+                text="@i18n/settings/source_wait_note" />
+
             <brls:Header
                 width="auto"
                 height="auto"

@@ -238,6 +238,7 @@ int main(int argc, char* argv[]) {
 
     // The Suwayomi client (WP-06, D38): one per HttpClient, results on the main thread, changed logins saved to config.json.
     snx::api::ClientOptions clientOptions = snx::api::clientOptionsFrom(profile);
+    clientOptions.sourceTimeoutMs = snx::core::sourceWaitMs(config.config().browse, profile.httpSourceTimeoutMs);  // D60
     clientOptions.deliver = [](std::function<void()> task) { brls::sync(std::move(task)); };
     clientOptions.onSettingsChanged = [&config](const snx::core::ServerSettings& server) {
         config.setServer(server);

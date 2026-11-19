@@ -404,12 +404,25 @@ ConfigLoad loadAppConfig(std::string_view text, const JsonLimits& limits, const 
         problems.push_back("config: browse.lastSourceId is too long, ignored");
         browse.lastSourceId.clear();
     }
+    {
+        int wait = 0;
+        b.number("sourceWaitSeconds", wait);
+        if (std::find(kSourceWaitChoices.begin(), kSourceWaitChoices.end(), wait) != kSourceWaitChoices.end()) {
+            browse.sourceWaitSeconds = wait;
+        } else if (wait != 0) {
+            problems.push_back("config: browse.sourceWaitSeconds " + std::to_string(wait) + " is not a choice, ignored");
+        }
+    }
     readHiddenLanguages(root, browse, problems);
 
     ServerDownloadSettings& serverDownloads = load.config.serverDownloads;
     SectionReader d(root, "serverDownloads", problems);
     d.flag("deleteAfterReading", serverDownloads.deleteAfterReading);
     return load;
+}
+
+int sourceWaitMs(const BrowseSettings& browse, int profileDefaultMs) {
+    return browse.sourceWaitSeconds > 0 ? browse.sourceWaitSeconds * 1000 : profileDefaultMs;
 }
 
 std::string saveAppConfig(const AppConfig& config) {
@@ -456,6 +469,9 @@ std::string saveAppConfig(const AppConfig& config) {
         {"askCategories", config.browse.askCategories},
         {"lastSourceId", config.browse.lastSourceId},
     };
+    if (config.browse.sourceWaitSeconds > 0) {
+        root["browse"]["sourceWaitSeconds"] = config.browse.sourceWaitSeconds;  // only once chosen
+    }
     root["serverDownloads"] = {
         {"deleteAfterReading", config.serverDownloads.deleteAfterReading},
     };

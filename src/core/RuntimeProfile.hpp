@@ -93,6 +93,11 @@ struct RuntimeProfile {
     // Network (net, WP-05). Timeouts are per request. Retries are for GETs only (core/RetryPolicy.hpp).
     int httpConnectTimeoutMs = 5000;                   // a LAN server answers a connect in milliseconds
     int httpTimeoutMs = 30000;                         // one whole JSON request
+    // D60: a JSON request the server answers only after asking the source's website (GqlRequest::asksSource: browse a
+    // source, a manga's details and chapters, a chapter's pages), until Settings -> "Wait for sources" picks another
+    // (BrowseSettings::sourceWaitSeconds). Same as httpTimeoutMs: an out-of-the-box server answers in time; one that
+    // passes Cloudflare checks through FlareSolverr can need a minute or more.
+    int httpSourceTimeoutMs = 30000;
     int httpImageTimeoutMs = 60000;                    // one whole image download (the image module passes it)
     int httpMaxRedirects = 3;                          // followed redirects per request
     std::uint64_t httpMaxHeaderBytes = 64 * 1024;      // all response headers of one request together (S6)

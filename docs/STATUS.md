@@ -2,6 +2,8 @@
 **Phase 3 – Features. Now:** **WP-18 planned** (download to Switch, D59, `docs/wp/WP-18-download-to-switch.md`).
 **Next: run WP-18** (Opus, L, max effort). Order (D57): 18 → 18b → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28.
 Done: WP-00a … 13, 13b, 13c, 13d, **14, 14b, 15, 15b, 17, 23, 24**, 22; **v0.2.0** (13…24, 17 unreleased).
+Side fix (2026-11-19, no WP): Settings → Server → **Wait for sources** (30 s default, 1/2/5 min) for browse, refresh and
+chapter pages (D60; owner's server uses FlareSolverr). Desktop + Switch checked by hand; no e2e scenario covers it yet.
 ## Last session (2026-11-19, WP-18 planning, Opus) – plan committed, no code
 - Wrote the WP-18 doc, D59, the ROADMAP row and stubs (WP-18b's too). Owner's answers: words that name the Switch
   ("Download to Switch", "Delete from Switch", tag "On Switch"), a **"Switch downloads" tab** before Server downloads
