@@ -1,18 +1,18 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-14b done** (2026-11-19). **Next: WP-17** (Download on server, **S**; no WP doc yet: an Opus
-planning session writes `docs/wp/WP-17-*.md` first). **New order** (owner, 2026-11-19, D57): WP-17 → 18 → 18b → 21 → 16 → 25 → 19;
-nice to have: 08b, 26, 27 (chapter selection), 28 (local files on the SD). Done: WP-00a … 13, 13b, 13c, 13d,
-**14, 14b, 15, 15b, 23, 24**, 22; **v0.2.0** (13…24 unreleased). WP-13d: the console's longest strip frame is 31–32 ms (limit 34).
-## Last session (2026-11-19, WP-14b, Opus)
-- **Built:** Search all (`GlobalSearchModel` + `GlobalSearchActivity`: 6 columns = card + 5 covers, 3 sources at a time),
-  Browse → Languages (`LanguagesModel` + `LanguagesActivity`, saved in config.json), Tick for new manga (the Categories
-  row menu's 5th entry, `CategoriesModel::setTickForNew`), `GridMetrics::columns` + `GridSource::focusable`. D56 as built.
-- **Tests:** unit 7/7, contract 48/48, npm 142, typecheck; desktop all 26 e2e green; Switch (gate PASS) `browse`,
-  `library-tools`, `smoke`, `touch-pass`, `library-browse`, `manga-details`, `updates-history` green; Search all 73–86 ms.
-  New goldens (both drivers): `languages`, `search-all`, `categories-ticked`; `sources`, `sources-mature`: the new bar.
-- **Flake seen (desktop, not WP-14b):** `soak` and `reader-portrait` each lost one D-pad press once (fast presses; the
-  reader reads the D-pad once a frame); both green on the rerun. If it comes back: look at frame times there.
-- The console is asleep: the next Switch run needs the owner to wake it (HOME).
+**Phase 3 – Features. Now:** **WP-17 planned** (download on server, D58, `docs/wp/WP-17-download-on-server.md`).
+**Next: run WP-17** (Opus, M). Order (D57): WP-17 → 18 → 18b → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28.
+Done: WP-00a … 13, 13b, 13c, 13d, **14, 14b, 15, 15b, 23, 24**, 22; **v0.2.0** (13…24 unreleased). WP-13d: the console's
+longest strip frame is 31–32 ms (limit 34).
+## Last session (2026-11-19, WP-17 planning, Opus) – plan committed, no code
+- Wrote the WP-17 doc, D58, the ROADMAP row and stubs (WP-18's too). Owner's answers: the queue on a **"Server downloads"
+  tab** (WP-18 gets its own "Downloads" tab), the details screen like Suwayomi's web UI (Next 1 / 5 / 10 / 25, Unread, All +
+  a "Downloaded on server" filter), Move to top / bottom only, a Settings switch "Delete server downloads after reading",
+  and **Opus** for it (it grew to size M; D57 had allowed Sonnet).
+- Checked on the test server (facts in the WP doc; they go into SUWAYOMI-API.md during the WP): finished chapters leave the
+  queue at once, an enqueue answers STOPPED and starts ~1 s later, `startDownloader` with nothing queued and removing a
+  chapter no longer queued each hang 30 s, ERROR rows stay until enqueued again, Local chapters are dropped from the queue.
+- The test server is left running (no auth); the probes browsed SNX Test (rows from manga 158 / chapter 462 on) and left
+  server downloads on its disk (queue empty, no switch file): a `reset` wipes it. Before: WP-14b done. The console sleeps.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

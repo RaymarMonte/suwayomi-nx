@@ -1247,3 +1247,29 @@ at first, hiding 18+ sources, a duplicate title pair with a Local fixture (WP-23
   card** (CBZ / ZIP and image folders read without the server; untrusted input, so S6 limits and a fuzzed, pinned ZIP
   reader; needs WP-18 and WP-18b). Planning effort: xhigh for WP-27, max for WP-28.
 - Nothing built changes: no code exists for WP-17, WP-18, WP-18b, WP-21, WP-27 or WP-28 yet.
+- **Amended by D58 (2026-11-19): WP-17 runs with Opus** (owner), size M.
+
+**D58 Download on server: its own tab, the web UI's bulk list, delete after reading** (WP-17, planned 2026-11-19; the
+owner's answers the same day; `wp/WP-17-download-on-server.md`). Carries out D47's WP-17 on top of D52's polling (WP-15)
+and D55's test source; amends D57's "WP-17 stays S".
+- **A "Server downloads" tab** after Browse (Settings moves down one) holds the server's queue: progress, Pause / Resume,
+  Clear, and per chapter Remove, Retry (failed ones), Move to top / Move to bottom (no step up / down). WP-18's downloads to
+  the Switch get **their own "Downloads" tab**: two tabs, never mixed. Every word of WP-17 says "server".
+- **The details screen like Suwayomi's web UI** (its code checked): a chapter's menu gets Download on server / Cancel
+  server download / Delete server download; MINUS → Download on server → Next chapter, Next 5, Next 10, Next 25, Unread,
+  All (reading order, not downloaded, not queued; Next N and Unread only unread ones; the web UI's "Download ahead" left
+  out); Show gets "Downloaded on server". Nothing for Local manga (the server drops Local chapters from its queue).
+- **"Delete server downloads after reading"**, a Settings switch (off): a chapter finished in the reader (its read save
+  answered) that is downloaded on the server and not bookmarked loses its server download once the reader has closed, in
+  one request (like Mihon). Not for chapters marked read by hand, nor for saves the waiting-save queue sends later. The
+  server has no such setting itself; neither app has a menu entry for deleting many (WP-27's selection will).
+- **Polling** `downloadStatus` every second only while the tab or a details screen is on top and the queue is busy; a
+  newer answer always wins over an older one. The planner's defaults (words, the View rule, limits) are in the WP doc.
+- **Server facts that shape it** (v2.4.2366, checked 2026-11-19, SUWAYOMI-API.md once built): finished chapters leave the
+  queue at once (no FINISHED state), so "downloaded" comes from `isDownloaded`; an enqueue answers STOPPED and the
+  downloader starts by itself ~1 s later, also after a stop; `startDownloader` with nothing queued and
+  `dequeueChapterDownloads` of a chapter not in the queue each wait 30 s and fail, so the app only resumes with a queued
+  row and only removes chapters it saw queued; an ERROR row stays until removed or enqueued again (= Retry).
+- **Model: Opus** (owner, 2026-11-19): the WP grew from S to M and WP-18 copies its tab and polling.
+Rejected: one "Downloads" tab for both kinds (the owner chose two), a screen without a tab, a menu entry that deletes every
+read chapter's download, Sorayomi's step-by-step reordering, Mihon's "Bookmarked" bulk choice, the web UI's "Download ahead".
