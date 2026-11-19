@@ -1290,4 +1290,7 @@ read chapter's download, Sorayomi's step-by-step reordering, Mihon's "Bookmarked
   waits for that call on the server (its answer up to the call's length; a stop reads STOPPED at once, a clear empties
   only with its answer), so the 1 s holds from the server's answer; the e2e clears a stopped queue. With an empty queue
   the header shows only the "Nothing in the server's queue" message: no Pause / Clear buttons, X / Y hints greyed, an
-  empty status line. Show → Downloaded on server isn't offered for a Local manga.
+  empty status line. Show → Downloaded on server isn't offered for a Local manga. **Console (2026-11-19, application
+  mode, handheld):** `server-downloads` green; 13 actions, the slowest 573 ms (resume, through the check read); a status of
+  100 rows applied in ≤ 38 ms; memory under the 16 MiB limit over the 10 tab rounds; `smoke`, `manga-details`,
+  `touch-pass`, `browse`, `updates-history`, `reader-paged`, `resume-progress` green.

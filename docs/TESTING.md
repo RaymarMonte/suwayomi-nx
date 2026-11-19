@@ -462,6 +462,9 @@ Initial list, grown per UI WP:
 - Compared with `pixelmatch` (per-pixel threshold 0.1, allowed diff 0.1 % of the pixels by default), with masks for clock/battery/animated
   regions. Masks are painted magenta into both pictures, and into the stored golden, so the PNG shows what is ignored.
 - Update with `tools/e2e.sh <driver> <scenario> --update-goldens` only when a UI change is intended (and say so in the commit).
+- A small text change can pass on desktop: pixelmatch skips pixels it takes for anti-aliasing, so WP-17's new tab in the
+  tab list moved only 729 px on desktop (under the 921 px limit) but 1964 on the Switch. After a UI change, update the
+  goldens of every scenario whose screens show it on both drivers, not only the ones that fail.
 - Test builds draw the focus frame without borealis's moving glow (`testhooks::steadyScreenshots`, WP-09): the glow freezes
   wherever it was when the input stopped, so on the Switch two shots of the same screen differed by ~0.15 %. Release builds
   keep the glow.

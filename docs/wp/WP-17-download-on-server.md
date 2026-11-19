@@ -181,7 +181,7 @@ listeners, back-off) and `ChapterRowsTab.hpp` / `.cpp` (the row tab to copy); `s
       downloading, failed counts) and `filter` `downloaded_on_server`.
 - [x] Integration (`tests/integration/`, all 3 auth modes, SNX Test chapters with `delayMs`): enqueue → status lists them →
       reorder → remove → stop → start → clear; enqueue → finished → `isDownloaded` → delete; cleans up after itself.
-- [ ] e2e `server-downloads` (desktop ✅ 2026-11-19; Switch open), helpers in `tests/e2e/lib/server-downloads.ts`; known state first and
+- [x] e2e `server-downloads` (desktop + Switch ✅ 2026-11-19), helpers in `tests/e2e/lib/server-downloads.ts`; known state first and
       last (clear the queue, delete the test manga's server downloads, the switch file cleared, the test manga out of the
       library): Paper Garden (SNX Test EN, added to the library by GraphQL) with `delayMs` 1500 → Chapter 1's menu →
       Download on server → its tag "Server: queued", then a %; MINUS → Next 5 → "5 chapters queued" (2–6); the tab: the
