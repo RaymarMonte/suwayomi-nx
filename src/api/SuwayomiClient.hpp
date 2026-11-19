@@ -12,6 +12,7 @@
 #include "core/AppConfig.hpp"
 #include "core/Json.hpp"
 #include "core/RuntimeProfile.hpp"
+#include "core/ServerDownloads.hpp"
 #include "core/SourceFilters.hpp"
 #include "core/graphql/Operations.hpp"
 #include "core/models/Auth.hpp"
@@ -48,6 +49,7 @@ struct ClientOptions {
     int updatesPageSize = 50;     // RuntimeProfile::updatesPageSize: chapters per updates() page (WP-15)
     int historyPageSize = 50;     // RuntimeProfile::historyPageSize: chapters per history() page
     std::size_t sourcesMax = 500; // RuntimeProfile::sourcesMax: sources() keeps at most this many (WP-14)
+    std::size_t serverQueueMax = 1000;  // RuntimeProfile::serverQueueMax: queue rows the download calls keep (WP-17)
     core::FilterLimits filterLimits;  // RuntimeProfile::sourceFiltersMax, filterValuesMax, filterNameMaxBytes
     Deliver deliver;
     SettingsChanged onSettingsChanged;
@@ -200,6 +202,28 @@ class SuwayomiClient {
     // A category's "default" flag ("tick it for new manga"). Answers the category.
     ApiFuture<core::Category> setCategoryDefault(int categoryId, bool on, const net::CancelToken& cancel,
                                                  net::Priority priority = net::Priority::Interactive);
+    // WP-17 (D58), downloads onto the server's own disk. Each answers the server's queue as it is after the call (at most
+    // serverQueueMax rows kept, core::DownloadQueue). The mutations are never repeated; SUWAYOMI-API.md "Server downloads"
+    // says which of them make the server wait 30 s (dequeue a chapter that isn't queued, start with nothing queued).
+    ApiFuture<core::DownloadQueue> downloadStatus(const net::CancelToken& cancel,
+                                                  net::Priority priority = net::Priority::Interactive);
+    // Queues chapters (at most serverDownloadBatchMax ids per call); the server starts by itself about a second later.
+    ApiFuture<core::DownloadQueue> enqueueDownloads(std::vector<int> ids, const net::CancelToken& cancel,
+                                                    net::Priority priority = net::Priority::Interactive);
+    ApiFuture<core::DownloadQueue> dequeueDownload(int chapterId, const net::CancelToken& cancel,
+                                                   net::Priority priority = net::Priority::Interactive);
+    // to: the 0-based place in the whole queue (0 = top, rows - 1 = bottom).
+    ApiFuture<core::DownloadQueue> reorderDownload(int chapterId, int to, const net::CancelToken& cancel,
+                                                   net::Priority priority = net::Priority::Interactive);
+    ApiFuture<core::DownloadQueue> startDownloads(const net::CancelToken& cancel,
+                                                  net::Priority priority = net::Priority::Interactive);
+    ApiFuture<core::DownloadQueue> stopDownloads(const net::CancelToken& cancel,
+                                                 net::Priority priority = net::Priority::Interactive);
+    ApiFuture<core::DownloadQueue> clearDownloads(const net::CancelToken& cancel,
+                                                  net::Priority priority = net::Priority::Interactive);
+    // Deletes the chapters' downloads from the server's disk. Answers each chapter's id + isDownloaded.
+    ApiFuture<std::vector<core::Chapter>> deleteServerDownloads(std::vector<int> ids, const net::CancelToken& cancel,
+                                                                net::Priority priority = net::Priority::Interactive);
     // ui_login: logs in (sent without a token: the server refuses a login while logged in), keeps the tokens, username and
     // password for renewing later, and reports them through onSettingsChanged. Wrong password: Auth with the server's words.
     ApiFuture<core::LoginTokens> login(std::string username, std::string password, const net::CancelToken& cancel,

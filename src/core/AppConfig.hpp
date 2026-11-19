@@ -132,6 +132,12 @@ struct BrowseSettings {
     std::string lastSourceId;   // the source opened last (the "Last used" row); "" = none yet
 };
 
+// Downloads on the server's own disk (WP-17, D58). A new section, so old files simply don't have it (no migration).
+struct ServerDownloadSettings {
+    // A chapter the reader saved as read loses its server download once the reader closes (not bookmarked ones).
+    bool deleteAfterReading = false;
+};
+
 // At most this many hidden languages are read back, each at most kMaxLanguageCodeBytes long (S6: the file stays small).
 inline constexpr std::size_t kMaxHiddenLanguages = 200;
 inline constexpr std::size_t kMaxLanguageCodeBytes = 32;
@@ -142,6 +148,7 @@ struct AppConfig {
     ReaderSettings reader;
     LibrarySettings library;
     BrowseSettings browse;
+    ServerDownloadSettings serverDownloads;
 };
 
 struct ConfigLoad {

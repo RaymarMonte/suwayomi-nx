@@ -1,0 +1,8 @@
+# Delete chapters' downloads from the server's disk (WP-17): "Delete server download" and "Delete server downloads after
+# reading". Harmless for a chapter that isn't downloaded, a Local one (its files stay) or an unknown id. A queued chapter stays
+# queued.
+mutation DeleteDownloadedChapters($ids: [Int!]!) {
+  deleteDownloadedChapters(input: { ids: $ids }) {
+    chapters { id isDownloaded }
+  }
+}

@@ -1,0 +1,14 @@
+# Queue chapters for downloading on the server (WP-17). Already queued ones aren't added twice. The answer still says STOPPED:
+# the downloader starts by itself about a second later, also after the user paused it (any enqueue resumes the queue).
+mutation EnqueueChapterDownloads($ids: [Int!]!) {
+  enqueueChapterDownloads(input: { ids: $ids }) {
+    downloadStatus {
+      state
+      queue {
+        position progress state tries
+        chapter { id name sourceOrder }
+        manga { id title thumbnailUrl }
+      }
+    }
+  }
+}

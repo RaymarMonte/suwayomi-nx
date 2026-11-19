@@ -405,6 +405,10 @@ ConfigLoad loadAppConfig(std::string_view text, const JsonLimits& limits, const 
         browse.lastSourceId.clear();
     }
     readHiddenLanguages(root, browse, problems);
+
+    ServerDownloadSettings& serverDownloads = load.config.serverDownloads;
+    SectionReader d(root, "serverDownloads", problems);
+    d.flag("deleteAfterReading", serverDownloads.deleteAfterReading);
     return load;
 }
 
@@ -451,6 +455,9 @@ std::string saveAppConfig(const AppConfig& config) {
         {"hiddenLanguages", config.browse.hiddenLanguages},
         {"askCategories", config.browse.askCategories},
         {"lastSourceId", config.browse.lastSourceId},
+    };
+    root["serverDownloads"] = {
+        {"deleteAfterReading", config.serverDownloads.deleteAfterReading},
     };
     return root.dump(2, ' ', false, nlohmann::ordered_json::error_handler_t::replace) + "\n";
 }

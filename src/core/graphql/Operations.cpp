@@ -318,6 +318,47 @@ GqlRequest setCategoryDefault(int categoryId, bool on) {
     return r;
 }
 
+GqlRequest downloadStatus() {
+    return request("DownloadStatus");
+}
+
+GqlRequest enqueueChapterDownloads(const std::vector<int>& ids) {
+    GqlRequest r = request("EnqueueChapterDownloads");
+    r.variables["ids"] = ids;
+    return r;
+}
+
+GqlRequest dequeueChapterDownload(int chapterId) {
+    GqlRequest r = request("DequeueChapterDownload");
+    r.variables["id"] = chapterId;
+    return r;
+}
+
+GqlRequest reorderChapterDownload(int chapterId, int to) {
+    GqlRequest r = request("ReorderChapterDownload");
+    r.variables["chapterId"] = chapterId;
+    r.variables["to"] = std::max(to, 0);
+    return r;
+}
+
+GqlRequest startDownloader() {
+    return request("StartDownloader");
+}
+
+GqlRequest stopDownloader() {
+    return request("StopDownloader");
+}
+
+GqlRequest clearDownloader() {
+    return request("ClearDownloader");
+}
+
+GqlRequest deleteDownloadedChapters(const std::vector<int>& ids) {
+    GqlRequest r = request("DeleteDownloadedChapters");
+    r.variables["ids"] = ids;
+    return r;
+}
+
 Result<ServerInfo> readAboutServer(const GqlResponse& response) {
     return readObject<ServerInfo>(response, "aboutServer");
 }
@@ -632,6 +673,45 @@ Result<Category> readSetCategoryDefault(const GqlResponse& response) {
         return node.error();
     }
     return fromJson<Category>(*node.value());
+}
+
+Result<DownloadQueue> readDownloadAnswer(const GqlResponse& response, std::size_t maxRows) {
+    const nlohmann::json* status = json::object(response.data, "downloadStatus");  // the query
+    if (!status && response.data.is_object()) {
+        for (const auto& item : response.data.items()) {  // a mutation: its one field, then downloadStatus
+            if (item.value().is_object()) {
+                status = json::object(item.value(), "downloadStatus");
+            }
+            if (status) {
+                break;
+            }
+        }
+    }
+    if (!status) {
+        if (!response.errors.empty()) {
+            return response.firstError();
+        }
+        return Result<DownloadQueue>::fail(ErrorKind::Parse, "the answer has no \"downloadStatus\"");
+    }
+    return readDownloadQueue(*status, maxRows);
+}
+
+Result<std::vector<Chapter>> readDeleteDownloadedChapters(const GqlResponse& response) {
+    Result<const nlohmann::json*> node = dataField(response, "deleteDownloadedChapters");
+    if (!node.ok()) {
+        return node.error();
+    }
+    const nlohmann::json* list = json::array(*node.value(), "chapters");
+    if (!list) {
+        return Result<std::vector<Chapter>>::fail(ErrorKind::Parse, "deleteDownloadedChapters has no \"chapters\"");
+    }
+    std::vector<Chapter> chapters;
+    for (const nlohmann::json& entry : *list) {
+        if (auto parsed = fromJson<Chapter>(entry)) {
+            chapters.push_back(std::move(parsed.value()));
+        }
+    }
+    return chapters;
 }
 
 Result<LoginTokens> readLogin(const GqlResponse& response) {

@@ -20,6 +20,7 @@ add_library(snx_ui_models STATIC
     main/MainModel.cpp
     updates/ChapterRowsModel.cpp
     updates/LibraryUpdater.cpp
+    downloads/ServerDownloads.cpp
     reader/WaitingSaves.cpp
     setup/SetupModel.cpp
 )

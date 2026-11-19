@@ -287,6 +287,55 @@ TEST_CASE("client: the library update's start and stop are mutations; its status
     CHECK(variablesOf(poll)["withManga"] == true);
 }
 
+TEST_CASE("client: server downloads (WP-17): the queue from the query and every mutation, never repeated; Permission") {
+    Harness h(settingsFor(AuthMode::None));
+    h.http.setHandler([](const Request& request) {
+        const std::string operation = operationOf(request);
+        const std::string queue =
+            R"({"state":"STOPPED","queue":[{"position":0,"progress":0.5,"state":"QUEUED","tries":0,)"
+            R"("chapter":{"id":4,"name":"Chapter 4","sourceOrder":4},"manga":{"id":2,"title":"Alpha","thumbnailUrl":""}}]})";
+        if (operation == "DownloadStatus") {
+            return fixture("app-download-status.json");
+        }
+        if (operation == "DeleteDownloadedChapters") {
+            return FakeHttpClient::answer(200, R"({"data":{"deleteDownloadedChapters":{"chapters":[{"id":4,"isDownloaded":false}]}}})");
+        }
+        if (operation == "StartDownloader") {  // a multi-user server's refusal (D38): hand-built
+            return FakeHttpClient::answer(
+                200, R"({"data":{"startDownloader":null},"errors":[{"message":"Permission denied: DOWNLOAD_CHAPTERS"}]})");
+        }
+        std::string field = operation;
+        field[0] = static_cast<char>(field[0] - 'A' + 'a');
+        return FakeHttpClient::answer(200, R"({"data":{")" + field + R"(":{"downloadStatus":)" + queue + "}}}");
+    });
+    const CancelToken cancel;
+    const auto empty = h.client->downloadStatus(cancel).get();
+    REQUIRE(empty.ok());
+    CHECK(empty.value().total() == 0);
+    CHECK(h.sent("DownloadStatus").at(0).idempotent);
+    const auto queued = h.client->enqueueDownloads({4}, cancel).get();
+    REQUIRE(queued.ok());
+    REQUIRE(queued.value().rows.size() == 1);
+    CHECK(queued.value().rows[0].mangaTitle == "Alpha");
+    CHECK(variablesOf(h.sent("EnqueueChapterDownloads").at(0))["ids"] == nlohmann::json::array({4}));
+    CHECK(h.client->dequeueDownload(4, cancel).get().ok());
+    CHECK(h.client->reorderDownload(4, 0, cancel).get().ok());
+    CHECK(h.client->stopDownloads(cancel).get().ok());
+    CHECK(h.client->clearDownloads(cancel).get().ok());
+    for (const char* op : {"EnqueueChapterDownloads", "DequeueChapterDownload", "ReorderChapterDownload", "StopDownloader",
+                           "ClearDownloader"}) {
+        CAPTURE(op);
+        CHECK_FALSE(h.sent(op).at(0).idempotent);
+    }
+    const auto refused = h.client->startDownloads(cancel).get();
+    REQUIRE_FALSE(refused.ok());
+    CHECK(refused.error().kind == snx::api::ApiErrorKind::Permission);
+    const auto deleted = h.client->deleteServerDownloads({4}, cancel).get();
+    REQUIRE(deleted.ok());
+    CHECK_FALSE(deleted.value().at(0).isDownloaded);
+    CHECK_FALSE(h.sent("DeleteDownloadedChapters").at(0).idempotent);
+}
+
 TEST_CASE("client: absoluteUrl and settings use the normalized base URL, with a sub-path") {
     ServerSettings settings = settingsFor(AuthMode::None);
     settings.url = " https://NAS.local/suwayomi/ ";

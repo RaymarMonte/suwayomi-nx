@@ -1,0 +1,13 @@
+# Empty the server's queue, failed rows too (WP-17). Chapters already downloaded stay.
+mutation ClearDownloader {
+  clearDownloader(input: {}) {
+    downloadStatus {
+      state
+      queue {
+        position progress state tries
+        chapter { id name sourceOrder }
+        manga { id title thumbnailUrl }
+      }
+    }
+  }
+}

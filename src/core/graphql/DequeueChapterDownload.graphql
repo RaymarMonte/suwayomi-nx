@@ -1,0 +1,14 @@
+# Remove one chapter from the server's queue (WP-17). Only for a chapter in the queue: one that isn't (it just finished) makes
+# the server wait 30 s and fail.
+mutation DequeueChapterDownload($id: Int!) {
+  dequeueChapterDownload(input: { id: $id }) {
+    downloadStatus {
+      state
+      queue {
+        position progress state tries
+        chapter { id name sourceOrder }
+        manga { id title thumbnailUrl }
+      }
+    }
+  }
+}

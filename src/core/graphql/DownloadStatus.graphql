@@ -1,0 +1,13 @@
+# WP-17 (D58): the server's download queue (downloads onto the server's own disk). state STARTED / STOPPED; a row's state
+# QUEUED / DOWNLOADING / ERROR (a finished chapter leaves the queue at once); progress = pages done / pages; position
+# 0..n-1. Every download mutation below answers the same fields, so any answer replaces the queue the app knows.
+query DownloadStatus {
+  downloadStatus {
+    state
+    queue {
+      position progress state tries
+      chapter { id name sourceOrder }
+      manga { id title thumbnailUrl }
+    }
+  }
+}

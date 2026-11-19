@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "core/Result.hpp"
+#include "core/ServerDownloads.hpp"
 #include "core/SourceFilters.hpp"
 #include "core/graphql/Gql.hpp"
 #include "core/models/Auth.hpp"
@@ -80,6 +81,15 @@ GqlRequest libraryDuplicates(std::string_view title);  // `title` escaped (core:
 GqlRequest addToLibrary(int mangaId, const std::vector<int>& categoryIds);
 GqlRequest removeFromLibrary(int mangaId);
 GqlRequest setCategoryDefault(int categoryId, bool on);
+// WP-17 (D58), downloads on the server. Every one but the last answers the queue (readDownloadAnswer).
+GqlRequest downloadStatus();
+GqlRequest enqueueChapterDownloads(const std::vector<int>& ids);  // at most RuntimeProfile::serverDownloadBatchMax ids
+GqlRequest dequeueChapterDownload(int chapterId);                 // only a chapter in the queue (else the server hangs 30 s)
+GqlRequest reorderChapterDownload(int chapterId, int to);         // to: 0-based place in the whole queue (below 0: 0)
+GqlRequest startDownloader();                                     // only with a QUEUED row (else the server hangs 30 s)
+GqlRequest stopDownloader();
+GqlRequest clearDownloader();
+GqlRequest deleteDownloadedChapters(const std::vector<int>& ids);  // answers the chapters' id + isDownloaded
 
 // --- answers ---
 Result<ServerInfo> readAboutServer(const GqlResponse& response);
@@ -125,5 +135,9 @@ Result<std::vector<Manga>> readLibraryDuplicates(const GqlResponse& response);
 Result<Manga> readAddToLibrary(const GqlResponse& response);
 Result<Manga> readRemoveFromLibrary(const GqlResponse& response);  // id and inLibrary (false)
 Result<Category> readSetCategoryDefault(const GqlResponse& response);
+// WP-17. The queue from DownloadStatus (data.downloadStatus) or any queue mutation (data.<its field>.downloadStatus),
+// core::readDownloadQueue with at most maxRows rows (RuntimeProfile::serverQueueMax).
+Result<DownloadQueue> readDownloadAnswer(const GqlResponse& response, std::size_t maxRows);
+Result<std::vector<Chapter>> readDeleteDownloadedChapters(const GqlResponse& response);  // id + isDownloaded each
 
 }  // namespace snx::core::gql

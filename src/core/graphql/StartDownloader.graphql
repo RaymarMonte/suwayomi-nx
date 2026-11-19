@@ -1,0 +1,14 @@
+# Resume the server's downloader (WP-17). Only with a QUEUED row: with nothing queued (or only ERROR rows) the server waits
+# 30 s and fails.
+mutation StartDownloader {
+  startDownloader(input: {}) {
+    downloadStatus {
+      state
+      queue {
+        position progress state tries
+        chapter { id name sourceOrder }
+        manga { id title thumbnailUrl }
+      }
+    }
+  }
+}

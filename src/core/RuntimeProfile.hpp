@@ -67,6 +67,13 @@ struct RuntimeProfile {
     int libraryUpdatePollMs = 1000;      // the library update's status is asked this often while it runs
     int libraryUpdateStartWaitMs = 10000;  // an update not seen starting by then (and nothing runs) is "nothing to update"
 
+    // Downloads on the server (WP-17, D58).
+    int serverDownloadPollMs = 1000;       // the server's queue is asked this often while it is watched and busy
+    int serverDownloadStartWaitMs = 5000;  // a STOPPED queue this soon after our enqueue / resume shows "Starting..."
+    int serverDownloadReloadMs = 3000;     // the details screen reloads its chapters at most this often while they finish
+    int serverQueueMax = 1000;             // queue rows kept at most (S6); the tab says "and N more"
+    int serverDownloadBatchMax = 1000;     // chapter ids per enqueue / delete request; more go in several
+
     // Library tools (WP-24, D54).
     int searchMaxChars = 64;        // characters a library search keeps (the keyboard stops there too)
     int categoryNameMaxChars = 64;  // characters of a category name

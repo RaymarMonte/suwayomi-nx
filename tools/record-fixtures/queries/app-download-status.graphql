@@ -1,0 +1,4 @@
+# document: DownloadStatus
+# vars: {}
+# The server's download queue at rest (WP-17): STOPPED, nothing queued. (The queue mutations aren't recorded: they would
+# change what this shows and start downloads; the C++ tests build their answers.)

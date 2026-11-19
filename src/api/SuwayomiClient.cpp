@@ -417,6 +417,7 @@ ClientOptions clientOptionsFrom(const core::RuntimeProfile& profile) {
     options.updatesPageSize = profile.updatesPageSize;
     options.historyPageSize = profile.historyPageSize;
     options.sourcesMax = static_cast<std::size_t>(std::max(0, profile.sourcesMax));
+    options.serverQueueMax = static_cast<std::size_t>(std::max(0, profile.serverQueueMax));
     options.filterLimits.maxFilters = static_cast<std::size_t>(std::max(0, profile.sourceFiltersMax));
     options.filterLimits.maxValues = static_cast<std::size_t>(std::max(0, profile.filterValuesMax));
     options.filterLimits.maxNameBytes = static_cast<std::size_t>(std::max(0, profile.filterNameMaxBytes));
@@ -717,6 +718,60 @@ ApiFuture<core::Category> SuwayomiClient::setCategoryDefault(int categoryId, boo
                                                              net::Priority priority) {
     return startCall<core::Category>(state_, core::gql::setCategoryDefault(categoryId, on),
                                      core::gql::readSetCategoryDefault, cancel, priority);
+}
+
+namespace {
+
+// Every queue call answers the same queue; the reader keeps at most serverQueueMax rows.
+std::function<core::Result<core::DownloadQueue>(const core::GqlResponse&)> queueReader(std::size_t maxRows) {
+    return [maxRows](const core::GqlResponse& r) { return core::gql::readDownloadAnswer(r, maxRows); };
+}
+
+}  // namespace
+
+ApiFuture<core::DownloadQueue> SuwayomiClient::downloadStatus(const net::CancelToken& cancel, net::Priority priority) {
+    return startCall<core::DownloadQueue>(state_, core::gql::downloadStatus(), queueReader(state_->options.serverQueueMax),
+                                          cancel, priority);
+}
+
+ApiFuture<core::DownloadQueue> SuwayomiClient::enqueueDownloads(std::vector<int> ids, const net::CancelToken& cancel,
+                                                                net::Priority priority) {
+    return startCall<core::DownloadQueue>(state_, core::gql::enqueueChapterDownloads(ids),
+                                          queueReader(state_->options.serverQueueMax), cancel, priority);
+}
+
+ApiFuture<core::DownloadQueue> SuwayomiClient::dequeueDownload(int chapterId, const net::CancelToken& cancel,
+                                                               net::Priority priority) {
+    return startCall<core::DownloadQueue>(state_, core::gql::dequeueChapterDownload(chapterId),
+                                          queueReader(state_->options.serverQueueMax), cancel, priority);
+}
+
+ApiFuture<core::DownloadQueue> SuwayomiClient::reorderDownload(int chapterId, int to, const net::CancelToken& cancel,
+                                                               net::Priority priority) {
+    return startCall<core::DownloadQueue>(state_, core::gql::reorderChapterDownload(chapterId, to),
+                                          queueReader(state_->options.serverQueueMax), cancel, priority);
+}
+
+ApiFuture<core::DownloadQueue> SuwayomiClient::startDownloads(const net::CancelToken& cancel, net::Priority priority) {
+    return startCall<core::DownloadQueue>(state_, core::gql::startDownloader(), queueReader(state_->options.serverQueueMax),
+                                          cancel, priority);
+}
+
+ApiFuture<core::DownloadQueue> SuwayomiClient::stopDownloads(const net::CancelToken& cancel, net::Priority priority) {
+    return startCall<core::DownloadQueue>(state_, core::gql::stopDownloader(), queueReader(state_->options.serverQueueMax),
+                                          cancel, priority);
+}
+
+ApiFuture<core::DownloadQueue> SuwayomiClient::clearDownloads(const net::CancelToken& cancel, net::Priority priority) {
+    return startCall<core::DownloadQueue>(state_, core::gql::clearDownloader(), queueReader(state_->options.serverQueueMax),
+                                          cancel, priority);
+}
+
+ApiFuture<std::vector<core::Chapter>> SuwayomiClient::deleteServerDownloads(std::vector<int> ids,
+                                                                           const net::CancelToken& cancel,
+                                                                           net::Priority priority) {
+    return startCall<std::vector<core::Chapter>>(state_, core::gql::deleteDownloadedChapters(ids),
+                                                 core::gql::readDeleteDownloadedChapters, cancel, priority);
 }
 
 ApiFuture<core::LoginTokens> SuwayomiClient::login(std::string username, std::string password,

@@ -1,0 +1,13 @@
+# Move a queued chapter (WP-17): $to is the 0-based place in the whole queue, the downloading row included.
+mutation ReorderChapterDownload($chapterId: Int!, $to: Int!) {
+  reorderChapterDownload(input: { chapterId: $chapterId, to: $to }) {
+    downloadStatus {
+      state
+      queue {
+        position progress state tries
+        chapter { id name sourceOrder }
+        manga { id title thumbnailUrl }
+      }
+    }
+  }
+}

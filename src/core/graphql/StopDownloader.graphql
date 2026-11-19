@@ -1,0 +1,13 @@
+# Pause the server's downloader (WP-17): the downloading row goes back to QUEUED and keeps its progress.
+mutation StopDownloader {
+  stopDownloader(input: {}) {
+    downloadStatus {
+      state
+      queue {
+        position progress state tries
+        chapter { id name sourceOrder }
+        manga { id title thumbnailUrl }
+      }
+    }
+  }
+}
