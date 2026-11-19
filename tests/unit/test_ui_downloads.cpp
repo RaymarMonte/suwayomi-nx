@@ -34,6 +34,8 @@ struct FakeQueue {
     std::vector<Row> rows;
     bool away = false;
     bool permission = false;  // multi-user: this user may not download (D38's Permission)
+    bool reorderTimesOut = false;  // a reorder goes through, but its answer fails "Timed out" (the server's 30 s race)
+    bool reorderRefused = false;   // a reorder fails and nothing changes
     std::vector<int> downloaded;
 
     nlohmann::json status() const {
@@ -114,10 +116,16 @@ struct FakeQueue {
         if (op == "ReorderChapterDownload") {
             const int id = vars["chapterId"].get<int>();
             const int to = vars["to"].get<int>();
+            if (reorderRefused) {
+                return failed("reorderChapterDownload", "Something went wrong");
+            }
             auto it = std::find_if(rows.begin(), rows.end(), [id](const Row& r) { return r.id == id; });
             Row moved = *it;
             rows.erase(it);
             rows.insert(rows.begin() + std::min<int>(to, static_cast<int>(rows.size())), moved);
+            if (reorderTimesOut) {
+                return failed("reorderChapterDownload", "Timed out waiting for 30000 ms");
+            }
             return wrapped("reorderChapterDownload", status());
         }
         if (op == "StartDownloader") {
@@ -290,6 +298,61 @@ TEST_SUITE("ui") {
         CHECK(h.changes.back().action->ok);
         CHECK_FALSE(h.downloads->takeError());
         CHECK(h.ids().empty());
+    }
+
+    TEST_CASE("server downloads: an answer that hangs counts as done once a read shows it; a real failure still shows") {
+        Harness h;
+        h.server.rows = {{1}, {2}, {3}};  // stopped: nothing to poll
+        h.downloads->watch();
+        REQUIRE(h.scheduled.empty());
+        h.server.reorderTimesOut = true;
+        h.http.hold(true);
+        REQUIRE(h.downloads->moveToTop(3));  // its answer stays out (the server holds it for 30 s)
+        h.http.hold(false);
+        std::rotate(h.server.rows.begin(), h.server.rows.begin() + 2, h.server.rows.end());  // the server did it at once
+        const std::size_t before = h.changes.size();
+        CHECK(h.runNext() == 500);  // checkMs without an answer: one read
+        CHECK(h.count("DownloadStatus") == 2);
+        CHECK(h.ids() == std::vector<int>{3, 1, 2});
+        REQUIRE(h.changes.size() > before);
+        REQUIRE(h.changes.back().action);
+        CHECK(h.changes.back().action->action == ServerDownloads::Action::Top);
+        CHECK(h.changes.back().action->ok);
+        const std::size_t afterCheck = h.changes.size();
+        REQUIRE(h.http.releaseNext());  // the late "Timed out" answer: already reported, stays quiet
+        for (std::size_t i = afterCheck; i < h.changes.size(); ++i) {
+            CHECK_FALSE(h.changes[i].action);
+        }
+        CHECK_FALSE(h.downloads->takeError());
+        CHECK(h.ids() == std::vector<int>{3, 1, 2});
+
+        // A reorder that really failed: the read after the failed answer still shows the old order, so the error shows.
+        Harness g;
+        g.server.rows = {{1}, {2}, {3}};
+        g.downloads->watch();
+        g.server.reorderRefused = true;
+        REQUIRE(g.downloads->moveToBottom(1));
+        CHECK(g.count("DownloadStatus") == 2);  // the confirm read
+        REQUIRE(g.changes.back().action);
+        CHECK(g.changes.back().action->action == ServerDownloads::Action::Bottom);
+        CHECK_FALSE(g.changes.back().action->ok);
+        CHECK(g.downloads->takeError());
+        CHECK(g.ids() == std::vector<int>{1, 2, 3});
+        CHECK(g.runNext() == 500);  // the early check: the answer is in, nothing sent
+        CHECK(g.count("DownloadStatus") == 2);
+
+        // A clear the server takes its time over: the check read still shows the rows (sent later, answered first), the
+        // clear's own answer (empty) arrives after it and wins.
+        g.http.hold(true);
+        REQUIRE(g.downloads->clear());
+        g.http.hold(false);
+        CHECK(g.runNext() == 500);
+        CHECK(g.ids() == std::vector<int>{1, 2, 3});  // not done yet
+        REQUIRE(g.http.releaseNext());
+        CHECK(g.ids().empty());
+        REQUIRE(g.changes.back().action);
+        CHECK(g.changes.back().action->action == ServerDownloads::Action::Clear);
+        CHECK(g.changes.back().action->ok);
     }
 
     TEST_CASE("server downloads: pause and resume; resume only with a QUEUED row, retry = enqueue again") {

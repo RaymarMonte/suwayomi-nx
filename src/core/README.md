@@ -64,6 +64,7 @@
   `updatesFillPages`, `maxUpdateRows`, `maxHistoryRows`, `libraryUpdatePollMs`, `libraryUpdateStartWaitMs`. Documents:
   `LibraryUpdates`, `ReadingHistory`, `UpdateLibrary`, `StopLibraryUpdate`, `LibraryUpdateStatus`. Tests:
   `test_core_updates.cpp`.
+- `ServerDownloads.hpp` (WP-17, D58): the server's download queue. `DownloadRow`, `DownloadQueue` (started, rows, rows left out past `serverQueueMax`, counts), `readDownloadQueue` (tolerant: FINISHED rows and broken ones skipped, broken ones counted; sorted by position), `chaptersThatLeft`, `queueView` (Idle / Starting / Running / Paused: an enqueue answers STOPPED, so Starting within `serverDownloadStartWaitMs` of our start), `percentText` (rounded down), `DownloadChoice` + `chaptersToDownload` (the web UI's bulk list: oldest first, not downloaded, not queued, unread only except All), `idBatches`. `AppConfig::serverDownloads.deleteAfterReading`. Profile `serverDownloadPollMs`, `serverDownloadStartWaitMs`, `serverDownloadReloadMs`, `serverQueueMax`, `serverDownloadBatchMax`, `serverDownloadCheckMs`. Documents `DownloadStatus`, `EnqueueChapterDownloads`, `DequeueChapterDownload`, `ReorderChapterDownload`, `StartDownloader`, `StopDownloader`, `ClearDownloader` (readers: `readDownloadAnswer`), `DeleteDownloadedChapters`; `FetchChapterPages` asks `isBookmarked isDownloaded`. Tests: `test_core_downloads.cpp`.
 - `LogBuffer.hpp`, `SaveScheduler.hpp` (WP-08): the log file's line format, buffering and rotation; when to save config.json (debounce). WP-08 also added test config keys (server login, `showSetup`, `diagnostics`), test events (`launch_refused`, `mem`, screen params) and profile fields (`logFileBytes`, `logFlushMs`, `configSaveDelayMs`).
 
 **Depends on:** the C++17 standard library and nlohmann/json 3.12.0 (`third_party/`, include `<nlohmann/json.hpp>`).
@@ -75,4 +76,4 @@ are our own documents' answers, `tools/record-fixtures`). Contract: `npm run con
 (`tests/fuzz/`). Coverage ≥ 80% lines (94% after WP-04).
 
 **Status:** WP-04 added models, JSON, GraphQL, config and the runtime profile. WP-10: `Chapter::lastReadAt`, `ChapterPatch`,
-the `UpdateChapters` and `FetchMangaAndChapters` documents, `RuntimeProfile::maxChapters`. WP-11: `ReaderMath`, `ProgressSync`, the reader settings in `AppConfig`, `RuntimeProfile::progressSyncMs` and `readerMangaSettingsMax`. WP-13b: `StripMath`, the `UpdateStripProgress` document. WP-15b: `ProgressQueue`.
+the `UpdateChapters` and `FetchMangaAndChapters` documents, `RuntimeProfile::maxChapters`. WP-11: `ReaderMath`, `ProgressSync`, the reader settings in `AppConfig`, `RuntimeProfile::progressSyncMs` and `readerMangaSettingsMax`. WP-13b: `StripMath`, the `UpdateStripProgress` document. WP-15b: `ProgressQueue`. WP-17: `ServerDownloads`.

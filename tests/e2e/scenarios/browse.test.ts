@@ -606,8 +606,8 @@ scenario('browse', async (s) => {
         expect(inReading).toContain(comet);
         expect(shelf.total).toBe(inReading.length);
 
-        // 9. Remove Comet Courier from its preview's menu (the footer's Menu hint, then Remove) → the confirm (golden
-        // "remove-confirm") → out of the library; the preview offers Add to library again, the grid drops the tag.
+        // 9. Remove Comet Courier from its preview's menu (the footer's Menu hint, then Remove: 5th of 6 since WP-17) → the
+        // confirm (golden "remove-confirm") → out of the library; the preview offers Add to library again, the grid drops the tag.
         await tapUntil(s, tab('Browse'), 'the Browse tab', isEv('screen', { name: 'Browse' }));
         await tapUntil(s, BROWSE.row(sourceRow(s, TEST_SOURCE_IDS.en)), 'SNX Test (EN)',
             isEv('browse', { source: TEST_SOURCE_IDS.en, mode: 'popular', state: 'ready' }));
@@ -616,7 +616,7 @@ scenario('browse', async (s) => {
         mark = s.events.mark();
         await s.driver.touch(MENU_HINT.x, MENU_HINT.y);
         await s.events.waitForEvent('idle', {}, { from: mark });
-        const ask = await tapUntil(s, MANGA.menuEntry(4, 5), 'the remove question', isEv('dialog', {}));
+        const ask = await tapUntil(s, MANGA.menuEntry(4, 6), 'the remove question', isEv('dialog', {}));
         expect(ask.text).toBe('Remove Comet Courier from your library? Reading progress stays on the server.');
         await s.expectGolden('remove-confirm', { masks: [CLOCK_MASK] });
         const removed = await tapUntil(s, REMOVE_CONFIRM.remove, 'the remove', isEv('library_remove', { ok: true }));

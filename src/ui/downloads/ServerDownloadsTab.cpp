@@ -22,6 +22,8 @@ constexpr float kCoverWidth = 60;
 constexpr float kCoverHeight = 90;
 constexpr float kStateWidth = 220;
 constexpr float kBarWidth = 200;
+// Secondary text (a row's chapter, the header's hint): the details screen's grey, lighter than the theme's "disabled" one.
+const NVGcolor kSecondaryText = nvgRGB(150, 150, 150);
 
 NVGcolor themeColor(const char* name) {
     return brls::Application::getTheme()[name];
@@ -95,7 +97,7 @@ class DownloadCell : public GridCell {
         chapter_->setMarginTop(6);
         chapter_->setSingleLine(true);
         chapter_->setAutoAnimate(false);
-        chapter_->setTextColor(themeColor("brls/text_disabled"));
+        chapter_->setTextColor(kSecondaryText);
         texts->addView(chapter_);
         addView(texts);
 
@@ -129,7 +131,7 @@ class DownloadCell : public GridCell {
         title_->setText(row.mangaTitle);
         chapter_->setText(row.chapterName);
         state_->setText(stateText(row));
-        state_->setTextColor(themeColor(row.state == core::DownloadState::Error ? "brls/text_disabled" : "brls/text"));
+        state_->setTextColor(themeColor("brls/text"));  // "Failed after 3 tries" must read as well as the rest
         const bool bar = row.state == core::DownloadState::Downloading || (row.state == core::DownloadState::Queued &&
                                                                           row.progress > 0);
         track_->setVisibility(bar ? brls::Visibility::VISIBLE : brls::Visibility::INVISIBLE);
@@ -257,7 +259,7 @@ void ServerDownloadsTab::buildHeader() {
     hintLine_->setMarginTop(6);
     hintLine_->setSingleLine(true);
     hintLine_->setAutoAnimate(false);
-    hintLine_->setTextColor(themeColor("brls/text_disabled"));
+    hintLine_->setTextColor(kSecondaryText);
     column->addView(hintLine_);
     header->addView(column);
     addView(header);
@@ -332,8 +334,8 @@ void ServerDownloadsTab::updateHeader() {
         const core::DownloadQueue& q = *queue;
         switch (view) {
             case core::QueueView::Idle:
-                line = q.failed > 0 ? brls::getStr("server_downloads/stopped_failed", q.failed)
-                                    : "server_downloads/idle"_i18n;
+                // Nothing at all: the message in the middle says it, the header stays empty.
+                line = q.failed > 0 ? brls::getStr("server_downloads/stopped_failed", q.failed) : std::string();
                 break;
             case core::QueueView::Starting:
                 line = "server_downloads/starting"_i18n;
@@ -358,8 +360,32 @@ void ServerDownloadsTab::updateHeader() {
     const char* key = view == core::QueueView::Paused ? "server_downloads/resume"
                       : onlyFailed                    ? "server_downloads/retry_failed"
                                                       : "server_downloads/pause";
-    primaryButton_->setText(brls::getStr(key));
-    updateActionHint(brls::BUTTON_X, brls::getStr(key));
+    if (primaryKey_ != key) {
+        primaryKey_ = key;
+        primaryButton_->setText(brls::getStr(key));
+        updateActionHint(brls::BUTTON_X, brls::getStr(key));
+        brls::Application::getGlobalHintsUpdateEvent()->fire();  // borealis redraws the footer only when told
+    }
+    showButtons(queue && queue->total() > 0);
+}
+
+void ServerDownloadsTab::showButtons(bool shown) {
+    // An empty queue has nothing to pause, retry or clear, and no row to open: the buttons and X / Y go away.
+    const int now = shown ? 1 : 0;
+    if (now == buttonsShown_) {
+        return;
+    }
+    buttonsShown_ = now;
+    brls::View* focus = brls::Application::getCurrentFocus();
+    const bool hadFocus = inside(focus, primaryButton_) || inside(focus, clearButton_);
+    const brls::Visibility visibility = shown ? brls::Visibility::VISIBLE : brls::Visibility::INVISIBLE;
+    primaryButton_->setVisibility(visibility);
+    clearButton_->setVisibility(visibility);
+    if (!shown && hadFocus) {
+        brls::Application::giveFocus(gridShown_ ? static_cast<brls::View*>(grid_) : static_cast<brls::View*>(status_));
+    }
+    setActionAvailable(brls::BUTTON_X, shown);  // fires the footer's update
+    setActionAvailable(brls::BUTTON_Y, shown);
 }
 
 void ServerDownloadsTab::primaryAction() {
@@ -388,6 +414,7 @@ void ServerDownloadsTab::askClear() {
     dialog->addButton("server_downloads/cancel"_i18n, [] {});
     dialog->addButton("server_downloads/clear_yes"_i18n, [this] { downloads_.clear(); });
     dialog->open();
+    app::testhooks::write("dialog", nlohmann::ordered_json{{"text", text}});
 }
 
 void ServerDownloadsTab::openRowMenu(std::size_t index) {
@@ -501,8 +528,10 @@ void ServerDownloadsTab::report(double applyMs) {
                          {"tries", row.tries}});
     }
     fields["first"] = first;
+    // polls is in the key, so every answer the tab applies writes one event (tests count the polls with it: none while the
+    // tab is closed). ms is not: the same answer applied again writes nothing.
     fields["polls"] = downloads_.polls();
-    const std::string key = fields.dump();  // without ms: a poll that changed nothing writes no event
+    const std::string key = fields.dump();
     if (key == reported_) {
         return;
     }

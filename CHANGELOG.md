@@ -6,6 +6,16 @@ with 0, any release may change things.
 ## [Unreleased]
 
 ### Added
+- **Download on server:** your server can download chapters onto its own disk (they open faster and stay readable if the
+  source goes away; nothing is stored on the Switch). On a manga's page, a chapter's menu has Download on server, Cancel
+  server download or Delete server download, and MINUS → Download on server... queues the next 1, 5, 10 or 25 unread
+  chapters, every unread one or all of them. Each chapter row shows "On server", "Server: queued", "Server: 40 %" or
+  "Server: failed", and Show → Downloaded on server lists only the downloaded ones. Not offered for Local manga.
+- **Server downloads tab:** the server's download queue with each chapter's progress. X (or the button) pauses and resumes
+  it, or retries the failed ones; A on a chapter moves it to the top or bottom, removes it, retries it or opens its manga;
+  Clear... empties the queue (downloaded chapters stay). The Settings tab is one place further down now.
+- **Delete server downloads after reading** (Settings, off by default): a chapter you finish in the reader loses its
+  download on the server once you close the reader. Bookmarked chapters keep theirs.
 - **Browse:** the Browse tab lists the sources installed on your server by language (the one you used last on top, adult
   sources with an "18+" tag). Open one to see its Popular or Latest manga, search it, or narrow it down with its filters
   (Filters: text, choices, ticks, include / exclude, sort order and groups; Apply searches, Reset puts the defaults back).

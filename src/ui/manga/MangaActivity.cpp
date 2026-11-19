@@ -739,18 +739,22 @@ void MangaActivity::openSortMenu() {
 }
 
 void MangaActivity::openFilterMenu() {
+    // "Downloaded on server" is the last choice; a Local manga doesn't get it (nothing of it goes to the server's queue).
+    const int all = static_cast<int>(sizeof(kFilters) / sizeof(kFilters[0]));
+    const int shown = isLocal() ? all - 1 : all;
     std::vector<std::string> names;
-    for (const char* key : kFilterKeys) {
-        names.push_back(brls::getStr(key));
+    for (int i = 0; i < shown; ++i) {
+        names.push_back(brls::getStr(kFilterKeys[i]));
     }
+    const int current = static_cast<int>(model_.filter());
     auto* dropdown = new brls::Dropdown(
         "manga/filter"_i18n, names,
-        [this](int selected) {
-            if (selected >= 0 && selected < 3) {
+        [this, shown](int selected) {
+            if (selected >= 0 && selected < shown) {
                 model_.setFilter(kFilters[selected]);
             }
         },
-        static_cast<int>(model_.filter()));
+        current < shown ? current : 0);
     brls::Application::pushActivity(new brls::Activity(dropdown));
 }
 

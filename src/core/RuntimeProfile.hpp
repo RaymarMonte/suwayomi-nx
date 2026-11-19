@@ -73,6 +73,7 @@ struct RuntimeProfile {
     int serverDownloadReloadMs = 3000;     // the details screen reloads its chapters at most this often while they finish
     int serverQueueMax = 1000;             // queue rows kept at most (S6); the tab says "and N more"
     int serverDownloadBatchMax = 1000;     // chapter ids per enqueue / delete request; more go in several
+    int serverDownloadCheckMs = 500;       // an action without an answer this long: one read shows whether it went through
 
     // Library tools (WP-24, D54).
     int searchMaxChars = 64;        // characters a library search keeps (the keyboard stops there too)

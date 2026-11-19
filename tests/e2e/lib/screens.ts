@@ -158,6 +158,18 @@ export const LANGUAGES = {
     },
 };
 
+/**
+ * WP-17: the Server downloads tab: the header's first button (Pause / Resume / Retry failed) and Clear..., then one column
+ * of 800 x 96 px rows, 8 px apart (golden server-downloads/server-queue). A tap on a row opens its menu (MANGA.menuEntry).
+ */
+export const SERVER_DOWNLOADS = {
+    primary: { x: 523, y: 135 },
+    clear: { x: 700, y: 135 },
+    row(index: number): { x: number; y: number } {
+        return { x: 760, y: 244 + 104 * index };
+    },
+};
+
 /** A borealis dialog with two buttons (WP-24's delete question): Cancel on the left, the action on the right. */
 export const DIALOG = {
     cancel: { x: 460, y: 456 },

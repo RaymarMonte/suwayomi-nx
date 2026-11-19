@@ -1273,3 +1273,21 @@ and D55's test source; amends D57's "WP-17 stays S".
 - **Model: Opus** (owner, 2026-11-19): the WP grew from S to M and WP-18 copies its tab and polling.
 Rejected: one "Downloads" tab for both kinds (the owner chose two), a screen without a tab, a menu entry that deletes every
 read chapter's download, Sorayomi's step-by-step reordering, Mihon's "Bookmarked" bulk choice, the web UI's "Download ahead".
+- **As built (2026-11-19):** everything above, with the WP doc's defaults (words, limits, the View rule) except: the
+  header says "Downloading · 14 in the queue" (the plan's "Downloading 2 of 14" needs a count of done chapters the server
+  doesn't keep). The model is `ui/downloads/ServerDownloads` (`removeFromQueue`, not `remove`: the write gate reads `remove(`
+  as a file delete); scheduled polls go at Prefetch priority, a watcher's first read and Refresh at Interactive, delete after
+  reading at Background. The tab stops watching while another screen covers the main one (`MainActivity::onPause`), a
+  details screen while its reader is open. Its `server_downloads` event carries the poll count, so a test can tell that
+  nothing polled while the tab was closed. **Known gap:** a queue someone queued elsewhere (the web UI) that the app first
+  reads in the second before the server starts it shows Paused and isn't polled until the next look (opening the tab again,
+  Refresh); the server starts it anyway. `app-download-status.json` (an empty queue) is hand-written like the recorded ones.
+  Found in the e2e run: the server sometimes answers a reorder only after 30 s ("Timed out") although it applied it at
+  once. So an action whose result the queue shows (remove, top, bottom, pause, resume, clear) gets one read after
+  `serverDownloadCheckMs` (500 ms) without an answer and one after a failed answer; done there = ok, and the late answer
+  stays quiet. Enqueue, retry and delete don't need it. An action's own answer counts as the newest queue when it
+  arrives (a read sent meanwhile can catch the server halfway). A clear or stop while a chapter sits in a source call
+  waits for that call on the server (its answer up to the call's length; a stop reads STOPPED at once, a clear empties
+  only with its answer), so the 1 s holds from the server's answer; the e2e clears a stopped queue. With an empty queue
+  the header shows only the "Nothing in the server's queue" message: no Pause / Clear buttons, X / Y hints greyed, an
+  empty status line. Show → Downloaded on server isn't offered for a Local manga.

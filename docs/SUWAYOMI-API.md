@@ -97,8 +97,8 @@ The owner's own server runs the same version (v2.4.2366 Stable, checked 2026-10-
   with `patch: {addToCategories, removeFromCategories, clearCategories}`.
 - Extensions: `extensions`, `extension(pkgName)`, `fetchExtensions`, `updateExtension(input:{id: <pkgName>, patch:{install|update|uninstall}})`,
   `updateExtensions`.
-- Downloads: `enqueueChapterDownloads(input:{ids})`, `dequeueChapterDownloads(input:{ids})`, `downloadStatus { state queue }`, plus
-  `startDownloader`, `stopDownloader`, `deleteDownloadedChapters`. The WebUI uses subscriptions over WebSocket, so we'll poll instead.
+- Downloads (details: "Server downloads" below): `enqueueChapterDownloads(input:{ids})`, `dequeueChapterDownloads(input:{ids})`, `downloadStatus { state queue }`, plus
+  `startDownloader`, `stopDownloader`, `deleteDownloadedChapters`. The WebUI uses subscriptions over WebSocket; the app polls (D58).
 - Library update: `updateLibrary(input:{categories?})`, status `libraryUpdateStatus` (`updateStatus` is deprecated), `updateStop`.
   Details below.
 
@@ -226,6 +226,46 @@ Checked with our own test extension (`tools/test-source/`, live check `tools/tes
   `updateCategory(… {default: …})` sets it (`SetCategoryDefault.graphql`; the Categories screen's row menu, WP-14b).
 - **Same title** (`LibraryDuplicates.graphql`): `mangas(condition: {inLibrary: true}, filter: {title: {likeInsensitive: $t}})`
   with `likeEscape` (`_` and `%` are wildcards otherwise); there is no `equalToInsensitive`; a leading space matters.
+
+## Server downloads ✅ (test server v2.4.2366, 2026-11-19, for WP-17, D58)
+Downloads onto the server's own disk (the Switch stores nothing: that is WP-18). Probed with SNX Test chapters slowed by the
+switch file's `delayMs`, polling every 250 ms. Our documents: `DownloadStatus`, `EnqueueChapterDownloads`,
+`DequeueChapterDownload`, `ReorderChapterDownload`, `StartDownloader`, `StopDownloader`, `ClearDownloader` (each answers
+`downloadStatus` with the same fields) and `DeleteDownloadedChapters`.
+- **`downloadStatus { state queue { position progress state tries chapter { … } manga { … } } }`**: `state` STARTED /
+  STOPPED (at rest: STOPPED, `[]`); a row's `state` QUEUED / DOWNLOADING / ERROR (FINISHED was never seen; the app skips
+  it); `progress` = pages done / pages (0 while the page list loads); `position` 0..n-1, renumbered. 147 rows: 39 KB, ~10 ms.
+- **Enqueue** (`enqueueChapterDownloads(input: {ids})`) answers the new rows QUEUED **with the state still STOPPED**; the
+  downloader starts by itself ~1 s later, **also after the user stopped it** (any enqueue resumes the whole queue). A queued
+  chapter isn't added twice; a downloaded one is queued and leaves at once. **A Local chapter is queued and silently
+  dropped** (`isDownloaded` stays false; its files are on the server's disk anyway): the app offers nothing for Local. An
+  unknown id waits 30 s and fails.
+- **A finished chapter leaves the queue at once**; an empty queue goes STOPPED by itself. "Downloaded" comes only from the
+  chapter's `isDownloaded`, never from the queue.
+- **Stop** (`stopDownloader`): STOPPED at once; the downloading row goes back to QUEUED **with its progress kept**, and a
+  start goes on with the pages left. **Start** (`startDownloader`) with QUEUED rows answers after ~1.2 s (once STARTED);
+  **with nothing QUEUED (empty, or only ERROR rows) it waits 30 s and fails**, so the app resumes only with a QUEUED row.
+- **Errors:** a chapter whose pages fail gets 3 tries within ~1 s, then stays as ERROR (`tries` 3). The downloader goes on
+  with the next chapter and stops when only ERROR rows are left. **Retry = enqueue it again** (QUEUED, `tries` stays 3).
+- **Remove** (`dequeueChapterDownload(input: {id})`, also a plural `dequeueChapterDownloads(input: {ids})`) of a QUEUED or
+  the DOWNLOADING row: at once; a half-done chapter isn't downloaded afterwards. **Of a chapter that isn't queued (it just
+  finished, say): waits 30 s and fails**, so the app removes only rows in the last queue it saw.
+- **Reorder** (`reorderChapterDownload(input: {chapterId, to})`): `to` is the 0-based place in the whole queue, the
+  downloading row included (it goes on downloading wherever it lands). Top = 0, bottom = rows − 1. Works while STOPPED too.
+  **Sometimes it answers only after 30 s with "Timed out waiting for 30000 ms", although the new order was there at once**
+  (seen in the e2e run: the server waits for the change's news and can miss it). So for remove, top, bottom, pause, resume
+  and clear the app reads the queue once after `serverDownloadCheckMs` (500 ms) without an answer, and once more after a
+  failed answer: when the queue shows the action done, that counts as ok and the late answer stays quiet.
+- **Clear** (`clearDownloader(input: {})`): empties the queue (ERROR rows too), STOPPED. **While a chapter sits in a
+  source call, clear and stop wait for that call to end** before they answer (probed with `delayMs` 8000: ~7.6 s each).
+  A stop reads STOPPED at once (rows kept); a clear's rows stay until its answer, so a read before it shows the server
+  halfway (STOPPED, rows still there): the app counts an action's answer as newer than any read sent meanwhile.
+- **Delete** (`deleteDownloadedChapters(input: {ids})`) → `chapters { id isDownloaded }`. Harmless for a chapter that isn't
+  downloaded, a Local one (its files stay) and an unknown id (answers `[]`). A queued chapter stays queued. Files:
+  `downloads/mangas/<source display name>/<title>/<scanlator_>Chapter N/001.jpg …` + `ComicInfo.xml`.
+- There is **no server setting for deleting after reading**: it is the client's job (our Settings switch). The server's own
+  download settings (`downloadAsCbz`, `autoDownloadNewChapters`, …) stay the web UI's business. The multi-user
+  `DOWNLOAD_CHAPTERS` permission (preview servers) answers D38's `Permission` kind; only a unit test covers it.
 
 ## Useful for tests ✅
 - The test server: `tools/test-server/` (README there, D29). Fixture manga: docs/TESTING.md.

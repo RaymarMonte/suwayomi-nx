@@ -152,36 +152,36 @@ listeners, back-off) and `ChapterRowsTab.hpp` / `.cpp` (the row tab to copy); `s
 `tests/e2e/lib/test-source.ts`, `screens.ts`; TESTING.md "Test source" and scenario 17 (`updates-history`, the polling test).
 
 ## Deliverables
-- [ ] core: `core/ServerDownloads.hpp`: `DownloadRow` (chapter id, name, sourceOrder; manga id, title, thumbnail; state
+- [x] core: `core/ServerDownloads.hpp`: `DownloadRow` (chapter id, name, sourceOrder; manga id, title, thumbnail; state
       Queued / Downloading / Error; progress 0..1; tries; position), `DownloadQueue` (started, rows, rows left out),
       `readDownloadQueue` (tolerant: a broken row is skipped and counted, at most `serverQueueMax`), `queueView` (the View
       rule above), `percentText` (rounded down: 99.9 % is "99 %"), `DownloadChoice` + `chaptersToDownload`. Profile:
       `serverDownloadPollMs` 1000, `serverDownloadStartWaitMs` 5000, `serverDownloadReloadMs` 3000, `serverQueueMax` 1000,
       `serverDownloadBatchMax` 1000. `AppConfig::serverDownloads.deleteAfterReading`. Tests `test_core_downloads.cpp`.
-- [ ] core GraphQL: documents `DownloadStatus`, `EnqueueChapterDownloads`, `DequeueChapterDownload`,
+- [x] core GraphQL: documents `DownloadStatus`, `EnqueueChapterDownloads`, `DequeueChapterDownload`,
       `ReorderChapterDownload`, `StartDownloader`, `StopDownloader`, `ClearDownloader` (each answers the same queue
       fields), `DeleteDownloadedChapters`; `FetchChapterPages` gains `isDownloaded isBookmarked`. Builders and readers in
       `Operations`; the contract test green; a recorded `app-download-status.json` (empty queue) plus hand-built answers
       (rows, ERROR, a 30 s timeout error text) in the tests.
-- [ ] api: `downloadStatus()`, `enqueueDownloads(ids)`, `dequeueDownload(chapterId)`, `reorderDownload(chapterId, to)`,
+- [x] api: `downloadStatus()`, `enqueueDownloads(ids)`, `dequeueDownload(chapterId)`, `reorderDownload(chapterId, to)`,
       `startDownloads()`, `stopDownloads()`, `clearDownloads()`, `deleteServerDownloads(ids)` (answers the chapters' id +
       `isDownloaded`). Mutations never repeated. Tests in `test_api_client.cpp` (also a Permission answer).
-- [ ] ui model: `ServerDownloads` in `AppContext`; tests `test_ui_downloads.cpp` (FakeHttpClient, a played clock): polls
+- [x] ui model: `ServerDownloads` in `AppContext`; tests `test_ui_downloads.cpp` (FakeHttpClient, a played clock): polls
       only while watched and busy, one read per new watcher, the STOPPED answer after an enqueue shows Starting, an older
       answer never replaces a newer one, remove only what is listed (and a failed remove of a gone chapter stays quiet),
       resume only with a QUEUED row, retry = enqueue, back-off, "left" / "deleted" reported, `reset()`, destroyed while a
       request is out.
-- [ ] ui views: `ServerDownloadsTab` (+ `resources/xml/`, `resources/i18n/en-US/server_downloads.json`), MainActivity's
+- [x] ui views: `ServerDownloadsTab` (+ `resources/xml/`, `resources/i18n/en-US/server_downloads.json`), MainActivity's
       new tab and `reset()` on server change, MangaActivity / MangaModel (menu entry, MINUS submenu, Show filter, row tag,
       `applyDownloaded`, reload on "left"), SettingsTab (the switch), ReaderActivity (delete after reading). Touch ≥ 72 px.
-- [ ] Test events: `server_downloads` (view, rows, failed, left out, pollFailed, `polls` so far, the first 10 rows: chapter,
+- [x] Test events: `server_downloads` (view, rows, failed, left out, pollFailed, `polls` so far, the first 10 rows: chapter,
       manga, state, percent, tries; `ms` to apply the last status; written when what the tab shows changes),
       `server_download_action` (action enqueue / remove / top / bottom / pause / resume / retry / retry_failed / clear /
       delete / delete_after_reading, chapters, ok, error, `ms` from the tap); `manga` gains `server` (downloaded, queued,
       downloading, failed counts) and `filter` `downloaded_on_server`.
-- [ ] Integration (`tests/integration/`, all 3 auth modes, SNX Test chapters with `delayMs`): enqueue → status lists them →
+- [x] Integration (`tests/integration/`, all 3 auth modes, SNX Test chapters with `delayMs`): enqueue → status lists them →
       reorder → remove → stop → start → clear; enqueue → finished → `isDownloaded` → delete; cleans up after itself.
-- [ ] e2e `server-downloads` (desktop + Switch), helpers in `tests/e2e/lib/server-downloads.ts`; known state first and
+- [ ] e2e `server-downloads` (desktop ✅ 2026-11-19; Switch open), helpers in `tests/e2e/lib/server-downloads.ts`; known state first and
       last (clear the queue, delete the test manga's server downloads, the switch file cleared, the test manga out of the
       library): Paper Garden (SNX Test EN, added to the library by GraphQL) with `delayMs` 1500 → Chapter 1's menu →
       Download on server → its tag "Server: queued", then a %; MINUS → Next 5 → "5 chapters queued" (2–6); the tab: the
@@ -194,7 +194,7 @@ listeners, back-off) and `ChapterRowsTab.hpp` / `.cpp` (the row tab to copy); `s
       read a downloaded chapter to its last page → close → the server's `isDownloaded` false, a bookmarked one keeps its
       download → switch off; while the Library tab shows, no poll (`polls` unchanged over 5 s). Switch only: 100 rows
       queued by GraphQL (`delayMs` 10000) → the tab, 10 rounds tab ↔ Library (memory), then Clear.
-- [ ] Docs: SUWAYOMI-API.md "Server downloads" (the facts above), ui / core / api READMEs, TESTING.md (scenario, events),
+- [x] Docs: SUWAYOMI-API.md "Server downloads" (the facts above), ui / core / api READMEs, TESTING.md (scenario, events),
       `screens.ts` comment, CHANGELOG.md, D58 "as built", ROADMAP (row done), STATUS.
 
 ## Acceptance

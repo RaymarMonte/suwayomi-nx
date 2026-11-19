@@ -1,24 +1,24 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-17 under way, paused** (download on server, D58, `docs/wp/WP-17-download-on-server.md`).
-**Next: resume WP-17** (Opus, M) from "Paused" below. Order (D57): WP-17 → 18 → 18b → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28.
+**Phase 3 – Features. Now:** **WP-17 desktop done, Switch runs open** (download on server, D58, `docs/wp/WP-17-download-on-server.md`).
+**Next: the WP-17 Switch runs** (below), then WP-18 (Opus, L). Order (D57): WP-17 → 18 → 18b → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28.
 Done: WP-00a … 13, 13b, 13c, 13d, **14, 14b, 15, 15b, 23, 24**, 22; **v0.2.0** (13…24 unreleased). WP-13d: the console's
 longest strip frame is 31–32 ms (limit 34).
-## Paused (2026-11-19, WP-17, Opus) – usage limit reached (the owner had said to ignore the 92 % pause this turn)
-- **Done, green** (unit + contract 56/56, desktop 0 warnings, integration none/basic/ui_login): everything in the app
-  (core, 8 documents, client, `ui/downloads/ServerDownloads` model, the Server downloads tab = tab 4, Settings = 5, details
-  screen entries / MINUS list / filter / tags, Settings switch, reader "delete after reading" on close, events), unit tests,
-  the integration case (Paper Garden, `delayMs` 1500), e2e `TABS`. The test server is stopped (integration stops it).
-- **Next step:** write `tests/e2e/lib/server-downloads.ts` + `tests/e2e/scenarios/server-downloads.test.ts` (WP doc's e2e
-  item). Facts gathered: Paper Garden = en-14, 8 chapters, 3 pages each (shared set), type Manhwa (check the reader mode);
-  reach it by Browse → SNX Test (EN) → Latest → cover 0 (browse.test.ts helpers); details MINUS menu has 5 entries when
-  not in the library (Download on server = index 4), the chapter menu 4 actions + the server entry (index 4 of 5); the
-  desktop can press A, B, X, D-pad (X = the tab's Pause/Resume/Retry failed), not MINUS/Y: reach the tab's Clear button and
-  the clear dialog (Cancel first) with the D-pad; row menu = Move to top, Move to bottom, Remove, [Retry], Open the manga.
-  Fix: the tab's report() comment says a no-change poll writes no event, but `polls` is in the key (every read writes one).
-- Then: `test-server.sh reset` + `start`, `tools/e2e.sh desktop server-downloads --update-goldens` (look at the goldens),
-  the whole desktop suite, `npm test` + `npm run typecheck`, `tools/build.sh switch` (gate), docs (SUWAYOMI-API, READMEs,
-  TESTING, CHANGELOG, D58 as built incl. "Downloading · 14 in the queue" and the known gap: a queue started elsewhere and
-  still STOPPED shows Paused, not polled), ROADMAP, WP checklist, STATUS; commit; then the Switch runs (ask the owner).
+## Last session (2026-11-19, WP-17, Opus)
+- **Built:** the Server downloads tab (tab 4, Settings = 5), the details screen's entries / MINUS list / filter / tags, Settings
+  "Delete server downloads after reading", model `ui/downloads/ServerDownloads`, events, unit / integration / e2e tests, docs.
+- **Found in the e2e (D58 as built, SUWAYOMI-API):** the server can hold a reorder's answer 30 s ("Timed out") though it
+  applied it at once → remove / top / bottom / pause / resume / clear read the queue after `serverDownloadCheckMs` (500 ms)
+  without an answer and after a failed one. An action's answer now counts as newer than reads sent meanwhile. A clear or
+  stop during a source call waits for it on the server, so the e2e stops the queue by GraphQL before its Clear.
+- **Green:** unit + contract 56/56, integration (3 modes), `npm test`, typecheck, Switch build + gate PASS (0 warnings), desktop
+  e2e 26 of 27 + 1 skipped; `reader-spread-split` failed once in the full run (30 s in the reader's settings menu), green
+  twice alone: a flake, not WP-17. `server-downloads`: 12 actions, the slowest 504 ms; polls +1 over 5 s on Library.
+- **Open (needs the console, Spelunky 2 first on HOME):** `tools/e2e.sh switch server-downloads` (~5–10 min, it has the
+  Switch-only 100-row part), then `smoke`, `manga-details`, `touch-pass`, `browse`, `updates-history`, `reader-paged`,
+  `resume-progress` (the Settings tab moved down one row). Look at the Switch goldens it writes (`--update-goldens` first
+  time). Then tick the e2e item in the WP doc, the ROADMAP row → done, and chain WP-18.
+- Desktop X = the middle mouse button (the next key focuses what's under the pointer): the desktop scenario taps, the
+  Switch presses X. Details row taps need a fresh screen (a sort / filter change scrolls to the focused row).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

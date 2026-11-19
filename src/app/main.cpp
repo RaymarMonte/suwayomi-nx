@@ -102,6 +102,7 @@ snx::ui::ServerDownloads::Limits serverDownloadLimits(const snx::core::RuntimePr
     limits.retryMs = profile.progressSyncMs;
     limits.retryMaxMs = profile.progressRetryMaxMs;
     limits.batchMax = profile.serverDownloadBatchMax;
+    limits.checkMs = profile.serverDownloadCheckMs;
     return limits;
 }
 

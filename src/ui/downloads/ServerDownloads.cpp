@@ -195,34 +195,83 @@ void ServerDownloads::apply(std::uint64_t seq, const core::DownloadQueue& queue,
 }
 
 bool ServerDownloads::runQueueAction(Action action, int chapters, std::function<api::ApiFuture<core::DownloadQueue>()> call,
-                                     std::function<void(const QueueResult&, Change&)> after) {
+                                     DoneCheck done, std::function<void(bool ok)> finished) {
     const std::int64_t tapped = clock_();
+    const net::CancelToken token = cancel_;
+    auto pending = std::make_shared<PendingAction>();
+    const Report report = [this, action, chapters, tapped, finished](Change& change, std::optional<api::ApiError> error) {
+        ActionDone result;
+        result.action = action;
+        result.chapters = chapters;
+        result.ok = !error.has_value();
+        result.error = error;
+        result.ms = clock_() - tapped;
+        if (error) {
+            pendingError_ = error;
+        }
+        change.action = result;
+        if (finished) {
+            finished(result.ok);
+        }
+    };
+    call().then([this, token, pending, done, report](const QueueResult& r) {
+        if (token.cancelled()) {
+            return;
+        }
+        pending->answered = true;
+        Change change;
+        if (r.ok()) {
+            apply(nextSeq(), r.value(), change);  // numbered on arrival: the queue after the action wins over reads sent meanwhile
+        }
+        if (!pending->reported) {
+            if (!r.ok() && done) {
+                confirmAction(pending, done, report, r.error());  // it may have gone through anyway
+                return;
+            }
+            pending->reported = true;
+            report(change, r.ok() ? std::nullopt : std::optional<api::ApiError>(r.error()));
+        }
+        notify(change);
+        updatePolling();
+    });
+    if (done) {
+        const std::weak_ptr<bool> alive = alive_;
+        schedule_(limits_.checkMs, [this, alive, token, pending, done, report] {
+            if (alive.expired() || token.cancelled() || pending->answered || pending->reported) {
+                return;
+            }
+            confirmAction(pending, done, report, std::nullopt);
+        });
+    }
+    return true;
+}
+
+void ServerDownloads::confirmAction(const std::shared_ptr<PendingAction>& pending, const DoneCheck& done,
+                                    const Report& report, std::optional<api::ApiError> error) {
+    polls_ += 1;
     const std::uint64_t seq = nextSeq();
     const net::CancelToken token = cancel_;
-    call().then([this, token, seq, action, chapters, tapped, after](const QueueResult& r) {
+    client_.downloadStatus(token).then([this, token, seq, pending, done, report, error](const QueueResult& r) {
         if (token.cancelled()) {
             return;
         }
         Change change;
-        ActionDone done;
-        done.action = action;
-        done.chapters = chapters;
-        done.ok = r.ok();
         if (r.ok()) {
             apply(seq, r.value(), change);
-        } else {
-            done.error = r.error();
-            pendingError_ = r.error();
         }
-        if (after) {
-            after(r, change);
+        if (!pending->reported) {
+            if (r.ok() && done()) {
+                pending->reported = true;
+                report(change, std::nullopt);
+            } else if (error) {
+                pending->reported = true;
+                report(change, error);
+            }
+            // An early check that doesn't show it yet: the action's own answer decides.
         }
-        done.ms = clock_() - tapped;
-        change.action = done;
         notify(change);
         updatePolling();
     });
-    return true;
 }
 
 bool ServerDownloads::enqueue(const std::vector<int>& ids) {
@@ -275,61 +324,24 @@ bool ServerDownloads::removeFromQueue(int chapterId) {
         return false;  // the server would wait 30 s and fail for a chapter that isn't queued
     }
     expectedGone_.insert(chapterId);
-    const std::int64_t tapped = clock_();
-    const std::uint64_t seq = nextSeq();
-    const net::CancelToken token = cancel_;
-    client_.dequeueDownload(chapterId, token).then([this, token, seq, chapterId, tapped](const QueueResult& r) {
-        if (token.cancelled()) {
-            return;
-        }
-        Change change;
-        ActionDone done;
-        done.action = Action::Remove;
-        done.chapters = 1;
-        if (r.ok()) {
-            apply(seq, r.value(), change);
-            done.ms = clock_() - tapped;
-            change.action = done;
-            notify(change);
-            updatePolling();
-            return;
-        }
-        // It may have finished meanwhile (the server then fails after 30 s): read once, and say nothing if it is gone.
-        const api::ApiError error = r.error();
-        polls_ += 1;
-        const std::uint64_t checkSeq = nextSeq();
-        client_.downloadStatus(token).then([this, token, checkSeq, chapterId, tapped, error](const QueueResult& check) {
-            if (token.cancelled()) {
-                return;
-            }
-            Change change;
-            ActionDone done;
-            done.action = Action::Remove;
-            done.chapters = 1;
-            if (check.ok()) {
-                apply(checkSeq, check.value(), change);
-            }
-            if (!check.ok() || row(chapterId)) {
+    // It may finish meanwhile (the server then fails after 30 s): gone from the queue counts as done, quietly.
+    return runQueueAction(
+        Action::Remove, 1, [this, chapterId, token = cancel_] { return client_.dequeueDownload(chapterId, token); },
+        [this, chapterId] { return queue_ && !row(chapterId); },
+        [this, chapterId](bool ok) {
+            if (!ok) {
                 expectedGone_.erase(chapterId);
-                done.ok = false;
-                done.error = error;
-                pendingError_ = error;
             }
-            done.ms = clock_() - tapped;
-            change.action = done;
-            notify(change);
-            updatePolling();
         });
-    });
-    return true;
 }
 
 bool ServerDownloads::moveToTop(int chapterId) {
     if (!row(chapterId)) {
         return false;
     }
-    return runQueueAction(Action::Top, 1,
-                          [this, chapterId, token = cancel_] { return client_.reorderDownload(chapterId, 0, token); });
+    return runQueueAction(
+        Action::Top, 1, [this, chapterId, token = cancel_] { return client_.reorderDownload(chapterId, 0, token); },
+        [this, chapterId] { return queue_ && !queue_->rows.empty() && queue_->rows.front().chapterId == chapterId; });
 }
 
 bool ServerDownloads::moveToBottom(int chapterId) {
@@ -337,9 +349,12 @@ bool ServerDownloads::moveToBottom(int chapterId) {
         return false;
     }
     const int last = std::max(0, queue_->total() - 1);
-    return runQueueAction(Action::Bottom, 1, [this, chapterId, last, token = cancel_] {
-        return client_.reorderDownload(chapterId, last, token);
-    });
+    return runQueueAction(
+        Action::Bottom, 1,
+        [this, chapterId, last, token = cancel_] { return client_.reorderDownload(chapterId, last, token); },
+        [this, chapterId] {
+            return queue_ && queue_->leftOut == 0 && !queue_->rows.empty() && queue_->rows.back().chapterId == chapterId;
+        });
 }
 
 bool ServerDownloads::pause() {
@@ -347,7 +362,9 @@ bool ServerDownloads::pause() {
         return false;
     }
     startAskedAt_ = 0;
-    return runQueueAction(Action::Pause, queue_->total(), [this, token = cancel_] { return client_.stopDownloads(token); });
+    return runQueueAction(
+        Action::Pause, queue_->total(), [this, token = cancel_] { return client_.stopDownloads(token); },
+        [this] { return queue_ && !queue_->started; });
 }
 
 bool ServerDownloads::resume() {
@@ -356,7 +373,9 @@ bool ServerDownloads::resume() {
         return false;
     }
     startAskedAt_ = clock_();
-    runQueueAction(Action::Resume, queue_->total(), [this, token = cancel_] { return client_.startDownloads(token); });
+    runQueueAction(
+        Action::Resume, queue_->total(), [this, token = cancel_] { return client_.startDownloads(token); },
+        [this] { return queue_ && queue_->started; });
     Change change;
     change.queue = true;  // shows "Starting..." at once (the answer takes about a second)
     notify(change);
@@ -367,11 +386,22 @@ bool ServerDownloads::clear() {
     if (!queue_ || queue_->total() == 0) {
         return false;
     }
+    std::vector<int> ids;
     for (const core::DownloadRow& r : queue_->rows) {
         expectedGone_.insert(r.chapterId);
+        ids.push_back(r.chapterId);
     }
     startAskedAt_ = 0;
-    return runQueueAction(Action::Clear, queue_->total(), [this, token = cancel_] { return client_.clearDownloads(token); });
+    return runQueueAction(
+        Action::Clear, queue_->total(), [this, token = cancel_] { return client_.clearDownloads(token); },
+        [this] { return queue_ && queue_->total() == 0; },
+        [this, ids](bool ok) {
+            if (!ok) {
+                for (int id : ids) {
+                    expectedGone_.erase(id);
+                }
+            }
+        });
 }
 
 bool ServerDownloads::deleteDownloads(const std::vector<int>& ids, Action action, net::Priority priority) {

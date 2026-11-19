@@ -45,6 +45,7 @@ class ServerDownloadsTab : public brls::Box, private GridSource {
     void queueChanged(const ServerDownloads::Change& change);
     void showGrid(bool visible);
     void updateHeader();
+    void showButtons(bool shown);
     void primaryAction();  // X / the first button: Pause, Resume or Retry failed
     void askClear();
     void openRowMenu(std::size_t index);
@@ -61,6 +62,8 @@ class ServerDownloadsTab : public brls::Box, private GridSource {
     brls::Label* statusLine_ = nullptr;
     brls::Label* hintLine_ = nullptr;
     brls::Button* primaryButton_ = nullptr;
+    std::string primaryKey_;  // the first button's text key now (the footer's X hint follows it)
+    int buttonsShown_ = -1;   // 1: the header's buttons and X / Y show (the queue has rows); 0: hidden; -1: not set yet
     brls::Button* clearButton_ = nullptr;
     StatusView* status_ = nullptr;
     CoverGrid* grid_ = nullptr;
