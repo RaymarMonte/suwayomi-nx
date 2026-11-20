@@ -379,6 +379,10 @@ bool SafeFs::CrashFile::write(const char* data, std::size_t size) noexcept {
     return fd_ >= 0;
 }
 
+bool SafeFs::CrashFile::sync() noexcept {
+    return fd_ >= 0 && ::fsync(fd_) == 0;
+}
+
 bool SafeFs::CrashFile::finish() noexcept {
     if (fd_ < 0) {
         return false;

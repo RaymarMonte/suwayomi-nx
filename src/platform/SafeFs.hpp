@@ -104,6 +104,7 @@ class SafeFs {
 
         bool isOpen() const noexcept { return fd_ >= 0; }
         bool write(const char* data, std::size_t size) noexcept;
+        bool sync() noexcept;     // fsync, the file stays open (the applet ending note, WP-21: the process may end any moment)
         bool finish() noexcept;   // fsync, close, rename to the final name
         void discard() noexcept;  // close and delete the (empty) .tmp: the run ended without a crash
         const char* finalPath() const noexcept { return finalPath_; }

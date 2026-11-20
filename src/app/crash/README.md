@@ -38,6 +38,19 @@ object files, or libnx's defaults win silently. `tools/safety/check-elf.sh` chec
 console goes to the HOME menu, which says "The software was closed because an error occurred." (the system's note for a
 process that ends without telling the applet manager). No crash reporter, nothing written, no fatal (seen on the console, WP-03c).
 
+**Applet mode (from the Album, WP-21, D62):** there the same `svcExitProcess()` is a system fatal (D41: the HOME menu stops
+when the Album's process ends without telling it). So `install(fs, mode)` hands the mode to the platform
+(`platform::setExitMode`), and in applet mode `exitProcessNow()` first does what hbmenu's quit does at its very end (libnx 4.12
+`_appletExitProcess`): it sends `ILibraryAppletSelfAccessor` command 10 (`ExitProcessAndReturn`) on libnx's own session (one IPC
+message, no allocation, no lock) and waits at most `crashExitWaitMs` (5 s; `install()` starts with 5 s, `main()` hands over the
+profile's value with `setExitWaitMs()`) for the system to end the process. Only if the message fails or the wait runs out does it
+call `svcExitProcess()`. A crash inside that ending ends at once. Application mode and the desktop are unchanged (D35).
+In applet mode `install()` also opens `logs/crash-ending.tmp`, and the ending writes each step there, synced at once (`<uptime>
+ms: <step>: 0x<value> (<value>)`: "sending ... applet type", the call's result, "still running after the wait"), because the
+process may end any moment. The next start reads it into `LastRun::ending` (logged as "the last crash's ending") and empties it
+(applet mode) or deletes it (application mode). The desktop writes one line there in `--simulate-applet-mode` ("no system to
+tell"), so the note is tested on the PC. **Status:** built; P1 (the console proof, the owner watching) is next.
+
 Why not `exit()` on the Switch (D35, found on the console in WP-03c): `exit()` hands the CPU back to hbloader, which starts
 hbmenu in the same process and with the same heap. Whatever a crash leaves behind is then hbmenu's problem: after a main-thread
 crash borealis's graphics were still set up (a crash skips their shutdown), after a worker crash the parked thread's stack was

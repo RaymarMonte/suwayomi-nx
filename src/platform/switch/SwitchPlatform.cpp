@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <switch.h>
 
+#include <atomic>
+
 #include "platform/Platform.hpp"
 
 // The heap libnx set up before main(): everything between these two is ours to allocate from (D12 amendment, WP-00).
@@ -143,10 +145,71 @@ bool showLaunchRefused(const char* text, int timeoutMs, void (*onShown)()) {
     return true;
 }
 
+namespace {
+
+// setExitMode()'s values. Atomics so any thread may end the process; all of them are lock-free plain words.
+std::atomic<bool> gAppletEnding{false};
+std::atomic<int> gExitWaitMs{5000};
+std::atomic<ExitNote> gExitNote{nullptr};
+// The thread that started the applet-mode ending (INVALID_HANDLE = none yet).
+std::atomic<Handle> gEndingThread{INVALID_HANDLE};
+
+void writeNote(const char* step, std::uint32_t value) noexcept {
+    if (const ExitNote fn = gExitNote.load(); fn != nullptr) {
+        fn(step, value);
+    }
+}
+
+void sleepMs(int ms) noexcept {
+    svcSleepThread(static_cast<s64>(ms > 0 ? ms : 0) * 1000000LL);
+}
+
+// D62: what hbmenu's quit does at its very end (libnx 4.12 _appletExitProcess: ILibraryAppletSelfAccessor command 10, then
+// sleep until the system ends the process). The applet manager then sees a library applet that ended normally, and the HOME
+// menu carries on. Without it the HOME menu stops the system (0x290, D41). Returns only if the process should end now itself.
+void tellSystemAndWait() noexcept {
+    const Handle self = threadGetCurHandle();
+    Handle first = INVALID_HANDLE;
+    if (!gEndingThread.compare_exchange_strong(first, self)) {
+        if (first == self) {
+            return;  // a crash inside this ending (a second crash on the same thread): end at once
+        }
+        sleepMs(gExitWaitMs.load());  // another thread already told the system: wait for the end like it does
+        return;
+    }
+    Service* session = appletGetServiceSession_LibraryAppletSelfAccessor();
+    if (session == nullptr || !serviceIsActive(session)) {
+        writeNote("no ILibraryAppletSelfAccessor session (applet type)", static_cast<std::uint32_t>(appletGetAppletType()));
+        return;
+    }
+    // Noted first: if the system ends the process before the call even returns, this line still shows the ending ran.
+    writeNote("sending ExitProcessAndReturn (command 10), applet type", static_cast<std::uint32_t>(appletGetAppletType()));
+    // libnx's session, used as libnx uses it: one IPC message on this thread's own buffer, no allocation, no lock.
+    const Result rc = serviceDispatch(session, 10);
+    writeNote("ExitProcessAndReturn (command 10) result", rc);
+    if (R_FAILED(rc)) {
+        return;
+    }
+    const int waitMs = gExitWaitMs.load();
+    sleepMs(waitMs);
+    writeNote("still running after the wait (ms); svcExitProcess", static_cast<std::uint32_t>(waitMs));
+}
+
+}  // namespace
+
+void setExitMode(core::LaunchMode mode, int waitMs, ExitNote note) {
+    gAppletEnding.store(mode == core::LaunchMode::Applet);
+    gExitWaitMs.store(waitMs > 0 ? waitMs : 0);
+    gExitNote.store(note);
+}
+
 void exitProcessNow(int) {
-    // Horizon has no exit code here. The process (hbloader with our .nro in it) simply ends, and the console goes back to the
-    // HOME menu, which says "The software was closed because an error occurred." (seen on the console in WP-03c). Atmosphère's
-    // crash reporter is never involved and nothing is written (SAFETY.md).
+    if (gAppletEnding.load()) {
+        tellSystemAndWait();  // normally the system ends the process in there
+    }
+    // Horizon has no exit code here. The process (hbloader with our .nro in it) simply ends. Application mode: the console
+    // goes back to the HOME menu, which says "The software was closed because an error occurred." (seen on the console in
+    // WP-03c). Atmosphère's crash reporter is never involved and nothing is written (SAFETY.md).
     svcExitProcess();
 }
 

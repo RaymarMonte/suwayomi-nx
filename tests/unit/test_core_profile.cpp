@@ -82,6 +82,7 @@ TEST_SUITE("core") {
         CHECK(full.offlineSuspectGapMs == 5000);
         CHECK(full.downloadedProgressBatch == 500);
         CHECK(full.switchProgressFileBytes == 512 * 1024);
+        CHECK(full.crashExitWaitMs == 5000);  // WP-21 (D62): unused in application mode, the same value
         CHECK(full.httpConcurrency == 6);
         CHECK(full.decodeThreads == 2);
         CHECK(full.maxDecodeScale == doctest::Approx(4.0));  // D48: WP-13c's console measurement
@@ -145,6 +146,8 @@ TEST_SUITE("core") {
         CHECK(applet.maxDecodeBytes <= 64 * kMiB);
         CHECK(applet.maxDecodeScale == doctest::Approx(1.0));
         CHECK_FALSE(applet.heavyUiEffects);
+        CHECK(applet.crashExitWaitMs == 5000);  // WP-21 (D62): an applet-mode crash waits at most 5 s to be ended
+        CHECK(makeRuntimeProfile(LaunchMode::Applet, 400 * kMiB, 30 * kMiB, true).crashExitWaitMs == 5000);  // safe mode too
         const RuntimeProfile tiny = makeRuntimeProfile(LaunchMode::Applet, 0, 0, true);
         CHECK(tiny.imageCacheBytes == 24 * kMiB);
         CHECK(tiny.prefetchAhead == 0);

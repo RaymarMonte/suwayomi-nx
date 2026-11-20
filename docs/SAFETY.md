@@ -53,6 +53,10 @@ but it should exit cleanly and leave a log behind.
   (D35, amends D13's `exit()`; the desktop keeps `exit(EXIT_FAILURE)`). A crash on another thread parks that thread and the main
   thread shows the crash screen first. None of them reaches creport; the HOME menu then says "The software was closed because an
   error occurred." (WP-03c found on the console that `exit()` back to hbmenu let hbmenu crash over what the crash left behind.)
+- **Applet mode (WP-21, D62; built, console proof P1 pending):** from the Album `svcExitProcess()` alone is a system fatal (D41),
+  so the ending first sends `ILibraryAppletSelfAccessor` command 10 (`ExitProcessAndReturn`, what hbmenu's quit sends) and
+  waits at most `crashExitWaitMs` (5 s) to be ended; `svcExitProcess()` only if that fails or the wait runs out. Each step goes
+  to `logs/crash-ending.tmp`. Application mode is unchanged.
 - borealis crash screen (`brls::Application::crash(msg)`): only for non-GPU aborts, and only if the UI is healthy. A GPU-origin abort
   (result module 359) skips straight to exit.
 - Next launch: a crash file present → short "the app closed unexpectedly last time" note + **safe mode** for that session

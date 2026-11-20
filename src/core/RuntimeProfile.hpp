@@ -153,6 +153,10 @@ struct RuntimeProfile {
     int logFlushMs = 2000;                    // the log reaches the SD card at most this often, and at exit (WP-08)
     int configSaveDelayMs = 2000;             // config.json is saved once nothing changed for this long (S5, WP-08)
 
+    // Crash ending (WP-21, D62): in applet mode a crash first tells the system "I'm leaving", then waits at most this long for
+    // the system to end the process before ending it itself. Unused in application mode (the process ends at once, D35).
+    int crashExitWaitMs = 5000;
+
     bool heavyUiEffects = true;  // extra fonts, animations
 };
 

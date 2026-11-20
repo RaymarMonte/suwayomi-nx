@@ -1,5 +1,6 @@
 #include <unistd.h>
 
+#include <atomic>
 #include <csignal>
 #include <ctime>
 #include <cstdio>
@@ -114,7 +115,22 @@ bool showLaunchRefused(const char* text, int, void (*onShown)()) {
     return true;
 }
 
+namespace {
+// setExitMode()'s values. The desktop has no system to tell, so the ending stays _exit(); in (simulated) applet mode it only
+// writes one note, so the crash module's ending note (WP-21, D62) can be tested on the PC.
+std::atomic<bool> gAppletEnding{false};
+std::atomic<ExitNote> gExitNote{nullptr};
+}  // namespace
+
+void setExitMode(core::LaunchMode mode, int, ExitNote note) {
+    gAppletEnding.store(mode == core::LaunchMode::Applet);
+    gExitNote.store(note);
+}
+
 void exitProcessNow(int code) {
+    if (const ExitNote fn = gExitNote.load(); gAppletEnding.load() && fn != nullptr) {
+        fn("desktop: no system to tell; _exit with code", static_cast<std::uint32_t>(code));
+    }
     ::_exit(code);
 }
 

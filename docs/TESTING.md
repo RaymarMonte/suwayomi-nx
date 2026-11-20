@@ -449,8 +449,11 @@ driver can't delete there), and a leftover from a stopped run is deleted and dow
     tuning (D45). Desktop ~1.5 min
 11. `applet-guard` (desktop `--simulate-applet-mode`, device via the Album) – the "can't run from the Album yet" screen shows, `launch_refused`
     is the only event, a button press or tap closes it and the app is back in hbmenu, no new crash report or fatal file. Desktop also runs
-    the null-pointer drill inside that screen (SAFETY.md S12). The console: opt-in `SNX_APPLET_CONSOLE=1` with the owner watching, the
-    refusal screen only (golden `refused`), never the drill: from the Album any crash is a system fatal (D41). Green on both in WP-08.
+    the null-pointer drill inside that screen (SAFETY.md S12) and checks the ending note `logs/crash-ending.tmp` (WP-21). The console:
+    opt-in `SNX_APPLET_CONSOLE=1` with the owner watching, the refusal screen (golden `refused`). The drill there only with
+    `SNX_APPLET_DRILL=1` too: WP-21's proof **P1** (D62, at most 3 tries, owner watching): screenshots every second for 15 s
+    (`out/applet-guard/ending-*.jpg`), then the HOME menu (a "software was closed" note allowed, `ended.txt`), no new fatal or crash
+    report, the record parses, the note shows command 10 was sent (`crash-ending.txt`), and the Album opens again. Green on both in WP-08.
 12. `low-memory` (desktop) – a `--mem-limit` run triggers `mem_pressure` without a crash, and About shows the mode and memory. Green since WP-08.
 13. `crash-drills` (device and desktop, application mode) – every drill in SAFETY.md ends in a clean exit + crash log + safe mode next launch,
     with zero system fatals. One test per drill (`crash-drill-<name>`); the drills and what each should end in: `src/app/crash/README.md`.

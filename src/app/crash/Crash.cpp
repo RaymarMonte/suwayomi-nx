@@ -39,14 +39,24 @@ constexpr int kWatchdogTickMs = 500;
 constexpr int kWatchdogStallTicks = 20;               // 20 × 0.5 s = 10 s (S8)
 constexpr std::size_t kWatchdogStackBytes = 64 * 1024;  // explicit thread stack size (S8)
 constexpr int kCrashExitDeadlineMs = 3000;
+// Applet mode (WP-21, D62): the crash ending writes each of its steps here, so a console run can see how far it got. Never
+// renamed: the next start reads it into LastRun::ending and empties it (applet mode) or deletes it.
+constexpr const char* kEndingPath = "logs/crash-ending.tmp";
+constexpr const char* kEndingFinalPath = "logs/crash-ending.txt";  // prepareCrashFile wants one; nothing renames to it
+constexpr std::size_t kMaxEndingBytes = 4096;
+constexpr int kDefaultExitWaitMs = 5000;  // until main() hands over the profile's crashExitWaitMs
 
 // Set up by install(). After a crash only read, plus the file and the buffers.
 std::optional<platform::SafeFs> gFs;
 platform::SafeFs::CrashFile gFile;
+platform::SafeFs::CrashFile gEndingFile;
 cr::LogRing gRing;
 char gRecord[32 * 1024];
 char gWhat[512];
+char gEndingLine[256];
 std::string_view gMode = "application";
+core::LaunchMode gLaunchMode = core::LaunchMode::Application;
+int gExitWaitMs = kDefaultExitWaitMs;
 Clock::time_point gStart = Clock::now();
 std::tm gLaunchUtc{};
 int gRecordNumber = 0;
@@ -141,6 +151,47 @@ bool writeRecord(Kind kind, std::string_view what, const detail::Registers* regs
     const std::size_t n = cr::formatCrashRecord(info, gRecord, sizeof(gRecord));
     const bool written = gFile.write(gRecord, n);
     return gFile.finish() && written;
+}
+
+// platform::ExitNote for the applet-mode ending: "<uptime> ms: <step>: 0x<value> (<value>)", one line, synced at once (the
+// system may end the process right after). Allocation-free; also safe in a desktop signal handler (only write and fsync).
+void noteEnding(const char* step, std::uint32_t value) {
+    if (!gEndingFile.isOpen()) {
+        return;
+    }
+    cr::FixedText t(gEndingLine, sizeof(gEndingLine) - 1);
+    t.dec(static_cast<std::uint64_t>(uptimeMs())).text(" ms: ").clean(step).text(": ").hex(value, 8).text(" (").dec(value).text(")\n");
+    gEndingFile.write(t.view().data(), t.view().size());
+    gEndingFile.sync();
+}
+
+// Tells the platform how a crash ends the process: the mode, the wait, and the note while the ending file is open.
+void applyExitMode() {
+    platform::setExitMode(gLaunchMode, gExitWaitMs, gEndingFile.isOpen() ? noteEnding : nullptr);
+}
+
+// The last run's ending note as one line ("" if none), then: applet mode opens the file again (empty), application mode
+// deletes it (it only exists after an applet-mode run).
+std::string takeLastEnding(const platform::SafeFs& fs, core::LaunchMode mode) {
+    std::string ending;
+    if (const auto text = fs.readFile(kEndingPath, kMaxEndingBytes)) {
+        for (char c : *text) {
+            if (c == '\n') {
+                ending += " | ";
+            } else if (c >= 0x20 && c < 0x7f) {
+                ending += c;
+            }
+        }
+        while (ending.size() >= 3 && ending.compare(ending.size() - 3, 3, " | ") == 0) {
+            ending.resize(ending.size() - 3);
+        }
+    }
+    if (mode == core::LaunchMode::Applet) {
+        gFs->prepareCrashFile(gEndingFile, kEndingPath, kEndingFinalPath);  // if this fails, the ending just takes no notes
+    } else if (fs.exists(kEndingPath)) {
+        fs.removeFile(kEndingPath);
+    }
+    return ending;
 }
 
 void runExitSteps() noexcept {
@@ -317,6 +368,8 @@ void abortWithResult(std::uint32_t result) noexcept {
 
 LastRun install(const platform::SafeFs& fs, core::LaunchMode mode) {
     gStart = Clock::now();
+    gLaunchMode = mode;
+    applyExitMode();  // first: from here on a crash in applet mode tells the system before ending (D62)
     detail::installPlatformHandlers();
     std::set_terminate(onTerminate);
     gMode = core::launchModeName(mode);
@@ -324,9 +377,16 @@ LastRun install(const platform::SafeFs& fs, core::LaunchMode mode) {
     const std::time_t now = std::time(nullptr);
     gmtime_r(&now, &gLaunchUtc);
     LastRun last = fileAwayLastRun(*gFs);
+    last.ending = takeLastEnding(*gFs, mode);
+    applyExitMode();      // now with the ending note, if its file opened
     prepareNextRecord();  // if this fails, crashes still end cleanly, just without a record
     gActive.store(true);
     return last;
+}
+
+void setExitWaitMs(int ms) {
+    gExitWaitMs = ms > 0 ? ms : 0;
+    applyExitMode();
 }
 
 void pushLogLine(char level, std::string_view message) noexcept {
@@ -423,6 +483,9 @@ void finish() {
     stopWatchdog();
     gActive.store(false);
     gFile.discard();
+    // The ending itself stays (a crash after this still tells the system in applet mode), only without notes.
+    platform::setExitMode(gLaunchMode, gExitWaitMs, nullptr);
+    gEndingFile.discard();
 }
 
 void endAfterCrashScreen() {

@@ -63,7 +63,18 @@ bool showLaunchRefused(const char* text, int timeoutMs, void (*onShown)());
 
 // Ends the whole process at once: no destructors, no atexit handlers, nothing more of our code runs. Only for the crash path
 // when a normal exit() can't work (a second crash, a stalled main loop, an exit that hangs: src/app/crash/README.md).
-// Switch: svcExitProcess() (the process ends like a closed game, never through Atmosphère's crash reporter). Desktop: _exit(code).
+// Switch, application mode: svcExitProcess() (the process ends like a closed game, never through Atmosphère's crash reporter).
+// Switch, applet mode (WP-21, D62): first tells the system "I'm leaving" the way hbmenu's quit does (ILibraryAppletSelfAccessor
+// command 10, ExitProcessAndReturn), then waits at most the wait set below for the system to end the process; svcExitProcess()
+// only if that message failed or the wait ran out. Desktop: _exit(code).
 [[noreturn]] void exitProcessNow(int code);
+
+// Called with each step of an applet-mode ending (a short text and a number: a result code or milliseconds), so a console
+// run can see how far it got. Runs after a crash: it must not allocate or lock.
+using ExitNote = void (*)(const char* step, std::uint32_t value);
+
+// How exitProcessNow() ends the process (WP-21, D62). crash::install() calls it first thing with the launch mode, main() again
+// with the profile's crashExitWaitMs. `note` may be nullptr. Plain stores: nothing is allocated or locked.
+void setExitMode(core::LaunchMode mode, int waitMs, ExitNote note);
 
 }  // namespace snx::platform

@@ -11,7 +11,12 @@
   - `setDesktopTestFlags(simulateApplet, memLimitBytes, simulateDocked)`: the desktop test flags, set once by `main()`. The Switch ignores them.
   - `installQuitSignalHandlers()` / `quitRequested()`: desktop SIGINT/SIGTERM become a normal quit (the E2E harness uses it). Switch: no-ops.
   - `exitProcessNow(code)`: ends the process at once, no more of our code runs (Switch `svcExitProcess()`, desktop `_exit()`).
-    Only for the crash path (`src/app/crash/README.md`).
+    Only for the crash path (`src/app/crash/README.md`). WP-21 (D62): in applet mode the Switch first sends
+    `ILibraryAppletSelfAccessor` command 10 (`ExitProcessAndReturn`, what hbmenu's quit sends) and waits at most the set wait to be
+    ended; `svcExitProcess()` only if that fails or the wait runs out.
+  - `setExitMode(mode, waitMs, note)` (WP-21): how `exitProcessNow()` ends. Set by `crash::install()` (and the profile's
+    `crashExitWaitMs` by `crash::setExitWaitMs()`); `note` gets each step of an applet-mode ending (the crash module's
+    `logs/crash-ending.tmp`). Desktop: only notes one line in (simulated) applet mode, then `_exit()` as before.
   - `networkConnected()` (WP-08): Switch: nifm reports an IP address; desktop: true. Words an offline error. WP-18b:
     `ui::Connection` asks it before each check (false → offline at once, no request) and polls it while offline; test
     builds can override it (test config `networkConnected`, the `network` command).

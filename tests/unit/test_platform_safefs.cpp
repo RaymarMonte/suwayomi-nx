@@ -226,6 +226,25 @@ TEST_CASE("SafeFs: the crash file is opened early and named only when a crash is
     CHECK_FALSE(onDisk(tmp.root + "logs/crash-2.txt"));
 }
 
+TEST_CASE("SafeFs: the crash file can be synced and stays open (the applet ending note, WP-21)") {
+    TempRoot tmp;
+    const snx::platform::SafeFs fs(tmp.root);
+    REQUIRE(fs.makeDirs("logs"));
+    snx::platform::SafeFs::CrashFile file;
+    CHECK_FALSE(file.sync());  // not open yet
+    REQUIRE(fs.prepareCrashFile(file, "logs/crash-ending.tmp", "logs/crash-ending.txt"));
+    CHECK(file.write("step 1\n", 7));
+    CHECK(file.sync());
+    CHECK(file.isOpen());
+    CHECK(slurp(tmp.root + "logs/crash-ending.tmp") == "step 1\n");  // on disk under the .tmp name, never renamed
+    CHECK(file.write("step 2\n", 7));
+    CHECK(file.sync());
+    CHECK(slurp(tmp.root + "logs/crash-ending.tmp") == "step 1\nstep 2\n");
+    CHECK_FALSE(onDisk(tmp.root + "logs/crash-ending.txt"));
+    REQUIRE(fs.prepareCrashFile(file, "logs/crash-ending.tmp", "logs/crash-ending.txt"));  // the next start empties it
+    CHECK(slurp(tmp.root + "logs/crash-ending.tmp").empty());
+}
+
 TEST_CASE("SafeFs: the log file starts empty") {
     TempRoot tmp;
     const snx::platform::SafeFs fs(tmp.root);

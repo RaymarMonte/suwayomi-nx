@@ -311,9 +311,13 @@ int main(int argc, char* argv[]) {
     // Safe mode after a crash (S1): memory budgets halved, prefetch off.
     snx::core::RuntimeProfile profile =
         snx::core::makeRuntimeProfile(runtime.mode, runtime.totalMem, runtime.usedMem, lastRun.crashed);
+    crash::setExitWaitMs(profile.crashExitWaitMs);  // D62: how long an applet-mode crash waits for the system to end it
     app::logger::start(fs, profile, options.debugLog);
     brls::Logger::info("app: suwayomi-nx {} ({} build, {})", std::string(snx::core::appVersion()),
                        std::string(snx::core::buildFlavor()), std::string(snx::platform::platformName()));
+    if (!lastRun.ending.empty()) {
+        brls::Logger::warning("app: the last crash's ending (applet mode, D62): {}", lastRun.ending);
+    }
 
     // 3. The applet-mode guard (D21, SAFETY.md S12): nothing else runs in applet mode, and nothing is written after it.
     if (app::refuseAppletMode(runtime, fs)) {

@@ -18,12 +18,21 @@ struct LastRun {
     std::string recordPath;  // where the newest record is now, e.g. "logs/crashes/crash-20261025-153007-1.txt"
     std::string type;        // from that record: "cpu_exception", ...
     std::string what;
+    // Applet mode (WP-21, D62): the steps the last crash's ending reached (logs/crash-ending.tmp, one line, steps joined by
+    // " | "), "" if there were none.
+    std::string ending;
 };
 
 // The very first thing main() does (S1, S12): installs the handlers (Switch: libnx's exception handler and
 // diagAbortWithResult; desktop: signals) and std::set_terminate, opens the crash file, and moves the last run's records
 // from logs/ to logs/crashes/ (the newest 10 are kept). Call once, on the main thread, before any other thread exists.
+// `mode` decides how a crash ends the process (platform::setExitMode, D62: applet mode tells the system first). In applet
+// mode it also opens logs/crash-ending.tmp, where that ending notes each step.
 LastRun install(const platform::SafeFs& fs, core::LaunchMode mode);
+
+// The longest an applet-mode crash ending waits for the system to end the process (the profile's crashExitWaitMs). install()
+// starts with 5 s, because it runs before the profile exists; main() calls this right after building the profile.
+void setExitWaitMs(int ms);
 
 // Every log line also goes into an in-memory ring, so a crash record can show the last 64. level: 'E', 'W', 'I', 'D', 'V'.
 void pushLogLine(char level, std::string_view message) noexcept;

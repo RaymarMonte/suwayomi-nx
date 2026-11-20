@@ -175,8 +175,10 @@ WP-08b's "all controllers merged" stays its own WP.
 
 ## Deliverables
 **Stage A: the ending, proven in the smallest place (do this first: it decides whether the rest happens)**
-- [ ] `platform::exitProcessNow` (Switch) in applet mode: command 10, the bounded wait, `svcExitProcess` as the last resort;
+- [x] `platform::exitProcessNow` (Switch) in applet mode: command 10, the bounded wait, `svcExitProcess` as the last resort;
       the mode from `crash::install`; `crashExitWaitMs` in the profile. Application mode and desktop unchanged. Gate PASS.
+      (2026-11-20; plus the ending note `logs/crash-ending.tmp`, D62 "as built, Stage A". P1 =
+      `SNX_APPLET_CONSOLE=1 SNX_APPLET_DRILL=1 tools/e2e.sh switch applet-guard`.)
 - [ ] **P1 on the console, owner watching** (above). Pass → go on. Fail → ≤ 2 more variants; all fail → stop (answer 1).
 
 **Stage B: the app from the Album (PC first)**
