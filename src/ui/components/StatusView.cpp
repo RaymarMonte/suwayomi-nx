@@ -1,5 +1,6 @@
 #include "ui/components/StatusView.hpp"
 
+#include <optional>
 #include <utility>
 
 #include "app/TestHooks.hpp"
@@ -109,6 +110,15 @@ TextFieldCell::TextFieldCell() {
     detail->setTextColor(brls::Application::getTheme()["brls/list/listItem_value_color"]);
     setMinHeight(kTouchTarget);
     registerClickAction([this](brls::View*) {
+        // Test builds (WP-18c, like AskText): the "text" command's text instead of the keyboard (the Switch's can't be
+        // typed into; the desktop's would add to the old text).
+        if (std::optional<std::string> typed = app::testhooks::takeTypedText()) {
+            setValue(*typed);
+            if (onChange_) {
+                onChange_(value_);
+            }
+            return true;
+        }
         // The keyboard closes before the callback runs, on the main thread (swkbd blocks the frame on the Switch). While
         // the user types the main loop stands still on purpose: the watchdog mustn't take that for a hang (WP-12).
         const app::crash::BlockingWait typing;

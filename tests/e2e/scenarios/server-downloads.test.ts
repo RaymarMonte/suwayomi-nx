@@ -35,7 +35,7 @@ import {
     serverQueue, sourceMangaWithChapters, stopOnServer, untilServer,
 } from '../lib/server-downloads.ts';
 import { appServerUrl, optionsFromEnv, SuwayomiClient } from '../lib/suwayomi.ts';
-import { clearTestSourceControl, setTestSourceControl, TEST_SOURCE_IDS } from '../lib/test-source.ts';
+import { clearServerPageCache, clearTestSourceControl, setTestSourceControl, TEST_SOURCE_IDS } from '../lib/test-source.ts';
 
 const MiB = 1024 * 1024;
 const ROUNDS = 10;
@@ -256,6 +256,7 @@ scenario('server-downloads', async (s) => {
     const knownState = async () => {
         clearTestSourceControl();
         await serverDownloadsKnownState(touched, client);
+        await clearServerPageCache(client);  // WP-18c: slowed steps need pages from the source, whatever read them before
     };
     await knownState();
     try {

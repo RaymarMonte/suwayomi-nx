@@ -208,6 +208,24 @@ TEST_SUITE("core") {
         CHECK_FALSE(readServerFile("not json", JsonLimits{}));
     }
 
+    TEST_CASE("switch downloads (WP-18c): a second address joins a server's list once; a full list drops its oldest") {
+        const std::vector<std::string> one{"http://a:4567"};
+        CHECK(addServerUrl(one, "http://b:4567/", "http://a:4567") ==
+              std::vector<std::string>{"http://a:4567", "http://b:4567"});
+        CHECK(addServerUrl(one, "http://a:4567/", "http://a:4567") == one);  // already there
+        CHECK(addServerUrl(one, "", "http://a:4567") == one);
+        CHECK(addServerUrl(one, std::string(600, 'x'), "http://a:4567") == one);  // too long to keep
+        // Full (16): the oldest that isn't the saved address ("http://h0") goes: h1. The saved one stays first.
+        std::vector<std::string> full;
+        for (int i = 0; i < static_cast<int>(kSwitchUrlsMax); ++i) full.push_back("http://h" + std::to_string(i));
+        const auto added = addServerUrl(full, "http://new", "http://h0");
+        REQUIRE(added.size() == kSwitchUrlsMax);
+        CHECK(added.front() == "http://h0");
+        CHECK(added[1] == "http://h2");
+        CHECK(added.back() == "http://new");
+        CHECK(readServerFile(writeServerFile(added), JsonLimits{}) == added);
+    }
+
     TEST_CASE("switch downloads: space: the limit, the 1 GB floor, and no write when the SD card can't say") {
         const std::uint64_t gb = kGiB;
         CHECK(checkSpace(0, 100, 8 * gb, 40 * gb, gb) == SpaceCheck::Fits);

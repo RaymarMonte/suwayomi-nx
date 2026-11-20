@@ -809,6 +809,20 @@ struct SwitchRig {
         return model->chapterState(chapter.id);
     }
 
+    // WP-18c: the server's own page cache emptied (SUWAYOMI-API.md), so pages come from the source again (after the switch
+    // file's delay). A raw GraphQL POST through the same HttpClient: the client's decorator adds the login.
+    void clearPageCache() {
+        snx::net::Request request;
+        request.method = snx::net::Method::Post;
+        request.url = live->absoluteUrl("/api/graphql");
+        request.headers = {{"Content-Type", "application/json"}};
+        request.body = R"({"query":"mutation { clearCachedImages(input: { cachedPages: true }) { cachedPages } }"})";
+        auto answer = live.http.submit(request, snx::net::Priority::Reader, CancelToken());
+        REQUIRE(answer.waitFor(30s));
+        REQUIRE(answer.get().ok());
+        REQUIRE_MESSAGE(answer.get().value().status == 200, answer.get().value().body);
+    }
+
     // Every page file of the chapter equals the server's page, byte for byte (the page GET waits on its own: the
     // HttpClient's answers don't go through the main queue).
     void checkPagesEqualServer(int chapterId) {
@@ -882,6 +896,46 @@ TEST_CASE("Switch downloads (WP-18, D59): Alpha (Local) and Comet Courier (SNX T
     rig.model->deleteManga(alpha);
     rig.model->deleteManga(comet);
     rig.model->clear();
+    REQUIRE(rig.drive([&] { return rig.model->downloadedManga().empty(); }, 10s));
+}
+
+// Here for SwitchRig (a suite block is a namespace of its own), but in the ui_login suite: it runs in that mode only.
+TEST_CASE("ui_login (WP-18c): a Switch download across the 20 s token expiry renews the login and finishes" *
+          doctest::test_suite("ui_login")) {
+    using State = snx::ui::SwitchDownloads::ChapterState;
+    setSwitchFile("");
+    SwitchRig rig;
+    // Glass Harbor (SNX Test en-09, 3 pages a chapter): no other test reads its pages. The rig's first call logs in, so the
+    // test server's 20 s access token starts about now.
+    const auto found = rig.mustOnMain(rig.live->browseSource(kSnxEn, snx::core::gql::BrowseKind::Search, 1, "Glass Harbor",
+                                                             nlohmann::json::array(), CancelToken()));
+    const auto loggedIn = std::chrono::steady_clock::now();
+    CHECK(rig.live.logins.load() == 1);
+    int glass = 0;
+    for (const auto& manga : found.manga) {
+        if (manga.title == "Glass Harbor") glass = manga.id;
+    }
+    REQUIRE(glass > 0);
+    rig.mustOnMain(rig.live->refreshManga(glass, CancelToken()));
+    const auto chapters = rig.mustOnMain(rig.live->chapters(glass, 0, CancelToken())).nodes;
+    REQUIRE_FALSE(chapters.empty());
+    rig.clearPageCache();
+    // Started 14 s after the login with every source call 8 s slow: the cover and the page list go out with the token
+    // still good (answered at ~22 s), the pages after it ran out (a 401, one renewal, the page again).
+    std::this_thread::sleep_until(loggedIn + 14s);
+    setSwitchFile(R"({"delayMs":8000})");
+    const auto status = rig.download(glass, chapters.back());
+    setSwitchFile("");
+    const auto ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - loggedIn).count();
+    MESSAGE("Glass Harbor chapter 1 (" << status.pages << " pages) on the Switch " << ms << " ms after the login, "
+                                       << rig.live.refreshes.load() << " refresh(es)");
+    REQUIRE(status.state == State::OnSwitch);
+    CHECK(ms > 20000);
+    CHECK(rig.live.refreshes.load() >= 1);  // renewed with the refresh token ...
+    CHECK(rig.live.logins.load() == 1);     // ... never a new login with the password
+    rig.checkPagesEqualServer(chapters.back().id);
+    rig.model->deleteManga(glass);
     REQUIRE(rig.drive([&] { return rig.model->downloadedManga().empty(); }, 10s));
 }
 

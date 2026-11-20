@@ -131,6 +131,9 @@ std::string writeServerFile(const std::vector<std::string>& urls);
 // The addresses (downloadServerUrl form, no repeats, at most kSwitchUrlsMax; longer than kSwitchTextMaxBytes dropped).
 // Nothing when the text isn't a server file.
 std::optional<std::vector<std::string>> readServerFile(std::string_view text, const JsonLimits& limits);
+// WP-18c ("Same server?" -> Same server): the addresses with `url` added at the end (downloadServerUrl form; already there:
+// unchanged). At most kSwitchUrlsMax: when full, the oldest address that isn't `keep` (the saved one) goes first.
+std::vector<std::string> addServerUrl(std::vector<std::string> urls, std::string_view url, std::string_view keep);
 
 // One chapter in the queue (queue.json). It carries everything the chapter's manga.json entry needs once it is done.
 struct SwitchQueueEntry {

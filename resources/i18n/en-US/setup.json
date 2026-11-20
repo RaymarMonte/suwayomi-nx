@@ -14,6 +14,10 @@
     "cancel": "Cancel",
     "testing": "Connecting...",
     "connected": "Connected:",
+    "same_server": "Is {} the same server as {}? Its {} downloaded chapters stay with {} otherwise.",
+    "same_server_one": "Is {} the same server as {}? Its downloaded chapter stays with {} otherwise.",
+    "same_server_yes": "Same server",
+    "same_server_no": "Another server",
     "problem": {
         "url_missing": "Enter the server address first.",
         "url_not_http": "The address must start with http:// or https://.",

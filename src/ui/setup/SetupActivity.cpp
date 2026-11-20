@@ -215,7 +215,57 @@ void SetupActivity::finish() {
     if (closing_) {
         return;
     }
-    closing_ = true;
+    closing_ = true;  // from here on B and Cancel do nothing: the save goes on, after the question if one comes
+    // WP-18c (D59): SwitchDownloads still holds the saved server (setServer() runs after the save), so it can tell whether
+    // the saved address has downloads that a new address may share. The first run has no saved server: never asks.
+    const std::weak_ptr<bool> alive = alive_;
+    context_.switchDownloads.addressQuestion(context_.client.settings().url,
+                                             [this, alive](const SwitchDownloads::AddressQuestion& question) {
+                                                 if (alive.expired()) {
+                                                     return;
+                                                 }
+                                                 if (question.ask) {
+                                                     askSameServer(question);
+                                                 } else {
+                                                     save();
+                                                 }
+                                             });
+}
+
+void SetupActivity::askSameServer(const SwitchDownloads::AddressQuestion& question) {
+    const std::string text =
+        question.chapters == 1
+            ? brls::getStr("setup/same_server_one", question.newUrl, question.oldUrl, question.oldUrl)
+            : brls::getStr("setup/same_server", question.newUrl, question.oldUrl, question.chapters, question.oldUrl);
+    const std::weak_ptr<bool> alive = alive_;
+    const auto answer = [this, alive, question](bool same) {
+        if (alive.expired()) {
+            return;
+        }
+        if (same) {
+            context_.switchDownloads.joinAddress(question.newUrl);  // on the store's thread, before setServer()'s scan
+        } else {
+            context_.switchDownloads.keepApart(question.newUrl);
+        }
+        brls::Logger::info("setup: {} is {} as {}", question.newUrl, same ? "the same server" : "another server",
+                           question.oldUrl);
+        nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+        fields["old"] = question.oldUrl;
+        fields["new"] = question.newUrl;
+        fields["chapters"] = question.chapters;
+        fields["same"] = same;
+        app::testhooks::write("same_server", fields);
+        save();
+    };
+    auto* dialog = new brls::Dialog(text);
+    dialog->setCancelable(false);  // two plain choices: B doesn't close it
+    dialog->addButton("setup/same_server_yes"_i18n, [answer] { answer(true); });
+    dialog->addButton("setup/same_server_no"_i18n, [answer] { answer(false); });
+    dialog->open();
+    app::testhooks::write("dialog", nlohmann::ordered_json{{"text", text}});
+}
+
+void SetupActivity::save() {
     // The client holds the tested settings, with fresh tokens for ui_login.
     context_.config.setServer(context_.client.settings());
     brls::Logger::info("setup: saved {}", context_.client.settings().url);

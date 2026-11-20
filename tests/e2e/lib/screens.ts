@@ -16,7 +16,11 @@ export function settingsRow(row: 'address' | 'login' | 'logout' | 'serverVersion
 }
 
 /** The setup screen without username/password rows (login "none"). */
-export const SETUP = { url: { x: 640, y: 184 }, test: { x: 369, y: 352 }, continue: { x: 941, y: 352 } };
+export const SETUP = {
+    url: { x: 640, y: 184 }, test: { x: 369, y: 352 }, continue: { x: 941, y: 352 },
+    /** WP-18c: opened from Settings the row has a third button, Cancel, so Continue moves left. */
+    fromSettings: { continue: { x: 729, y: 352 }, cancel: { x: 1070, y: 352 } },
+};
 
 /** The login screen: username, password, then the buttons. */
 export const LOGIN = { login: { x: 369, y: 352 } };

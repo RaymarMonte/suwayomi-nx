@@ -86,6 +86,9 @@ class HttpClient {
     // Requests submitted and not finished yet: queued, running or waiting for a retry (WP-08: the app is "idle" only when this
     // is 0). It drops after the request's future has completed, so its then() callback has run by then. Any thread.
     virtual std::size_t inFlight() const { return 0; }
+    // The same without Priority::Background requests (WP-18c): the Switch downloader's run for minutes, and a test build's
+    // idle rule waits only for what a screen waits for.
+    virtual std::size_t inFlightForeground() const { return inFlight(); }
 
     // Best set once, before the first submit (any thread may call them, though).
     void setRequestDecorator(RequestDecorator decorator);

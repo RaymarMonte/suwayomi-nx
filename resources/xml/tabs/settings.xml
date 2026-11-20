@@ -3,10 +3,14 @@
     width="auto"
     height="auto">
 
+    <!-- WP-18c: "centered", like the library grid: every D-pad press moves one row and the list scrolls to it. borealis's
+         default ("natural") only scrolls while the button is held when the next row isn't fully on screen, so a short
+         press could end before the focus moved (the press "lost" under "Delete Switch downloads after reading"). -->
     <brls:ScrollingFrame
         width="auto"
         height="auto"
-        grow="1.0">
+        grow="1.0"
+        scrollingBehavior="centered">
 
         <brls:Box
             width="auto"

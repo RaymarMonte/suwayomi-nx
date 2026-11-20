@@ -404,6 +404,24 @@ std::optional<std::vector<std::string>> readServerFile(std::string_view textIn, 
     return urls;
 }
 
+std::vector<std::string> addServerUrl(std::vector<std::string> urls, std::string_view rawUrl, std::string_view rawKeep) {
+    const std::string url = downloadServerUrl(rawUrl);
+    if (url.empty() || url.size() > kSwitchTextMaxBytes || std::find(urls.begin(), urls.end(), url) != urls.end()) {
+        return urls;
+    }
+    const std::string keep = downloadServerUrl(rawKeep);
+    while (urls.size() >= kSwitchUrlsMax) {
+        // Full: the oldest address that isn't the saved one goes (the list never loses the address it was found by).
+        auto oldest = std::find_if(urls.begin(), urls.end(), [&keep](const std::string& u) { return u != keep; });
+        if (oldest == urls.end()) {
+            break;
+        }
+        urls.erase(oldest);
+    }
+    urls.push_back(url);
+    return urls;
+}
+
 const SwitchQueueEntry* findEntry(const SwitchQueue& queue, int chapterId) {
     for (const SwitchQueueEntry& entry : queue.entries) {
         if (entry.chapter.id == chapterId) {

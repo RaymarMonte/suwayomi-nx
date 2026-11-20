@@ -2,6 +2,7 @@
 
 #include <borealis.hpp>
 #include <functional>
+#include <memory>
 
 #include "app/AppContext.hpp"
 #include "net/CancelToken.hpp"
@@ -32,6 +33,9 @@ class SetupActivity : public brls::Activity {
     void startTest();
     void onTested(const api::ApiResult<core::ServerInfo>& result);
     void finish();
+    // WP-18c (D59): a new address while the saved server has chapters on the Switch asks "the same server?" first.
+    void askSameServer(const SwitchDownloads::AddressQuestion& question);
+    void save();
     void cancel();
     void showStatus(const std::string& text);
 
@@ -53,6 +57,7 @@ class SetupActivity : public brls::Activity {
     std::string problem_;
     net::CancelToken cancel_;  // the running test; cancelled when the screen goes away
     bool closing_ = false;
+    std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);  // late answers (the SD card look) check it
 };
 
 }  // namespace snx::ui

@@ -476,6 +476,16 @@ TEST_SUITE("ui") {
         CHECK(h.model->view() == core::SwitchQueueView::Idle);
     }
 
+    TEST_CASE("switch downloads (WP-18c): two failing pages fail the chapter at the first of them") {
+        Harness h;
+        h.server.broken[std::string(kUrl) + pageUrl(1, 0)] = {500, -1};
+        h.server.broken[std::string(kUrl) + pageUrl(1, 1)] = {500, -1};
+        h.model->connected();
+        h.model->enqueue(paperGarden(), {chapter(101, 1)});
+        REQUIRE(h.drive([&] { return h.model->failedCount() == 1; }));
+        CHECK(h.model->chapterState(101).failedPage == 0);
+    }
+
     TEST_CASE("switch downloads: what isn't an image is never written; a 401 is tried once more; two in a row wait for a login") {
         Harness h;
         h.server.chapters[104] = {4, {"<html>not a page</html>", jpg()}};
@@ -633,6 +643,65 @@ TEST_SUITE("ui") {
         h.model->setServer(kUrl);
         REQUIRE(h.drive([&] { return h.model->loaded(); }));
         CHECK(h.queued().size() == 3);
+    }
+
+    TEST_CASE("switch downloads (WP-18c): \"Same server?\" asks only for a new address while chapters are downloaded") {
+        Harness h;
+        using Q = SwitchDownloads::AddressQuestion;
+        const auto ask = [&h](const std::string& url) {
+            std::optional<Q> answer;
+            h.model->addressQuestion(url, [&answer](Q q) { answer = q; });
+            REQUIRE(h.main.runUntil([&answer] { return answer.has_value(); }));
+            return *answer;
+        };
+        CHECK_FALSE(ask("http://tailnet:4567").ask);  // nothing downloaded yet: nothing to keep
+        h.model->connected();
+        h.model->enqueue(paperGarden(), {chapter(101, 1)});
+        REQUIRE(h.downloaded(101));
+        h.model->enqueue(paperGarden(), {chapter(102, 2)});
+        REQUIRE(h.downloaded(102));
+
+        const Q q = ask("http://tailnet:4567/");
+        CHECK(q.ask);
+        CHECK(q.chapters == 2);
+        CHECK(q.oldUrl == core::downloadServerUrl(kUrl));
+        CHECK(q.newUrl == "http://tailnet:4567");
+        CHECK_FALSE(ask(kUrl).ask);                       // the same address
+        CHECK_FALSE(ask(std::string(kUrl) + "/").ask);    // the same, spelled with a "/"
+        CHECK_FALSE(ask("").ask);
+
+        // Same server: the address joins server.json; after the save the scan finds the same folder and its chapters.
+        bool joined = false;
+        h.model->joinAddress("http://tailnet:4567", [&joined](bool ok) { joined = ok; });
+        REQUIRE(h.main.runUntil([&joined] { return joined; }));
+        const auto text = h.fs.readFile(core::switchServerDir(h.key()) + "/" + core::kSwitchServerFile, 4096);
+        REQUIRE(text.has_value());
+        CHECK(core::readServerFile(*text, {}) ==
+              std::vector<std::string>{core::downloadServerUrl(kUrl), "http://tailnet:4567"});
+        CHECK_FALSE(ask("http://tailnet:4567").ask);  // listed now
+        h.model->setServer("http://tailnet:4567");
+        REQUIRE(h.drive([&] { return h.model->loaded(); }));
+        CHECK(h.model->chapterState(101).state == State::OnSwitch);
+        CHECK(h.model->chapterState(102).state == State::OnSwitch);
+        CHECK(h.model->downloadedManga().size() == 1);
+        CHECK_FALSE(ask(kUrl).ask);  // and back: the first address is in the same list
+
+        // Another server: a folder of its own with only its server.json, so the question doesn't come again.
+        CHECK(ask("http://friend:4567").ask);
+        bool apart = false;
+        h.model->keepApart("http://friend:4567/", [&apart](bool ok) { apart = ok; });
+        REQUIRE(h.main.runUntil([&apart] { return apart; }));
+        const std::string friendDir = core::switchServerDir(core::switchServerKey("http://friend:4567"));
+        CHECK(h.fs.listDir(friendDir) == std::vector<std::string>{core::kSwitchServerFile});
+        CHECK_FALSE(ask("http://friend:4567").ask);
+        h.model->setServer("http://friend:4567");
+        REQUIRE(h.drive([&] { return h.model->loaded(); }));
+        CHECK(h.model->downloadedManga().empty());
+        CHECK(h.model->chapterState(101).state == State::None);
+        // A second "Another server" for the same folder writes nothing and is fine.
+        apart = false;
+        h.model->keepApart("http://friend:4567", [&apart](bool ok) { apart = ok; });
+        REQUIRE(h.main.runUntil([&apart] { return apart; }));
     }
 
     TEST_CASE("switch downloads: the start-up scan deletes leftovers and falls back to manga.json's .bak; a damaged manga is kept") {

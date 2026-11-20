@@ -220,13 +220,16 @@ TEST_CASE("curl: cancel a slow body, and cancel before it starts") {
     CancelToken token;
     auto future = client.submit(get(s.url("/trickle")), Priority::Interactive, token);
     auto queued = client.submit(get(s.url("/trickle")), Priority::Interactive, token);  // waits: only 1 at a time
+    auto background = client.submit(get(s.url("/trickle")), Priority::Background, token);  // waits too
     REQUIRE(waitFlag(started));
     std::this_thread::sleep_for(100ms);
-    CHECK(client.inFlight() == 2);  // one running, one queued
+    CHECK(client.inFlight() == 3);            // one running, two queued
+    CHECK(client.inFlightForeground() == 2);  // WP-18c: without the Background one
     const auto began = std::chrono::steady_clock::now();
     token.cancel();
     CHECK(waitResult(future).error().kind == ErrorKind::Cancelled);
     CHECK(waitResult(queued).error().kind == ErrorKind::Cancelled);
+    CHECK(waitResult(background).error().kind == ErrorKind::Cancelled);
     CHECK(std::chrono::steady_clock::now() - began < 1000ms);
     CHECK(waitIdle(client));
     stop = true;

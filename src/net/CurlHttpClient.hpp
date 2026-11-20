@@ -43,6 +43,7 @@ class CurlHttpClient final : public HttpClient {
     void resetConnections() override;
     void shutdown() override;
     std::size_t inFlight() const override;
+    std::size_t inFlightForeground() const override;
 
   private:
     struct Impl;

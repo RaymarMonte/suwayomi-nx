@@ -76,6 +76,15 @@ class DownloadStore {
     // The commit: manga.json written (Backup::Keep). Also server.json when `urls` is given (the folder's first write).
     void writeManga(std::string key, core::SwitchManga manga, std::function<void(bool ok)> done);
     void writeServer(std::string key, std::vector<std::string> urls, std::function<void(bool ok)> done);
+    // WP-18c: the folder whose server.json lists the address (downloadServerUrl form), if any.
+    struct Listing {
+        std::string key;
+        std::vector<std::string> urls;
+    };
+    void findListing(std::string url, std::function<void(std::optional<Listing>)> done);
+    // A new server's folder with only its server.json ("Another server"): nothing when a folder of that name is there
+    // already (ok stays true).
+    void startServerFolder(std::string key, std::vector<std::string> urls, std::function<void(bool ok)> done);
     // A folder and everything in it (a chapter, a manga), or one file.
     void removeTree(std::string dir, std::function<void(bool ok)> done = {});
     void removeFile(std::string path, std::function<void(bool ok)> done = {});
@@ -104,6 +113,7 @@ class DownloadStore {
     void post(std::function<void()> task);
     void say(bool warning, const std::string& line) const;
     Scan scanNow(const std::string& url) const;
+    std::optional<Listing> listingNow(const std::string& url) const;  // url in downloadServerUrl form
     bool writeQueueNow();
 
     const platform::SafeFs& fs_;

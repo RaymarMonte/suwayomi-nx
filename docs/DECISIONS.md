@@ -1348,6 +1348,19 @@ Switch"; amends D58's tab name and SAFETY.md S9 (owner OK).
   rules). The tabs moved: Switch downloads is tab 5 (index 4); Server downloads and Settings one place down.
   On the console (2026-11-20): first downloaded page 165 ms after the tap, a Local 10-page chapter in 666 ms, `freeBytes()`
   0–1 ms (so no once-per-chapter caching), HOME pauses at once and downloads go on ~150 ms after coming back.
+- **As built (WP-18c, 2026-11-20; owner's answers the same day):** the **"Same server?" question** on the setup screen's
+  save (first run and Settings -> Server address): only when the saved address has downloaded chapters (a queue alone
+  doesn't ask), the new address differs and no `server.json` lists it; never on the first setup (no saved address, owner).
+  Words: "Is <new> the same server as <old>? Its 12 downloaded chapters stay with <old> otherwise." with **Same server** /
+  **Another server** (not closable with B). Same server: the new address joins that `server.json` (at most 16, the oldest
+  that isn't the saved one goes). Another server: remembered (owner): `downloads/<key of new>/server.json` alone, so each
+  address asks once. Test events `keep_awake` (`on`, `by`), `same_server`, and `switch_downloads` `rows` (the first 10).
+  Test builds' idle rule no longer waits for Background-priority requests (`inFlightForeground()`: the downloader's run for
+  minutes). Settings' list scrolls "centered" (borealis's "natural" default moved the focus to a row below the visible
+  part only after enough frames of a held button: the press the console "lost"). e2e: a new `switch-download-queue`
+  scenario; the server's page cache is emptied before slowed or failing steps, so no scenario needs a fresh reset.
+  "Failed at page N" names the first page that failed, not the one that ran out of tries first (two pages download at
+  once, so that was down to timing).
 Rejected: plain "Download" words (the owner chose to name the Switch), one submenu for both kinds, no limit (only the
 1 GB floor), deleting read chapters by itself when full, one switch for both "delete after reading" rules, a queue-only tab,
 downloading at the HOME menu (S5), the tab after Library, a network fall-back for damaged pages, folders by title.

@@ -236,7 +236,8 @@ SwitchDownloadsTab::~SwitchDownloadsTab() {
     grid_->setSource(nullptr);  // unbinds the cells (cancels their cover loads) while this tab still exists
     downloads_.removeListener(listener_);
     if (awake_) {
-        platform::keepScreenOn(false);
+        platform::keepScreenOn(false);  // another tab took its place
+        app::testhooks::write("keep_awake", nlohmann::ordered_json{{"on", false}, {"by", "switch_downloads"}});
     }
 }
 
@@ -252,6 +253,7 @@ void SwitchDownloadsTab::updateKeepAwake() {
         awake_ = want;
         platform::keepScreenOn(want);
         brls::Logger::info("switch downloads: keep awake {}", want ? "on" : "off");
+        app::testhooks::write("keep_awake", nlohmann::ordered_json{{"on", want}, {"by", "switch_downloads"}});  // WP-18c
     }
 }
 

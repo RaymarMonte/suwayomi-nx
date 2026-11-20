@@ -23,13 +23,30 @@ export async function testServerFolders(driver: Driver, serverUrl: string): Prom
     return found;
 }
 
+/** The folder name the app gives an address of its own (core::switchServerKey: FNV-1a 64 of the address, 16 hex digits). */
+export function switchServerKey(serverUrl: string): string {
+    let hash = 14695981039346656037n;
+    for (const byte of Buffer.from(serverUrl.replace(/\/+$/, ''), 'utf8')) {
+        hash ^= BigInt(byte);
+        hash = (hash * 1099511628211n) & 0xffffffffffffffffn;
+    }
+    return hash.toString(16).padStart(16, '0');
+}
+
 /**
  * Desktop: deletes the test server's downloads folders (the app must not be running). The Switch can't delete files from
  * outside the app: there the scenario deletes through the app's own tab (deleteEverythingInTab) and this does nothing.
+ * Also the folder named by the address's own key when it has no server.json (WP-18c): a failed run's clean-up runs while
+ * the app is still open, and the app's queue.json write as it quits makes that folder again without one.
  */
 export async function removeTestServerFolders(driver: Driver, serverUrl: string): Promise<void> {
     if (driver.name !== 'desktop') return;
-    for (const key of await testServerFolders(driver, serverUrl)) await driver.removeFolder(`downloads/${key}`);
+    const keys = new Set(await testServerFolders(driver, serverUrl));
+    const own = switchServerKey(serverUrl);
+    if ((await driver.listFiles('downloads')).includes(own) && (await driver.readFile(`downloads/${own}/server.json`)).length === 0) {
+        keys.add(own);
+    }
+    for (const key of keys) await driver.removeFolder(`downloads/${key}`);
 }
 
 /** The page files of a downloaded chapter, in page order ("downloads/<key>/m<manga>/c<chapter>/0000.jpg", ...). */

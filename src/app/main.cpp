@@ -198,6 +198,20 @@ void reportSwitchDownloads(const snx::ui::SwitchDownloads& downloads, const snx:
         ids.push_back(entry.chapter.id);
     }
     fields["ids"] = ids;
+    // WP-18c: the first 10 rows as the tab shows them (state, pages done of how many, the first page that failed).
+    nlohmann::ordered_json rowList = nlohmann::ordered_json::array();
+    for (const auto& entry : downloads.queue().entries) {
+        if (rowList.size() >= 10) {
+            break;
+        }
+        const auto status = downloads.chapterState(entry.chapter.id);
+        rowList.push_back(nlohmann::ordered_json{{"chapter", entry.chapter.id},
+                                                 {"state", snx::ui::SwitchDownloads::chapterStateName(status.state)},
+                                                 {"done", status.pagesDone},
+                                                 {"pages", status.pages},
+                                                 {"failedPage", status.failedPage}});
+    }
+    fields["rows"] = rowList;
     const std::string key = fields.dump();
     if (key == reported) {
         return;
@@ -412,8 +426,9 @@ int main(int argc, char* argv[]) {
 
     app::AppContext context{fs,       runtime, profile, lastRun,   config,          http,
                             client,   images,  textures, saves,    downloads,       switchDownloads};
-    // Test builds' idle rule: no network request or image load pending, and no animation (TESTING.md).
-    testhooks::watchApp([&http, &images] { return http.inFlight() > 0 || images.activeJobs() > 0; });
+    // Test builds' idle rule: no network request or image load pending, and no animation (TESTING.md). Background requests
+    // (the Switch downloads, WP-18c) don't count: they run for minutes while the screen has long settled.
+    testhooks::watchApp([&http, &images] { return http.inFlightForeground() > 0 || images.activeJobs() > 0; });
 
     // HOME, sleep, another app on top: write what is waiting now (S5), and pause the watchdog (borealis keeps the loop
     // running in the background, but slowly). Waking up from sleep: fresh network connections.

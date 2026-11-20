@@ -62,13 +62,10 @@ void DownloadStore::stop() {
 
 // --- The scan ---
 
-DownloadStore::Scan DownloadStore::scanNow(const std::string& rawUrl) const {
-    Scan scan;
-    const std::string url = core::downloadServerUrl(rawUrl);
+std::optional<DownloadStore::Listing> DownloadStore::listingNow(const std::string& url) const {
     core::JsonLimits small;
     small.maxBytes = options_.queueFileBytes;
     small.maxDepth = options_.maxDepth;
-    // 1. The folder: the one whose server.json lists the address; else the one named after it (its server.json is gone).
     for (const platform::SafeFs::Entry& entry : fs_.listDirEntries(core::kSwitchDownloadsDir)) {
         if (!entry.isDir) {
             continue;
@@ -77,11 +74,23 @@ DownloadStore::Scan DownloadStore::scanNow(const std::string& rawUrl) const {
         const auto text = fs_.readFile(join(dir, core::kSwitchServerFile), options_.queueFileBytes);
         const auto urls = text ? core::readServerFile(*text, small) : std::nullopt;
         if (urls && std::find(urls->begin(), urls->end(), url) != urls->end()) {
-            scan.key = entry.name;
-            scan.urls = *urls;
-            scan.folderThere = true;
-            break;
+            return Listing{entry.name, *urls};
         }
+    }
+    return std::nullopt;
+}
+
+DownloadStore::Scan DownloadStore::scanNow(const std::string& rawUrl) const {
+    Scan scan;
+    const std::string url = core::downloadServerUrl(rawUrl);
+    core::JsonLimits small;
+    small.maxBytes = options_.queueFileBytes;
+    small.maxDepth = options_.maxDepth;
+    // 1. The folder: the one whose server.json lists the address; else the one named after it (its server.json is gone).
+    if (auto listing = listingNow(url)) {
+        scan.key = std::move(listing->key);
+        scan.urls = std::move(listing->urls);
+        scan.folderThere = true;
     }
     if (scan.key.empty()) {
         scan.key = core::switchServerKey(url);
@@ -260,6 +269,29 @@ void DownloadStore::writeServer(std::string key, std::vector<std::string> urls, 
         const bool ok = fs_.makeDirs(dir) && fs_.writeAtomic(join(dir, core::kSwitchServerFile), core::writeServerFile(urls));
         if (!ok) {
             say(true, "switch downloads: can't write " + join(dir, core::kSwitchServerFile));
+        }
+        if (done) {
+            deliver_([done, ok] { done(ok); });
+        }
+    });
+}
+
+void DownloadStore::findListing(std::string url, std::function<void(std::optional<Listing>)> done) {
+    post([this, url = core::downloadServerUrl(url), done = std::move(done)] {
+        auto listing = std::make_shared<std::optional<Listing>>(listingNow(url));
+        deliver_([done, listing] { done(std::move(*listing)); });
+    });
+}
+
+void DownloadStore::startServerFolder(std::string key, std::vector<std::string> urls, std::function<void(bool)> done) {
+    post([this, key = std::move(key), urls = std::move(urls), done = std::move(done)] {
+        const std::string dir = core::switchServerDir(key);
+        bool ok = true;
+        if (!fs_.exists(dir)) {
+            ok = fs_.makeDirs(dir) && fs_.writeAtomic(join(dir, core::kSwitchServerFile), core::writeServerFile(urls));
+            if (!ok) {
+                say(true, "switch downloads: can't write " + join(dir, core::kSwitchServerFile));
+            }
         }
         if (done) {
             deliver_([done, ok] { done(ok); });

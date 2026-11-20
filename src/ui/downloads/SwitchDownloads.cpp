@@ -962,7 +962,17 @@ void SwitchDownloads::pageFailed(std::uint64_t run, int index, const std::string
         say(true, "switch downloads: chapter " + std::to_string(running_->chapterId) + " page " + std::to_string(index) +
                       " failed " + std::to_string(page.tries) + " times: " + why);
         page.asked = false;
-        failChapter(running_->chapterId, index, why);
+        // "Failed at page N" names the first page that failed, not the one that ran out of tries first: two pages download
+        // at once, and which of two failing pages gives up first is down to timing (WP-18c).
+        int first = index;
+        for (int i = 0; i < index; ++i) {
+            const Page& earlier = running_->pages[static_cast<std::size_t>(i)];
+            if (!earlier.done && earlier.tries > 0) {
+                first = i;
+                break;
+            }
+        }
+        failChapter(running_->chapterId, first, why);
         return;
     }
     // Asked again after retryMs, doubled per try; it keeps its place (asked) meanwhile.
@@ -1447,6 +1457,64 @@ void SwitchDownloads::markDamaged(int chapterId, int page) {
             return;
         }
     }
+}
+
+// --- "Same server?" (WP-18c) ---
+
+void SwitchDownloads::addressQuestion(const std::string& newUrl, std::function<void(AddressQuestion)> done) {
+    AddressQuestion question;
+    question.oldUrl = url_;
+    question.newUrl = core::downloadServerUrl(newUrl);
+    for (const core::SwitchManga& m : manga_) {
+        question.chapters += static_cast<int>(m.chapters.size());
+    }
+    // Only a change away from a saved server that has downloaded chapters, to an address its server.json doesn't list.
+    const bool maybe = loaded_ && !url_.empty() && !question.newUrl.empty() && question.newUrl != url_ &&
+                       question.chapters > 0 &&
+                       std::find(urls_.begin(), urls_.end(), question.newUrl) == urls_.end();
+    if (!maybe) {
+        done(question);
+        return;
+    }
+    // Another folder may list it already (an earlier answer, or downloads of its own): then nothing to ask.
+    store_.findListing(question.newUrl, [done, question](std::optional<DownloadStore::Listing> listing) mutable {
+        question.ask = !listing.has_value();
+        done(question);
+    });
+}
+
+void SwitchDownloads::joinAddress(const std::string& newUrl, std::function<void(bool ok)> done) {
+    if (!loaded_ || key_.empty()) {
+        if (done) {
+            done(false);
+        }
+        return;
+    }
+    urls_ = core::addServerUrl(urls_.empty() ? std::vector<std::string>{url_} : urls_, newUrl, url_);
+    serverWritten_ = true;
+    say(false, "switch downloads: " + core::downloadServerUrl(newUrl) + " is the same server as " + url_);
+    // On the store's thread, before the scan the new address's setServer() asks for (FIFO): the scan finds this folder.
+    store_.writeServer(key_, urls_, [this, alive = std::weak_ptr<bool>(alive_), done](bool ok) {
+        if (!ok && !alive.expired() && *alive.lock()) {
+            pendingError_ = kWriteError;
+        }
+        if (done) {
+            done(ok);
+        }
+    });
+}
+
+void SwitchDownloads::keepApart(const std::string& newUrl, std::function<void(bool ok)> done) {
+    const std::string url = core::downloadServerUrl(newUrl);
+    say(false, "switch downloads: " + url + " is another server than " + url_);
+    store_.startServerFolder(core::switchServerKey(url), {url}, [this, alive = std::weak_ptr<bool>(alive_), done](bool ok) {
+        if (!ok && !alive.expired() && *alive.lock()) {
+            pendingError_ = kWriteError;
+        }
+        if (done) {
+            done(ok);
+        }
+    });
 }
 
 }  // namespace snx::ui

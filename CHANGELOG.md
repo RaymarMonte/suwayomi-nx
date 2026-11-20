@@ -20,6 +20,11 @@ with 0, any release may change things.
   full the queue waits until you delete something; nothing is deleted by itself. **Delete Switch downloads after reading**
   (off by default): a chapter you finish in the reader is deleted from the Switch when you close the reader. Bookmarked
   chapters stay.
+- **Same server?** When you change the server address while chapters are downloaded to the Switch, the app asks once
+  whether the new address is the same server. Same server: the downloads show at the new address too (handy when the
+  server's IP address changed). Another server: they stay with the old address and show again when you go back to it.
+- **Settings:** the D-pad moves one row per press all the way down the list (before, a press toward a row below the
+  screen's edge sometimes only scrolled a little).
 - **Download on server:** your server can download chapters onto its own disk (they open faster and stay readable if the
   source goes away; nothing is stored on the Switch). On a manga's page, a chapter's menu has Download on server, Cancel
   server download or Delete server download, and MINUS → Download on server... queues the next 1, 5, 10 or 25 unread

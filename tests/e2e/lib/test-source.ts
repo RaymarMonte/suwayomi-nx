@@ -45,6 +45,15 @@ export function clearTestSourceControl(): void {
     rmSync(CONTROL_FILE, { force: true });
 }
 
+/**
+ * WP-18c: empties the server's own page cache (SUWAYOMI-API.md: the server keeps every page it served once), so pages come
+ * from the test source again, with the switch file's delays and failures. Before any step that needs slow or failing
+ * pages: then no scenario depends on a freshly reset server (the integration test and other scenarios read pages too).
+ */
+export async function clearServerPageCache(client: SuwayomiClient = defaultClient()): Promise<void> {
+    await client.query('mutation { clearCachedImages(input: { cachedPages: true }) { cachedPages } }');
+}
+
 /** Writes a temporary file and renames it over the target, so the source never reads half a file. Retries a busy file. */
 function writeAtomically(path: string, text: string): void {
     const tmp = `${path}.tmp`;

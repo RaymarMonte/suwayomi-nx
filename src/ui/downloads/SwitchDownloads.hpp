@@ -154,6 +154,22 @@ class SwitchDownloads {
     // The reader found a page missing, cut short or undecodable: the chapter shows "damaged" (saved in manga.json).
     void markDamaged(int chapterId, int page);
 
+    // --- "Same server?" (WP-18c, D59): the setup screen saves a new address while the saved server is still loaded here ---
+    struct AddressQuestion {
+        bool ask = false;
+        std::string oldUrl;  // the saved server's address (downloadServerUrl form)
+        std::string newUrl;  // the address about to be saved (same form)
+        int chapters = 0;    // the saved server's downloaded chapters
+    };
+    // Ask only when the saved server has downloaded chapters and no server.json on the SD card lists newUrl yet. done runs
+    // on the main thread: at once, or after a look at the SD card (the store's thread).
+    void addressQuestion(const std::string& newUrl, std::function<void(AddressQuestion)> done);
+    // Same server: newUrl joins the saved server's server.json (at most kSwitchUrlsMax, core::addServerUrl), written before
+    // the scan of the next setServer(). Another server: newUrl gets a folder of its own with only its server.json, so the
+    // question comes once per address. A failed write: done(false) and takeError().
+    void joinAddress(const std::string& newUrl, std::function<void(bool ok)> done = {});
+    void keepApart(const std::string& newUrl, std::function<void(bool ok)> done = {});
+
     // --- Listeners (main thread) ---
     struct Change {
         bool state = false;  // anything a screen shows (queue, progress, the index, space, the view)

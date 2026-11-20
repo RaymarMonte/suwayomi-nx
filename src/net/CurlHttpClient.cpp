@@ -186,6 +186,7 @@ struct CurlHttpClient::Impl {
 
     // Accepted requests that haven't finished yet (inFlight()): up at submit, down in finish().
     std::atomic<std::size_t> inFlight{0};
+    std::atomic<std::size_t> backgroundInFlight{0};  // of them, Priority::Background (WP-18c: inFlightForeground())
 
     // The network thread's own.
     std::vector<std::unique_ptr<Transfer>> active;
@@ -500,6 +501,9 @@ void CurlHttpClient::Impl::retryOrFinish(Job job, const Request& sent, HttpResul
 void CurlHttpClient::Impl::finish(Job& job, const Request& sent, HttpResult result) {
     owner.notifyObservers(sent, result);
     job.promise.set(std::move(result));
+    if (job.priority == Priority::Background) {
+        backgroundInFlight.fetch_sub(1);
+    }
     inFlight.fetch_sub(1);  // after the callbacks ran, so "nothing in flight" means their results are on their way
 }
 
@@ -565,6 +569,9 @@ Future<HttpResult> CurlHttpClient::submit(Request request, Priority priority, Ca
         std::lock_guard<std::mutex> lock(impl_->mutex);
         if (!impl_->stopping) {
             impl_->inFlight.fetch_add(1);
+            if (priority == Priority::Background) {
+                impl_->backgroundInFlight.fetch_add(1);
+            }
             impl_->queues[queueIndex(priority)].push_back(std::move(job));
             impl_->wakeLocked();
             return future;
@@ -593,6 +600,12 @@ void CurlHttpClient::shutdown() {
     }
     pthread_join(impl_->thread, nullptr);
     impl_->joined = true;
+}
+
+std::size_t CurlHttpClient::inFlightForeground() const {
+    const std::size_t background = impl_->backgroundInFlight.load();  // first: it goes down before inFlight does
+    const std::size_t all = impl_->inFlight.load();
+    return all > background ? all - background : 0;
 }
 
 std::size_t CurlHttpClient::inFlight() const {

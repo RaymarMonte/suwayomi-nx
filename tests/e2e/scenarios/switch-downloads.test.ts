@@ -4,20 +4,22 @@
 // 1. Alpha → Chapter 1's menu → Download to Switch → downloaded (a "switch_download" event, 10 pages); its page files equal
 //    the server's pages byte for byte (desktop: the files; Switch: read back through sys-autopilot);
 // 2. the reader opens Chapter 1 from its files: its pages load with "source":"download" and no page request goes out, also
-//    over 2 page turns;
+//    over 2 page turns; 2b (WP-18c): the test server stopped, Chapter 1 opens again and turns 3 pages; the server starts;
 // 3. MINUS → Download to Switch... → Unread → Chapters 2 and 3 queued (Chapter 1 is skipped: it's on the Switch), both
 //    downloaded; Show → Downloaded to Switch lists the 3 (golden "chapters-on-switch");
 // 4. the tab: Alpha under "On this Switch" with 3 chapters (golden "switch-downloads-tab", the space line masked: the free
 //    space differs per machine); Y on Alpha → Delete all downloads... → the question → Delete → gone, its folder too;
 // 5. Settings → "Delete Switch downloads after reading" on: Chapter 2 bookmarked, Chapters 1 and 2 downloaded and read to
 //    their last page: closing Chapter 2 keeps its download (bookmarked), closing Chapter 1 deletes it; the switch off;
+//    5b (WP-18c): Gamma Webtoon's Chapter 1 (Long series, WebP strips) downloaded opens as the strip from its files;
 // 6. relaunch with a 1-byte space for downloads (test config switchDownloadLimitBytes): MINUS → Download to Switch... → All
 //    → the queue waits "limit_full" (golden "switch-queue", state text masked); the button → Paused, → Resume (waiting
 //    again); Clear... → the question → Clear queue → empty;
 // 7. Switch only: with that queue waiting, HOME → "background"; HOME again → back to "limit_full".
 // Known state first and at the end, also after a failure: none of the test server's downloads on the SD card (desktop: its
 // folder deleted, found by its server.json; Switch: deleted through the app's tab, never another server's folder), Alpha's
-// chapters unread, at page 0, without bookmarks, the test source's switch file cleared.
+// and Gamma's chapters unread, at page 0, without bookmarks (Gamma: without strip spots), the switch file cleared.
+// The queue's own steps (slowed, Retry, a quit mid-download, "Same server?", the SD card full, 300 entries): switch-download-queue.
 // Needs the test server (tools/test-server/test-server.sh start).
 
 import { writeFileSync } from 'node:fs';
@@ -25,13 +27,13 @@ import { join } from 'node:path';
 
 import { expect } from 'vitest';
 
-import { mangaIds } from '../lib/chapters.ts';
+import { chaptersOf, clearStripSpots, mangaIds, resetChapters } from '../lib/chapters.ts';
 import type { AppEvent } from '../lib/events.ts';
 import { openManga, readerAfter, waitForLibrary } from '../lib/reader.ts';
 import { scenario, type Scenario } from '../lib/scenario.ts';
 import { CLOCK_MASK, DIALOG, LIBRARY_MORE, MANGA, READER, SERVER_DOWNLOADS, tab } from '../lib/screens.ts';
 import { patchChapters, serverChapters } from '../lib/server-downloads.ts';
-import { appServerUrl, optionsFromEnv, SuwayomiClient } from '../lib/suwayomi.ts';
+import { appServerUrl, optionsFromEnv, startServer, stopServer, SuwayomiClient } from '../lib/suwayomi.ts';
 import { chapterPageFiles, removeTestServerFolders, serverPageBytes, serverPages, testServerFolders } from '../lib/switch-downloads.ts';
 import { clearTestSourceControl } from '../lib/test-source.ts';
 import { playTouches, tapFrames } from '../lib/touches.ts';
@@ -180,6 +182,7 @@ async function openTab(s: Scenario): Promise<void> {
 async function deleteInTab(s: Scenario, mangaId: number): Promise<void> {
     await pressUntilFocus(s, 'RIGHT', 'switch_downloads/', 3);
     await pressUntilFocus(s, 'DOWN', `switch_downloads/manga-${mangaId}`, 8);
+    const before = Number(lastState(s)?.manga);
     const mark = s.events.mark();
     if (s.driver.name === 'switch') await s.driver.press('Y');
     else await s.driver.touch(Y_HINT.x, Y_HINT.y);
@@ -188,20 +191,24 @@ async function deleteInTab(s: Scenario, mangaId: number): Promise<void> {
     expect(String(ask.text)).toContain('from this Switch?');
     const done = await tapUntil(s, DIALOG.confirm, 'deleted', isEv('switch_download_action', { action: 'delete_manga' }));
     expect(done.ok, 'the delete worked').toBe(true);
-    await untilState(s, `manga ${mangaId} gone`, (e) => e.manga === 0, mark);
+    await untilState(s, `manga ${mangaId} gone`, (e) => Number(e.manga) < before, mark);
 }
 
 /**
  * The Switch: no file can be deleted from outside the app, so whatever an earlier run left of the test server's downloads
  * goes through the tab (the app sees only the folder of the server it is set up for).
  */
-async function deleteLeftovers(s: Scenario, alpha: number): Promise<void> {
+async function deleteLeftovers(s: Scenario, alpha: number, gamma: number): Promise<void> {
     const loaded = await untilState(s, 'the downloads loaded', (e) => e.loaded === true);
     if (Number(loaded.manga) === 0 && Number(loaded.queued) === 0) return;
-    expect(Number(loaded.manga), 'only Alpha is ever downloaded by this scenario').toBeLessThanOrEqual(1);
+    expect(Number(loaded.manga), 'only Alpha and Gamma are ever downloaded by this scenario').toBeLessThanOrEqual(2);
     await openTab(s);
     if (Number(loaded.queued) > 0) await clearQueue(s);
-    if (Number(loaded.manga) > 0) await deleteInTab(s, alpha);
+    while (Number(lastState(s)?.manga) > 0) {
+        await pressUntilFocus(s, 'RIGHT', 'switch_downloads/', 3);
+        await pressUntilFocus(s, 'DOWN', 'switch_downloads/manga-', 8);
+        await deleteInTab(s, focusedView(s).endsWith(`manga-${gamma}`) ? gamma : alpha);
+    }
 }
 
 /** The tab's Clear... → the question → Clear queue; waits for the empty queue. */
@@ -224,14 +231,20 @@ async function setDeleteAfterReading(s: Scenario, on: boolean): Promise<void> {
 scenario('switch-downloads', async (s) => {
     const client = new SuwayomiClient(optionsFromEnv());
     const url = appServerUrl(s.driver.name);
-    const alpha = (await mangaIds(client)).get('Alpha') ?? 0;
+    const library = await mangaIds(client);
+    const alpha = library.get('Alpha') ?? 0;
+    const gamma = library.get('Gamma Webtoon') ?? 0;
     expect(alpha, 'the test server has Alpha: tools/test-server/test-server.sh reset').toBeGreaterThan(0);
+    expect(gamma, 'the test server has Gamma Webtoon').toBeGreaterThan(0);
     const chapters = (await serverChapters(alpha, client)).sort((a, b) => a.sourceOrder - b.sourceOrder);
     expect(chapters).toHaveLength(3);
     const [one, two, three] = chapters.map((c) => c.id);
+    const gammaOne = (await chaptersOf(client, gamma))[0].id;  // by sourceOrder: Chapter 1
     const knownState = async () => {
         clearTestSourceControl();
         await patchChapters([one, two, three], { isRead: false, isBookmarked: false, lastPageRead: 0 }, client);
+        await resetChapters(client, gamma);
+        await clearStripSpots(client, gamma);
         await removeTestServerFolders(s.driver, url);
     };
     await knownState();
@@ -239,7 +252,7 @@ scenario('switch-downloads', async (s) => {
     try {
         await s.launch({ testConfig: { server: { url } } });
         await waitForLibrary(s);
-        if (s.driver.name === 'switch') await deleteLeftovers(s, alpha);
+        if (s.driver.name === 'switch') await deleteLeftovers(s, alpha, gamma);
         const loaded = await untilState(s, 'the downloads loaded', (e) => e.loaded === true);
         expect(loaded.manga, 'nothing of the test server on the SD card').toBe(0);
 
@@ -281,6 +294,28 @@ scenario('switch-downloads', async (s) => {
         expect(images.length, 'pages loaded from the SD card').toBeGreaterThanOrEqual(3);
         expect(images.every((e) => e.source === 'download' || e.source === 'memory'), 'from the files (or memory)').toBe(true);
         await closeReader(s);
+
+        // 2b. WP-18c: the server stopped: Chapter 1 still opens from its files and turns 3 pages; then the server starts
+        // again (the progress saves meanwhile wait for it, WP-15b).
+        stopServer();
+        try {
+            mark = s.events.mark();
+            const away = await readerAfter(s, () => s.driver.touch(MANGA.row(2).x, MANGA.row(2).y), { shown: 'page', chapterId: one });
+            for (let turn = 1; turn <= 3; turn++) {
+                await readerAfter(s, () => s.driver.touch(nextPage(away).x, nextPage(away).y), { shown: 'page', page: Number(away.page) + turn });
+            }
+            // Each turn above waited for its page on screen. How many pages load here depends on what the reader still
+            // holds from step 2 (no image event for those), so at least one, all from the files, and no page request.
+            const awaySince = s.events.events.slice(mark);
+            const fromFiles = awaySince.filter((e) => e.ev === 'image' && /\/c\d+\/\d{4}\./.test(String(e.url)));
+            expect(fromFiles.length, 'pages loaded with the server stopped').toBeGreaterThanOrEqual(1);
+            expect(fromFiles.every((e) => e.ok !== false && (e.source === 'download' || e.source === 'memory'))).toBe(true);
+            const asked = awaySince.filter((e) => e.ev === 'net' && /\/chapter\/\d+\/page\//.test(String(e.url)));
+            expect(asked.map((e) => e.url), 'no page request with the server stopped').toEqual([]);
+            await closeReader(s);
+        } finally {
+            startServer();
+        }
 
         // 3. MINUS → Download to Switch... → Unread: Chapters 2 and 3 (1 is on the Switch already).
         mark = s.events.mark();
@@ -331,8 +366,35 @@ scenario('switch-downloads', async (s) => {
         await setDeleteAfterReading(s, false);
         await openTab(s);
         await deleteInTab(s, alpha);
+
+        // 5b. WP-18c: Gamma Webtoon (Long series, 800 x 12000 WebP strips): its downloaded Chapter 1 opens as the strip,
+        // from its files (no page request).
+        await tapUntil(s, tab('Library'), 'the Library tab', isEv('screen', { name: 'Library' }));
+        const gammaShown = await openManga(s, LIBRARY_MORE.longSeries, 1, 2);  // "Delta Big" < "Gamma Webtoon"
+        expect(gammaShown.id).toBe(gamma);
+        await downloadRow(s, 1, gammaOne);  // newest first: Chapter 1 is the second row
+        mark = s.events.mark();
+        const strip = await readerAfter(s, () => s.driver.touch(MANGA.row(1).x, MANGA.row(1).y),
+            { mode: 'strip', shown: 'strip', chapterId: gammaOne });
+        expect(strip.page).toBe(0);
+        const stripSince = s.events.events.slice(mark);
+        // The strip loads the next chapter below it (Chapter 2, not downloaded) from the server: only Chapter 1 must not be asked.
+        expect(stripSince.filter((e) => e.ev === 'net' && String(e.url).includes(`/manga/${gamma}/chapter/1/page/`)).map((e) => e.url),
+            'no page request for the downloaded strip').toEqual([]);
+        const strips = stripSince.filter((e) => e.ev === 'image' && /\/c\d+\/\d{4}\.webp$/.test(String(e.url)));
+        expect(strips.length, 'the strip\'s pages loaded from the SD card').toBeGreaterThanOrEqual(1);
+        expect(strips.every((e) => e.source === 'download' || e.source === 'memory')).toBe(true);
+        mark = s.events.mark();
+        await s.driver.press('B');  // the strip closes with B (its menu's places depend on its orientation)
+        await s.events.waitForEvent('screen', { name: 'Manga' }, { from: mark });
+        await s.events.waitForEvent('idle', {}, { from: mark });
+        await backToMain(s);
+        await openTab(s);
+        await deleteInTab(s, gamma);
         await patchChapters([one, two, three], { isRead: false, isBookmarked: false, lastPageRead: 0 }, client);
         await s.driver.quit();
+        await resetChapters(client, gamma);  // the strip saved its page and spot (after the quit: no late save)
+        await clearStripSpots(client, gamma);
 
         // 6. A 1-byte space for downloads: the queue waits; Pause, Resume; Clear.
         await s.launch({ testConfig: { server: { url }, switchDownloadLimitBytes: 1 } });
