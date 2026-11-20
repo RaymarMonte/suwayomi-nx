@@ -1,6 +1,6 @@
 // WP-15b: the waiting-save queue in the app (src/ui/reader/WaitingSaves) on a FakeHttpClient: a save that fails as the reader
 // closes goes in (a later one for the same chapter replaces it), a round after a nudge sends it (a spot goes as
-// UpdateStripProgress), "already" and "server moved" send nothing, a server that is away keeps it and backs off, three other
+// UpdateStripProgress), "already" and "server later" send nothing (D61: "finished" and "later" send), a server that is away keeps it and backs off, three other
 // errors drop it, Auth waits for connected(), the readers take an entry over when they open its chapter, and a new queue on
 // the same folder (a restart) still has it.
 // The client answers inside the call (no deliver); the loader's answers come through MainQueue (the test plays the main thread).
@@ -36,6 +36,8 @@ using net::Request;
 using ui::WaitingSaves;
 
 namespace {
+
+constexpr std::int64_t kMade = 1794534794;  // the queue's nowSeconds(): every entry's madeAt
 
 constexpr int kMangaId = 1;
 
@@ -158,6 +160,7 @@ struct Report {
     int page;
     std::string reason;
     std::size_t waiting;
+    bool held = false;
 };
 
 struct Harness {
@@ -167,6 +170,8 @@ struct Harness {
     std::unique_ptr<api::SuwayomiClient> client;
     std::unique_ptr<image::ImageLoader> images;
     std::int64_t now = 1000;
+    std::int64_t offset = 0;  // the server's clock minus the console's (WP-18b)
+    bool online = true;       // ui::Connection's state (WP-18b)
     std::vector<std::pair<int, std::function<void()>>> timers;  // later(): the test runs them
     std::vector<Report> reports;
     std::vector<int> heard;  // listeners: the chapters gone (sent, already, dropped in a round)
@@ -217,11 +222,14 @@ struct Harness {
     void makeQueue(const platform::SafeFs* fs) {
         WaitingSaves::Hooks hooks;
         hooks.clockMs = [this] { return now; };
-        hooks.nowSeconds = [] { return std::int64_t{1794534794}; };
+        hooks.nowSeconds = [] { return kMade; };
+        hooks.clockOffset = [this] { return offset; };
+        hooks.online = [this] { return online; };
         hooks.later = [this](int ms, std::function<void()> fn) { timers.emplace_back(ms, std::move(fn)); };
         hooks.post = main.deliver();
-        hooks.report = [this](const char* what, const core::WaitingSave& e, const std::string& reason, std::size_t waiting) {
-            reports.push_back({what, e.chapterId, e.page, reason, waiting});
+        hooks.report = [this](const char* what, const core::WaitingSave& e, const std::string& reason, std::size_t waiting,
+                              bool held) {
+            reports.push_back({what, e.chapterId, e.page, reason, waiting, held});
         };
         queue = std::make_unique<WaitingSaves>(*client, fs, WaitingSaves::Options{}, hooks);
         queue->addListener([this](WaitingSaves::Change change, const core::WaitingSave& e) {
@@ -404,14 +412,14 @@ TEST_CASE("queue: any HTTP answer nudges a round, at most one per interval") {
     CHECK(h.queue->size() == 0);
 }
 
-TEST_CASE("queue: the server has it already, or moved on: nothing is sent") {
+TEST_CASE("queue: the server has it already, or read on later: nothing is sent") {
     Harness h;
     h.queue->add(h.entry(101, 4));
     h.queue->add(h.entry(102, 4));
     h.server.chapters[0].lastPageRead = 4;  // the save got through after all
     h.server.chapters[0].lastReadAt = 600;
     h.server.chapters[1].lastPageRead = 7;  // read on elsewhere
-    h.server.chapters[1].lastReadAt = 700;
+    h.server.chapters[1].lastReadAt = kMade + 100;  // ... later than ours was made
     h.queue->connected();
     CHECK(h.queue->size() == 0);
     CHECK(h.server.progress.empty());
@@ -419,8 +427,87 @@ TEST_CASE("queue: the server has it already, or moved on: nothing is sent") {
     REQUIRE(h.reports.size() == 4);
     CHECK(h.reports[2].what == "already");
     CHECK(h.reports[3].what == "dropped");
-    CHECK(h.reports[3].reason == "server moved");
+    CHECK(h.reports[3].reason == "server_later");
     CHECK(h.heard == std::vector<int>{101, 102});  // the screens reload either way (History's note goes)
+}
+
+TEST_CASE("queue: D61: a chapter finished here, or read here later, is sent although the server moved on") {
+    Harness h;
+    core::WaitingSave finished = h.entry(101, 9);
+    finished.read = true;
+    h.queue->add(finished);
+    h.queue->add(h.entry(102, 6));
+    h.queue->add(h.entry(103, 2));
+    h.server.chapters[0].lastPageRead = 4;  // unread, read elsewhere later than ours: ours finished it
+    h.server.chapters[0].lastReadAt = kMade + 500;
+    h.server.chapters[1].lastPageRead = 3;  // moved on earlier than ours was made
+    h.server.chapters[1].lastReadAt = kMade - 100;
+    h.server.chapters[2].lastPageRead = 5;  // later by the server's clock: a console 200 s behind the server
+    h.server.chapters[2].lastReadAt = kMade + 100;
+    h.offset = 200;
+    h.queue->connected();
+    CHECK(h.queue->size() == 0);
+    REQUIRE(h.server.progress.size() == 3);
+    CHECK(h.server.chapters[0].isRead);
+    CHECK(h.server.chapters[1].lastPageRead == 6);
+    CHECK(h.server.chapters[2].lastPageRead == 2);
+    std::vector<std::string> reasons;
+    for (const Report& r : h.reports) {
+        if (r.what == "sent") {
+            reasons.push_back(r.reason);
+        }
+    }
+    CHECK(reasons == std::vector<std::string>{"finished", "later", "later"});
+    // With the console's clock taken as it is, the third would have been the server's.
+    Harness again;
+    again.queue->add(again.entry(103, 2));
+    again.server.chapters[2].lastPageRead = 5;
+    again.server.chapters[2].lastReadAt = kMade + 100;
+    again.queue->connected();
+    CHECK(again.server.progress.empty());
+    CHECK(again.reports.back().reason == "server_later");
+}
+
+TEST_CASE("queue: WP-18b: held entries wait for the reader, removeHeld drops one, no rounds while offline") {
+    Harness h;
+    h.queue->hold(101);
+    h.queue->add(h.entry(101, 4));
+    h.queue->add(h.entry(102, 5));
+    CHECK(h.reports[0].held);
+    CHECK_FALSE(h.reports[1].held);
+    h.queue->connected();
+    CHECK(h.queue->size() == 1);  // only 102 went
+    REQUIRE(h.server.progress.size() == 1);
+    CHECK(h.server.progress[0]["id"] == 102);
+    CHECK(h.queue->waitingFor(101) != nullptr);
+    // Released: the next round sends it.
+    h.queue->release(101);
+    h.now += 10000;
+    h.queue->connected();
+    CHECK(h.queue->size() == 0);
+    CHECK(h.server.progress.size() == 2);
+    // removeHeld only drops a held entry.
+    h.queue->add(h.entry(103, 1));
+    h.queue->removeHeld(103);
+    CHECK(h.queue->size() == 1);
+    h.queue->hold(103);
+    h.queue->removeHeld(103);
+    CHECK(h.queue->size() == 0);
+    CHECK(h.reports.back().what == "saved");
+    h.queue->release(103);
+    // Offline: nothing starts (no request), connected() once online again does.
+    h.online = false;
+    h.queue->add(h.entry(102, 8));
+    const std::size_t before = h.http.requests().size();
+    h.queue->connected();
+    h.now += 10000;
+    CHECK(h.client->pages(103, api::PageFormat::AsStored, net::CancelToken()).get().ok());  // a nudge
+    h.main.settle(50);
+    CHECK(h.queue->size() == 1);
+    CHECK(h.http.requests().size() == before + 1);  // only the test's own request
+    h.online = true;
+    h.queue->connected();
+    CHECK(h.queue->size() == 0);
 }
 
 TEST_CASE("queue: a server that is away keeps it and backs off, doubling up to the cap") {
@@ -522,12 +609,12 @@ TEST_CASE("queue: the page reader takes an entry over (opens at its page, saves 
         CHECK(h.server.progress[0]["lastPageRead"] == 5);
         h.drain();
     }
-    SUBCASE("the server moved on") {
+    SUBCASE("the server moved on later") {
         Harness h;
         core::WaitingSave old = h.entry(101, 5);
         h.queue->add(old);
         h.server.chapters[0].lastPageRead = 2;  // read elsewhere since
-        h.server.chapters[0].lastReadAt = 900;
+        h.server.chapters[0].lastReadAt = kMade + 100;
         auto model = h.reader();
         model->open(101, 2);
         CHECK(model->position() == 2);

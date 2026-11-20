@@ -73,18 +73,23 @@ ApiError fromHttpStatus(int status, std::string_view body) {
     if (!excerpt.empty()) {
         detail += ": " + excerpt;
     }
+    ApiError error;
     switch (status) {
-        case 401: return makeApiError(ApiErrorKind::Auth, std::move(detail));
-        case 403: return makeApiError(ApiErrorKind::Permission, std::move(detail));
+        case 401: error = makeApiError(ApiErrorKind::Auth, std::move(detail)); break;
+        case 403: error = makeApiError(ApiErrorKind::Permission, std::move(detail)); break;
         case 404:
-            return ApiError{ApiErrorKind::Server,
-                            "No Suwayomi server answers at this address (HTTP 404). Check the URL, including any sub-path.",
-                            std::move(detail)};
-        case 408: return makeApiError(ApiErrorKind::Timeout, std::move(detail));
+            error = ApiError{ApiErrorKind::Server,
+                             "No Suwayomi server answers at this address (HTTP 404). Check the URL, including any sub-path.",
+                             std::move(detail)};
+            break;
+        case 408: error = makeApiError(ApiErrorKind::Timeout, std::move(detail)); break;
         default:
-            return ApiError{ApiErrorKind::Server, "The server reported a problem (HTTP " + std::to_string(status) + ").",
-                            std::move(detail)};
+            error = ApiError{ApiErrorKind::Server, "The server reported a problem (HTTP " + std::to_string(status) + ").",
+                             std::move(detail)};
+            break;
     }
+    error.httpStatus = status;
+    return error;
 }
 
 }  // namespace snx::api

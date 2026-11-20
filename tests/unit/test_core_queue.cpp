@@ -180,25 +180,40 @@ TEST_SUITE("core") {
         CHECK(five[0].chapterId == 5);
     }
 
-    TEST_CASE("ProgressQueue: the decision: already, send (still at the base), the server moved on") {
+    TEST_CASE("ProgressQueue: the decision: already, send (still at the base), finished, later, server later (D61)") {
+        const std::int64_t made = 1794534794;  // waiting()'s madeAt
         const ServerProgress base = server(2, false, 100);
         WaitingSave entry = waiting(3, 4, base);
         CHECK(decideWaitingSave(entry, base) == WaitingDecision::Send);
-        CHECK(decideWaitingSave(entry, server(4, false, 150)) == WaitingDecision::Already);  // the save got through after all
-        CHECK(decideWaitingSave(entry, server(4, true, 150)) == WaitingDecision::Already);   // and read: we never un-read
-        CHECK(decideWaitingSave(entry, server(6, false, 150)) == WaitingDecision::ServerMoved);  // read on, elsewhere
-        CHECK(decideWaitingSave(entry, server(2, false, 150)) == WaitingDecision::ServerMoved);  // same page, saved again
-        CHECK(decideWaitingSave(entry, server(2, true, 100)) == WaitingDecision::ServerMoved);   // marked read elsewhere
-        // Ours marks it read: the server must be read too to count as "already".
+        CHECK(decideWaitingSave(entry, server(4, false, made + 50)) == WaitingDecision::Already);  // the save got through
+        CHECK(decideWaitingSave(entry, server(4, true, made + 50)) == WaitingDecision::Already);   // and read: never un-read
+        // The server moved on: the later reading wins, on the server's clock.
+        CHECK(decideWaitingSave(entry, server(6, false, made - 10)) == WaitingDecision::Later);        // ours is later
+        CHECK(decideWaitingSave(entry, server(6, false, made + 10)) == WaitingDecision::ServerLater);  // read on, elsewhere
+        CHECK(decideWaitingSave(entry, server(6, false, made)) == WaitingDecision::ServerLater);       // a tie: the server's
+        CHECK(decideWaitingSave(entry, server(2, false, made + 10)) == WaitingDecision::ServerLater);  // saved again later
+        CHECK(decideWaitingSave(entry, server(2, true, made + 10)) == WaitingDecision::ServerLater);   // marked read later
+        CHECK(decideWaitingSave(entry, server(2, true, made - 10)) == WaitingDecision::Later);  // ours later: read stays (D44)
+        // The clock offset (the server's clock minus the console's): a console 60 s behind the server.
+        CHECK(decideWaitingSave(entry, server(6, false, made + 30), 60) == WaitingDecision::Later);
+        CHECK(decideWaitingSave(entry, server(6, false, made + 30), -60) == WaitingDecision::ServerLater);
+        // An entry without a time never counts as later.
+        WaitingSave untimed = entry;
+        untimed.madeAt = 0;
+        CHECK(decideWaitingSave(untimed, server(6, false, 1)) == WaitingDecision::ServerLater);
+        // Ours marks it read: the server must be read too to count as "already"; a finished chapter stays read.
         entry.read = true;
-        CHECK(decideWaitingSave(entry, server(4, false, 150)) == WaitingDecision::ServerMoved);
-        CHECK(decideWaitingSave(entry, server(4, true, 150)) == WaitingDecision::Already);
+        CHECK(decideWaitingSave(entry, server(4, false, made + 50)) == WaitingDecision::Finished);
+        CHECK(decideWaitingSave(entry, server(9, false, made + 50)) == WaitingDecision::Finished);
+        CHECK(decideWaitingSave(entry, server(4, true, made + 50)) == WaitingDecision::Already);
+        CHECK(decideWaitingSave(entry, server(1, true, made + 50)) == WaitingDecision::ServerLater);  // read there, later
         // A spot (the strip): "already" needs the note too.
         WaitingSave strip = waiting(3, 4, base);
         strip.spot = 0.25;
-        CHECK(decideWaitingSave(strip, server(4, false, 150, stripSpotValue(4, 0.25))) == WaitingDecision::Already);
-        CHECK(decideWaitingSave(strip, server(4, false, 150, stripSpotValue(4, 0.5))) == WaitingDecision::ServerMoved);
-        CHECK(decideWaitingSave(strip, server(4, false, 150)) == WaitingDecision::ServerMoved);
+        CHECK(decideWaitingSave(strip, server(4, false, made + 5, stripSpotValue(4, 0.25))) == WaitingDecision::Already);
+        CHECK(decideWaitingSave(strip, server(4, false, made + 5, stripSpotValue(4, 0.5))) == WaitingDecision::ServerLater);
+        CHECK(decideWaitingSave(strip, server(4, false, made - 5, stripSpotValue(4, 0.5))) == WaitingDecision::Later);
+        CHECK(decideWaitingSave(strip, server(4, false, made + 5)) == WaitingDecision::ServerLater);
         ServerProgress baseWithNote = base;
         baseWithNote.spotNote = stripSpotValue(2, 0.9);  // the base ignores the note
         CHECK(decideWaitingSave(strip, baseWithNote) == WaitingDecision::Send);
@@ -208,7 +223,14 @@ TEST_SUITE("core") {
         CHECK(sent.lastPageRead == 4);
         CHECK_FALSE(sent.isRead);
         CHECK(sent.spot == 0.25);
-        CHECK(std::string(waitingDecisionName(WaitingDecision::ServerMoved)) == "server moved");
+        CHECK(sendsWaitingSave(WaitingDecision::Send));
+        CHECK(sendsWaitingSave(WaitingDecision::Finished));
+        CHECK(sendsWaitingSave(WaitingDecision::Later));
+        CHECK_FALSE(sendsWaitingSave(WaitingDecision::Already));
+        CHECK_FALSE(sendsWaitingSave(WaitingDecision::ServerLater));
+        CHECK(std::string(waitingDecisionName(WaitingDecision::Finished)) == "finished");
+        CHECK(std::string(waitingDecisionName(WaitingDecision::Later)) == "later");
+        CHECK(std::string(waitingDecisionName(WaitingDecision::ServerLater)) == "server_later");
     }
 
     TEST_CASE("ProgressSync: keeps the base across saves and failures, and hands out what isn't saved with it") {

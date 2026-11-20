@@ -6,6 +6,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -25,7 +26,8 @@
 //   (load()), the .bak if the file is broken, else empty.
 // - Out, in rounds: the entries of the configured server and user, oldest first, one at a time. For each: ChapterState;
 //   the server already has ours -> done ("already"); it is still at the entry's base -> setProgress -> done ("sent", the
-//   listeners hear it); it moved on -> ours is dropped ("dropped", the newer server change wins). Can't reach the server
+//   listeners hear it); it moved on -> D61 decides: ours finished, or ours later by the server's clock -> sent; else
+//   dropped ("server_later"). Held entries (a reader has the chapter open, WP-18b) are skipped. Can't reach the server
 //   (Offline, Timeout): the entry stays and the round ends; the next one starts retryMs later, doubling up to retryMaxMs.
 //   Auth: the round ends until connected() (a login worked). Other errors: the entry stays; the third in a row drops it.
 // - A round starts after connected() (the main screen's server check worked), when the server answered anything over HTTP
@@ -37,8 +39,8 @@ namespace snx::ui {
 class WaitingSaves {
   public:
     struct Options {
-        std::size_t maxEntries = 100;       // RuntimeProfile::pendingSavesMax
-        std::size_t fileBytes = 64 * 1024;  // RuntimeProfile::progressQueueFileBytes
+        std::size_t maxEntries = 500;       // RuntimeProfile::pendingSavesMax
+        std::size_t fileBytes = 256 * 1024;  // RuntimeProfile::progressQueueFileBytes
         int maxDepth = 64;                  // RuntimeProfile::json.maxDepth
         int saveDelayMs = 2000;             // RuntimeProfile::configSaveDelayMs
         int retryMs = 5000;                 // RuntimeProfile::progressSyncMs
@@ -53,10 +55,21 @@ class WaitingSaves {
         std::function<void(int ms, std::function<void()>)> later;   // runs fn on the main thread after ms (brls::delay)
         std::function<void(std::function<void()>)> post;            // runs fn on the main thread soon, from any thread (brls::sync)
         std::function<void(bool warning, const std::string& line)> log;
-        // Every change, for the "progress_queue" test event: what (added, sent, already, dropped, kept, taken), the entry,
-        // why (dropped / kept), and how many entries wait now.
+        // Every change, for the "progress_queue" test event: what (added, sent, already, dropped, kept, taken, saved), the
+        // entry, why (sent: send / finished / later; dropped: server_later / full / errors; kept: the error), how many
+        // entries wait now, and whether a reader holds the chapter (WP-18b).
         std::function<void(const char* what, const core::WaitingSave& entry, const std::string& reason,
-                           std::size_t waiting)> report;
+                           std::size_t waiting, bool held)> report;
+        // WP-18b (D61). The server's clock minus the console's, in seconds (ui::Connection, from the answers' Date header):
+        // the "later reading wins" rule compares through it. Empty: 0.
+        std::function<std::int64_t()> clockOffset;
+        // Whether the app is online (ui::Connection): no round starts while it says false; connected() starts one once the
+        // server is back. Empty: always.
+        std::function<bool()> online;
+        // What a round learned of a chapter on the server: its state (full: page, read flag, stamp, bookmark, spot note)
+        // or a save's answer (not full: page, read flag, stamp, and the spot sent). The Switch's progress.json keeps it for
+        // downloaded chapters. Empty: nobody listens.
+        std::function<void(int chapterId, const core::ServerProgress& server, bool full)> serverProgress;
     };
 
     // fs: the app's folder (nullptr: no file, for tests that don't need one). The client must outlive this.
@@ -74,14 +87,25 @@ class WaitingSaves {
     void onFrame(bool readerMoving);
     bool flush();  // writes now if anything changed; true if nothing needed writing or it worked
 
-    // A save that failed as the reader closed. Server and user are the client's now; madeAt is set here.
+    // A save that failed as the reader closed; WP-18b also every save the reader makes offline, and a held copy of one that
+    // failed online for want of the server. Server and user are the client's now; madeAt is set here.
     void add(core::WaitingSave entry);
 
     // The reader opened `chapterId` and the server answered `opened` (fetchChapterPages): if an entry of the configured
-    // server waits for it, it leaves the queue. Still at its base: the entry is returned, and the reader opens at its page
-    // and spot and saves it as its own ("taken"). The server has it already: nothing ("already"). The server moved on:
-    // nothing ("dropped").
+    // server waits for it, it leaves the queue. The decision (D61) sends it (still at its base, finished, or ours later):
+    // the entry is returned, and the reader opens at its page and spot and saves it as its own ("taken"). The server has it
+    // already: nothing ("already"). The server's reading is the later one: nothing ("dropped", "server_later").
     std::optional<core::WaitingSave> takeOver(int chapterId, const core::ServerProgress& opened);
+
+    // WP-18b (D61), held entries: while a reader has a chapter open, its entry is held (in memory only): rounds skip it, so
+    // the reader is the only one that changes it. The reader holds every chapter it opens and releases them as it closes
+    // (after its last saves). After a restart nothing is held. removeHeld: the reader's save of a held chapter worked (the
+    // held copy of a save that failed online goes).
+    void hold(int chapterId);
+    void release(int chapterId);
+    bool held(int chapterId) const { return held_.count(chapterId) > 0; }
+    void removeHeld(int chapterId);
+    std::size_t heldCount() const { return held_.size(); }
 
     // The entry waiting for `chapterId` of the configured server, if any.
     const core::WaitingSave* waitingFor(int chapterId) const;
@@ -112,6 +136,7 @@ class WaitingSaves {
         std::string user;
         std::vector<int> chapterIds;  // the entries it takes, oldest first (looked up again at each step)
         std::size_t next = 0;
+        std::string reason;  // the decision that sends the entry under way ("send", "finished", "later")
     };
 
     void startRound(const char* why);
@@ -130,12 +155,14 @@ class WaitingSaves {
     void tell(const char* what, const core::WaitingSave& entry, const std::string& reason) const;
     void notify(Change change, const core::WaitingSave& entry);  // the listeners (a copy: one may remove itself)
     void waitingChanged();
+    std::int64_t offset() const;  // hooks_.clockOffset(), 0 without it
 
     api::SuwayomiClient& client_;
     const platform::SafeFs* fs_;
     Options options_;
     Hooks hooks_;
     std::vector<core::WaitingSave> entries_;  // oldest first
+    std::set<int> held_;                      // chapters a reader has open (the configured server's)
     core::SaveScheduler scheduler_;
     std::optional<Round> round_;
     bool running_ = false;

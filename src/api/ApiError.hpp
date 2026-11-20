@@ -29,6 +29,9 @@ struct ApiError {
     ApiErrorKind kind = ApiErrorKind::Server;
     std::string message;  // for the screen: one line in plain words (userMessage(kind), or a better one when known)
     std::string detail;   // for the log: what exactly happened ("HTTP 500", the server's or curl's text)
+    // WP-18b: the HTTP status when the error is an HTTP answer that wasn't 200 (fromHttpStatus), else 0. ui::Connection
+    // counts 502 / 503 / 504 (a proxy in front of a stopped server) as "can't reach the server".
+    int httpStatus = 0;
 };
 
 // A value or an ApiError.

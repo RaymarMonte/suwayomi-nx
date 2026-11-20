@@ -74,8 +74,14 @@ TEST_SUITE("core") {
         CHECK(full.libraryUpdatePollMs == 1000);
         CHECK(full.libraryUpdateStartWaitMs == 10000);
         // WP-15b: the waiting-save queue.
-        CHECK(full.pendingSavesMax == 100);
-        CHECK(full.progressQueueFileBytes == 64 * 1024);
+        CHECK(full.pendingSavesMax == 500);  // WP-18b (D61): offline reading goes there too
+        CHECK(full.progressQueueFileBytes == 256 * 1024);
+        // WP-18b: reading away from home.
+        CHECK(full.offlineCheckMs == 30000);
+        CHECK(full.offlineNetworkPollMs == 2000);
+        CHECK(full.offlineSuspectGapMs == 5000);
+        CHECK(full.downloadedProgressBatch == 500);
+        CHECK(full.switchProgressFileBytes == 512 * 1024);
         CHECK(full.httpConcurrency == 6);
         CHECK(full.decodeThreads == 2);
         CHECK(full.maxDecodeScale == doctest::Approx(4.0));  // D48: WP-13c's console measurement

@@ -29,7 +29,9 @@ struct WaitingSave {
     ServerProgress base;         // the server's page, read flag and stamp as the reader last knew them (no note)
     std::string mangaTitle;      // for the log and History's note
     std::string chapterName;
-    std::int64_t madeAt = 0;  // when it was made: seconds since 1970 by the console's clock (only for the log)
+    // When it was made: seconds since 1970 by the console's clock. WP-18b (D61): the "later reading wins" rule compares it
+    // (plus the clock offset) with the server's lastReadAt; a replaced entry takes the newer time.
+    std::int64_t madeAt = 0;
     int errors = 0;           // answers in a row that were neither "sent" nor "the server is away" (a third drops it)
 };
 
@@ -57,13 +59,22 @@ std::string saveProgressQueue(const std::vector<WaitingSave>& entries);  // one 
 // back at start, S6). Returns them, for the log.
 std::vector<WaitingSave> fitProgressQueue(std::vector<WaitingSave>& entries, std::size_t maxBytes);
 
-// What a round does with an entry, from the server's state now (ChapterState):
+// What a round does with an entry, from the server's state now (ChapterState). D53, amended by D61 (WP-18b, the owner's
+// answers 3 and 4: one rule for every waiting save):
 // - Already: the server has our page (and read flag, and spot) already: nothing to send.
 // - Send: the server is still at the base: nobody changed it since, so ours goes out.
-// - ServerMoved: the server's progress changed meanwhile (another device, the web UI): theirs is newer, ours is dropped.
-// The reader's take-over (it opens a chapter that has a waiting entry) uses the same rule on fetchChapterPages' answer.
-enum class WaitingDecision { Already, Send, ServerMoved };
-WaitingDecision decideWaitingSave(const WaitingSave& entry, const ServerProgress& server);
+// The server's progress changed meanwhile (another device, the web UI):
+// - Finished: ours marks the chapter read and the server's doesn't: ours goes out (a finished chapter stays read).
+// - Later: ours was made later than the server's stamp (madeAt + clockOffsetSeconds > lastReadAt, both on the server's
+//   clock): ours goes out (a read flag of false leaves the server's read flag alone, D44).
+// - ServerLater: the server's change is the later one: ours is dropped.
+// clockOffsetSeconds: the server's clock minus the console's (ui::Connection learns it from the answers' Date header; 0 =
+// unknown). The reader's take-over (it opens a chapter that has a waiting entry) uses the same rule on fetchChapterPages'
+// answer.
+enum class WaitingDecision { Already, Send, Finished, Later, ServerLater };
+WaitingDecision decideWaitingSave(const WaitingSave& entry, const ServerProgress& server, std::int64_t clockOffsetSeconds = 0);
+bool sendsWaitingSave(WaitingDecision decision);  // Send, Finished or Later
+// "already", "send", "finished", "later", "server_later" (the log and the progress_queue test event's reason).
 const char* waitingDecisionName(WaitingDecision decision);
 
 // The save to send for an entry (setProgress; with a spot it goes as UpdateStripProgress).

@@ -183,7 +183,7 @@ std::string saveProgressQueue(const std::vector<WaitingSave>& entries) {
     return text;
 }
 
-WaitingDecision decideWaitingSave(const WaitingSave& entry, const ServerProgress& server) {
+WaitingDecision decideWaitingSave(const WaitingSave& entry, const ServerProgress& server, std::int64_t clockOffsetSeconds) {
     bool spotSame = true;
     if (entry.spot) {
         const std::optional<StripSpot> note = parseStripSpot(server.spotNote);
@@ -195,7 +195,19 @@ WaitingDecision decideWaitingSave(const WaitingSave& entry, const ServerProgress
     if (server.sameAs(entry.base)) {
         return WaitingDecision::Send;
     }
-    return WaitingDecision::ServerMoved;
+    // The server moved on meanwhile (D61): a chapter finished here stays read; otherwise the later reading wins.
+    if (entry.read && !server.read) {
+        return WaitingDecision::Finished;
+    }
+    if (entry.madeAt > 0 && entry.madeAt + clockOffsetSeconds > server.lastReadAt) {
+        return WaitingDecision::Later;
+    }
+    return WaitingDecision::ServerLater;
+}
+
+bool sendsWaitingSave(WaitingDecision decision) {
+    return decision == WaitingDecision::Send || decision == WaitingDecision::Finished ||
+           decision == WaitingDecision::Later;
 }
 
 const char* waitingDecisionName(WaitingDecision decision) {
@@ -204,8 +216,12 @@ const char* waitingDecisionName(WaitingDecision decision) {
             return "already";
         case WaitingDecision::Send:
             return "send";
-        case WaitingDecision::ServerMoved:
-            return "server moved";
+        case WaitingDecision::Finished:
+            return "finished";
+        case WaitingDecision::Later:
+            return "later";
+        case WaitingDecision::ServerLater:
+            return "server_later";
     }
     return "?";
 }

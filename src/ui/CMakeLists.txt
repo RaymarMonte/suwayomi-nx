@@ -18,6 +18,7 @@ add_library(snx_ui_models STATIC
     reader/ProgressSaver.cpp
     reader/StripModel.cpp
     login/LoginModel.cpp
+    main/Connection.cpp
     main/MainModel.cpp
     updates/ChapterRowsModel.cpp
     updates/LibraryUpdater.cpp

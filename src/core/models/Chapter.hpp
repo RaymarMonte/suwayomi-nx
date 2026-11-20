@@ -28,6 +28,9 @@ struct Chapter {
     // WP-13b: the chapter meta note "snx_strip_spot" ("<page>:<share>", core::parseStripSpot), where the webtoon strip was
     // read. Only fetchChapterPages asks for it; empty if there is none.
     std::string stripSpotNote;
+    // WP-18b (D61, answer 8): a chapter on this Switch that the server no longer lists ("On Switch · Removed from server").
+    // Its progress lives in the Switch's progress.json only. Never from the server.
+    bool goneFromServer = false;
 };
 
 // A change to one or more chapters (updateChapters, WP-10). Fields left empty stay as they are on the server.

@@ -72,6 +72,12 @@ struct TestConfig {
     // test); "sdFreeBytes": the SD card's free space as the downloads see it (the "nearly full" pause). Nothing = not given.
     std::optional<std::uint64_t> switchDownloadLimitBytes;
     std::optional<std::uint64_t> sdFreeBytes;
+    // WP-18b: "networkConnected": false: the console "has no network" at start (platform::networkConnected() says false
+    // until the test command {"cmd": "network", "on": true}); "offlineCheckMs": 1000..3600000, ui::Connection's check
+    // while offline instead of the profile's (a scenario sets it long to change the server while the app stays offline,
+    // or short to see the timer reconnect). Nothing = not given.
+    std::optional<bool> networkConnected;
+    std::optional<int> offlineCheckMs;
     std::vector<std::string> problems;  // what couldn't be understood, in plain words (logged, otherwise ignored)
 };
 

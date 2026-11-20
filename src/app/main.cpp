@@ -81,7 +81,7 @@ snx::ui::WaitingSaves::Hooks waitingSaveHooks() {
         }
     };
     hooks.report = [](const char* what, const snx::core::WaitingSave& entry, const std::string& reason,
-                      std::size_t waiting) {
+                      std::size_t waiting, bool held) {
         nlohmann::ordered_json fields = nlohmann::ordered_json::object();
         fields["what"] = what;
         fields["chapterId"] = entry.chapterId;
@@ -91,6 +91,9 @@ snx::ui::WaitingSaves::Hooks waitingSaveHooks() {
             fields["reason"] = reason;
         }
         fields["waiting"] = waiting;
+        if (held) {
+            fields["held"] = true;  // WP-18b: a reader has the chapter open
+        }
         snx::app::testhooks::write("progress_queue", fields);
     };
     return hooks;

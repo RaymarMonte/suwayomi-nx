@@ -196,6 +196,21 @@ TestConfig parse(std::string_view json) {
     };
     bytesField("switchDownloadLimitBytes", config.switchDownloadLimitBytes);
     bytesField("sdFreeBytes", config.sdFreeBytes);
+    // WP-18b: no network at start, and the offline check's period.
+    if (const auto network = root.find("networkConnected"); network != root.end()) {
+        if (network->is_boolean()) {
+            config.networkConnected = network->get<bool>();
+        } else {
+            config.problems.push_back("test config: \"networkConnected\" must be true or false");
+        }
+    }
+    if (const auto check = root.find("offlineCheckMs"); check != root.end()) {
+        if (check->is_number_integer() && check->get<std::int64_t>() >= 1000 && check->get<std::int64_t>() <= 3600000) {
+            config.offlineCheckMs = check->get<int>();
+        } else {
+            config.problems.push_back("test config: \"offlineCheckMs\" must be a whole number from 1000 to 3600000");
+        }
+    }
     if (const auto bench = root.find("imageBench"); bench != root.end()) {
         parseBench(*bench, config);
         config.diagnostics = config.diagnostics || config.benchRepeat > 0;

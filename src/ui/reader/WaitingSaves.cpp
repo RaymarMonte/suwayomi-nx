@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <utility>
 
+#include "core/StripMath.hpp"
+
 namespace snx::ui {
 
 namespace {
@@ -16,6 +18,20 @@ std::string userOf(const core::ServerSettings& settings) {
 
 bool serverAway(api::ApiErrorKind kind) {
     return kind == api::ApiErrorKind::Offline || kind == api::ApiErrorKind::Timeout;
+}
+
+// For the log: why a decision sends ours or drops it (D61).
+std::string whyText(core::WaitingDecision decision) {
+    switch (decision) {
+        case core::WaitingDecision::Finished:
+            return "finished here, unread on the server";
+        case core::WaitingDecision::Later:
+            return "read here later than on the server";
+        case core::WaitingDecision::ServerLater:
+            return "read on the server later";
+        default:
+            return "the server is still where it was";
+    }
 }
 
 }  // namespace
@@ -46,7 +62,7 @@ void WaitingSaves::say(bool warning, const std::string& line) const {
 
 void WaitingSaves::tell(const char* what, const core::WaitingSave& entry, const std::string& reason) const {
     if (hooks_.report) {
-        hooks_.report(what, entry, reason, entries_.size());
+        hooks_.report(what, entry, reason, entries_.size(), held(entry.chapterId));
     }
 }
 
@@ -173,8 +189,10 @@ void WaitingSaves::add(core::WaitingSave entry) {
         tell("dropped", gone, "full");
     }
     const core::WaitingSave& added = entries_.back();
-    say(true, "progress queue: keeps " + core::describeWaitingSave(added) + " (the server had " +
-                  core::describeServerProgress(added.base) + ")");
+    // A held chapter's saves (the reader offline, or its held copy) come often: not a warning.
+    say(!held(added.chapterId), "progress queue: keeps " + core::describeWaitingSave(added) + " (the server had " +
+                                    core::describeServerProgress(added.base) + ")" +
+                                    (held(added.chapterId) ? ", held by the reader" : ""));
     changed();
     waitingChanged();
     tell("added", added, "");
@@ -188,25 +206,54 @@ std::optional<core::WaitingSave> WaitingSaves::takeOver(int chapterId, const cor
         return std::nullopt;
     }
     const core::WaitingSave entry = *found;
-    const core::WaitingDecision decision = core::decideWaitingSave(entry, opened);
+    const core::WaitingDecision decision = core::decideWaitingSave(entry, opened, offset());
     forget(found);
-    switch (decision) {
-        case core::WaitingDecision::Send:
-            say(false, "progress queue: the reader takes over " + core::describeWaitingSave(entry));
-            tell("taken", entry, "");
-            return entry;
-        case core::WaitingDecision::Already:
-            say(false, "progress queue: the server has " + core::describeWaitingSave(entry) + " already");
-            tell("already", entry, "reader");
-            break;
-        case core::WaitingDecision::ServerMoved:
-            say(true, "progress queue: dropped " + core::describeWaitingSave(entry) + ": the server moved on to " +
-                          core::describeServerProgress(opened) + " (ours was made from " +
-                          core::describeServerProgress(entry.base) + ")");
-            tell("dropped", entry, "server moved");
-            break;
+    if (core::sendsWaitingSave(decision)) {
+        say(false, "progress queue: the reader takes over " + core::describeWaitingSave(entry) + " (" +
+                       whyText(decision) + ")");
+        tell("taken", entry, core::waitingDecisionName(decision));
+        return entry;
+    }
+    if (decision == core::WaitingDecision::Already) {
+        say(false, "progress queue: the server has " + core::describeWaitingSave(entry) + " already");
+        tell("already", entry, "reader");
+    } else {
+        say(true, "progress queue: dropped " + core::describeWaitingSave(entry) + ": " + whyText(decision) + ", " +
+                      core::describeServerProgress(opened) + " (ours was made from " +
+                      core::describeServerProgress(entry.base) + ", at " + std::to_string(entry.madeAt) + ")");
+        tell("dropped", entry, core::waitingDecisionName(decision));
     }
     return std::nullopt;
+}
+
+std::int64_t WaitingSaves::offset() const {
+    return hooks_.clockOffset ? hooks_.clockOffset() : 0;
+}
+
+void WaitingSaves::hold(int chapterId) {
+    held_.insert(chapterId);
+}
+
+void WaitingSaves::release(int chapterId) {
+    if (held_.erase(chapterId) > 0 && waitingFor(chapterId) != nullptr) {
+        say(false, "progress queue: the reader let go of chapter " + std::to_string(chapterId));
+    }
+}
+
+void WaitingSaves::removeHeld(int chapterId) {
+    if (!held(chapterId)) {
+        return;
+    }
+    const core::ServerSettings settings = client_.settings();
+    core::WaitingSave* found = find(settings.url, userOf(settings), chapterId);
+    if (found == nullptr) {
+        return;
+    }
+    const core::WaitingSave gone = *found;
+    forget(found);
+    say(false, "progress queue: the reader saved " + core::describeWaitingSave(gone) + " itself, its held copy goes");
+    tell("saved", gone, "reader");
+    notify(Change::Gone, gone);
 }
 
 const core::WaitingSave* WaitingSaves::waitingFor(int chapterId) const {
@@ -271,6 +318,9 @@ void WaitingSaves::startRound(const char* why) {
     if (running_ || authStopped_) {
         return;
     }
+    if (hooks_.online && !hooks_.online()) {
+        return;  // offline (WP-18b): connected() starts the round once the server is back
+    }
     const core::ServerSettings settings = client_.settings();
     if (settings.url.empty()) {
         return;
@@ -279,7 +329,7 @@ void WaitingSaves::startRound(const char* why) {
     round.url = settings.url;
     round.user = userOf(settings);
     for (const core::WaitingSave& entry : entries_) {
-        if (entry.serverUrl == round.url && entry.user == round.user) {
+        if (entry.serverUrl == round.url && entry.user == round.user && !held(entry.chapterId)) {
             round.chapterIds.push_back(entry.chapterId);
         }
     }
@@ -302,8 +352,8 @@ void WaitingSaves::step() {
             return;
         }
         const int chapterId = round_->chapterIds[round_->next];
-        if (find(round_->url, round_->user, chapterId) == nullptr) {
-            ++round_->next;  // the reader took it over meanwhile
+        if (find(round_->url, round_->user, chapterId) == nullptr || held(chapterId)) {
+            ++round_->next;  // the reader took it over meanwhile, or opened it (held)
             continue;
         }
         std::weak_ptr<bool> alive = alive_;
@@ -325,8 +375,8 @@ void WaitingSaves::onState(int chapterId, const api::ApiResult<core::ServerProgr
         return;
     }
     core::WaitingSave* entry = find(round_->url, round_->user, chapterId);
-    if (entry == nullptr) {
-        ++round_->next;
+    if (entry == nullptr || held(chapterId)) {
+        ++round_->next;  // gone meanwhile, or a reader opened it while the check was on its way
         step();
         return;
     }
@@ -338,8 +388,16 @@ void WaitingSaves::onState(int chapterId, const api::ApiResult<core::ServerProgr
         return;
     }
     const core::ServerProgress& server = result.value();
-    const core::WaitingDecision decision = core::decideWaitingSave(*entry, server);
-    if (decision == core::WaitingDecision::Send) {
+    const core::WaitingDecision decision = core::decideWaitingSave(*entry, server, offset());
+    if (core::sendsWaitingSave(decision)) {
+        if (decision != core::WaitingDecision::Send) {
+            say(false, "progress queue: the server moved on to " + core::describeServerProgress(server) + ", sending " +
+                           core::describeWaitingSave(*entry) + " anyway (" + whyText(decision) + ")");
+        }
+        round_->reason = core::waitingDecisionName(decision);
+        if (hooks_.serverProgress) {
+            hooks_.serverProgress(chapterId, server, true);  // what the server had (the Switch's progress.json learns it)
+        }
         std::weak_ptr<bool> alive = alive_;
         client_.setProgress(core::progressOf(*entry), never_)
             .then([this, alive, chapterId](const api::ApiResult<core::ReadProgress>& sent) {
@@ -349,16 +407,19 @@ void WaitingSaves::onState(int chapterId, const api::ApiResult<core::ServerProgr
             });
         return;
     }
+    if (hooks_.serverProgress) {
+        hooks_.serverProgress(chapterId, server, true);
+    }
     const core::WaitingSave gone = *entry;
     forget(entry);
     if (decision == core::WaitingDecision::Already) {
         say(false, "progress queue: the server has " + core::describeWaitingSave(gone) + " already");
         tell("already", gone, "");
     } else {
-        say(true, "progress queue: dropped " + core::describeWaitingSave(gone) + ": the server moved on to " +
+        say(true, "progress queue: dropped " + core::describeWaitingSave(gone) + ": " + whyText(decision) + ", " +
                       core::describeServerProgress(server) + " (ours was made from " +
-                      core::describeServerProgress(gone.base) + ")");
-        tell("dropped", gone, "server moved");
+                      core::describeServerProgress(gone.base) + ", at " + std::to_string(gone.madeAt) + ")");
+        tell("dropped", gone, core::waitingDecisionName(decision));
     }
     notify(Change::Gone, gone);  // the screens showing it reload (History's note goes)
     ++round_->next;
@@ -377,11 +438,19 @@ void WaitingSaves::onSent(int chapterId, const api::ApiResult<core::ReadProgress
         }
         return;
     }
+    if (hooks_.serverProgress) {
+        const core::ReadProgress& answer = result.value();
+        core::ServerProgress now{answer.lastPageRead, answer.isRead, answer.lastReadAt, {}};
+        if (entry != nullptr && entry->spot) {
+            now.spotNote = core::stripSpotValue(entry->page, *entry->spot);
+        }
+        hooks_.serverProgress(chapterId, now, false);
+    }
     if (entry != nullptr) {
         const core::WaitingSave sent = *entry;
         forget(entry);
         say(false, "progress queue: sent " + core::describeWaitingSave(sent));
-        tell("sent", sent, "");
+        tell("sent", sent, round_->reason);
         notify(Change::Gone, sent);
     }
     ++round_->next;

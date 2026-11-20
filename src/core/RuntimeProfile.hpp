@@ -47,9 +47,18 @@ struct RuntimeProfile {
     int progressSyncMs = 5000;           // reading progress goes to the server at most this often (and when leaving a chapter)
     int progressRetryMaxMs = 60000;      // a failed save waits progressSyncMs, doubled per failure, at most this (WP-12)
     int readerMangaSettingsMax = 500;    // manga whose own direction and fit config.json remembers (S6: the file stays small)
-    // The waiting-save queue (WP-15b): saves that failed as the reader closed, kept in progress-queue.json.
-    int pendingSavesMax = 100;                          // entries it keeps at most (the oldest goes)
-    std::uint64_t progressQueueFileBytes = 64 * 1024;   // the file is read back at most this big (S6) and written to fit
+    // The waiting-save queue (WP-15b): saves that failed as the reader closed, kept in progress-queue.json. WP-18b (D61):
+    // also every save read offline, so room for long trips (500 chapters ~ 150 KiB).
+    int pendingSavesMax = 500;                          // entries it keeps at most (the oldest goes)
+    std::uint64_t progressQueueFileBytes = 256 * 1024;  // the file is read back at most this big (S6) and written to fit
+
+    // Reading away from home (WP-18b, D61): ui::Connection's checks while offline, and what the Switch knows of its
+    // downloaded chapters' progress (downloads/<server key>/progress.json).
+    int offlineCheckMs = 30000;        // offline: the server is checked this often (the owner's 30 s), and at focus / waking
+    int offlineNetworkPollMs = 2000;   // offline with no network: networkConnected() is asked this often (a check once true)
+    int offlineSuspectGapMs = 5000;    // online: a request that couldn't reach the server checks it, at most this often
+    int downloadedProgressBatch = 500;  // chapter ids per DownloadedProgress request (the refresh after a check)
+    std::uint64_t switchProgressFileBytes = 512 * 1024;  // progress.json read back at most this big (S6), written to fit
 
     // Work in parallel, and how much to ask for at once.
     int httpConcurrency = 6;  // transfers at once (D5)
