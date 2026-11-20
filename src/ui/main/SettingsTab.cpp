@@ -173,7 +173,9 @@ void SettingsTab::refresh() {
             serverVersion->setDetailText(main_.model().server().version);
             break;
         case MainModel::Connection::Failed:
-            serverVersion->setDetailText("settings/unreachable"_i18n);
+            // WP-18b: offline (the downloaded chapters still read) or another failure
+            serverVersion->setDetailText(main_.context().connection.offline() ? "settings/server_offline"_i18n
+                                                                              : "settings/unreachable"_i18n);
             break;
         default:
             serverVersion->setDetailText("settings/checking"_i18n);

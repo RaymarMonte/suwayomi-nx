@@ -257,6 +257,7 @@ void LibraryTab::report() {
     fields["items"] = model.items().size();
     fields["total"] = model.totalCount();
     fields["search"] = model.searching() ? nlohmann::ordered_json(model.searchText()) : nlohmann::ordered_json(nullptr);
+    fields["offline"] = model.offline();  // WP-18b
     if (model.searching()) {
         nlohmann::ordered_json titles = nlohmann::ordered_json::array();
         for (std::size_t i = 0; i < model.items().size() && i < 10; ++i) {
@@ -279,11 +280,17 @@ void LibraryTab::rebuildCategories() {
     }
     categoryBox->clearViews();
     categoryButtons_.clear();
+    // WP-18b: offline, Edit (the server's categories) isn't offered.
+    editButton->setVisibility(model_->offline() ? brls::Visibility::GONE : brls::Visibility::VISIBLE);
     const auto& categories = model_->categories();
     for (std::size_t i = 0; i < categories.size(); ++i) {
         auto* button = new brls::Button();
         button->setId("library/category-" + std::to_string(categories[i].id));  // named in "focus" test events
-        button->setText(categories[i].name);
+        // Offline the one shelf says so ("Offline: showing what's on this Switch").
+        button->setText(!model_->offline() ? categories[i].name
+                        : context_.connection.reason() == Connection::Reason::NoNetwork
+                            ? "library/offline_no_network"_i18n
+                            : "library/offline_line"_i18n);
         button->setHeight(72);
         button->setPaddingLeft(14);
         button->setPaddingRight(14);
@@ -324,7 +331,10 @@ GridCell* LibraryTab::makeCell() {
 void LibraryTab::bind(GridCell& cell, std::size_t index) {
     const core::Manga& manga = model_->items()[index];
     cell.setId("library/cover-" + std::to_string(index));  // the "focus" test event then says which cover has the focus
-    const std::string url = manga.thumbnailUrl.empty() ? std::string() : context_.client.absoluteUrl(manga.thumbnailUrl);
+    // Offline (WP-18b): the cover on the SD card, no request.
+    const std::string url = !manga.coverFile.empty()    ? "file:" + manga.coverFile
+                            : manga.thumbnailUrl.empty() ? std::string()
+                                                         : context_.client.absoluteUrl(manga.thumbnailUrl);
     static_cast<CoverCell&>(cell).show(manga, url, context_);
 }
 
@@ -384,6 +394,13 @@ void LibraryTab::prefetchCovers(std::size_t first, std::size_t last) {
 }
 
 void LibraryTab::refresh() {
+    if (model_ != nullptr && model_->offline()) {
+        if (tryAgain_) {
+            tryAgain_();  // WP-18b: offline, X checks the server (the shelf is read again either way)
+        }
+        model_->refresh();
+        return;
+    }
     if (model_ != nullptr) {
         model_->refresh();
     }
@@ -467,6 +484,10 @@ void LibraryTab::askSearch() {
 }
 
 void LibraryTab::openCategories() {
+    if (model_ != nullptr && model_->offline()) {
+        brls::Application::notify("main/needs_server"_i18n);  // WP-18b
+        return;
+    }
     if (model_ == nullptr) {
         return;
     }
@@ -480,6 +501,10 @@ void LibraryTab::openCategories() {
 
 void LibraryTab::openCoverMenu(std::size_t index) {
     if (model_ == nullptr || index >= model_->items().size()) {
+        return;
+    }
+    if (model_->offline()) {
+        select(index);  // WP-18b: Categories... and Remove need the server; Open is what is left
         return;
     }
     model_->rememberFocus(index);

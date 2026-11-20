@@ -9,5 +9,7 @@
     "connecting": "Connecting to your server...",
     "coming_soon": "Coming in a later version.",
     "connect_first": "Not connected to your server yet. The Library tab shows the connection.",
-    "not_set_up": "No server set up yet"
+    "not_set_up": "No server set up yet",
+    "back_online": "Connected to the server",
+    "needs_server": "This needs the server."
 }

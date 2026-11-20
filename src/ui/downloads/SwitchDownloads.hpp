@@ -173,6 +173,15 @@ class SwitchDownloads {
     // one runs runs again after it). The listeners hear Change::refreshed.
     void refreshProgress();
     bool refreshingProgress() const { return refreshing_; }
+    // The offline screens and reader (WP-18b): a downloaded chapter, or a manga's downloaded chapters (by sourceOrder), with
+    // the merged progress (core::offlineChapter: what the Switch knows plus `waiting`'s entry for it, at the server clock's
+    // offset). Nothing / empty: not on the Switch.
+    using WaitingLookup = std::function<const core::WaitingSave*(int chapterId)>;
+    std::optional<core::Chapter> offlineChapter(int chapterId, const WaitingLookup& waiting, std::int64_t clockOffset) const;
+    std::vector<core::Chapter> offlineChapters(int mangaId, const WaitingLookup& waiting, std::int64_t clockOffset) const;
+    // The offline Library's items: every readable downloaded manga (damaged folders left out), with its merged badge and
+    // stamp (core::offlineManga) and its cover file on the SD card (Manga::coverFile).
+    std::vector<core::Manga> offlineLibrary(const WaitingLookup& waiting, std::int64_t clockOffset) const;
     int progressWrites() const { return store_.progressWrites(); }
 
     // --- "Same server?" (WP-18c, D59): the setup screen saves a new address while the saved server is still loaded here ---

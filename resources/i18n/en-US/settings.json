@@ -33,5 +33,6 @@
     "safe_on": "On: the app closed unexpectedly last time",
     "safe_off": "Off",
     "crash_logs": "Crash logs",
-    "crash_logs_none": "None"
+    "crash_logs_none": "None",
+    "server_offline": "Offline"
 }

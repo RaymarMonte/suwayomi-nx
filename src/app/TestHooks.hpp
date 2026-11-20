@@ -58,6 +58,11 @@ float maxDecodeScale();
 // "sdFreeBytes" (the SD card's free space as the downloads see it). Nothing when not given; release builds: always nothing.
 std::optional<std::uint64_t> switchDownloadLimitBytes();
 std::optional<std::uint64_t> sdFreeBytes();
+// WP-18b: whether the console is on a network as the app sees it (the test config's "networkConnected", then the
+// {"cmd":"network","on":...} command), nothing = the platform's answer; and the test config's "offlineCheckMs". Release
+// builds: always nothing.
+std::optional<bool> networkConnected();
+std::optional<int> offlineCheckMs();
 
 // Writes a {"ev":"net",...} event for every request the client finishes (WP-05). The observer runs on the network thread and
 // hands the event to the main thread with brls::sync. Release builds: nothing.

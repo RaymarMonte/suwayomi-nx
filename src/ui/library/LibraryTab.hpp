@@ -36,6 +36,8 @@ class LibraryTab : public brls::Box, private GridSource {
     void showStatusOnly();
     // The server answered: show this model (MainActivity owns it and starts it). nullptr: back to showStatusOnly().
     void attach(LibraryModel* model);
+    // WP-18b: X / Refresh on the offline Library ("Try again": MainActivity checks the server).
+    void setTryAgain(std::function<void()> tryAgain) { tryAgain_ = std::move(tryAgain); }
 
   private:
     // GridSource
@@ -87,6 +89,7 @@ class LibraryTab : public brls::Box, private GridSource {
     // The manga screen tells the library about changes through this tab while it exists (weak_ptr: it may be gone).
     std::shared_ptr<int> alive_ = std::make_shared<int>(0);
     std::shared_ptr<AddFlow> flow_;
+    std::function<void()> tryAgain_;
 
     // What the tab shows now, to tell a change from more of the same.
     std::vector<int> shownCategories_;

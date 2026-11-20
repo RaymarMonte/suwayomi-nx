@@ -32,5 +32,8 @@
     "cover_menu": "More",
     "cover_open": "Open",
     "cover_categories": "Categories...",
-    "cover_remove": "Remove from library..."
+    "cover_remove": "Remove from library...",
+    "offline_line": "Offline: showing what's on this Switch",
+    "offline_no_network": "No network: showing what's on this Switch",
+    "try_again": "Try again"
 }

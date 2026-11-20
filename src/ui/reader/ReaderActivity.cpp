@@ -138,18 +138,27 @@ std::function<void(const core::ReadProgress&, bool)> savedInto(std::shared_ptr<s
     };
 }
 
-// WP-18: chapters downloaded to this Switch open from their files (ChapterPages.hpp).
-PageSource pageSourceFor(app::AppContext& context) {
+// WP-18: chapters downloaded to this Switch open from their files (ChapterPages.hpp). WP-18b: offline at the merged
+// position (what the Switch knows plus a waiting save), without chapterState.
+PageSource pageSourceFor(app::AppContext& context, bool offline) {
     PageSource source;
     SwitchDownloads* downloads = &context.switchDownloads;
     source.files = [downloads](int chapterId) { return downloads->pageFiles(chapterId); };
     source.openWaitMs = context.profile.switchOpenWaitMs;
     source.later = [](int ms, std::function<void()> fn) { brls::delay(ms, std::move(fn)); };
     source.onDamaged = [downloads](int chapterId, int page) { downloads->markDamaged(chapterId, page); };
+    if (offline) {
+        app::AppContext* app = &context;
+        source.merged = [app](int chapterId) {
+            const WaitingSaves& saves = app->saves;
+            return app->switchDownloads.offlineChapter(
+                chapterId, [&saves](int id) { return saves.waitingFor(id); }, app->connection.clockOffset());
+        };
+    }
     return source;
 }
 
-ReaderOptions optionsFor(app::AppContext& context, std::shared_ptr<std::set<int>> finished) {
+ReaderOptions optionsFor(app::AppContext& context, std::shared_ptr<std::set<int>> finished, bool offline) {
     ReaderOptions options = readerOptionsFrom(context.profile, context.config.config().reader);
     const int width = static_cast<int>(brls::Application::windowWidth);
     const int height = static_cast<int>(brls::Application::windowHeight);
@@ -159,7 +168,11 @@ ReaderOptions optionsFor(app::AppContext& context, std::shared_ptr<std::set<int>
     options.clock = app::appClockMs;
     options.onSaved = savedInto(std::move(finished));
     options.queue = &context.saves;  // a save that fails as the reader closes waits there (WP-15b)
-    options.pages = pageSourceFor(context);
+    options.offline = offline;  // WP-18b: for the reader's life
+    options.pages = pageSourceFor(context, options.offline);
+    if (options.offline) {
+        brls::Logger::info("reader: offline, saves go to the waiting-save queue");
+    }
     return options;
 }
 
@@ -203,9 +216,10 @@ brls::Button* makeButton(const std::string& text, std::function<void()> action) 
 ReaderActivity::ReaderActivity(app::AppContext& context, core::Manga manga, std::vector<core::Chapter> chapters,
                                int chapterId, int page, std::function<void()> onClosed)
     : context_(context),
+      offline_(context.connection.offline()),
       chapters_(std::move(chapters)),
       model_(context.client, context.images, manga, chapters_,
-             core::readerSettingsFor(context.config.config().reader, manga.id), optionsFor(context, finished_)),
+             core::readerSettingsFor(context.config.config().reader, manga.id), optionsFor(context, finished_, offline_)),
       startChapter_(chapterId),
       startPage_(page),
       onClosed_(std::move(onClosed)),
@@ -986,6 +1000,11 @@ std::function<void()> ReaderActivity::afterClosing() {
         if (!context.config.config().serverDownloads.deleteAfterReading) {
             return;
         }
+        if (context.connection.offline()) {
+            // WP-18b: it needs the server; not kept for later.
+            brls::Logger::info("reader: offline, \"Delete server downloads after reading\" skipped");
+            return;
+        }
         std::vector<int> ids;
         for (int id : *finished) {
             if (candidates.count(id) > 0) {
@@ -1300,7 +1319,8 @@ void ReaderActivity::startStrip(int chapterId, int page, StripModel::Open how, c
     options.clock = app::appClockMs;
     options.onSaved = savedInto(finished_);
     options.queue = &context_.saves;  // the same waiting-save queue (WP-15b)
-    options.pages = pageSourceFor(context_);
+    options.offline = offline_;      // WP-18b: as the reader opened
+    options.pages = pageSourceFor(context_, offline_);
     strip_ = std::make_unique<StripModel>(context_.client, context_.images, model_.manga(), chapters_, options);
     canvas_ = std::make_unique<StripCanvas>(*strip_, context_.textures, context_.profile.webtoonTilesAround);
     canvas_->textFor = [this](int item) { return stripText(item); };

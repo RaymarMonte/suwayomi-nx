@@ -104,6 +104,7 @@ class ReaderActivity : public brls::Activity {
     app::AppContext& context_;
     // WP-17: the chapters whose save with isRead answered ok (both readers), shared with the saves that end after closing.
     std::shared_ptr<std::set<int>> finished_ = std::make_shared<std::set<int>>();
+    bool offline_;  // WP-18b: opened offline (the paged reader and the strip stay so for the reader's life)
     std::vector<core::Chapter> chapters_;  // as given (the strip model gets its own copy)
     ReaderModel model_;
     int startChapter_;

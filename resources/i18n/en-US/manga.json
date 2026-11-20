@@ -101,5 +101,6 @@
     "switch_tag_percent": "Switch: {}",
     "switch_tag_paused": "Switch: paused {}",
     "switch_tag_failed": "Switch: failed",
-    "switch_tag_damaged": "Switch: damaged"
+    "switch_tag_damaged": "Switch: damaged",
+    "offline_line": "Offline: the chapters on this Switch"
 }

@@ -32,6 +32,7 @@ std::chrono::steady_clock::time_point gStart;
 core::testevents::IdleTracker gIdle;
 std::string gPending;  // lines not written yet
 core::testconfig::TestConfig gConfig;
+std::optional<bool> gNetworkOverride;  // WP-18b: the "network" command (main thread)
 std::function<bool()> gBusy;
 bool gDrillStarted = false;
 bool gCacheWritingReported = false;
@@ -190,6 +191,17 @@ void readCommand() {
             return;
         }
         gTypedText = *typed;
+        commandDone(id, true, "");
+        return;
+    }
+    if (cmd == "network") {
+        // WP-18b: the console's network as the app sees it (the no-network path: offline without a request).
+        const std::optional<bool> on = core::json::boolean(doc, "on");
+        if (!on) {
+            commandDone(id, false, "a network command needs \"on\"");
+            return;
+        }
+        gNetworkOverride = *on;
         commandDone(id, true, "");
         return;
     }
@@ -390,6 +402,14 @@ std::optional<std::uint64_t> sdFreeBytes() {
     return gConfig.sdFreeBytes;
 }
 
+std::optional<bool> networkConnected() {
+    return gNetworkOverride ? gNetworkOverride : gConfig.networkConnected;
+}
+
+std::optional<int> offlineCheckMs() {
+    return gConfig.offlineCheckMs;
+}
+
 void watchNet(net::HttpClient& http) {
     http.addResponseObserver([](const net::Request& request, const net::HttpResult& result) {
         core::testevents::NetEvent event;
@@ -575,6 +595,12 @@ std::optional<std::uint64_t> switchDownloadLimitBytes() {
     return std::nullopt;
 }
 std::optional<std::uint64_t> sdFreeBytes() {
+    return std::nullopt;
+}
+std::optional<bool> networkConnected() {
+    return std::nullopt;
+}
+std::optional<int> offlineCheckMs() {
     return std::nullopt;
 }
 void watchNet(net::HttpClient&) {}

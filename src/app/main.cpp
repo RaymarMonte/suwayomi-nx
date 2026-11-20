@@ -36,7 +36,9 @@
 #include "ui/downloads/DownloadStore.hpp"
 #include "ui/downloads/ServerDownloads.hpp"
 #include "ui/downloads/SwitchDownloads.hpp"
+#include "ui/main/Connection.hpp"
 #include "ui/main/MainActivity.hpp"
+#include "core/Offline.hpp"
 
 using namespace brls::literals;  // for _i18n
 
@@ -46,11 +48,47 @@ constexpr std::uint64_t kBytesPerMb = 1024ULL * 1024ULL;
 
 // After the console wakes up, kept-alive connections may be dead: start fresh ones (D37). Set while the client lives.
 snx::net::HttpClient* gResumeHttp = nullptr;
+snx::ui::Connection* gResumeConnection = nullptr;  // WP-18b: waking checks the server
 void onResumeFromSleep() {
     brls::Logger::info("app: woke from sleep, resetting network connections");
     if (gResumeHttp != nullptr) {
         gResumeHttp->resetConnections();
     }
+    if (gResumeConnection != nullptr) {
+        gResumeConnection->woke();
+    }
+}
+
+// WP-18b (D61): the connection's hooks: the app's clock, borealis's timers and main thread, the network status (a test
+// build can switch it), the log and the "connection" test event.
+snx::ui::Connection::Hooks connectionHooks() {
+    snx::ui::Connection::Hooks hooks;
+    hooks.clockMs = snx::app::appClockMs;
+    hooks.later = [](int ms, std::function<void()> fn) { brls::delay(ms, std::move(fn)); };
+    hooks.post = [](std::function<void()> fn) { brls::sync(std::move(fn)); };
+    hooks.networkConnected = [] {
+        if (const std::optional<bool> forced = snx::app::testhooks::networkConnected()) {
+            return *forced;
+        }
+        return snx::platform::networkConnected();
+    };
+    hooks.log = [](bool warning, const std::string& line) {
+        if (warning) {
+            brls::Logger::warning("{}", line);
+        } else {
+            brls::Logger::info("{}", line);
+        }
+    };
+    hooks.report = [](snx::ui::Connection::State state, snx::ui::Connection::Reason reason, snx::ui::Connection::By by,
+                      int ms) {
+        nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+        fields["state"] = snx::ui::Connection::stateName(state);
+        fields["reason"] = snx::ui::Connection::reasonName(reason);
+        fields["by"] = snx::ui::Connection::byName(by);
+        fields["ms"] = ms;
+        snx::app::testhooks::write("connection", fields);
+    };
+    return hooks;
 }
 
 // One main-loop iteration: borealis's frame plus our per-frame work. False once the app is quitting.
@@ -140,6 +178,18 @@ void reportDownloadAction(const snx::ui::ServerDownloads::Change& change) {
 void reportSwitchDownloads(const snx::ui::SwitchDownloads& downloads, const snx::ui::SwitchDownloads::Change& change,
                            std::string& reported) {
     namespace testhooks = snx::app::testhooks;
+    if (change.refreshed) {
+        // WP-18b: the progress.json refresh after a check that worked.
+        const auto& done = *change.refreshed;
+        nlohmann::ordered_json fields = nlohmann::ordered_json::object();
+        fields["chapters"] = done.chapters;
+        fields["gone"] = done.gone;
+        fields["changed"] = done.changed;
+        fields["ms"] = done.ms;
+        fields["ok"] = done.ok;
+        fields["requests"] = done.requests;
+        testhooks::write("downloaded_progress", fields);
+    }
     if (change.finished) {
         const auto& done = *change.finished;
         nlohmann::ordered_json fields = nlohmann::ordered_json::object();
@@ -348,11 +398,36 @@ int main(int argc, char* argv[]) {
     // The waiting-save queue (WP-15b): progress saves that failed as the reader closed, from progress-queue.json. Any HTTP
     // answer from the server (GraphQL or an image) nudges it: the server is there again. The observer runs on the network
     // thread; serverAnswered() only posts to the main thread, and only while saves wait.
-    snx::ui::WaitingSaves saves(client, &fs, snx::ui::WaitingSaves::optionsFrom(profile), waitingSaveHooks());
+    // WP-18b (D61): online or offline. Every answer's Date header gives the server's clock; a request that got no answer
+    // at all is a suspicion (the connection checks the server, at most once per offlineSuspectGapMs).
+    snx::ui::Connection::Options connectionOptions = snx::ui::Connection::optionsFrom(profile);
+    if (const auto checkMs = testhooks::offlineCheckMs()) {
+        brls::Logger::info("app: test config: offlineCheckMs {}", *checkMs);
+        connectionOptions.checkMs = *checkMs;
+    }
+    snx::ui::Connection connection(connectionOptions, connectionHooks());
+    snx::ui::SwitchDownloads* savesLearnInto = nullptr;  // set once the Switch downloads exist (below)
+    snx::ui::WaitingSaves::Hooks savesHooks = waitingSaveHooks();
+    savesHooks.clockOffset = [&connection] { return connection.clockOffset(); };
+    savesHooks.online = [&connection] { return !connection.offline(); };  // no rounds while offline
+    savesHooks.serverProgress = [&savesLearnInto](int chapterId, const snx::core::ServerProgress& server, bool full) {
+        if (savesLearnInto != nullptr) {
+            savesLearnInto->noteProgress(chapterId, server, full);  // progress.json learns what the server had
+        }
+    };
+    snx::ui::WaitingSaves saves(client, &fs, snx::ui::WaitingSaves::optionsFrom(profile), savesHooks);
     saves.load();
-    http.addResponseObserver([&saves](const snx::net::Request&, const snx::net::HttpResult& result) {
+    http.addResponseObserver([&saves, &connection](const snx::net::Request&, const snx::net::HttpResult& result) {
         if (result.ok()) {
             saves.serverAnswered();
+            const std::string date = result.value().header("date");
+            if (!date.empty()) {
+                if (const std::optional<std::int64_t> server = snx::core::parseHttpDate(date)) {
+                    connection.noteServerDate(*server, static_cast<std::int64_t>(std::time(nullptr)));
+                }
+            }
+        } else if (result.error().kind == snx::core::ErrorKind::Network) {
+            connection.suspect();
         }
     });
 
@@ -419,6 +494,7 @@ int main(int argc, char* argv[]) {
     }
     switchDownloads.setPageFormat(config.config().reader.serverConvertsToJpeg ? snx::api::PageFormat::Jpeg
                                                                               : snx::api::PageFormat::AsStored);
+    savesLearnInto = &switchDownloads;
     std::string switchReported;
     switchDownloads.addListener([&switchDownloads, &switchReported](const snx::ui::SwitchDownloads::Change& change) {
         reportSwitchDownloads(switchDownloads, change, switchReported);
@@ -427,17 +503,21 @@ int main(int argc, char* argv[]) {
         switchDownloads.setServer(config.config().server.url);  // reads the SD card at once; downloads after connected()
     }
 
-    app::AppContext context{fs,       runtime, profile, lastRun,   config,          http,
-                            client,   images,  textures, saves,    downloads,       switchDownloads};
+    app::AppContext context{fs,     runtime, profile,  lastRun, config,    http,           client,
+                            images, textures, saves,   downloads, switchDownloads, connection};
     // Test builds' idle rule: no network request or image load pending, and no animation (TESTING.md). Background requests
     // (the Switch downloads, WP-18c) don't count: they run for minutes while the screen has long settled.
     testhooks::watchApp([&http, &images] { return http.inFlightForeground() > 0 || images.activeJobs() > 0; });
 
     // HOME, sleep, another app on top: write what is waiting now (S5), and pause the watchdog (borealis keeps the loop
     // running in the background, but slowly). Waking up from sleep: fresh network connections.
-    brls::Application::getWindowFocusChangedEvent()->subscribe([&config, &saves, &switchDownloads](bool focused) {
+    brls::Application::getWindowFocusChangedEvent()->subscribe([&config, &saves, &switchDownloads,
+                                                                 &connection](bool focused) {
         crash::setFocused(focused);
         switchDownloads.setFocused(focused);  // S5: HOME / sleep: its requests stop, nothing is written, queue.json saved
+        if (focused) {
+            connection.focusBack();  // WP-18b: offline, coming back checks the server at once
+        }
         if (!focused) {
             brls::Logger::info("app: in the background, saving");
             config.flush();
@@ -446,6 +526,7 @@ int main(int argc, char* argv[]) {
         }
     });
     gResumeHttp = &http;
+    gResumeConnection = &connection;
     snx::platform::setResumeHandler(onResumeFromSleep);
 
     brls::Application::pushActivity(new snx::ui::MainActivity(context));
@@ -491,6 +572,7 @@ int main(int argc, char* argv[]) {
     images.shutdown();  // its loads end, its threads stop, no more cache writes (S5)
     snx::platform::setResumeHandler(nullptr);
     gResumeHttp = nullptr;
+    gResumeConnection = nullptr;
     http.shutdown();    // ends what is still queued or running, and the network thread
     testhooks::finish();
     app::logger::stop();

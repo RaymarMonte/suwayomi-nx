@@ -1,5 +1,7 @@
 #include "ui/manga/MangaActivity.hpp"
 
+#include "core/Offline.hpp"
+
 #include <algorithm>
 #include <utility>
 #include <vector>
@@ -300,6 +302,10 @@ void MangaActivity::onContentAvailable() {
         return true;
     });
     categoriesButton->registerClickAction([this](brls::View*) {
+        if (model_.offline()) {
+            brls::Application::notify("main/needs_server"_i18n);  // WP-18b
+            return true;
+        }
         addOrPick();
         return true;
     });
@@ -341,8 +347,28 @@ void MangaActivity::onContentAvailable() {
     });
 
     // WP-17: the server's queue, watched while this screen is on top (onPause / onResume).
+    // WP-18b (D61): offline, the manga comes from the Switch (its manga.json and downloaded chapters, merged progress).
+    if (context_.connection.offline()) {
+        const int mangaId = model_.manga().id;
+        app::AppContext* context = &context_;
+        model_.setOffline(
+            [context, mangaId]() -> std::optional<MangaModel::OfflineContent> {
+                const core::SwitchManga* onSwitch = context->switchDownloads.manga(mangaId);
+                if (onSwitch == nullptr) {
+                    return std::nullopt;
+                }
+                const WaitingSaves& saves = context->saves;
+                MangaModel::OfflineContent content;
+                content.manga = core::mangaFrom(*onSwitch);
+                content.chapters = context->switchDownloads.offlineChapters(
+                    mangaId, [&saves](int chapterId) { return saves.waitingFor(chapterId); },
+                    context->connection.clockOffset());
+                return content;
+            },
+            api::makeApiError(api::ApiErrorKind::Offline, "not on this Switch"));
+    }
     downloadsListener_ = context_.downloads.addListener([this](const ServerDownloads::Change& change) { downloadsChanged(change); });
-    if (!isLocal()) {
+    if (!isLocal() && !model_.offline()) {
         watcher_ = context_.downloads.watch();
     }
 
@@ -547,6 +573,9 @@ void MangaActivity::updateBar() {
         } else {
             text = loaded == 1 ? "manga/count_one"_i18n : brls::getStr("manga/count", loaded);
         }
+        if (model_.offline()) {
+            text = "manga/offline_line"_i18n + "  ·  " + text;  // WP-18b: the offline line
+        }
     }
     countLabel->setText(text);
 }
@@ -714,6 +743,10 @@ void MangaActivity::act(int chapterId, MangaModel::Action action) {
     if (found == items.end() || model_.busy()) {
         return;
     }
+    if (model_.offline()) {
+        brls::Application::notify("main/needs_server"_i18n);  // WP-18b: marks need the server
+        return;
+    }
     pendingAction_ = actionName(action);
     pendingChapter_ = chapterId;
     if (!model_.act(static_cast<std::size_t>(found - items.begin()), action)) {
@@ -731,6 +764,10 @@ void MangaActivity::act(int chapterId, MangaModel::Action action) {
 void MangaActivity::refresh() {
     if (model_.state() == MangaModel::State::Failed) {
         model_.retry();
+        return;
+    }
+    if (model_.offline()) {
+        brls::Application::notify("main/needs_server"_i18n);  // WP-18b: Refresh from source needs the server
         return;
     }
     if (model_.moreFailed() && !model_.busy()) {
@@ -903,6 +940,7 @@ void MangaActivity::report() {
     fields["complete"] = model_.complete();
     fields["sort"] = std::string(chapterSortName(model_.sort()));
     fields["filter"] = std::string(chapterFilterName(model_.filter()));
+    fields["offline"] = model_.offline();  // WP-18b
     {
         // WP-17: the chapters downloaded on the server, and this manga's rows in the server's queue.
         int downloaded = 0, queued = 0, downloading = 0, failed = 0;
@@ -955,8 +993,8 @@ bool MangaActivity::isLocal() const {
 }
 
 MangaActivity::ServerEntry MangaActivity::serverEntry(const core::Chapter& chapter) const {
-    if (isLocal()) {
-        return ServerEntry::None;
+    if (isLocal() || model_.offline()) {
+        return ServerEntry::None;  // WP-18b: offline the server's queue isn't offered
     }
     if (context_.downloads.row(chapter.id) != nullptr) {
         return ServerEntry::Cancel;

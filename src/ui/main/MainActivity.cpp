@@ -95,10 +95,17 @@ MainActivity::MainActivity(app::AppContext& context)
             waitingSaveDone(entry);
         }
     });
+    // WP-18b: the connection's timer, focus, wake and suspicion checks run here; its changes swap the Library.
+    context_.connection.setCheck([this](Connection::By by) { backgroundCheck(by); });
+    connectionListener_ = context_.connection.addListener(
+        [this](Connection::State state, Connection::Reason) { connectionChanged(state); });
 }
 
 MainActivity::~MainActivity() {
     cancel_.cancel();
+    backgroundCancel_.cancel();
+    context_.connection.setCheck(nullptr);
+    context_.connection.removeListener(connectionListener_);
     context_.saves.removeListener(savesListener_);
     if (updater_) {
         updater_->removeListener(updaterListener_);
@@ -132,6 +139,7 @@ brls::View* MainActivity::makeTab(std::size_t index) {
         view = settingsView_;
     } else if (index == kLibraryTab) {
         libraryView_ = new LibraryTabView(*this);
+        libraryView_->setTryAgain([this] { retry(); });  // WP-18b: X on the offline Library
         view = libraryView_;
     } else if ((index == kUpdatesTab || index == kHistoryTab) &&
                model_.connection() == MainModel::Connection::Connected) {
@@ -252,24 +260,82 @@ void MainActivity::reloadStaleLists() {
     }
 }
 
-void MainActivity::startCheck() {
+void MainActivity::startCheck(Connection::By by) {
     cancel_.cancel();
     cancel_ = net::CancelToken();
+    backgroundCancel_.cancel();  // this check decides
     if (!model_.checkStarted()) {
+        return;
+    }
+    context_.switchDownloads.setServer(context_.client.settings().url);  // WP-18: that server's folder (the same: nothing)
+    if (!context_.connection.beforeCheck(by)) {
+        // WP-18b: no network: offline at once, without a request (the offline Library, or the error and Retry).
+        brls::Logger::info("main: no network, not checking {}", context_.client.settings().url);
+        onCheck(api::makeApiError(api::ApiErrorKind::Offline, "no network"), "main");
         return;
     }
     showConnection();
     const net::CancelToken token = cancel_;
     brls::Logger::info("main: checking {}", context_.client.settings().url);
-    context_.switchDownloads.setServer(context_.client.settings().url);  // WP-18: that server's folder (the same: nothing)
-    checkServer(context_.client, token, [this](const api::ApiResult<core::ServerInfo>& result) { onCheck(result); });
+    const std::int64_t started = app::appClockMs();
+    checkServer(context_.client, token, [this, by, started](const api::ApiResult<core::ServerInfo>& result) {
+        if (!result.ok() && result.error().kind == api::ApiErrorKind::Cancelled) {
+            return;  // a newer check (or the screen's end) took over
+        }
+        context_.connection.checked(by, result.ok() ? nullptr : &result.error(),
+                                    static_cast<int>(app::appClockMs() - started));
+        onCheck(result, "main");
+    });
 }
 
-void MainActivity::onCheck(const api::ApiResult<core::ServerInfo>& result) {
+void MainActivity::backgroundCheck(Connection::By by) {
+    backgroundCancel_.cancel();
+    backgroundCancel_ = net::CancelToken();
+    const net::CancelToken token = backgroundCancel_;
+    const std::int64_t started = app::appClockMs();
+    brls::Logger::info("main: connection check ({})", Connection::byName(by));
+    checkServer(context_.client, token, [this, by, started](const api::ApiResult<core::ServerInfo>& result) {
+        if (!result.ok() && result.error().kind == api::ApiErrorKind::Cancelled) {
+            return;  // the main check took over
+        }
+        const Connection::Verdict verdict = context_.connection.checked(
+            by, result.ok() ? nullptr : &result.error(), static_cast<int>(app::appClockMs() - started));
+        if (verdict == Connection::Verdict::Ignored) {
+            return;  // online, and the server isn't away: nothing changes
+        }
+        if (verdict == Connection::Verdict::Offline && model_.connection() == MainModel::Connection::Failed) {
+            return;  // still away: the offline screens stay
+        }
+        if (!model_.checkStarted()) {
+            return;  // the main check is under way: it decides
+        }
+        onCheck(result, "connection");
+    });
+}
+
+void MainActivity::connectionChanged(Connection::State state) {
+    if (state == Connection::State::Online && wasOffline_) {
+        brls::Logger::info("main: back online");
+        brls::Application::notify("main/back_online"_i18n);
+        listsStale_ = true;  // read meanwhile: the lists load again
+    }
+    wasOffline_ = state == Connection::State::Offline;
+    if (settingsView_ != nullptr) {
+        settingsView_->refresh();  // the server line ("Offline")
+    }
+}
+
+std::vector<core::Manga> MainActivity::offlineItems() const {
+    const WaitingSaves& saves = context_.saves;
+    return context_.switchDownloads.offlineLibrary([&saves](int chapterId) { return saves.waitingFor(chapterId); },
+                                                   context_.connection.clockOffset());
+}
+
+void MainActivity::onCheck(const api::ApiResult<core::ServerInfo>& result, const char* where) {
     const core::AuthMode auth = context_.client.settings().auth;
     const MainModel::Next next = model_.checkFinished(result, auth);
     nlohmann::ordered_json fields = nlohmann::ordered_json::object();
-    fields["where"] = "main";
+    fields["where"] = where;
     fields["ok"] = result.ok();
     if (result.ok()) {
         fields["version"] = result.value().version;
@@ -284,6 +350,7 @@ void MainActivity::onCheck(const api::ApiResult<core::ServerInfo>& result) {
     if (result.ok()) {
         context_.saves.connected();  // the server is there: saves waiting for it go now (WP-15b)
         context_.switchDownloads.connected();  // and the Switch's download queue (WP-18)
+        context_.switchDownloads.refreshProgress();  // WP-18b: what the server has for the chapters on this Switch
     }
     showConnection();
     if (settingsView_ != nullptr) {
@@ -315,9 +382,28 @@ void MainActivity::showConnection() {
                                                           context_.profile.libraryPageSize);
             }
             libraryView_->attach(library_.get());
+            if (offlineLibrary_) {
+                offlineLibrary_.reset();  // WP-18b: back online, the library loads again (read meanwhile)
+                if (library_->state() != LibraryModel::State::Loading) {
+                    library_->refresh();
+                }
+            }
             library_->start();  // only the first time
             break;
         case MainModel::Connection::Failed:
+            // WP-18b (D61): the server can't be reached and chapters are on this Switch: the offline Library.
+            if (context_.connection.offline()) {
+                if (!offlineLibrary_ && !offlineItems().empty()) {
+                    offlineLibrary_ = std::make_unique<LibraryModel>(
+                        context_.client, library_ ? library_->settings() : context_.config.config().library,
+                        [this] { return offlineItems(); });
+                }
+                if (offlineLibrary_) {
+                    libraryView_->attach(offlineLibrary_.get());
+                    offlineLibrary_->start();  // only the first time
+                    break;
+                }
+            }
             libraryView_->status().showError("Library", model_.error(), [this] { retry(); });
             libraryView_->showStatusOnly();
             break;
@@ -464,11 +550,13 @@ void MainActivity::updaterChanged() {
 }
 
 void MainActivity::retry() {
-    startCheck();
+    startCheck(Connection::By::Retry);
 }
 
 void MainActivity::serverChanged() {
+    context_.connection.reset();  // WP-18b: another server: Unknown until its check
     dropLibrary();  // another server or login: another library
+    offlineLibrary_.reset();  // (the tab let go of it in dropLibrary)
     model_.serverChanged();
     startCheck();
     if (settingsView_ != nullptr) {

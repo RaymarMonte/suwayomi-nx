@@ -1750,4 +1750,47 @@ void SwitchDownloads::refreshStep(Refresh refresh) {
         });
 }
 
+
+// --- Offline (WP-18b) ---
+
+std::optional<core::Chapter> SwitchDownloads::offlineChapter(int chapterId, const WaitingLookup& waiting,
+                                                             std::int64_t clockOffset) const {
+    for (const core::SwitchManga& m : manga_) {
+        if (const core::SwitchChapter* c = m.chapter(chapterId)) {
+            return core::offlineChapter(*c, m.id, knownProgress(chapterId), waiting ? waiting(chapterId) : nullptr,
+                                        clockOffset);
+        }
+    }
+    return std::nullopt;
+}
+
+std::vector<core::Chapter> SwitchDownloads::offlineChapters(int mangaId, const WaitingLookup& waiting,
+                                                            std::int64_t clockOffset) const {
+    std::vector<core::Chapter> chapters;
+    const core::SwitchManga* m = mangaOf(mangaId);
+    if (m == nullptr) {
+        return chapters;
+    }
+    chapters.reserve(m->chapters.size());
+    for (const core::SwitchChapter& c : m->chapters) {
+        chapters.push_back(
+            core::offlineChapter(c, m->id, knownProgress(c.id), waiting ? waiting(c.id) : nullptr, clockOffset));
+    }
+    return chapters;
+}
+
+std::vector<core::Manga> SwitchDownloads::offlineLibrary(const WaitingLookup& waiting, std::int64_t clockOffset) const {
+    std::vector<core::Manga> items;
+    for (const MangaRow& row : downloadedManga()) {
+        const core::SwitchManga* m = row.damaged ? nullptr : mangaOf(row.mangaId);
+        if (m == nullptr) {
+            continue;
+        }
+        core::Manga item = core::offlineManga(*m, offlineChapters(m->id, waiting, clockOffset));
+        item.coverFile = row.coverFile;
+        items.push_back(std::move(item));
+    }
+    return items;
+}
+
 }  // namespace snx::ui

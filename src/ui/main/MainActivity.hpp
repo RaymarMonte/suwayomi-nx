@@ -11,6 +11,7 @@
 #include "ui/components/StatusView.hpp"
 #include "ui/browse/SourcesModel.hpp"
 #include "ui/library/LibraryModel.hpp"
+#include "ui/main/Connection.hpp"
 #include "ui/main/MainModel.hpp"
 #include "ui/updates/ChapterRowsModel.hpp"
 #include "ui/updates/LibraryUpdater.hpp"
@@ -51,8 +52,13 @@ class MainActivity : public brls::Activity {
 
   private:
     brls::View* makeTab(std::size_t index);
-    void startCheck();
-    void onCheck(const api::ApiResult<core::ServerInfo>& result);
+    void startCheck(Connection::By by = Connection::By::Start);
+    void onCheck(const api::ApiResult<core::ServerInfo>& result, const char* where);
+    // WP-18b (D61): the connection's own checks (the offline timer, focus, waking, a suspicion, the network back). Online
+    // only an offline result changes anything; offline any other result goes through MainModel as the main check would.
+    void backgroundCheck(Connection::By by);
+    void connectionChanged(Connection::State state);
+    std::vector<core::Manga> offlineItems() const;  // the offline Library's shelf (SwitchDownloads::offlineLibrary)
     void showConnection();
     void serverChanged();
     void dropLibrary();
@@ -74,6 +80,10 @@ class MainActivity : public brls::Activity {
     net::CancelToken cancel_;  // the running check
     std::size_t currentTab_ = 0;
     std::unique_ptr<LibraryModel> library_;  // made once connected; dropped when the server or login changes
+    std::unique_ptr<LibraryModel> offlineLibrary_;  // WP-18b: shown while offline with chapters on the Switch
+    net::CancelToken backgroundCancel_;             // the connection's check under way
+    int connectionListener_ = 0;
+    bool wasOffline_ = false;  // the next Online says "Connected to the server"
     std::unique_ptr<SourcesModel> sources_;  // WP-14: the Browse tab's list, made when the tab first opens once connected
     // WP-15: the Updates and History rows and the library update, made when their tab first opens once connected,
     // dropped with the library. Shared with the tab's view (it may outlive a drop until the frame deletes it).
