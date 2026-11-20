@@ -15,7 +15,8 @@ to have: 08b, 26, 27, 28. Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 
   lacked WP-18's "Switch downloads" tab (updated); `offline-reading` cleans its Switch downloads up and tolerates leftovers.
 - The numbers came from a one-off script (not committed). Test server left running (auth none). Console put to sleep.
 - **The owner's try passed** (D61 "Owner's try"): started offline, read two downloaded chapters, and back home both waiting
-  saves went to the server by themselves. The console still runs this test build (SD `test/` folder: `commands`, `events.jsonl`).
+  saves went to the server by themselves. Then the console got a normal (release) build of 6e0da16 (it loads the owner's
+  library; the SD `test/` leftovers deleted) and was put to sleep.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
