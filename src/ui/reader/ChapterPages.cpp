@@ -44,6 +44,26 @@ api::ApiFuture<core::PageList> openChapterPages(api::SuwayomiClient& client, con
     // The first of: the progress answer, the wait's end, an error. Promise::set keeps the first value only.
     net::Promise<api::ApiResult<core::PageList>> promise;
     api::ApiFuture<core::PageList> future = promise.future();
+    if (source.merged) {
+        // Offline (WP-18b): no request. The merged progress, strip spot included (the queue's or the server's last note).
+        if (const std::optional<core::Chapter> merged = source.merged(listed.id)) {
+            list.chapter.lastPageRead = merged->lastPageRead;
+            list.chapter.isRead = merged->isRead;
+            list.chapter.lastReadAt = merged->lastReadAt;
+            list.chapter.stripSpotNote = merged->stripSpotNote;
+            list.chapter.isBookmarked = merged->isBookmarked;
+            list.chapter.isDownloaded = merged->isDownloaded;
+        } else {
+            list.chapter.stripSpotNote = listed.stripSpotNote;
+        }
+        // On the next turn of the main loop, as a request's answer would come (the reader never hears it inside its call).
+        if (source.later) {
+            source.later(0, [promise, list]() mutable { promise.set(list); });
+        } else {
+            promise.set(std::move(list));
+        }
+        return future;
+    }
     client.chapterState(listed.id, cancel, priority)
         .then([promise, list](const api::ApiResult<core::ServerProgress>& answer) mutable {
             core::PageList withProgress = list;

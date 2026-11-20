@@ -25,6 +25,7 @@
 #include "platform/SafeFs.hpp"
 #include "ui/reader/ChapterPages.hpp"
 #include "ui/reader/ReaderModel.hpp"
+#include "ui/reader/WaitingSaves.hpp"
 
 using namespace snx;
 using core::ReadingDirection;
@@ -141,6 +142,8 @@ struct Harness {
     float maxDecodeScale = 2.0f;
     std::vector<std::pair<core::ReadProgress, bool>> saved;  // onSaved
     ui::PageSource pages;  // WP-18: the models made from now on read these chapters' files
+    ui::WaitingSaves* queue = nullptr;  // WP-18b: the models made from now on use this queue ...
+    bool offline = false;               // ... and are opened offline
 
     Harness() {
         http.setHandler([this](const Request& request) { return server.answer(request); });
@@ -193,6 +196,8 @@ struct Harness {
         options.clock = [this] { return now; };
         options.onSaved = [this](const core::ReadProgress& p, bool ok) { saved.emplace_back(p, ok); };
         options.pages = pages;
+        options.queue = queue;
+        options.offline = offline;
         core::MangaReaderSettings settings;
         settings.direction = direction;
         auto made = std::make_unique<ReaderModel>(*client, *images, manga, chapters(), settings, options);
@@ -1017,6 +1022,134 @@ TEST_CASE("reader: a downloaded chapter whose progress doesn't come in time open
     second->open(101, 1);
     CHECK(second->state() == State::Ready);
     CHECK(h2.asked("FetchChapterPages") == 0);
+}
+
+
+// --- WP-18b: the reader offline ---
+
+namespace {
+// A waiting-save queue for the offline tests (no file, no timers needed).
+std::unique_ptr<ui::WaitingSaves> offlineQueue(api::SuwayomiClient& client) {
+    ui::WaitingSaves::Hooks hooks;
+    hooks.clockMs = [] { return std::int64_t{0}; };
+    hooks.nowSeconds = [] { return std::int64_t{1795000500}; };
+    return std::make_unique<ui::WaitingSaves>(client, nullptr, ui::WaitingSaves::Options{}, hooks);
+}
+}  // namespace
+
+TEST_CASE("reader (WP-18b): offline, a downloaded chapter opens at once at the merged position without a request; its saves "
+          "go to the queue and count as saved; read stays read; the chapter is held until the reader has closed") {
+    Harness h;
+    SdCard sd;
+    const platform::SafeFs fs(sd.root);
+    h.useFiles(fs);
+    const std::vector<std::string> files = writeDownloadedChapter(fs, kMangaId, 101, 10);
+    const std::vector<std::string> next = writeDownloadedChapter(fs, kMangaId, 102, 3);  // the next one is on it too
+    h.pages.files = [&files, &next](int id) -> std::optional<std::vector<std::string>> {
+        if (id == 101 || id == 102) {
+            return id == 101 ? files : next;
+        }
+        return std::nullopt;
+    };
+    h.pages.merged = [](int id) -> std::optional<core::Chapter> {
+        core::Chapter c;  // what the Switch knows: page 4, stamped
+        c.id = id;
+        c.lastPageRead = 4;
+        c.lastReadAt = 1795000000;
+        return c;
+    };
+    std::vector<std::pair<int, std::function<void()>>> timers;
+    h.pages.later = [&timers](int ms, std::function<void()> fn) { timers.emplace_back(ms, std::move(fn)); };
+    auto queue = offlineQueue(*h.client);
+    h.queue = queue.get();
+    h.offline = true;
+    auto model = h.model();
+    model->open(101, 4);  // the details screen opens it at the merged page
+    // On the next turn of the main loop (as an answer would come), not inside open().
+    CHECK(model->state() == State::Loading);
+    REQUIRE(timers.size() == 1);
+    CHECK(timers[0].first == 0);
+    timers[0].second();
+    CHECK(model->state() == State::Ready);
+    CHECK(model->position() == 4);
+    CHECK(queue->held(101));
+
+    model->step(1);  // page 5
+    h.now += 6000;
+    model->onFrame();
+    const core::WaitingSave* waiting = queue->waitingFor(101);
+    REQUIRE(waiting != nullptr);
+    CHECK(waiting->page == 5);
+    CHECK_FALSE(waiting->read);
+    CHECK(waiting->base.page == 4);  // what the Switch knew of the server
+    CHECK(waiting->base.lastReadAt == 1795000000);
+    CHECK(waiting->madeAt == 1795000500);
+    REQUIRE_FALSE(h.saved.empty());
+    CHECK(h.saved.back().second);  // counted as saved
+    // To the last page: read. A step back doesn't undo it.
+    for (int i = 0; i < 4; ++i) {
+        model->step(1);
+    }
+    h.now += 6000;
+    model->onFrame();
+    REQUIRE(queue->waitingFor(101) != nullptr);
+    CHECK(queue->waitingFor(101)->read);
+    model->step(-1);
+    h.now += 6000;
+    model->onFrame();
+    CHECK(queue->waitingFor(101)->page == 8);
+    CHECK(queue->waitingFor(101)->read);
+    CHECK(queue->waitingFor(101)->base.page == 4);  // the first save's base stays
+    CHECK(queue->size() == 1);
+    CHECK(model->chapter().isRead);
+    // Not one request.
+    CHECK(h.asked("ChapterState") == 0);
+    CHECK(h.asked("FetchChapterPages") == 0);
+    CHECK(h.asked("UpdateChapterProgress") == 0);
+
+    // Closing: held until it has closed, then the round may send it once the server answers.
+    bool closed = false;
+    model->close([&closed] { closed = true; });
+    CHECK(closed);
+    CHECK_FALSE(queue->held(101));
+    CHECK(queue->size() == 1);
+    model.reset();
+}
+
+TEST_CASE("reader (WP-18b): offline, a chapter the Switch knows nothing more of opens at the listed progress; a waiting "
+          "entry is continued, not taken over") {
+    Harness h;
+    SdCard sd;
+    const platform::SafeFs fs(sd.root);
+    h.useFiles(fs);
+    const std::vector<std::string> files = writeDownloadedChapter(fs, kMangaId, 101, 10);
+    h.pages.files = [&files](int id) -> std::optional<std::vector<std::string>> {
+        return id == 101 ? std::optional<std::vector<std::string>>(files) : std::nullopt;
+    };
+    h.pages.merged = [](int) -> std::optional<core::Chapter> { return std::nullopt; };
+    auto queue = offlineQueue(*h.client);
+    // A save waiting from an earlier offline read: page 6, made from the server's page 2.
+    core::WaitingSave earlier;
+    earlier.chapterId = 101;
+    earlier.mangaId = kMangaId;
+    earlier.page = 6;
+    earlier.base.page = 2;
+    queue->add(earlier);
+    h.queue = queue.get();
+    h.offline = true;
+    h.server.find(101)->lastPageRead = 3;  // the listed chapter
+    auto model = h.model();
+    model->open(101, 3);  // no `later`: at once
+    CHECK(model->state() == State::Ready);
+    CHECK(model->position() == 3);
+    REQUIRE(queue->waitingFor(101) != nullptr);  // not taken over offline
+    model->step(1);
+    h.now += 6000;
+    model->onFrame();
+    CHECK(queue->waitingFor(101)->page == 4);
+    CHECK(queue->waitingFor(101)->base.page == 2);  // continued: the older base stays
+    CHECK(h.asked("ChapterState") == 0);
+    model->close(nullptr);
 }
 
 }

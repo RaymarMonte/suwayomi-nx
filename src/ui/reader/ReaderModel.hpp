@@ -52,8 +52,12 @@ struct ReaderOptions {
     // reader closes goes there, and a chapter that opens with an entry still at its base opens at the entry's page and
     // saves it as its own (the take-over; not when stepping back onto a previous chapter's last page).
     WaitingSaves* queue = nullptr;
+    // WP-18b (D61): the reader opened offline, and stays so for its life: its saves go to the queue (no request), the
+    // chapters open at the merged position (`pages.merged`), nothing is taken over. Online or not, each chapter it opens
+    // is held in the queue (its round leaves it to the reader) until the reader has closed.
+    bool offline = false;
 };
-// Everything above except screen, clock, onSaved and queue.
+// Everything above except screen, clock, onSaved, queue and offline.
 ReaderOptions readerOptionsFrom(const core::RuntimeProfile& profile, const core::ReaderSettings& reader);
 
 // One page of the opened chapter.

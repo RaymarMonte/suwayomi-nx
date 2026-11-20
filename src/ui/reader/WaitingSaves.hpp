@@ -162,7 +162,7 @@ class WaitingSaves {
     Options options_;
     Hooks hooks_;
     std::vector<core::WaitingSave> entries_;  // oldest first
-    std::set<int> held_;                      // chapters a reader has open (the configured server's)
+    std::multiset<int> held_;  // chapters a reader has open (the configured server's), once per hold (paged + strip)
     core::SaveScheduler scheduler_;
     std::optional<Round> round_;
     bool running_ = false;

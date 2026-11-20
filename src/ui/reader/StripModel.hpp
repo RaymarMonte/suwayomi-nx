@@ -56,8 +56,12 @@ struct StripOptions {
     // strip closes goes there; the chapter the strip opens takes its entry over (its page and spot; not a chapter that
     // joins later while scrolling: the queue's round decides that one).
     WaitingSaves* queue = nullptr;
+    // WP-18b (D61): the reader opened offline, and stays so for its life: its saves go to the queue (no request), the
+    // chapters open at the merged position (`pages.merged`), nothing is taken over. Online or not, each chapter it opens
+    // is held in the queue (its round leaves it to the reader) until the reader has closed.
+    bool offline = false;
 };
-// Everything above except units, screen, orientation, clock, onSaved and queue.
+// Everything above except units, screen, orientation, clock, onSaved, queue and offline.
 StripOptions stripOptionsFrom(const core::RuntimeProfile& profile, const core::ReaderSettings& reader);
 
 // A band of the strip: the chapters above and below it (0 = none: the strip's very start or end), and, for the strip's first

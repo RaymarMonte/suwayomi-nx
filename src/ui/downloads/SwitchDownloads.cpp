@@ -1584,6 +1584,7 @@ bool SwitchDownloads::learn(int chapterId, const core::ServerProgress& server, b
     if (downloadedChapter(chapterId) == nullptr) {
         return false;  // only chapters on this Switch
     }
+    const bool fresh = known_.count(chapterId) == 0;  // a new entry is a change even with all-zero values
     core::KnownProgress& known = known_[chapterId];
     const core::KnownProgress before = known;
     known.server.page = server.page;
@@ -1597,7 +1598,7 @@ bool SwitchDownloads::learn(int chapterId, const core::ServerProgress& server, b
     }
     known.gone = false;  // the server answered for it
     known.local.reset();
-    return known != before;
+    return fresh || known != before;
 }
 
 void SwitchDownloads::noteProgress(int chapterId, const core::ServerProgress& server, bool full) {

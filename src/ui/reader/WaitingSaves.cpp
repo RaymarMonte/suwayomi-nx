@@ -235,7 +235,12 @@ void WaitingSaves::hold(int chapterId) {
 }
 
 void WaitingSaves::release(int chapterId) {
-    if (held_.erase(chapterId) > 0 && waitingFor(chapterId) != nullptr) {
+    const auto hold = held_.find(chapterId);
+    if (hold == held_.end()) {
+        return;
+    }
+    held_.erase(hold);  // one hold: the paged reader and the strip may both hold a chapter
+    if (!held(chapterId) && waitingFor(chapterId) != nullptr) {
         say(false, "progress queue: the reader let go of chapter " + std::to_string(chapterId));
     }
 }

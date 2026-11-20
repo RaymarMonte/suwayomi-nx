@@ -5,12 +5,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdlib>
 #include <functional>
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -21,7 +23,9 @@
 #include "Fixtures.hpp"
 #include "MainQueue.hpp"
 #include "api/SuwayomiClient.hpp"
+#include "core/Offline.hpp"
 #include "core/RuntimeProfile.hpp"
+#include "core/StripMath.hpp"
 #include "core/SwitchDownloads.hpp"
 #include "net/FakeHttpClient.hpp"
 #include "platform/SafeFs.hpp"
@@ -81,6 +85,19 @@ struct FakeServer {
     std::map<std::string, int> gets;  // full URL -> how often asked
     int pageLists = 0;
     int mangaAsked = 0;
+    // WP-18b: the progress DownloadedProgress answers (default: nothing read), the chapters the server no longer has, the
+    // ids of each DownloadedProgress request, and its status (200 = it answers).
+    struct Progress {
+        int page = 0;
+        bool read = false;
+        std::int64_t at = 0;
+        std::string spot;
+        bool bookmarked = false;
+    };
+    std::map<int, Progress> progress;
+    std::set<int> gone;
+    std::vector<std::vector<int>> progressAsks;
+    int progressStatus = 200;
 
     net::HttpResult answer(const Request& request) {
         if (request.method == net::Method::Post) {
@@ -136,6 +153,30 @@ struct FakeServer {
                                             {"categories", {{"nodes", nlohmann::json::array()}}},
                                             {"firstUnreadChapter", nullptr}}}}}}
                              .dump());
+            }
+            if (op == "DownloadedProgress") {
+                progressAsks.push_back(vars["ids"].get<std::vector<int>>());
+                if (progressStatus != 200) {
+                    return FakeHttpClient::answer(progressStatus, "nope");
+                }
+                nlohmann::json nodes = nlohmann::json::array();
+                for (int id : progressAsks.back()) {
+                    if (chapters.count(id) == 0 || gone.count(id) > 0) {
+                        continue;  // left out of the answer: gone
+                    }
+                    const Progress p = progress.count(id) > 0 ? progress.at(id) : Progress{};
+                    nlohmann::json meta = nlohmann::json::array();
+                    if (!p.spot.empty()) {
+                        meta.push_back({{"key", "snx_strip_spot"}, {"value", p.spot}});
+                    }
+                    nodes.push_back({{"id", id},
+                                     {"lastPageRead", p.page},
+                                     {"isRead", p.read},
+                                     {"lastReadAt", std::to_string(p.at)},  // a LongString, like the real server
+                                     {"isBookmarked", p.bookmarked},
+                                     {"meta", meta}});
+                }
+                return FakeHttpClient::answer(200, nlohmann::json{{"data", {{"chapters", {{"nodes", nodes}}}}}}.dump());
             }
             return FakeHttpClient::answer(404);
         }
@@ -356,6 +397,28 @@ struct Harness {
             ids.push_back(e.chapter.id);
         }
         return ids;
+    }
+    core::ProgressFileLoad progressFile(bool backup = false) const {
+        const std::string path = core::switchServerDir(key()) + "/" + core::kSwitchProgressFile +
+                                 (backup ? core::kSwitchBackupSuffix : "");
+        const auto text = fs.readFile(path, 1024 * 1024);
+        REQUIRE(text.has_value());
+        return core::readProgressFile(*text, {});
+    }
+    std::optional<SwitchDownloads::Change::Refreshed> lastRefresh() const {
+        for (auto it = changes.rbegin(); it != changes.rend(); ++it) {
+            if (it->refreshed) {
+                return it->refreshed;
+            }
+        }
+        return std::nullopt;
+    }
+    // Runs a progress refresh to its end.
+    SwitchDownloads::Change::Refreshed refresh() {
+        changes.clear();
+        model->refreshProgress();
+        REQUIRE(drive([this] { return !model->refreshingProgress() && lastRefresh().has_value(); }));
+        return *lastRefresh();
     }
     bool finished(int chapterId, bool ok) const {
         for (const auto& c : changes) {
@@ -821,5 +884,179 @@ TEST_SUITE("ui") {
         REQUIRE(main.runUntil([&] { return written.has_value(); }));
         CHECK_FALSE(*written);
         CHECK_FALSE(fs.exists("downloads/k/m1/c2/0003.jpg"));
+    }
+
+    TEST_CASE("switch downloads (WP-18b): the progress refresh asks in batches, learns each chapter, marks gone ones; "
+              "progress.json is written once per delay, only on change, and survives a restart") {
+        Harness h;
+        h.limits.progressBatch = 2;
+        h.restart();
+        h.model->connected();
+        h.model->enqueue(paperGarden(), {chapter(101, 1), chapter(102, 2), chapter(103, 3)});
+        REQUIRE(h.downloaded(101));
+        REQUIRE(h.downloaded(102));
+        REQUIRE(h.downloaded(103));
+        // Each download's page list told the server's progress: one entry per chapter.
+        REQUIRE(h.drive([&] { return h.model->progressWrites() >= 1; }));
+        h.filesDone();
+        for (int id : {101, 102, 103}) {
+            REQUIRE(h.model->knownProgress(id) != nullptr);
+            CHECK(h.model->knownProgress(id)->server.page == 0);
+        }
+        CHECK(h.progressFile().progress.size() == 3);
+        const int writes = h.model->progressWrites();
+
+        // The server moved on: 101 is on page 5 and bookmarked, 102 was read with a strip spot, 103 is gone.
+        const std::string spot = core::stripSpotValue(1, 0.25);
+        h.server.progress[101] = {5, false, 1795000000, "", true};
+        h.server.progress[102] = {1, true, 1795000100, spot, false};
+        h.server.gone = {103};
+        const std::size_t asked = h.server.progressAsks.size();
+        const auto refreshed = h.refresh();
+        REQUIRE(h.server.progressAsks.size() == asked + 2);
+        CHECK(h.server.progressAsks[asked].size() == 2);
+        CHECK(h.server.progressAsks[asked + 1].size() == 1);
+        CHECK(refreshed.ok);
+        CHECK(refreshed.chapters == 3);
+        CHECK(refreshed.requests == 2);
+        CHECK(refreshed.changed == 3);
+        CHECK(refreshed.gone == 1);
+        const core::KnownProgress* a = h.model->knownProgress(101);
+        REQUIRE(a != nullptr);
+        CHECK(a->server.page == 5);
+        CHECK(a->server.bookmarked);
+        CHECK(a->server.lastReadAt == 1795000000);
+        const core::KnownProgress* b = h.model->knownProgress(102);
+        REQUIRE(b != nullptr);
+        CHECK(b->server.read);
+        CHECK(b->server.spotNote == spot);
+        CHECK_FALSE(b->gone);
+        REQUIRE(h.model->knownProgress(103) != nullptr);
+        CHECK(h.model->knownProgress(103)->gone);
+        // One write for the whole refresh.
+        REQUIRE(h.drive([&] { return h.model->progressWrites() == writes + 1; }));
+        h.filesDone();
+        {
+            const core::ProgressFileLoad file = h.progressFile();
+            REQUIRE(file.usable);
+            CHECK(file.progress.at(101).server.page == 5);
+            CHECK(file.progress.at(103).gone);
+        }
+
+        // Nothing changed on the server: no write is asked for.
+        const std::size_t delaysBefore = h.delays.size();
+        const auto again = h.refresh();
+        CHECK(again.ok);
+        CHECK(again.changed == 0);
+        CHECK(again.gone == 1);
+        CHECK(std::count(h.delays.begin() + static_cast<std::ptrdiff_t>(delaysBefore), h.delays.end(),
+                         h.limits.saveDelayMs) == 0);
+
+        // Three answers in a row: one write after the delay. A saved answer doesn't carry the bookmark or the note.
+        core::ServerProgress moved;
+        moved.page = 6;
+        moved.lastReadAt = 1795000200;
+        h.model->noteProgress(101, moved, false);
+        moved.page = 7;
+        h.model->noteProgress(101, moved, false);
+        h.model->noteProgress(102, moved, false);
+        CHECK(h.model->knownProgress(101)->server.page == 7);
+        CHECK(h.model->knownProgress(101)->server.bookmarked);
+        CHECK(h.model->knownProgress(102)->server.spotNote == spot);
+        REQUIRE(h.drive([&] { return h.model->progressWrites() == writes + 2; }));
+        h.filesDone();
+        CHECK(h.model->progressWrites() == writes + 2);
+        // A chapter that isn't on this Switch isn't kept.
+        h.model->noteProgress(999, moved, true);
+        CHECK(h.model->knownProgress(999) == nullptr);
+
+        // A restart reads it back.
+        h.restart();
+        REQUIRE(h.model->knownProgress(101) != nullptr);
+        CHECK(h.model->knownProgress(101)->server.page == 7);
+        CHECK(h.model->knownProgress(101)->server.bookmarked);
+        CHECK(h.model->knownProgress(102)->server.spotNote == spot);
+        CHECK(h.model->knownProgress(103)->gone);
+    }
+
+    TEST_CASE("switch downloads (WP-18b): a broken progress.json falls back to its .bak, then to nothing; a details list marks "
+              "the missing chapters gone; a failed refresh changes nothing; deletes drop entries") {
+        Harness h;
+        h.model->connected();
+        h.model->enqueue(paperGarden(), {chapter(101, 1), chapter(102, 2)});
+        REQUIRE(h.downloaded(101));
+        REQUIRE(h.downloaded(102));
+        REQUIRE(h.drive([&] { return h.model->progressWrites() >= 1; }));
+        h.filesDone();
+        // A newer version, so the .bak holds the older one (page 0).
+        h.server.progress[101] = {4, false, 1795000000, "", false};
+        const int writes = h.model->progressWrites();
+        CHECK(h.refresh().changed == 1);
+        REQUIRE(h.drive([&] { return h.model->progressWrites() == writes + 1; }));
+        h.filesDone();
+        CHECK(h.progressFile().progress.at(101).server.page == 4);
+        CHECK(h.progressFile(true).progress.at(101).server.page == 0);
+
+        // The file breaks: the .bak is read.
+        const std::string path = core::switchServerDir(h.key()) + "/" + core::kSwitchProgressFile;
+        REQUIRE(h.fs.writeAtomic(path, "{broken"));
+        h.restart();
+        REQUIRE(h.model->knownProgress(101) != nullptr);
+        CHECK(h.model->knownProgress(101)->server.page == 0);
+        // Both break: nothing is known (the chapters show manga.json's state until the next refresh).
+        REQUIRE(h.fs.writeAtomic(path, "{broken"));
+        REQUIRE(h.fs.writeAtomic(path + core::kSwitchBackupSuffix, "[1, 2"));
+        h.restart();
+        CHECK(h.model->knownProgress(101) == nullptr);
+        CHECK(h.model->knownProgress(102) == nullptr);
+        CHECK(h.refresh().changed == 2);
+        CHECK(h.model->knownProgress(101)->server.page == 4);
+
+        // A details screen's full list without 102: it's gone; an entry the list got from progress.json is skipped.
+        core::Chapter listed = chapter(101, 1);
+        listed.lastPageRead = 4;
+        listed.lastReadAt = 1795000000;
+        core::Chapter ours = chapter(102, 2);
+        ours.goneFromServer = true;
+        h.model->noteMangaChapters(kMangaId, {listed, ours});
+        CHECK(h.model->knownProgress(102)->gone);
+        CHECK_FALSE(h.model->knownProgress(101)->gone);
+        CHECK(h.model->knownProgress(101)->server.page == 4);
+        // A gone chapter read here keeps its progress in progress.json.
+        core::LocalProgress local;
+        local.page = 1;
+        local.at = 1700000500;
+        h.model->noteLocal(102, local);
+        REQUIRE(h.model->knownProgress(102)->local.has_value());
+        CHECK(h.model->knownProgress(102)->local->page == 1);
+        // The server answers for it again (it came back): no longer gone, the local progress is dropped.
+        CHECK(h.refresh().changed == 1);
+        CHECK_FALSE(h.model->knownProgress(102)->gone);
+        CHECK_FALSE(h.model->knownProgress(102)->local.has_value());
+
+        // A failed refresh: nothing changes, and it says it stopped.
+        h.server.gone = {102};
+        h.server.progressStatus = 500;
+        const auto failed = h.refresh();
+        CHECK_FALSE(failed.ok);
+        CHECK_FALSE(h.model->knownProgress(102)->gone);
+        CHECK(h.model->knownProgress(101)->server.page == 4);
+        h.server.progressStatus = 200;
+
+        // Deletes drop their entries, in memory and in the file.
+        h.filesDone();
+        int before = h.model->progressWrites();
+        REQUIRE(h.model->deleteChapters({102}));
+        CHECK(h.model->knownProgress(102) == nullptr);
+        REQUIRE(h.drive([&] { return h.model->progressWrites() > before; }));
+        h.filesDone();
+        CHECK(h.progressFile().progress.count(102) == 0);
+        CHECK(h.progressFile().progress.count(101) == 1);
+        before = h.model->progressWrites();
+        REQUIRE(h.model->deleteManga(kMangaId));
+        CHECK(h.model->knownProgress(101) == nullptr);
+        REQUIRE(h.drive([&] { return h.model->progressWrites() > before; }));
+        h.filesDone();
+        CHECK(h.progressFile().progress.empty());
     }
 }

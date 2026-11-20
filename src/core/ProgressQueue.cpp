@@ -84,6 +84,9 @@ std::vector<WaitingSave> addWaitingSave(std::vector<WaitingSave>& entries, Waiti
     const auto old = std::find_if(entries.begin(), entries.end(), [&](const WaitingSave& e) { return sameChapter(e, entry); });
     if (old != entries.end()) {
         entry.base = old->base;  // what the server had before the first of these saves
+        // WP-18b: read stays read (D44: a save only ever sets it). Offline every save goes here, and the one after the
+        // chapter's last page carries read = false ("leave it"), which must not undo the one before.
+        entry.read = entry.read || old->read;
         entries.erase(old);
     }
     entry.mangaTitle = cut(std::move(entry.mangaTitle), kWaitingTextMaxBytes);

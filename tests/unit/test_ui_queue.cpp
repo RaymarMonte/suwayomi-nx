@@ -355,16 +355,40 @@ TEST_CASE("queue: a close-save that fails goes in with its base; a later one for
     REQUIRE(h.queue->size() == 1);
     CHECK(h.queue->waitingFor(101)->page == 2);  // the newer one
     CHECK(h.queue->waitingFor(101)->base.lastReadAt == 500);
-    // Nothing fails while the reader is open: only closing hands saves over.
+    // WP-18b: a save that fails for want of the server while the reader is open leaves a held copy (a power cut doesn't
+    // lose it); the reader still tries again itself, and the next save that works removes the copy.
     h.server.offline = false;
     auto third = h.reader();
     third->open(102, 0);
+    CHECK(h.queue->held(102));
     third->step(1);
     h.server.offline = true;
     h.now += 6000;
-    third->onFrame();  // the save fails: the reader tries again itself
-    CHECK(h.queue->size() == 1);
+    third->onFrame();  // the save fails
     h.drain();
+    REQUIRE(h.queue->waitingFor(102) != nullptr);
+    CHECK(h.queue->waitingFor(102)->page == 1);
+    const auto reportOf = [&h](const std::string& what, int chapterId) -> const Report* {
+        for (auto it = h.reports.rbegin(); it != h.reports.rend(); ++it) {
+            if (it->what == what && it->chapterId == chapterId) {
+                return &*it;
+            }
+        }
+        return nullptr;
+    };
+    REQUIRE(reportOf("added", 102) != nullptr);
+    CHECK(reportOf("added", 102)->held);
+    CHECK(reportOf("sent", 102) == nullptr);  // a round leaves it to the reader
+    h.server.offline = false;
+    h.now += 60000;
+    third->onFrame();  // the retry works
+    h.drain();
+    CHECK(h.queue->waitingFor(102) == nullptr);
+    CHECK(reportOf("saved", 102) != nullptr);
+    CHECK(reportOf("sent", 102) == nullptr);
+    third->close(nullptr);
+    h.drain();
+    CHECK_FALSE(h.queue->held(102));
 }
 
 TEST_CASE("queue: a round after a nudge sends it; the listeners hear it; a spot goes as UpdateStripProgress") {

@@ -46,6 +46,7 @@ StripModel::StripModel(api::SuwayomiClient& client, image::ImageLoader& images, 
     saver_ = std::make_shared<ProgressSaver>(client_, options_.clock, options_.onSaved);
     saver_->toModel = [this](const core::ReadProgress& progress) { onSaved(progress); };
     saver_->queue = options_.queue;
+    saver_->offline = options_.offline;
     saver_->mangaId = manga_.id;
     saver_->mangaTitle = manga_.title;
 }
@@ -410,7 +411,7 @@ void StripModel::onOpened(int page, Open how, const api::ApiResult<core::PageLis
     // WP-15b: a save of this chapter that failed earlier, still at what the server has: the strip opens at its page and
     // spot and saves it as its own.
     std::optional<core::WaitingSave> waiting;
-    if (options_.queue != nullptr) {
+    if (options_.queue != nullptr && !options_.offline) {  // offline it opened at the merged position (WP-18b)
         const core::Chapter& c = part.chapter;
         waiting = options_.queue->takeOver(c.id, core::ServerProgress{c.lastPageRead, c.isRead, c.lastReadAt, c.stripSpotNote});
         if (waiting) {
@@ -471,6 +472,7 @@ void StripModel::startReading(Part& part) {
                                                  noteSpot(part.chapter));
     sync_->setServerLastReadAt(part.chapter.lastReadAt);
     saver_->chapterNames[part.chapter.id] = part.chapter.name;
+    saver_->hold(part.chapter.id);  // WP-18b: its queue entry is this reader's until it closes
 }
 
 // --- Following the screen ---

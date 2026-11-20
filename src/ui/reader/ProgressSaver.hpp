@@ -4,6 +4,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -38,6 +39,11 @@ struct ProgressSaver {
     int mangaId = 0;
     std::string mangaTitle;
     std::map<int, std::string> chapterNames;  // the chapters opened (the model adds each one it opens)
+    // WP-18b (D61), a reader opened offline (it stays so for its life): every save goes to the queue, no request, and counts
+    // as saved. Online, a save that fails for want of the server (offline, timeout, 502/503/504) leaves a held copy in the
+    // queue, so a power cut doesn't lose it; the next save of that chapter that works removes it.
+    bool offline = false;
+    std::set<int> holding;  // the chapters this reader holds in the queue (WaitingSaves::hold); let go once it has closed
 
     ProgressSaver(api::SuwayomiClient& c, std::function<std::int64_t()> time,
                   std::function<void(const core::ReadProgress&, bool)> saved);
@@ -54,7 +60,14 @@ struct ProgressSaver {
                       std::function<void()> done);
     // A save of `sync` failed while closing: what it hasn't saved goes to the queue.
     void handOff(const core::ProgressSync& sync);
+    // The reader opened a chapter: the queue's round leaves its entry to this reader until it closes (WP-18b).
+    void hold(int chapterId);
+    // A failure that means the server is away (no held copy for the others: they'd fail again when sent).
+    static bool serverAway(const api::ApiError& error);
     void tidy();
+
+  private:
+    core::WaitingSave entryFor(int chapterId, const core::ReadProgress& progress, const core::ServerProgress& base) const;
 };
 
 }  // namespace snx::ui

@@ -25,6 +25,10 @@ struct PageSource {
     std::function<void(int ms, std::function<void()>)> later;  // the wait's timer, on the main thread (brls::delay)
     // A downloaded page that is missing, cut short or won't decode (SwitchDownloads::markDamaged).
     std::function<void(int chapterId, int page)> onDamaged;
+    // WP-18b (D61), a reader opened offline: a downloaded chapter opens at once at the Switch's merged position (what it
+    // knows of the server's progress plus a save waiting in the queue, SwitchDownloads::offlineChapter), strip spot included,
+    // without chapterState. Nothing from it: the listed chapter's progress. Empty: online, as above.
+    std::function<std::optional<core::Chapter>(int chapterId)> merged;
 };
 
 // A page from the SD card is "file:" + its path inside the app's folder (image::loadId's name for it).
@@ -38,7 +42,7 @@ bool isDamagedPageError(const image::ImageError& error);
 // The chapter's page list. On the Switch: its files ("file:" + path), the listed chapter with the server's progress from
 // chapterState (lastPageRead, isRead, lastReadAt, the strip spot, isBookmarked, isDownloaded), or, without an answer within
 // openWaitMs or with an error, the listed chapter's lastPageRead and isRead (no strip spot); a later answer is ignored. No
-// syncConflict. Else client.pages(). `listed` is the chapter as the reader's list knows it (only its id may be set).
+// syncConflict. Offline (`merged` set): at once, from `merged`, no request. Else client.pages(). `listed` is the chapter as the reader's list knows it (only its id may be set).
 api::ApiFuture<core::PageList> openChapterPages(api::SuwayomiClient& client, const PageSource& source,
                                                 const core::Chapter& listed, api::PageFormat format,
                                                 const net::CancelToken& cancel, net::Priority priority);

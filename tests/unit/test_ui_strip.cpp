@@ -28,6 +28,7 @@
 #include "platform/SafeFs.hpp"
 #include "ui/reader/ChapterPages.hpp"
 #include "ui/reader/StripModel.hpp"
+#include "ui/reader/WaitingSaves.hpp"
 
 using namespace snx;
 using net::FakeHttpClient;
@@ -147,6 +148,8 @@ struct Harness {
     int changes = 0;
     std::vector<std::pair<core::ReadProgress, bool>> saved;  // onSaved
     ui::PageSource pages;  // WP-18: the models made from now on read these chapters' files
+    ui::WaitingSaves* queue = nullptr;  // WP-18b: the models made from now on use this queue ...
+    bool offline = false;               // ... and are opened offline
 
     Harness() {
         http.setHandler([this](const Request& request) { return server.answer(request); });
@@ -198,6 +201,8 @@ struct Harness {
         options.clock = [this] { return now; };
         options.onSaved = [this](const core::ReadProgress& p, bool ok) { saved.emplace_back(p, ok); };
         options.pages = pages;
+        options.queue = queue;
+        options.offline = offline;
         auto made = std::make_unique<StripModel>(*client, *images, manga, chapters(), options);
         made->setListener([this] { ++changes; });
         return made;
@@ -637,6 +642,54 @@ TEST_CASE("strip: a chapter on the Switch opens from its files, the chapter it j
     CHECK(pagesIn(*model, 102, PageState::Failed) == std::set<int>{1});
     REQUIRE(damaged.size() == 1);
     CHECK(damaged[0] == std::make_pair(102, 1));
+}
+
+
+// --- WP-18b: the strip offline ---
+
+TEST_CASE("strip (WP-18b): offline, a downloaded chapter opens at the merged page and spot without a request; its saves go "
+          "to the queue with the spot") {
+    Harness h;
+    SdCard sd;
+    const platform::SafeFs fs(sd.root);
+    h.useFiles(fs);
+    const std::vector<std::string> files = writeDownloadedChapter(fs, kMangaId, 101, 10);
+    h.pages.files = [&files](int id) -> std::optional<std::vector<std::string>> {
+        return id == 101 ? std::optional<std::vector<std::string>>(files) : std::nullopt;
+    };
+    h.pages.merged = [](int id) -> std::optional<core::Chapter> {
+        core::Chapter c;  // a save waiting in the queue: page 3, half way down
+        c.id = id;
+        c.lastPageRead = 3;
+        c.stripSpotNote = core::stripSpotValue(3, 0.5);
+        return c;
+    };
+    ui::WaitingSaves::Hooks hooks;
+    hooks.clockMs = [] { return std::int64_t{0}; };
+    hooks.nowSeconds = [] { return std::int64_t{1795000500}; };
+    ui::WaitingSaves queue(*h.client, nullptr, ui::WaitingSaves::Options{}, hooks);
+    h.queue = &queue;
+    h.offline = true;
+    auto model = h.model();
+    model->open(101, 3);  // Resume, at the page the details screen gives (the merged one)
+    REQUIRE(h.settle(*model));
+    CHECK(model->state() == State::Ready);
+    CHECK(model->page() == 3);
+    CHECK(model->spot() == doctest::Approx(0.5));
+    CHECK(queue.held(101));
+    model->scrollBy(100);
+    h.now += 5000;
+    model->onFrame();
+    const core::WaitingSave* waiting = queue.waitingFor(101);
+    REQUIRE(waiting != nullptr);
+    CHECK(waiting->spot.has_value());
+    CHECK(h.asked("ChapterState") == 0);
+    CHECK(h.asked("UpdateStripProgress") == 0);
+    CHECK(h.asked("FetchChapterPages") == 0);
+    bool closed = false;
+    model->close([&closed] { closed = true; });
+    CHECK(closed);
+    CHECK_FALSE(queue.held(101));
 }
 
 }
