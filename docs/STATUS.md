@@ -1,24 +1,18 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-18c done** (the rest of WP-18, D59; its Switch runs green 2026-11-20).
-**Next:** **WP-18b** (offline 2: read away from home) → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28.
+**Phase 3 – Features. Now:** **WP-18b planned** (`docs/wp/WP-18b-read-away-from-home.md`, D61); nothing built yet.
+**Next:** **build WP-18b** (Opus, size L, split → WP-18d) → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28.
 Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 18c, 23, 24, 22; v0.2.0 (13…24; 17, 18 and 18c unreleased).
-## Last session (2026-11-20, WP-18c, Opus) – done (desktop, then the console the same day)
-- Built: the "Same server?" question when a new server address is saved while chapters are downloaded (owner's words,
-  Same server / Another server; "Another" is remembered, the first setup never asks); the tab's `keep_awake` event; rows
-  in `switch_downloads`; the ui_login token-expiry download (integration); new e2e `switch-download-queue` (slowed queue,
-  Remove / top / bottom, Pause / Resume and keep-awake, a failed page + Retry, quit mid-download, "Same server?" (desktop),
-  `sdFreeBytes`, 301 queued + memory rounds on the Switch); `switch-downloads` gains the server stopped and Gamma's strip.
-- The lost D-pad press (Settings): borealis's default list scrolling moves the focus only once the next row is fully
-  shown (it scrolls while the button is held), so a short press can end first. Settings now scrolls centered; the e2e
-  press-again stays. Also fixed: "Failed at page N" named whichever of two failing pages gave up first (now the first).
-- The e2e empties the server's page cache itself: **no reset is needed after integration** any more. Test builds: the
-  idle rule ignores background requests (`inFlightForeground`), text fields take the `text` command.
-- Green: unit, contract, fuzz (5 targets), npm test + typecheck, integration (3 modes; the token test: 1 refresh, no new
-  login), all desktop e2e, Switch build + gate PASS. Flaky, server-bound (as before): desktop `server-downloads`'s
-  "resume ≤ 1 s" (1.5–1.9 s twice, then 0.5 s on a rerun).
-- Console (no test server reset after integration): `switch-download-queue` (new Switch goldens, 0.1 % pixel diff to
-  desktop's: JPEG noise; 301 queued rows, 10 tab rounds: 34.6 → 34.6 MiB), `switch-downloads` (first downloaded page
-  165 ms; the 10-page chapter 1.2 s, was 0.7 s), `server-downloads` (slowest action 574 ms) all green. Console left asleep.
+## Last session (2026-11-20, WP-18b planning, Opus) – plan only, no code
+- The owner answered 8 questions (all the planner's picks): the Library of downloads as one shelf; offline and back online
+  by itself (a check every 30 s, at waking); a finished chapter stays read, else the later reading wins, for every waiting
+  save (**amends D53**, owner OK); go on past a missing chapter and say so; delete after reading as online; no marks or
+  bookmarks offline; gone chapters shown, tagged "Removed from server".
+- Test server facts (in the WP doc, for SUWAYOMI-API.md): every answer has a `Date` header (the server's clock for the
+  "later" rule); `lastReadAt` is seconds; `chapters(filter: {id: {in: [...]}})` answers 400 chapters in 26 ms and simply
+  leaves out ids the server no longer has. One probe write (Alpha ch 2, page 1) was put back to page 0.
+- Found in the code: a connect timeout (5 s) isn't retried, so an offline start waits ≤ 5 s; `progress-queue.json` is written
+  on the main thread, so the plan measures a 500-entry write on the console; `offline-errors` must accept the new checks.
+- No tests run (docs only). Test server left running (auth none), as it was.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

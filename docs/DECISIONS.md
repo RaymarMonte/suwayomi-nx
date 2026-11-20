@@ -1072,6 +1072,8 @@ less code to keep right); an automatic update from the Switch (the server's own 
 `updateLibrary`'s own answer (it is the previous job's).
 
 **D53 The waiting-save queue: the rules as built** (WP-15b, 2026-11-13; the owner's answers are in D52 and the WP-15 spec).
+**Amended by D61 (owner, 2026-11-20; built in WP-18b):** "server moved → ours dropped" becomes "ours finished → send; else
+the later reading wins (by the server's clock)", for every waiting save; held entries; caps 500 / 256 KiB.
 - **What it is:** a progress save that fails after the reader began closing (`ProgressSaver`'s last try, for the chapter
   closed and the ones left behind) waits in `progress-queue.json` and goes to the server later. A save that fails while
   the reader is open is still the reader's own (D45). Pure rules in `core/ProgressQueue` (entry, add / replace / cap, the
@@ -1382,3 +1384,34 @@ too long to answer")
 Rejected: a longer default (the owner wants out-of-the-box defaults; FlareSolverr is their own addition), no limit (a hung
 server would leave the screen loading for ever), reading FlareSolverr's time limit from the server's settings (more calls and
 rights for one value the owner can pick).
+
+**D61 Offline 2: read away from home: the offline Library, progress kept on the SD card, one conflict rule** (WP-18b,
+planned 2026-11-20; the owner's answers the same day; `wp/WP-18b-read-away-from-home.md`). Carries out D57's WP-18b;
+**amends D53's decision** (owner OK, answers 3 and 4).
+- **Offline look:** started without the server, the Library tab lists the manga downloaded to this Switch as one shelf
+  ("Offline: showing what's on this Switch", Try again); Updates, History, Browse and Server downloads say they need the
+  server; Switch downloads and Settings work. Their details and chapters come from the SD card (`manga.json`).
+- **Switching by itself, both ways:** offline at start (no network: at once, no request; a network that can't reach the
+  server: after the check, ≤ the 5 s connect timeout), after waking, or when a request fails and a check confirms it; a
+  check every 30 s, at focus back and at waking while offline; the first check that works goes back online with the note
+  "Connected to the server", and the waiting progress is sent. One shared state, `ui::Connection` in `AppContext`.
+- **Offline progress is the waiting-save queue (D53), grown:** offline the reader saves to it (no request); a chapter open
+  in the reader holds its entry (rounds skip it); online, a save that fails for want of the server leaves a held copy
+  there too, so a power cut loses nothing; caps 500 entries / 256 KiB.
+- **The conflict rule (one for every waiting save):** the server still at the base → send (as before); the server moved:
+  ours finished and the server's not → send; else the later reading wins, compared through the server's clock (the
+  `Date` header of its answers gives the offset) → send ours or drop it.
+- **What the Switch knows of the server:** `downloads/<server key>/progress.json`, the server's progress of every
+  downloaded chapter as last seen (one `chapters(filter: {id: {in: ...}})` request per 500 after each check that works,
+  plus the reader's and details screen's answers), and whether the server still has it.
+- **Reading offline:** a downloaded chapter opens without asking the server (no 3 s wait), at the merged position; the next
+  chapter is the next downloaded one, and a skipped chapter says so ("The chapter before it isn't on this Switch.").
+  Delete after reading works as online; WP-17's server deletes are skipped offline. Mark read / unread and Bookmark offline
+  answer "This needs the server."
+- **Gone chapters:** a downloaded chapter the server no longer lists shows in the details list at its place, "On Switch ·
+  Removed from server", reads from the SD card, can be deleted; its progress lives only in `progress.json`.
+- **Not now:** marks and bookmarks offline, History / Updates offline, categories offline, sending server deletes later.
+  Split point → WP-18d: gone chapters, the gap line, the no-network poll. Application mode only (D21, D57).
+Rejected: a separate offline screen, offline categories (more to store and keep in step), going online only by a button,
+"the server always wins" (D53's old rule: it dropped chapters finished offline), stopping at a gap, keeping finished
+chapters until the read reached the server, a second queue for offline progress beside D53's.
