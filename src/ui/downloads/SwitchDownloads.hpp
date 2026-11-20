@@ -11,6 +11,7 @@
 
 #include "api/SuwayomiClient.hpp"
 #include "core/RuntimeProfile.hpp"
+#include "core/Offline.hpp"
 #include "core/SwitchDownloads.hpp"
 #include "core/models/Chapter.hpp"
 #include "core/models/Manga.hpp"
@@ -55,6 +56,7 @@ class SwitchDownloads {
         int saveDelayMs = 2000;        // configSaveDelayMs
         std::uint64_t minSdFree = 1024ULL * 1024 * 1024;  // minSdFreeBytes
         std::uint64_t defaultLimit = 8ULL * 1024 * 1024 * 1024;  // switchDownloadLimitBytes
+        int progressBatch = 500;       // downloadedProgressBatch (WP-18b)
     };
     static Limits limitsFrom(const core::RuntimeProfile& profile);
 
@@ -154,6 +156,25 @@ class SwitchDownloads {
     // The reader found a page missing, cut short or undecodable: the chapter shows "damaged" (saved in manga.json).
     void markDamaged(int chapterId, int page);
 
+    // --- What the Switch knows of its downloaded chapters' progress (WP-18b, D61): progress.json ---
+    // The server's progress of a downloaded chapter as last seen (and whether the server still has it). nullptr: nothing.
+    const core::KnownProgress* knownProgress(int chapterId) const;
+    // The server's progress of a chapter: the download's page list, the reader's chapterState and saved answers, a waiting
+    // save's round. Only chapters on this Switch; the file is written (debounced like queue.json) only when it changed.
+    // full: the bookmark and the strip's note are known too (else the note is kept unless `server` has one).
+    void noteProgress(int chapterId, const core::ServerProgress& server, bool full);
+    // A gone chapter read here: its progress lives only in progress.json (answer 8).
+    void noteLocal(int chapterId, const core::LocalProgress& local);
+    // A details screen's complete chapter list (under maxChapters): each listed downloaded chapter's progress; a downloaded
+    // chapter of the manga it doesn't list is gone.
+    void noteMangaChapters(int mangaId, const std::vector<core::Chapter>& chapters);
+    // After a check that worked: DownloadedProgress for every downloaded chapter of this server, `progressBatch` ids per
+    // request at Background priority, one after the other; an id missing from an answer is gone. One at a time (a call while
+    // one runs runs again after it). The listeners hear Change::refreshed.
+    void refreshProgress();
+    bool refreshingProgress() const { return refreshing_; }
+    int progressWrites() const { return store_.progressWrites(); }
+
     // --- "Same server?" (WP-18c, D59): the setup screen saves a new address while the saved server is still loaded here ---
     struct AddressQuestion {
         bool ask = false;
@@ -187,6 +208,16 @@ class SwitchDownloads {
             std::string error;
         };
         std::optional<Finished> finished;
+        // WP-18b: a progress refresh ended (the "downloaded_progress" test event).
+        struct Refreshed {
+            int chapters = 0;  // downloaded chapters asked for
+            int gone = 0;      // of them, the server no longer has
+            int changed = 0;   // entries that changed
+            std::int64_t ms = 0;
+            bool ok = true;    // false: a request failed, the rest wasn't asked
+            int requests = 0;
+        };
+        std::optional<Refreshed> refreshed;
     };
     using Listener = std::function<void(const Change&)>;
     int addListener(Listener listener);
@@ -211,6 +242,7 @@ class SwitchDownloads {
         std::vector<Page> pages;
         int inFlight = 0;
         bool committing = false;
+        core::Chapter serverChapter;         // the page list's chapter: the server's progress for progress.json (WP-18b)
     };
 
     void say(bool warning, const std::string& line) const;
@@ -249,6 +281,21 @@ class SwitchDownloads {
     void measureFree();
     std::string pagePath(int mangaId, int chapterId, int index, char format) const;
     void report(Action action, int chapters, bool ok, const std::string& error = {});
+    // WP-18b: progress.json.
+    struct Refresh {
+        std::vector<int> ids;
+        std::size_t next = 0;
+        int gone = 0;
+        int changed = 0;
+        int requests = 0;
+        std::int64_t startedMs = 0;
+    };
+    const core::SwitchChapter* downloadedChapter(int chapterId) const;
+    bool learn(int chapterId, const core::ServerProgress& server, bool full);  // true if the entry changed
+    bool markGone(int chapterId);  // true if it wasn't gone before
+    void progressChanged();       // progress.json is written soon (at most once per saveDelayMs)
+    void refreshStep(Refresh refresh);
+    void endRefresh(const Refresh& refresh, bool ok);
 
     api::SuwayomiClient& client_;
     net::HttpClient& http_;
@@ -289,6 +336,11 @@ class SwitchDownloads {
     std::uint64_t writtenSince_ = 0;             // ... and what was written since
     int freeMs_ = 0;
     bool queueWriteScheduled_ = false;
+    core::SwitchProgress known_;         // WP-18b: progress.json, only chapters on this Switch
+    bool progressWriteScheduled_ = false;
+    bool refreshing_ = false;
+    bool refreshAgain_ = false;
+    net::CancelToken refreshCancel_;
     std::optional<std::string> pendingError_;
     std::vector<std::pair<int, Listener>> listeners_;
     int nextListener_ = 1;

@@ -330,7 +330,7 @@ scenario('updates-history', async (s) => {
         expect(history.waiting).toBe(0);
         s.expectNoErrorEvents();
 
-        // 8. Server moved: chapter 3 to page 7 while the server is away, then another device sets it to page 2 first. The
+        // 8. Server later (D61): chapter 3 to page 7 while the server is away, then another device sets it to page 2 later. The
         // next start drops ours (the newer change wins), and the server keeps page 2.
         await s.driver.touch(tab('Library').x, tab('Library').y);
         await openManga(s, LIBRARY_MORE.reading, 0, 3);
@@ -343,7 +343,7 @@ scenario('updates-history', async (s) => {
             { id: ch3 });
         await s.launch({ testConfig: { server: { url } }, keepConfig: true });
         const dropped = await s.events.waitForEvent('progress_queue', { what: 'dropped', chapterId: ch3 }, { timeoutMs: 30_000 });
-        expect(dropped).toMatchObject({ page: 6, reason: 'server moved', waiting: 0 });
+        expect(dropped).toMatchObject({ page: 6, reason: 'server_later', waiting: 0 });
         expect((await chaptersOf(client, alpha)).find((c) => c.id === ch3)).toMatchObject({ lastPageRead: 1 });
         await waitForLibrary(s);
         expect(s.events.events.some((e) => e.ev === 'progress_queue' && e.what === 'sent'), 'nothing sent').toBe(false);

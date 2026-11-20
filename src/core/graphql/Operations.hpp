@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -58,6 +59,8 @@ GqlRequest stopLibraryUpdate();
 GqlRequest libraryUpdateStatus(bool withManga);
 // WP-15b: one chapter's progress on the server now (the waiting-save queue's check before it sends).
 GqlRequest chapterState(int chapterId);
+// WP-18b: the progress of many chapters at once (DownloadedProgress): the ones downloaded to this Switch.
+GqlRequest downloadedProgress(const std::vector<int>& chapterIds);
 // WP-24 (D54). The library search: LibraryByCategory with a title filter; `text` is sent escaped (core::likeEscape).
 GqlRequest librarySearch(std::string_view text, int first, int offset);
 GqlRequest manageCategories();  // every category with its manga count
@@ -114,6 +117,8 @@ Result<bool> readStopLibraryUpdate(const GqlResponse& response);
 Result<LibraryUpdateStatus> readLibraryUpdateStatus(const GqlResponse& response);
 // The page, read flag, stamp and the strip's note. A chapter that is gone: the server's error (no data).
 Result<ServerProgress> readChapterState(const GqlResponse& response);
+// By chapter id; an id the server no longer has is left out (no downloaded flag: the query doesn't ask).
+Result<std::map<int, ServerProgress>> readDownloadedProgress(const GqlResponse& response);
 // WP-24. The search answer has the shape of readLibraryByCategory's.
 Result<NodeList<Manga>> readLibrarySearch(const GqlResponse& response);
 Result<std::vector<Category>> readManageCategories(const GqlResponse& response);  // with mangaCount

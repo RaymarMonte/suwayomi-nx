@@ -27,6 +27,7 @@ DownloadStore::Options DownloadStore::optionsFrom(const core::RuntimeProfile& pr
     options.queueFileBytes = static_cast<std::size_t>(profile.switchQueueFileBytes);
     options.maxDepth = profile.json.maxDepth;
     options.queueMax = static_cast<std::size_t>(std::max(profile.switchQueueMax, 1));
+    options.progressFileBytes = static_cast<std::size_t>(profile.switchProgressFileBytes);
     options.workerStackBytes = profile.workerThreadStackBytes;
     return options;
 }
@@ -117,6 +118,27 @@ DownloadStore::Scan DownloadStore::scanNow(const std::string& rawUrl) const {
     }
     scan.problems.insert(scan.problems.end(), queue.problems.begin(), queue.problems.end());
     scan.queue = std::move(queue.queue);
+    // WP-18b: progress.json (or its .bak): what the Switch knows of its downloaded chapters' progress.
+    {
+        core::JsonLimits progressLimits = small;
+        progressLimits.maxBytes = options_.progressFileBytes;
+        const std::string progressPath = join(serverDir, core::kSwitchProgressFile);
+        core::ProgressFileLoad progress;
+        if (const auto text = fs_.readFile(progressPath, options_.progressFileBytes)) {
+            progress = core::readProgressFile(*text, progressLimits);
+        }
+        if (!progress.usable) {
+            if (const auto backup = fs_.readFile(progressPath + core::kSwitchBackupSuffix, options_.progressFileBytes)) {
+                core::ProgressFileLoad again = core::readProgressFile(*backup, progressLimits);
+                if (again.usable) {
+                    scan.problems.push_back("switch downloads: progress.json is unreadable or missing, using its .bak");
+                    progress = std::move(again);
+                }
+            }
+        }
+        scan.problems.insert(scan.problems.end(), progress.problems.begin(), progress.problems.end());
+        scan.progress = std::move(progress.progress);
+    }
     std::set<int> queued;
     for (const core::SwitchQueueEntry& entry : scan.queue.entries) {
         queued.insert(entry.chapter.id);
@@ -371,8 +393,46 @@ void DownloadStore::writeQueueSoon() {
     post([this] { writeQueueNow(); });
 }
 
+
+// --- progress.json (WP-18b) ---
+
+void DownloadStore::setProgress(const std::string& key, core::SwitchProgress progress) {
+    const int dropped = core::fitProgressFile(progress, options_.progressFileBytes);
+    if (dropped > 0) {
+        say(true, "switch downloads: progress.json would be too big, " + std::to_string(dropped) +
+                      " chapters are left out (they show manga.json's state until the next refresh)");
+    }
+    std::string text = core::writeProgressFile(progress);
+    std::lock_guard<std::mutex> lock(queueMutex_);
+    progressPath_ = join(core::switchServerDir(key), core::kSwitchProgressFile);
+    progressText_ = std::move(text);
+    ++progressVersion_;
+}
+
+bool DownloadStore::writeProgressNow() {
+    std::lock_guard<std::mutex> lock(queueMutex_);
+    if (progressWritten_ == progressVersion_ || progressPath_.empty()) {
+        return true;
+    }
+    const std::size_t slash = progressPath_.rfind('/');
+    const bool ok = fs_.makeDirs(progressPath_.substr(0, slash)) &&
+                    fs_.writeAtomic(progressPath_, progressText_, platform::SafeFs::Backup::Keep);
+    if (ok) {
+        progressWritten_ = progressVersion_;
+        progressWrites_.fetch_add(1);
+    } else {
+        say(true, "switch downloads: can't write " + progressPath_);
+    }
+    return ok;
+}
+
+void DownloadStore::writeProgressSoon() {
+    post([this] { writeProgressNow(); });
+}
 bool DownloadStore::flush() {
-    return writeQueueNow();
+    const bool queue = writeQueueNow();
+    const bool progress = writeProgressNow();
+    return queue && progress;
 }
 
 }  // namespace snx::ui

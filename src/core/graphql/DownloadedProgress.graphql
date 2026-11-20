@@ -1,0 +1,8 @@
+# WP-18b (D61): what the server has for the chapters downloaded to this Switch, many in one request (the app asks
+# RuntimeProfile::downloadedProgressBatch ids at a time, after each check that works). An id the server no longer has is
+# simply left out of the answer: that chapter is "gone" (shown "On Switch · Removed from server").
+query DownloadedProgress($ids: [Int!]!) {
+  chapters(filter: { id: { in: $ids } }) {
+    nodes { id lastPageRead isRead lastReadAt isBookmarked meta { key value } }
+  }
+}

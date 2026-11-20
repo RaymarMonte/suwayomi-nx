@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "core/RuntimeProfile.hpp"
+#include "core/Offline.hpp"
 #include "core/SwitchDownloads.hpp"
 #include "image/WorkerPool.hpp"
 #include "platform/SafeFs.hpp"
@@ -30,6 +31,7 @@ class DownloadStore {
         std::size_t queueFileBytes = 512 * 1024;   // RuntimeProfile::switchQueueFileBytes
         int maxDepth = 64;                         // RuntimeProfile::json.maxDepth
         std::size_t queueMax = 1000;               // RuntimeProfile::switchQueueMax
+        std::size_t progressFileBytes = 512 * 1024;  // RuntimeProfile::switchProgressFileBytes (WP-18b)
         std::uint64_t workerStackBytes = 256 * 1024;  // RuntimeProfile::workerThreadStackBytes
         // The SD card's free bytes (any thread). Empty: SafeFs::freeBytes(). A test build may fake it (sdFreeBytes).
         std::function<std::optional<std::uint64_t>()> freeBytes;
@@ -51,6 +53,7 @@ class DownloadStore {
         std::vector<core::SwitchManga> manga;  // every readable manga.json (or its .bak)
         std::vector<int> damagedManga;         // manga folders whose manga.json and .bak are both unreadable: kept as they are
         core::SwitchQueue queue;               // queue.json (or its .bak), else empty
+        core::SwitchProgress progress;         // WP-18b: progress.json (or its .bak), else empty
         std::map<int, std::uint64_t> partial;  // queued chapters: the bytes of their pages written so far
         std::map<int, std::uint64_t> covers;   // queued manga with no manga.json yet: their cover.img's bytes
         std::uint64_t freeBytes = 0;
@@ -91,13 +94,18 @@ class DownloadStore {
     // The SD card's free bytes now, and how long asking took.
     void freeBytes(std::function<void(std::optional<std::uint64_t> bytes, int ms)> done);
 
-    // queue.json: the newest text is written by the next writeQueueSoon() (on the worker thread) or flush() (on the calling
+    // queue.json (and progress.json): the newest text is written by the next writeQueueSoon() (on the worker thread) or
+    // flush() (on the calling
     // thread, at once: HOME, sleep, exit). One mutex keeps the two from writing at the same time; an older text never
     // replaces a newer one.
     void setQueue(const std::string& key, const core::SwitchQueue& queue);
     void writeQueueSoon();
     bool flush();         // true if nothing needed writing or it worked
     int queueWrites() const { return queueWrites_.load(); }
+    // WP-18b: progress.json the same way (fitted to progressFileBytes first; the highest chapter ids are left out).
+    void setProgress(const std::string& key, core::SwitchProgress progress);
+    void writeProgressSoon();
+    int progressWrites() const { return progressWrites_.load(); }
 
     // HOME / sleep: no page, cover or manga.json writes until allowed again (those asked meanwhile answer false).
     void setWritesAllowed(bool allowed) { writesAllowed_.store(allowed); }
@@ -115,6 +123,7 @@ class DownloadStore {
     Scan scanNow(const std::string& url) const;
     std::optional<Listing> listingNow(const std::string& url) const;  // url in downloadServerUrl form
     bool writeQueueNow();
+    bool writeProgressNow();
 
     const platform::SafeFs& fs_;
     Options options_;
@@ -128,6 +137,11 @@ class DownloadStore {
     std::string queueText_;
     std::uint64_t queueVersion_ = 0;
     std::uint64_t queueWritten_ = 0;
+    std::string progressPath_;  // progress.json the same way (WP-18b, also under queueMutex_)
+    std::string progressText_;
+    std::uint64_t progressVersion_ = 0;
+    std::uint64_t progressWritten_ = 0;
+    std::atomic<int> progressWrites_{0};
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
     image::WorkerPool pool_;  // last: it stops first
 };

@@ -386,6 +386,30 @@ Result<NodeList<Chapter>> readChapters(const GqlResponse& response) {
     return readList<Chapter>(response, "chapters");
 }
 
+
+GqlRequest downloadedProgress(const std::vector<int>& chapterIds) {
+    GqlRequest r = request("DownloadedProgress");
+    r.variables["ids"] = chapterIds;
+    return r;
+}
+
+Result<std::map<int, ServerProgress>> readDownloadedProgress(const GqlResponse& response) {
+    Result<NodeList<Chapter>> list = readList<Chapter>(response, "chapters");
+    if (!list.ok()) {
+        return list.error();
+    }
+    std::map<int, ServerProgress> progress;
+    for (const Chapter& chapter : list.value().nodes) {
+        ServerProgress state;
+        state.page = chapter.lastPageRead;
+        state.read = chapter.isRead;
+        state.lastReadAt = chapter.lastReadAt;
+        state.spotNote = chapter.stripSpotNote;
+        state.bookmarked = chapter.isBookmarked;
+        progress[chapter.id] = std::move(state);
+    }
+    return progress;
+}
 Result<PageList> readFetchChapterPages(const GqlResponse& response) {
     return readObject<PageList>(response, "fetchChapterPages");
 }

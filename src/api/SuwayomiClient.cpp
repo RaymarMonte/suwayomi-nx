@@ -624,6 +624,13 @@ ApiFuture<core::ServerProgress> SuwayomiClient::chapterState(int chapterId, cons
                                            priority);
 }
 
+ApiFuture<std::map<int, core::ServerProgress>> SuwayomiClient::downloadedProgress(const std::vector<int>& chapterIds,
+                                                                                  const net::CancelToken& cancel,
+                                                                                  net::Priority priority) {
+    return startCall<std::map<int, core::ServerProgress>>(state_, core::gql::downloadedProgress(chapterIds),
+                                                          core::gql::readDownloadedProgress, cancel, priority);
+}
+
 ApiFuture<core::NodeList<core::Manga>> SuwayomiClient::searchLibrary(const std::string& text, int page,
                                                                      const net::CancelToken& cancel,
                                                                      net::Priority priority) {

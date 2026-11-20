@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -158,6 +159,11 @@ class SuwayomiClient {
     // queue's check before it sends a save that failed earlier. A chapter that is gone: Server.
     ApiFuture<core::ServerProgress> chapterState(int chapterId, const net::CancelToken& cancel,
                                                  net::Priority priority = net::Priority::Background);
+    // WP-18b (D61): the progress of many chapters at once (the ones downloaded to this Switch), by id; an id the server no
+    // longer has is left out of the answer (that chapter is gone). The caller sends RuntimeProfile::downloadedProgressBatch.
+    ApiFuture<std::map<int, core::ServerProgress>> downloadedProgress(const std::vector<int>& chapterIds,
+                                                                      const net::CancelToken& cancel,
+                                                                      net::Priority priority = net::Priority::Background);
     // WP-24 (D54), the library tools. One page of the library manga whose title contains `text` (any case; `%` and `_`
     // match themselves), by title, across every category. page 0 = the first libraryPageSize.
     ApiFuture<core::NodeList<core::Manga>> searchLibrary(const std::string& text, int page, const net::CancelToken& cancel,

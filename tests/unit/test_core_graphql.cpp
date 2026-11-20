@@ -34,7 +34,7 @@ TEST_SUITE("core") {
         const auto& docs = gql::documents();
         const std::vector<std::string> expected = {
             "AboutServer",       "AddToLibrary",   "BrowseSource",      "Categories",     "ChapterState",      "Chapters",              "ClearDownloader",
-            "CreateCategory",    "DeleteCategory", "DeleteDownloadedChapters", "DequeueChapterDownload", "DownloadStatus",
+            "CreateCategory",    "DeleteCategory", "DeleteDownloadedChapters", "DequeueChapterDownload", "DownloadStatus", "DownloadedProgress",
             "EnqueueChapterDownloads", "FetchChapterPages", "FetchMangaAndChapters",
             "LibraryByCategory", "LibraryDuplicates", "LibraryUpdateStatus", "LibraryUpdates", "Login",              "ManageCategories",
             "Manga",

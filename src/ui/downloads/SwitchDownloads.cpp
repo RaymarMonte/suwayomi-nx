@@ -63,6 +63,7 @@ SwitchDownloads::Limits SwitchDownloads::limitsFrom(const core::RuntimeProfile& 
     limits.saveDelayMs = profile.configSaveDelayMs;
     limits.minSdFree = profile.minSdFreeBytes;
     limits.defaultLimit = profile.switchDownloadLimitBytes;
+    limits.progressBatch = std::max(profile.downloadedProgressBatch, 1);
     return limits;
 }
 
@@ -183,6 +184,10 @@ void SwitchDownloads::setServer(const std::string& url) {
     queue_ = {};
     manga_.clear();
     damagedManga_.clear();
+    known_.clear();
+    refreshCancel_.cancel();
+    refreshing_ = false;
+    refreshAgain_ = false;
     partial_.clear();
     progress_.clear();
     pendingManga_.clear();
@@ -209,6 +214,12 @@ void SwitchDownloads::setServer(const std::string& url) {
         queue_ = std::move(scan.queue);
         partial_ = std::move(scan.partial);
         covers_ = std::move(scan.covers);
+        // WP-18b: what the Switch knows of its chapters' progress (entries of chapters no longer here are left out).
+        for (auto& [chapterId, known] : scan.progress) {
+            if (downloadedChapter(chapterId) != nullptr) {
+                known_[chapterId] = std::move(known);
+            }
+        }
         if (scan.freeKnown) {
             freeMeasured_ = scan.freeBytes;
         }
@@ -737,6 +748,7 @@ void SwitchDownloads::onPageList(std::uint64_t run, const api::ApiResult<core::P
         e->pageCount = count;
         queueChanged();
     }
+    running_->serverChapter = result.value().chapter;  // WP-18b: its progress goes into progress.json with the commit
     running_->urls.clear();
     for (const std::string& page : pages) {
         running_->urls.push_back(page.empty() ? std::string() : client_.absoluteUrl(page));
@@ -1089,6 +1101,13 @@ void SwitchDownloads::commit(std::uint64_t run) {
         }
         // Committed: the chapter is on this Switch (also when a pause stopped it meanwhile: manga.json has it).
         putManga(manga);
+        if (current(run)) {
+            const core::Chapter& listed = running_->serverChapter;  // the server's progress when it downloaded (WP-18b)
+            noteProgress(chapter.id,
+                         core::ServerProgress{listed.lastPageRead, listed.isRead, listed.lastReadAt, listed.stripSpotNote,
+                                              listed.isBookmarked, listed.isDownloaded},
+                         true);
+        }
         pendingManga_.erase(manga.id);
         partial_.erase(chapter.id);
         progress_.erase(chapter.id);
@@ -1364,6 +1383,7 @@ bool SwitchDownloads::deleteChapters(const std::vector<int>& ids, Action action)
         }
         for (int id : gone) {
             core::removeChapter(copy, id);
+            known_.erase(id);  // WP-18b: its progress entry goes too (a waiting save of it stays in the queue)
         }
         deleted += static_cast<int>(gone.size());
         // The index first, then the pages: a power cut in between leaves folders the next start deletes.
@@ -1400,6 +1420,7 @@ bool SwitchDownloads::deleteChapters(const std::vector<int>& ids, Action action)
             putManga(std::move(copy));
         }
     }
+    progressChanged();
     measureFree();  // a full queue goes on by itself
     report(action, deleted, true);
     kick();
@@ -1413,6 +1434,12 @@ bool SwitchDownloads::deleteManga(int mangaId) {
         return false;
     }
     const int chapters = known ? static_cast<int>(known->chapters.size()) : 0;
+    if (known != nullptr) {
+        for (const core::SwitchChapter& c : known->chapters) {
+            known_.erase(c.id);  // WP-18b
+        }
+        progressChanged();
+    }
     if (running_ && running_->mangaId == mangaId) {
         stopRunning();
     }
@@ -1515,6 +1542,211 @@ void SwitchDownloads::keepApart(const std::string& newUrl, std::function<void(bo
             done(ok);
         }
     });
+}
+
+
+// --- What the Switch knows of its chapters' progress (WP-18b, D61) ---
+
+const core::SwitchChapter* SwitchDownloads::downloadedChapter(int chapterId) const {
+    for (const core::SwitchManga& m : manga_) {
+        if (const core::SwitchChapter* c = m.chapter(chapterId)) {
+            return c;
+        }
+    }
+    return nullptr;
+}
+
+const core::KnownProgress* SwitchDownloads::knownProgress(int chapterId) const {
+    const auto it = known_.find(chapterId);
+    return it == known_.end() ? nullptr : &it->second;
+}
+
+void SwitchDownloads::progressChanged() {
+    if (key_.empty()) {
+        return;
+    }
+    store_.setProgress(key_, known_);
+    if (progressWriteScheduled_) {
+        return;  // the write already waiting takes the newest text
+    }
+    progressWriteScheduled_ = true;
+    const std::weak_ptr<bool> alive = alive_;
+    hooks_.later(limits_.saveDelayMs, [this, alive] {
+        if (alive.expired() || !*alive.lock()) {
+            return;
+        }
+        progressWriteScheduled_ = false;
+        store_.writeProgressSoon();
+    });
+}
+
+bool SwitchDownloads::learn(int chapterId, const core::ServerProgress& server, bool full) {
+    if (downloadedChapter(chapterId) == nullptr) {
+        return false;  // only chapters on this Switch
+    }
+    core::KnownProgress& known = known_[chapterId];
+    const core::KnownProgress before = known;
+    known.server.page = server.page;
+    known.server.read = server.read;
+    known.server.lastReadAt = server.lastReadAt;
+    if (full) {
+        known.server.bookmarked = server.bookmarked;
+        known.server.spotNote = server.spotNote.substr(0, core::kSpotNoteMaxBytes);
+    } else if (!server.spotNote.empty()) {
+        known.server.spotNote = server.spotNote.substr(0, core::kSpotNoteMaxBytes);
+    }
+    known.gone = false;  // the server answered for it
+    known.local.reset();
+    return known != before;
+}
+
+void SwitchDownloads::noteProgress(int chapterId, const core::ServerProgress& server, bool full) {
+    if (learn(chapterId, server, full)) {
+        progressChanged();
+    }
+}
+
+void SwitchDownloads::noteLocal(int chapterId, const core::LocalProgress& local) {
+    if (downloadedChapter(chapterId) == nullptr) {
+        return;
+    }
+    core::KnownProgress& known = known_[chapterId];
+    if (known.local == local) {
+        return;
+    }
+    known.local = local;
+    progressChanged();
+}
+
+bool SwitchDownloads::markGone(int chapterId) {
+    if (downloadedChapter(chapterId) == nullptr) {
+        return false;
+    }
+    core::KnownProgress& known = known_[chapterId];
+    if (known.gone) {
+        return false;
+    }
+    known.gone = true;
+    say(false, "switch downloads: chapter " + std::to_string(chapterId) + " is no longer on the server");
+    return true;
+}
+
+void SwitchDownloads::noteMangaChapters(int mangaId, const std::vector<core::Chapter>& chapters) {
+    const core::SwitchManga* m = mangaOf(mangaId);
+    if (m == nullptr) {
+        return;
+    }
+    std::set<int> listed;
+    bool changedAny = false;
+    for (const core::Chapter& c : chapters) {
+        if (c.goneFromServer) {
+            continue;  // our own entry joined the list
+        }
+        listed.insert(c.id);
+        // The chapter list doesn't ask for the strip's note: keep the one known.
+        core::ServerProgress server{c.lastPageRead, c.isRead, c.lastReadAt, {}, c.isBookmarked, c.isDownloaded};
+        if (const core::KnownProgress* known = knownProgress(c.id)) {
+            server.spotNote = known->server.spotNote;
+        }
+        changedAny = learn(c.id, server, true) || changedAny;
+    }
+    for (const core::SwitchChapter& c : m->chapters) {
+        if (listed.count(c.id) == 0) {
+            changedAny = markGone(c.id) || changedAny;
+        }
+    }
+    if (changedAny) {
+        progressChanged();
+    }
+}
+
+void SwitchDownloads::refreshProgress() {
+    if (refreshing_) {
+        refreshAgain_ = true;  // after the one under way (the list may have grown)
+        return;
+    }
+    std::vector<int> ids;
+    for (const core::SwitchManga& m : manga_) {
+        for (const core::SwitchChapter& c : m.chapters) {
+            ids.push_back(c.id);
+        }
+    }
+    if (ids.empty() || key_.empty()) {
+        return;
+    }
+    refreshing_ = true;
+    refreshAgain_ = false;
+    refreshCancel_ = net::CancelToken();
+    Refresh refresh;
+    refresh.ids = std::move(ids);
+    refresh.startedMs = hooks_.clockMs();
+    refreshStep(std::move(refresh));
+}
+
+void SwitchDownloads::endRefresh(const Refresh& refresh, bool ok) {
+    refreshing_ = false;
+    if (refresh.changed > 0) {
+        progressChanged();
+    }
+    Change change;
+    change.refreshed = Change::Refreshed{static_cast<int>(refresh.ids.size()), refresh.gone, refresh.changed,
+                                         hooks_.clockMs() - refresh.startedMs, ok, refresh.requests};
+    say(!ok, std::string("switch downloads: progress refresh of ") + std::to_string(refresh.ids.size()) + " chapters " +
+                 (ok ? "done" : "stopped") + " in " + std::to_string(change.refreshed->ms) + " ms (" +
+                 std::to_string(refresh.requests) + " requests, " + std::to_string(refresh.changed) + " changed, " +
+                 std::to_string(refresh.gone) + " gone)");
+    notify(change);
+    if (ok && refreshAgain_) {
+        refreshAgain_ = false;
+        refreshProgress();
+    }
+}
+
+void SwitchDownloads::refreshStep(Refresh refresh) {
+    if (refresh.next >= refresh.ids.size()) {
+        endRefresh(refresh, true);
+        return;
+    }
+    const std::size_t batch = static_cast<std::size_t>(std::max(limits_.progressBatch, 1));
+    const std::size_t end = std::min(refresh.ids.size(), refresh.next + batch);
+    std::vector<int> ids(refresh.ids.begin() + static_cast<std::ptrdiff_t>(refresh.next),
+                         refresh.ids.begin() + static_cast<std::ptrdiff_t>(end));
+    ++refresh.requests;
+    refresh.next = end;
+    const std::weak_ptr<bool> alive = alive_;
+    const std::string key = key_;
+    client_.downloadedProgress(ids, refreshCancel_, net::Priority::Background)
+        .then([this, alive, key, ids, refresh](const api::ApiResult<std::map<int, core::ServerProgress>>& result) mutable {
+            if (alive.expired() || !*alive.lock() || key != key_ || !refreshing_) {
+                return;
+            }
+            if (!result.ok()) {
+                if (result.error().kind == api::ApiErrorKind::Cancelled) {
+                    refreshing_ = false;
+                } else {
+                    say(true, "switch downloads: the progress refresh failed (" +
+                                  std::string(api::apiErrorKindName(result.error().kind)) + ", " + result.error().detail +
+                                  ")");
+                    endRefresh(refresh, false);
+                }
+                return;
+            }
+            for (int id : ids) {
+                const auto found = result.value().find(id);
+                if (found == result.value().end()) {
+                    // A complete answer without it: the server no longer has the chapter.
+                    if (markGone(id)) {
+                        ++refresh.changed;
+                    }
+                    if (const core::KnownProgress* known = knownProgress(id); known != nullptr && known->gone) {
+                        ++refresh.gone;
+                    }
+                } else if (learn(id, found->second, true)) {
+                    ++refresh.changed;
+                }
+            }
+            refreshStep(std::move(refresh));
+        });
 }
 
 }  // namespace snx::ui
