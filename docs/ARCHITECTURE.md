@@ -78,6 +78,15 @@ That README plus the public headers *is* the contract other sessions read.
   when they open its chapter; it sends entries after the main screen's check works, when the server answers anything
   (net's response observer), and on a back-off timer. File `progress-queue.json` (+ `.bak`) in the app's folder (D10);
   limits `RuntimeProfile::pendingSavesMax` (100) and `progressQueueFileBytes` (64 KiB). History notes "page N not saved yet".
+- Offline mode (WP-18b, D61): `ui/main/Connection` (in `AppContext::connection`) says online / offline (no network, can't
+  reach). MainActivity runs its checks: the start check, every 30 s while offline, at focus and waking, and once after a
+  request got no answer (net's response observer posts a suspicion). Offline with chapters on this Switch, the Library tab
+  shows a second `LibraryModel` (one shelf "On this Switch"), the details screen `MangaModel::setOffline` and the reader
+  opens from the files at the merged position (`PageSource::merged`); its saves go to the waiting-save queue, held while
+  the reader is open, and go out once the server is back (the conflict rule in `core::decideWaitingSave`, by the server's
+  clock from the `Date` header). Nothing on this Switch: the screens keep their errors + Retry. `SwitchDownloads` keeps
+  what the server had for each downloaded chapter in `downloads/<server key>/progress.json` (refreshed with
+  `DownloadedProgress` after each check that works), read with S6's limits, written like `queue.json`.
 - Lists and grids use borealis recycling views. Covers load lazily through `image` with `Interactive` priority.
 - **Touch first (D16)**: every action can be reached by touch: tap, drag/flick to scroll, reader tap zones and swipe, pinch zoom (WP-13).
   Touch targets ≥ 72 px. Controllers work everywhere too, because docked mode has no touchscreen.

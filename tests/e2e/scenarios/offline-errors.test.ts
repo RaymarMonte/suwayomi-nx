@@ -11,6 +11,9 @@
 // Every "error" event must be one of these, of kind offline (connection refused) or timeout (a firewall that drops instead).
 // The test config turns the SD-card image cache off ("diskCache": false), so pages cached by other scenarios can't stand in
 // for the server. Needs the test server; it starts it if it isn't running and leaves it running (auth none).
+// WP-18b (D61): nothing is downloaded to the Switch, so the screens keep today's errors + Retry; the app's own checks
+// (a failed request → a check → "connection" offline, the server's Library stays) are fine here. The offline timer is set
+// long ("offlineCheckMs"), so a timer check can't bring step 1's Library back between startServer and the Retry tap.
 
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -47,7 +50,7 @@ scenario(
     'offline-errors',
     async (s) => {
         const url = appServerUrl(s.driver.name);
-        const config = { server: { url }, diskCache: false };
+        const config = { server: { url }, diskCache: false, offlineCheckMs: 600_000 };
         startServer();
         const client = new SuwayomiClient(optionsFromEnv());
         const ids = await mangaIds(client);

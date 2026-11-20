@@ -306,6 +306,13 @@ void MainActivity::backgroundCheck(Connection::By by) {
         if (verdict == Connection::Verdict::Offline && model_.connection() == MainModel::Connection::Failed) {
             return;  // still away: the offline screens stay
         }
+        if (verdict == Connection::Verdict::Offline && model_.connection() == MainModel::Connection::Connected &&
+            offlineItems().empty()) {
+            // Nothing on this Switch to swap in: the server's Library stays as it is (a tab on screen keeps what it shows,
+            // its own errors + Retry as before); the other screens read connection.offline().
+            brls::Logger::info("main: offline with nothing on this Switch: the Library stays");
+            return;
+        }
         if (!model_.checkStarted()) {
             return;  // the main check is under way: it decides
         }

@@ -438,6 +438,7 @@ Initial list, grown per UI WP:
    manga opened while it is away (error + Retry); the library's Refresh (error + Retry). Every `error` event is of kind offline,
    network or timeout. The PC's firewall drops packets to the stopped server, so connections time out (5 s) rather than being
    refused: that is what a real server that is off looks like too, and it counts as "can't reach" (D45). ~2 min on desktop
+8b. `offline-reading` (WP-18b, D61) – Alpha's Chapters 1 and 2 downloaded; the server stopped: the app starts offline (`connection` offline / cant_reach), the offline Library (`library` offline, 1 item), Alpha offline (`manga` offline, 2 chapters), Mark read answers "This needs the server.", Chapter 1 read 3 pages with no request (its saves go to the queue, held while open); the server starts: the queue sends page 3, `downloaded_progress` ok; back online by the timer (`offlineCheckMs` 3000). Test config `networkConnected` / the `network` command switch the console's network.
 9. `broken-images` – Broken ch1: pages 1–2 show an error with Retry (golden) and an `error` event, page 3 (1 × 1) and 4–5 show, turns never blocked, Retry by touch and by X fails again visibly (`retries`), B back (WP-11)
 10. `soak` (WP-12; the console's numbers count, desktop runs it too) – the Big shelf flicked to the end and back, then 500 turns
     (`SNX_SOAK_TURNS`) through Delta Big's 2-page chapters (~167 chapters), then the shelf again: no `error` or `mem_pressure`

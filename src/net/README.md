@@ -7,7 +7,8 @@ network thread driving a curl multi handle, request priorities, cancellation, re
 - `HttpClient.hpp`: `Request` (method, url, headers, body, `idempotent`, per-request `maxBodyBytes`/`timeoutMs`/`connectTimeoutMs`),
   `Response` (status, lower-case headers, body, attempts), `HttpResult = core::Result<Response>`, `Priority`
   (Interactive > Reader > Prefetch > Background), the `HttpClient` interface (`submit`, `resetConnections`, `shutdown`) and its hooks
-  `setRequestDecorator` (auth headers, runs before every attempt) and `addResponseObserver` (401 handling, test events).
+  `setRequestDecorator` (auth headers, runs before every attempt) and `addResponseObserver` (401 handling, test events;
+  WP-18b: the `Date` header → the server clock's offset, and a Network failure → `Connection::suspect()`).
 - `CancelToken.hpp`: a shared stop flag. Copies share it; `cancel()` drops queued requests and stops running ones within ~50 ms.
 - `Future.hpp`: `Future<T>` / `Promise<T>`. `then(fn)` runs fn once on the completing thread (the network thread); `wait()` is for tests.
 - `CurlHttpClient.hpp`: the real client. Build it with `CurlHttpClient(curlOptionsFrom(profile))`: every limit comes from the

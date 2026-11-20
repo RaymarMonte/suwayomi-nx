@@ -1,18 +1,25 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-18b planned** (`docs/wp/WP-18b-read-away-from-home.md`, D61); nothing built yet.
-**Next:** **build WP-18b** (Opus, size L, split → WP-18d) → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28.
-Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 18c, 23, 24, 22; v0.2.0 (13…24; 17, 18 and 18c unreleased).
-## Last session (2026-11-20, WP-18b planning, Opus) – plan only, no code
-- The owner answered 8 questions (all the planner's picks): the Library of downloads as one shelf; offline and back online
-  by itself (a check every 30 s, at waking); a finished chapter stays read, else the later reading wins, for every waiting
-  save (**amends D53**, owner OK); go on past a missing chapter and say so; delete after reading as online; no marks or
-  bookmarks offline; gone chapters shown, tagged "Removed from server".
-- Test server facts (in the WP doc, for SUWAYOMI-API.md): every answer has a `Date` header (the server's clock for the
-  "later" rule); `lastReadAt` is seconds; `chapters(filter: {id: {in: [...]}})` answers 400 chapters in 26 ms and simply
-  leaves out ids the server no longer has. One probe write (Alpha ch 2, page 1) was put back to page 0.
-- Found in the code: a connect timeout (5 s) isn't retried, so an offline start waits ≤ 5 s; `progress-queue.json` is written
-  on the main thread, so the plan measures a 500-entry write on the console; `offline-errors` must accept the new checks.
-- No tests run (docs only). Test server left running (auth none), as it was.
+**Phase 3 – Features. Now:** **WP-18b desktop done; Switch runs next** (`docs/wp/WP-18b-read-away-from-home.md`, D61). Not done.
+**Next:** WP-18b's Switch runs + the owner's away-from-home try (below) → 21 → 16 → 25 → 19; WP-18d (the split) after
+WP-18b; nice to have: 08b, 26, 27, 28.
+Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 18c, 23, 24, 22; v0.2.0 (13…24; 17, 18, 18c, 18b unreleased).
+## Last session (2026-11-20, WP-18b build, Opus) – desktop done, no Switch runs
+- Built (D61 "As built"): `core/Offline` + the conflict rule, `ui/main/Connection` (start / 30 s timer / focus / wake /
+  suspicion / network checks), `progress.json` + `refreshProgress`, held waiting saves, the offline Library ("On this
+  Switch"), details and reader (their saves go to the queue, sent once the server is back).
+- **Split → WP-18d** (ROADMAP): gone chapters (online merge, tag, local saves), the gap line, the offline text of Updates /
+  History / Browse / Server downloads, the e2e `offline-sync` scenario.
+- Nothing on the Switch and offline: today's errors + Retry; going offline keeps the server's Library on screen, and a
+  manga not on the Switch opens the normal way (both found by `offline-errors`).
+- Green on the PC: `build.sh tests` (7/7, contract, write gate), fuzz (4 × 60 s), `npm test`, typecheck, integration (3
+  modes, + the new offline-sync test), desktop + Switch builds (gate PASS, 0 warnings), desktop e2e `offline-reading`,
+  `offline-errors`, `smoke`, `switch-downloads`, `switch-download-queue`, `server-downloads`, `resume-progress`, `updates-history`,
+  `reader-webtoon` (failed once at the band, `read: true`, then passed: a flake to watch). Test server left running (auth none).
+- **Next step (Switch; the owner readies the console: on, Spelunky 2 first on HOME):** `tools/e2e.sh switch offline-reading`,
+  then `smoke`, `switch-downloads`, `switch-download-queue`, `resume-progress`, `updates-history`, `offline-errors`,
+  `reader-webtoon`; by hand: HOME and back while offline (`connection` by focus), sleep / wake offline, the WP's numbers.
+- **Then the owner's try away from home** (or airplane mode): download a few chapters, start offline, read, come home,
+  the server has the pages. Only then is WP-18b done (ROADMAP row, STATUS); don't start WP-21 before.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

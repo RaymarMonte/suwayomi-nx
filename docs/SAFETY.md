@@ -90,7 +90,9 @@ path rules in `core::jailPath`. It also refuses any `.nro` (no self-update, D15)
   and 64 KiB; read back with S6's limits, fuzzed (`fuzz_progress_queue`).
 - WP-18 (D59), downloads to the Switch (`downloads/<server key>/`): each page file is written once (atomic, never edited); a
   chapter counts as downloaded only when its manga's `manga.json` (atomic, `.bak`) names it, so a power cut leaves only
-  pages that the next start deletes or reuses; `queue.json` is written like config (debounced 2 s, flushed at HOME /
+  pages that the next start deletes or reuses; `queue.json` and WP-18b's `progress.json` (the server's progress of the
+  downloaded chapters, read back with S6's limits: `switchProgressFileBytes`, JSON depth; a broken file → `.bak` → empty)
+  are written like config (debounced 2 s, flushed at HOME /
   sleep / exit). All of it on one worker thread through SafeFs. HOME / sleep stops the downloads at once: requests
   cancelled, nothing more written. The space rule keeps 1 GB of the SD card free and never deletes by itself. Read back
   with S6's limits, fuzzed (`fuzz_switch_downloads`).

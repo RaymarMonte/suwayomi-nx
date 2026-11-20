@@ -347,8 +347,10 @@ void MangaActivity::onContentAvailable() {
     });
 
     // WP-17: the server's queue, watched while this screen is on top (onPause / onResume).
-    // WP-18b (D61): offline, the manga comes from the Switch (its manga.json and downloaded chapters, merged progress).
-    if (context_.connection.offline()) {
+    // WP-18b (D61): offline, a manga with chapters on this Switch comes from the Switch (its manga.json and downloaded
+    // chapters, merged progress). One that isn't on the Switch opens as before: the server's error + Retry, and Retry
+    // works once the server is back.
+    if (context_.connection.offline() && context_.switchDownloads.manga(model_.manga().id) != nullptr) {
         const int mangaId = model_.manga().id;
         app::AppContext* context = &context_;
         model_.setOffline(

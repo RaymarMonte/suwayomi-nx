@@ -172,34 +172,34 @@ next-chapter / join / progress code, `ReaderActivity.cpp` (closing, delete after
 (`stopServer` / `startServer`), `lib/test-source.ts` (the held-back chapter), `scenarios/offline-errors.test.ts`.
 
 ## Deliverables
-- [ ] core: `ProgressQueue`'s decision with the new rule and its reason (the clock offset passed in), its old tests updated
+- [x] core: `ProgressQueue`'s decision with the new rule and its reason (the clock offset passed in), its old tests updated
       (D53's "server moved → dropped" cases become "finished" / "later" / "server later"); `parseHttpDate`; the
       `progress.json` format (known, gone, local; tolerant reader + writer, S6) and the merge rules (`offlineChapter`: a
       downloaded chapter + known + a waiting entry → the `Chapter` the screens show; `offlineManga`: badge and stamp;
       `gapBefore`); local title search; `Chapter::goneFromServer`. Profile values; test config keys. Tests in
       `test_core_progress_queue.cpp` / `test_core_switch_downloads.cpp` (or a new `test_core_offline.cpp`); fuzz:
       `progress.json`'s reader and `parseHttpDate` (a new target or `fuzz_switch_downloads`) with seeds.
-- [ ] core GraphQL: `DownloadedProgress.graphql`; the contract test green.
-- [ ] ui `Connection` (+ `AppContext::connection`): the states, the rules above, timers through hooks, listeners; tests
+- [x] core GraphQL: `DownloadedProgress.graphql`; the contract test green.
+- [x] ui `Connection` (+ `AppContext::connection`): the states, the rules above, timers through hooks, listeners; tests
       `test_ui_connection.cpp` (no network → offline without a request; a failed check → offline; 502 → offline, 500 →
       Failed; the 30 s timer, focus and wake checks; the network poll; a suspicion checks once per gap; back online tells
       the listeners once; destroyed with a check out).
-- [ ] ui downloads: `progress.json` in `DownloadStore` (debounced, flushed) and `SwitchDownloads` (`knownProgress`,
+- [x] ui downloads: `progress.json` in `DownloadStore` (debounced, flushed) and `SwitchDownloads` (`knownProgress`,
       `noteProgress`, `refreshProgress` after a check, gone marking, local progress for gone chapters); tests in
       `test_ui_switch_downloads.cpp` (batches, gone, a broken file, deletes drop entries, writes only on change).
-- [ ] ui queue: `WaitingSaves` held entries (`hold` / `release`, rounds skip them, the held copy of a failed online save),
+- [x] ui queue: `WaitingSaves` held entries (`hold` / `release`, rounds skip them, the held copy of a failed online save),
       the new decision with the clock offset, the caps; tests in `test_ui_queue.cpp`.
-- [ ] ui reader: the offline open (no `chapterState`, the merged position and spot), offline saves to the queue, the gap
+- [x] ui reader: the offline open (no `chapterState`, the merged position and spot), offline saves to the queue, the gap
       line (paged screen and strip band), delete after reading offline, gone chapters' local saves; tests in
       `test_ui_reader.cpp` / `test_ui_strip.cpp`.
-- [ ] ui screens: `LibraryModel` offline mode + `LibraryTab` (line, Try again, no Edit / Categories), `MangaModel` offline
+- [x] ui screens: `LibraryModel` offline mode + `LibraryTab` (line, Try again, no Edit / Categories), `MangaModel` offline
       load + gone chapters + `MangaActivity` (line, menu answers, tag), MainActivity (the connection, the swap, the note,
       the tabs' offline text, the refreshes on return), SettingsTab's server line, `main.cpp` (observer, focus, resume).
       Tests in `test_ui_library.cpp`, `test_ui_manga.cpp`. Texts in `resources/i18n/en-US/`. Touch ≥ 72 px.
-- [ ] Integration (`tests/integration/`, 3 auth modes): `refreshProgress` against the real server (ids, one gone id, a
+- [x] Integration (`tests/integration/`, 3 auth modes): `refreshProgress` against the real server (ids, one gone id, a
       batch boundary), the clock offset from `Date` (≈ 0 on the PC), a waiting save decided against real stamps ("later"
       and "server later").
-- [ ] e2e **`offline-reading`** (desktop + Switch), helpers in `tests/e2e/lib/offline.ts`. Known state first and last (the
+- [x] e2e **`offline-reading`** (desktop + Switch), helpers in `tests/e2e/lib/offline.ts`. Known state first and last (the
       test server's downloads folder and the queue files only, D59; the server running, Settings back). Steps: download
       Alpha chapters 1 and 3 and Gamma Webtoon chapter 1 → quit → server stopped → launch → `connection` offline
       cant_reach → the shelf (golden `offline-library`), Updates says it needs the server → Alpha → the offline details
@@ -209,17 +209,19 @@ next-chapter / join / progress code, `ReaderActivity.cpp` (closing, delete after
       offline → Continue = the right chapter and page → delete after reading on: finish a chapter offline → close → its
       folder gone, its entry waits → `networkConnected` false at start → offline no_network with **no request** → the
       `network` command → online by itself.
-- [ ] e2e **`offline-sync`** (desktop + Switch): offline with `offlineCheckMs` long; the server starts; through GraphQL the
+- [ ] (→ WP-18d) e2e **`offline-sync`** (desktop + Switch): offline with `offlineCheckMs` long; the server starts; through GraphQL the
       server changes Alpha ch1 (page 4, unread: "finished" must win) and ch3 (page 5 later than ours: "server later") →
       Try again → "Connected to the server" → `progress_queue` sent / dropped with those reasons → the server has ch1 read,
       ch3 page 5, Gamma's spot note = ours, and the Library is the server's again; relaunch offline with `offlineCheckMs`
       3000 → the server starts → online by the timer; Comet Courier's held-back chapter 3: shown, downloaded, withdrawn,
       refreshed from the source → "On Switch · Removed from server" (golden `chapters-gone`), it opens from its files, then
       Delete from Switch. Switch only: HOME and back while offline → a `connection` check `by` focus.
-- [ ] e2e `offline-errors` adjusted: it has no downloads, so its screens stay today's errors, but the app now checks by
+- [x] e2e `offline-errors` adjusted: it has no downloads, so its screens stay today's errors, but the app now checks by
       itself (every 30 s) and after the library's failed Refresh: the steps tap Retry only if the error still shows, and
-      accept `connection` events.
-- [ ] Docs: SUWAYOMI-API.md "Offline sync" (the facts above), ARCHITECTURE.md (offline mode, `progress.json`), SAFETY.md S5
+      accept `connection` events. As built: the scenario sets `offlineCheckMs` long (no timer check between startServer
+      and the Retry tap); it found that going offline with nothing on the Switch must keep the server's Library on screen,
+      and a details screen for a manga not on the Switch must open the normal way (its Retry then works).
+- [x] Docs: SUWAYOMI-API.md "Offline sync" (the facts above), ARCHITECTURE.md (offline mode, `progress.json`), SAFETY.md S5
       (`progress.json` written like `queue.json`) and S6 (its reader, the `Date` header), ui / core / net / platform
       READMEs, TESTING.md (the scenarios, events, test config keys, the `network` command), `screens.ts`, CHANGELOG.md,
       D61 "as built" (+ D53's amended note), ROADMAP (row done), STATUS.
@@ -256,3 +258,8 @@ Marking read / unread or bookmarking offline (answer 7); History or Updates offl
 1); reading chapters that aren't downloaded; sending WP-17's server deletes later; downloading while offline (the queue waits,
 as now); a Tailscale travel router or Funnel + HTTPS (D18, WP-19); local CBZ / folders (WP-28); `Lite` limits and applet mode
 (WP-21).
+
+**Build notes (2026-11-20, desktop done; Switch runs next):** the gap line, gone chapters' online merge / tag / local saves
+and the server tabs' offline text went to WP-18d (D61 "As built"); `offline-reading` covers the e2e steps of the offline
+start, the offline Library / details / reader, the queue going out after the restart and back online by the timer. The
+offline-reading helpers stayed in the scenario (no `lib/offline.ts`).

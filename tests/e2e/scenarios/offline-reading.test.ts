@@ -110,9 +110,11 @@ scenario('offline-reading', async (s) => {
         await s.driver.quit();
 
         // 2. The server stopped: the app starts offline, the Library is what's on this Switch.
+        // Each launch has its own event stream: `from: 0` is everything of this launch. `keepConfig`: the waiting-save queue
+        // (progress-queue.json) stays from launch to launch, as on a real Switch.
         stopServer();
-        let mark = s.events.mark();
-        await s.launch({ testConfig: { server: { url } } });
+        await s.launch({ testConfig: { server: { url } }, keepConfig: true });
+        let mark = 0;
         const shelf = await offlineStart(s, mark);
         expect(shelf.items, 'one manga on the Switch').toBe(1);
         expect(shelf.categories).toBe(1);
@@ -150,8 +152,8 @@ scenario('offline-reading', async (s) => {
 
         // 4. The server starts: the queue sends the page, the server has it, the refresh learns it.
         startServer();
-        mark = s.events.mark();
-        await s.launch({ testConfig: { server: { url } } });
+        await s.launch({ testConfig: { server: { url } }, keepConfig: true });
+        mark = 0;
         await waitForLibrary(s);
         const sent = await s.events.waitFor('chapter 1 sent', isEv('progress_queue', { what: 'sent', chapterId: one }),
             { from: mark, timeoutMs: 60_000 });
@@ -165,8 +167,8 @@ scenario('offline-reading', async (s) => {
 
         // 5. Back online by the timer.
         stopServer();
-        mark = s.events.mark();
         await s.launch({ testConfig: { server: { url }, offlineCheckMs: 3000 } });
+        mark = 0;
         await offlineStart(s, mark);
         startServer();
         const back = await s.events.waitFor('online again', isEv('connection', { state: 'online' }), { from: mark, ...SLOW });
