@@ -32,6 +32,15 @@ Since D21 (2026-10-22) the app supports only application mode and refuses applet
 - **Sockets**: borealis `switch_wrapper.c` uses `num_bsd_sessions=12, sb_efficiency=8` in application mode and `2, 1` in applet mode.
 - **What others do**: Switchfin pushes a `HintActivity` (a tutorial on opening as an app) at startup in applet mode. Switchfin and wiliwili skip
   loading a custom font in applet mode to save memory. wiliwili opens its main screen directly only in application mode.
+- **How an Album exit ends normally (read 2026-11-20 for WP-21, D62):** libnx `applet.c`: with `__nx_applet_exit_mode = 1` (hbmenu sets it when
+  the user quits it), `appletExit()` makes the last step `_appletExitProcess`: `ILibraryAppletSelfAccessor` command 10 `ExitProcessAndReturn`
+  (applications: `ISelfController` command 0 `Exit`), then sleep until the system ends the process; `svcExitProcess` only if that failed.
+  A process that ends without it is "exited abnormally" for the applet manager (D41's `0x290` from the Album, D35's note in application mode).
+  `appletGetServiceSession_LibraryAppletSelfAccessor()` is public (libnx 4.12.0). hbloader never opens the applet service itself.
+- **hbloader's heap from the Album** (`setupHbHeap`): total − used − 2 MiB, minus `applet_heap_reservation_size` (134 MiB default, left for other
+  applets such as the keyboard) unless `applet_heap_size` is set; the owner's console keeps both defaults. Others report ~380-400 MB in applet mode.
+  Checkpoint's notes: in applet mode low memory sometimes kept the system keyboard (a library applet of its own) from showing.
+- **borealis on an exit request** calls `Application::quit()` and leaves the exit mode at 0 (`Platform::exitToHomeMode(bool)` sets it).
 
 ## Crash / brick safety (researched 2026-10-21, details in SAFETY.md)
 - Atmosphère `stratosphere/creport/source/creport_main.cpp`: after a crash report, no fatal **only if** `IsApplication()` or `IsUserBreak()`,

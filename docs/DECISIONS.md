@@ -1444,3 +1444,31 @@ start), the owner read two downloaded chapters (one to the end, so read; one to 
 (written on the worker in 22-94 ms each), and back home a check by focus found the server: "back online", both waiting
 saves sent within 0.6 s, the queue empty. The owner: "went through all those steps and everything looks good" (the web UI
 showed the pages). WP-18b done.
+
+**D62 Applet mode: tell the system before ending, the Lite profile, a tip at every Album start** (WP-21, planned
+2026-11-20; the owner's answers the same day; `wp/WP-21-applet-mode.md`). Carries out D57's WP-21; **amends D21** (applet
+mode supported once the crash ending is proven), **D41** (applet-mode console runs, drills included, after the proof) and
+**D12** (the tip: at every Album start with "Don't show again", not once).
+- **Why an Album crash is a fatal** (libnx 4.12 `applet.c`, nx-hbmenu, nx-hbloader read 2026-11-20): a normal Album exit
+  (hbmenu's quit sets `__nx_applet_exit_mode = 1`) sends `ILibraryAppletSelfAccessor` command 10 `ExitProcessAndReturn`
+  and sleeps until the system ends the process. D35's `svcExitProcess` skips that message, so the applet manager reports
+  the Album as exited abnormally and qlaunch stops (`0x290`, D41). In application mode the same skip is only the "software
+  was closed" note.
+- **The crash ending from the Album:** send command 10 on libnx's public `appletGetServiceSession_LibraryAppletSelfAccessor()`
+  (no allocation, no lock), wait at most `crashExitWaitMs` (5 s) to be ended, else `svcExitProcess`. Application mode and
+  the desktop stay as in D35. An exit request from the system sets exit mode 1 (borealis leaves it at 0).
+- **Proof first, owner watching:** P1 = D41's case (the drill inside the refusal screen, from the Album); P2 = the whole
+  drill set from the Album. **Not provable in 3 tries → the refusal stays (D21) and WP-21 ends** (owner's answer 1).
+- **Starting from the Album:** the `Lite` profile (renamed from `applet`), numbers from the console's measurement; the S12
+  screen stays only for too little memory (`liteMinFreeBytes`, first guess 160 MiB). Downloads one page at a time (D57).
+- **The tip** (owner's answer 2): at every Album start, OK / Don't show again (`appletTip` in config.json, a Settings switch
+  brings it back). Text: "Opened from the Album, Suwayomi NX has less memory, so pages load a little slower and fewer are
+  kept ready. For the full app: on the HOME Menu, hold R and start any game. Keep holding R until the Homebrew Menu appears,
+  then choose Suwayomi NX."
+- **Tests:** every scenario in both modes on the PC and on the console (owner's answer 4; `tools/e2e.sh … --mode applet`);
+  applet-mode console runs unattended after P2 (owner's answer 3; the fatal gate still stops a run). Split point → WP-21b:
+  the downloads / offline scenarios and the rest of the Switch matrix from the Album.
+Rejected: handing control back to hbloader after a crash (D35: hbmenu then crashed over what the crash left behind, from
+the Album that's a fatal too); changing Atmosphère's hbloader settings for more memory (a system file, D14, and users
+wouldn't); a one-time tip (the owner wants it at every start, with a way to turn it off); applet mode with only a warning if
+the ending can't be proven (owner's answer 1); a core set of console scenarios only (answer 4).

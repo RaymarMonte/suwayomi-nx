@@ -1,22 +1,17 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-18b done** (2026-11-20, `docs/wp/WP-18b-read-away-from-home.md`, D61).
-**Next:** **WP-21** (applet mode; no WP file yet, plan it first, D57) → 16 → 25 → 19; WP-18d (the split) after WP-18b; nice
-to have: 08b, 26, 27, 28. Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 18b, 18c, 23, 24, 22; v0.2.0 (17, 18,
-18c, 18b unreleased).
-## Last session (2026-11-20 evening, WP-18b Switch runs + the owner's try, Opus, with the owner)
-- Switch green: `offline-reading` (+ a new no-network start step), `smoke`, `switch-downloads`, `switch-download-queue`,
-  `resume-progress`, `updates-history`, `offline-errors`, `reader-webtoon` (no band flake). Desktop green again for the
-  changed ones. Numbers + device steps (sleep / wake offline by the owner, HOME and back) in D61 "Console".
-- Found on the console and fixed: (1) no network: the check ended before the downloads were read, so error + Retry showed
-  instead of the shelf; (2) the wake hook never ran since WP-08 (`appletSetRestartMessageEnabled(true)` was missing);
-  (3) the 500-entry queue write took 51 ms on the main thread → now on one pthread worker (`std::thread` crashed the app on
-  the console: it threw; S8 says pthreads). Unit test for the worker path added.
-- e2e fixes: `switch-downloads` read a stale "loaded" event after deleting leftovers; the Switch `updates-history` goldens
-  lacked WP-18's "Switch downloads" tab (updated); `offline-reading` cleans its Switch downloads up and tolerates leftovers.
-- The numbers came from a one-off script (not committed). Test server left running (auth none). Console put to sleep.
-- **The owner's try passed** (D61 "Owner's try"): started offline, read two downloaded chapters, and back home both waiting
-  saves went to the server by themselves. Then the console got a normal (release) build of 6e0da16 (it loads the owner's
-  library; the SD `test/` leftovers deleted) and was put to sleep.
+**Phase 3 – Features. Now:** **WP-21 planned** (2026-11-20, `docs/wp/WP-21-applet-mode.md`, D62); not started.
+**Next:** **WP-21** (applet mode, Opus, max effort; size L, split point → WP-21b) → 16 → 25 → 19; WP-18d (the split) after
+WP-18b; nice to have: 08b, 26, 27, 28. Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 18b, 18c,
+23, 24, 22; v0.2.0 (17, 18, 18c, 18b unreleased).
+## Last session (2026-11-20, WP-21 planning, Opus, with the owner's answers)
+- Read libnx 4.12's `applet.c`, nx-hbmenu and nx-hbloader: an Album crash is a fatal because our ending (D35's
+  `svcExitProcess`) skips the "I'm leaving" message (`ILibraryAppletSelfAccessor` command 10) that hbmenu's quit sends;
+  libnx exposes the session, so the crash path can send it. Details in the WP file and RESEARCH.md.
+- Owner's answers: not provable in 3 tries → keep refusing the Album (D21 stays); the tip at every Album start with
+  "Don't show again"; applet-mode console runs unattended once the proof (P1, P2) passed; every Switch scenario in both modes.
+- **WP-21's first step is Stage A** (the ending + P1 on the console, owner watching: a failed try is a fatal the owner
+  reboots from: POWER, Hekate → Launch → CFW (EMUMMC)). It decides whether the rest happens.
+- No code changed. The console still has the normal (release) build of 6e0da16 and is asleep.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
