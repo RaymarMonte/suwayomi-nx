@@ -69,6 +69,10 @@ void setResumeHandler(void (*handler)()) {
     gResumeHandler = handler;
     if (handler != nullptr && !gResumeHooked) {
         appletHook(&gResumeCookie, onAppletHook, nullptr);
+        // AppletMessage_Resume (the OnResume hook) only comes when the app asks for it; without this the hook never ran
+        // (WP-18b, found on the console). Application mode only; it touches nothing outside this app's session.
+        // A failure only means no wake check (the app's "woke from sleep" log line shows whether it works).
+        (void)appletSetRestartMessageEnabled(true);
         gResumeHooked = true;
     } else if (handler == nullptr && gResumeHooked) {
         appletUnhook(&gResumeCookie);

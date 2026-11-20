@@ -27,6 +27,7 @@
 #include "core/RuntimeProfile.hpp"
 #include "core/Version.hpp"
 #include "image/ImageLoader.hpp"
+#include "image/WorkerPool.hpp"
 #include "net/CurlHttpClient.hpp"
 #include "platform/Platform.hpp"
 #include "platform/SafeFs.hpp"
@@ -406,10 +407,18 @@ int main(int argc, char* argv[]) {
         connectionOptions.checkMs = *checkMs;
     }
     snx::ui::Connection connection(connectionOptions, connectionHooks());
+    snx::image::WorkerPool queueWriter(1, profile.workerThreadStackBytes);  // the waiting-save queue's file (below)
     snx::ui::SwitchDownloads* savesLearnInto = nullptr;  // set once the Switch downloads exist (below)
     snx::ui::WaitingSaves::Hooks savesHooks = waitingSaveHooks();
     savesHooks.clockOffset = [&connection] { return connection.clockOffset(); };
     savesHooks.online = [&connection] { return !connection.offline(); };  // no rounds while offline
+    // The file write runs on one worker thread (a 500-entry write took 51 ms on the console's main thread). A pthread
+    // with the profile's stack size (S8): std::thread can't be given one and threw on the console. The queue waits for a
+    // write at flush() and in its destructor; the pool is made before the queue, so it outlives it. No thread: on the
+    // main thread as before.
+    if (queueWriter.threads() > 0) {
+        savesHooks.writeOffThread = [&queueWriter](std::function<void()> job) { queueWriter.post(0, std::move(job)); };
+    }
     savesHooks.serverProgress = [&savesLearnInto](int chapterId, const snx::core::ServerProgress& server, bool full) {
         if (savesLearnInto != nullptr) {
             savesLearnInto->noteProgress(chapterId, server, full);  // progress.json learns what the server had

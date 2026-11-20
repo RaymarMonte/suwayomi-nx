@@ -76,7 +76,8 @@ That README plus the public headers *is* the contract other sessions read.
 - The waiting-save queue (WP-15b, D53): `ui/reader/WaitingSaves` (rules in `core/ProgressQueue`), made in `main()` after the
   client and shared through `AppContext::saves`. The readers hand it a save that fails as they close and take an entry over
   when they open its chapter; it sends entries after the main screen's check works, when the server answers anything
-  (net's response observer), and on a back-off timer. File `progress-queue.json` (+ `.bak`) in the app's folder (D10);
+  (net's response observer), and on a back-off timer. File `progress-queue.json` (+ `.bak`) in the app's folder (D10;
+  WP-18b: made on the main thread, written on one pthread worker, flush() at HOME / sleep / exit waits for it);
   limits `RuntimeProfile::pendingSavesMax` (100) and `progressQueueFileBytes` (64 KiB). History notes "page N not saved yet".
 - Offline mode (WP-18b, D61): `ui/main/Connection` (in `AppContext::connection`) says online / offline (no network, can't
   reach). MainActivity runs its checks: the start check, every 30 s while offline, at focus and waking, and once after a

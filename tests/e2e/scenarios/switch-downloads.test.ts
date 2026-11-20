@@ -253,8 +253,9 @@ scenario('switch-downloads', async (s) => {
         await s.launch({ testConfig: { server: { url } } });
         await waitForLibrary(s);
         if (s.driver.name === 'switch') await deleteLeftovers(s, alpha, gamma);
-        const loaded = await untilState(s, 'the downloads loaded', (e) => e.loaded === true);
-        expect(loaded.manga, 'nothing of the test server on the SD card').toBe(0);
+        await untilState(s, 'the downloads loaded', (e) => e.loaded === true);
+        // The latest state: on the Switch the first "loaded" may come before deleteLeftovers' deletes.
+        expect(lastState(s)?.manga, 'nothing of the test server on the SD card').toBe(0);
 
         // 1. Chapter 1 (the last row: newest first) → Download to Switch; its files equal the server's pages.
         let details = await openAlpha(s, false);

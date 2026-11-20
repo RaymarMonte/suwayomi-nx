@@ -99,6 +99,14 @@ MainActivity::MainActivity(app::AppContext& context)
     context_.connection.setCheck([this](Connection::By by) { backgroundCheck(by); });
     connectionListener_ = context_.connection.addListener(
         [this](Connection::State state, Connection::Reason) { connectionChanged(state); });
+    // With no network the check ends at once, often before the Switch's downloads are read from the SD card: once they
+    // are, an offline error screen becomes the offline Library (found on the console).
+    switchListener_ = context_.switchDownloads.addListener([this](const SwitchDownloads::Change& change) {
+        if (change.state && context_.switchDownloads.loaded() && context_.connection.offline() && !offlineLibrary_ &&
+            model_.connection() == MainModel::Connection::Failed && !offlineItems().empty()) {
+            showConnection();
+        }
+    });
 }
 
 MainActivity::~MainActivity() {
@@ -106,6 +114,7 @@ MainActivity::~MainActivity() {
     backgroundCancel_.cancel();
     context_.connection.setCheck(nullptr);
     context_.connection.removeListener(connectionListener_);
+    context_.switchDownloads.removeListener(switchListener_);
     context_.saves.removeListener(savesListener_);
     if (updater_) {
         updater_->removeListener(updaterListener_);
@@ -346,6 +355,9 @@ void MainActivity::onCheck(const api::ApiResult<core::ServerInfo>& result, const
     fields["ok"] = result.ok();
     if (result.ok()) {
         fields["version"] = result.value().version;
+        if (context_.connection.clockKnown()) {
+            fields["clockOffset"] = context_.connection.clockOffset();  // WP-18b: server − console, seconds (D61)
+        }
         brls::Logger::info("main: connected to {} {}", result.value().name, result.value().version);
         if (const auto warning = model_.serverWarning()) {
             brls::Application::notify(*warning);  // D9: too old a server; the library still tries

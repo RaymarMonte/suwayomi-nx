@@ -1,6 +1,8 @@
 #include "ui/reader/WaitingSaves.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <thread>
 #include <utility>
 
 #include "core/StripMath.hpp"
@@ -52,6 +54,7 @@ WaitingSaves::WaitingSaves(api::SuwayomiClient& client, const platform::SafeFs* 
 
 WaitingSaves::~WaitingSaves() {
     *alive_ = false;
+    waitForWrite();  // the worker writes with fs_: it ends first
 }
 
 void WaitingSaves::say(bool warning, const std::string& line) const {
@@ -145,13 +148,49 @@ void WaitingSaves::load() {
 }
 
 void WaitingSaves::onFrame(bool readerMoving) {
-    if (!readerMoving && scheduler_.due(hooks_.clockMs())) {
+    finishWrite();
+    if (!writing_ && !readerMoving && scheduler_.due(hooks_.clockMs())) {
         save();
     }
 }
 
+void WaitingSaves::finishWrite() {
+    if (!writing_ || !writing_->done.load()) {
+        return;
+    }
+    const std::shared_ptr<Write> write = std::move(writing_);
+    writing_.reset();
+    if (!write->ok) {
+        say(true, std::string("progress queue: couldn't save ") + kFile);
+        scheduler_.changed(hooks_.clockMs());  // try again after the next delay
+        return;
+    }
+    say(false, "progress queue: saved (" + std::to_string(write->entries) + " waiting, " + std::to_string(write->bytes) +
+                   " bytes, " + std::to_string(write->ms) + " ms on the worker)");
+}
+
+void WaitingSaves::waitForWrite() const {
+    while (writing_ && !writing_->done.load()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+}
+
 bool WaitingSaves::flush() {
-    return !scheduler_.pending() || save();
+    waitForWrite();  // HOME / sleep / exit: a write under way ends first, then whatever changed since is written here
+    finishWrite();
+    if (!scheduler_.pending()) {
+        return true;
+    }
+    if (fs_ == nullptr) {
+        scheduler_.saved();
+        return true;
+    }
+    for (const core::WaitingSave& gone : core::fitProgressQueue(entries_, options_.fileBytes)) {
+        say(true, "progress queue: the file would be too big, dropped the oldest: " + core::describeWaitingSave(gone));
+        tell("dropped", gone, "full");
+        waitingChanged();
+    }
+    return writeNow(core::saveProgressQueue(entries_), hooks_.clockMs());
 }
 
 bool WaitingSaves::save() {
@@ -164,7 +203,35 @@ bool WaitingSaves::save() {
         tell("dropped", gone, "full");
         waitingChanged();
     }
-    const std::string text = core::saveProgressQueue(entries_);
+    const std::int64_t started = hooks_.clockMs();
+    std::string text = core::saveProgressQueue(entries_);
+    if (!hooks_.writeOffThread) {
+        return writeNow(text, started);
+    }
+    // WP-18b (D61): the text is made here (main thread), the write runs on the worker; onFrame() takes the result. Changes
+    // meanwhile mark the queue pending again, so the next due frame writes them after this write ended.
+    auto write = std::make_shared<Write>();
+    write->entries = entries_.size();
+    write->bytes = text.size();
+    scheduler_.saved();
+    writing_ = write;
+    const platform::SafeFs* fs = fs_;
+    hooks_.writeOffThread([write, fs, text = std::move(text)] {
+        const auto begin = std::chrono::steady_clock::now();
+        try {
+            write->ok = fs->writeAtomic(kFile, text, platform::SafeFs::Backup::Keep);
+        } catch (...) {
+            write->ok = false;  // done must come whatever happens: flush() waits for it
+        }
+        write->ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - begin).count();
+        write->done.store(true);  // last: the main thread reads ok and ms after it sees done
+    });
+    say(false, "progress queue: " + std::to_string(write->entries) + " entries made in " +
+                   std::to_string(hooks_.clockMs() - started) + " ms, writing on the worker");
+    return true;
+}
+
+bool WaitingSaves::writeNow(const std::string& text, std::int64_t started) {
     if (!fs_->writeAtomic(kFile, text, platform::SafeFs::Backup::Keep)) {
         say(true, std::string("progress queue: couldn't save ") + kFile);
         scheduler_.changed(hooks_.clockMs());  // try again after the next delay
@@ -172,7 +239,7 @@ bool WaitingSaves::save() {
     }
     scheduler_.saved();
     say(false, "progress queue: saved (" + std::to_string(entries_.size()) + " waiting, " + std::to_string(text.size()) +
-                   " bytes)");
+                   " bytes, " + std::to_string(hooks_.clockMs() - started) + " ms)");
     return true;
 }
 

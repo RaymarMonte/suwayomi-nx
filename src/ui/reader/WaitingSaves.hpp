@@ -70,6 +70,9 @@ class WaitingSaves {
         // or a save's answer (not full: page, read flag, stamp, and the spot sent). The Switch's progress.json keeps it for
         // downloaded chapters. Empty: nobody listens.
         std::function<void(int chapterId, const core::ServerProgress& server, bool full)> serverProgress;
+        // WP-18b (D61): runs the file write on a worker thread (the console measured a 500-entry write at 51 ms on the
+        // main thread). The text is made on the main thread; onFrame() takes the result. Empty: written at once (tests).
+        std::function<void(std::function<void()>)> writeOffThread;
     };
 
     // fs: the app's folder (nullptr: no file, for tests that don't need one). The client must outlive this.
@@ -151,6 +154,18 @@ class WaitingSaves {
     void forget(const core::WaitingSave* entry);
     void changed();
     bool save();
+    // WP-18b: a write on the worker. finishWrite (main thread): takes its result once it ended; waitForWrite: blocks until
+    // it ended (flush at HOME / sleep / exit, the destructor).
+    struct Write {
+        std::atomic<bool> done{false};
+        bool ok = false;
+        std::int64_t ms = 0;
+        std::size_t entries = 0;
+        std::size_t bytes = 0;
+    };
+    void finishWrite();
+    void waitForWrite() const;
+    bool writeNow(const std::string& text, std::int64_t started);
     void say(bool warning, const std::string& line) const;
     void tell(const char* what, const core::WaitingSave& entry, const std::string& reason) const;
     void notify(Change change, const core::WaitingSave& entry);  // the listeners (a copy: one may remove itself)
@@ -164,6 +179,7 @@ class WaitingSaves {
     std::vector<core::WaitingSave> entries_;  // oldest first
     std::multiset<int> held_;  // chapters a reader has open (the configured server's), once per hold (paged + strip)
     core::SaveScheduler scheduler_;
+    std::shared_ptr<Write> writing_;  // the write under way on the worker, if any
     std::optional<Round> round_;
     bool running_ = false;
     bool authStopped_ = false;          // a round ended on Auth: no more rounds until connected()

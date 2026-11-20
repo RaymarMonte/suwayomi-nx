@@ -263,3 +263,9 @@ as now); a Tailscale travel router or Funnel + HTTPS (D18, WP-19); local CBZ / f
 and the server tabs' offline text went to WP-18d (D61 "As built"); `offline-reading` covers the e2e steps of the offline
 start, the offline Library / details / reader, the queue going out after the restart and back online by the timer. The
 offline-reading helpers stayed in the scenario (no `lib/offline.ts`).
+
+**Switch runs (2026-11-20, with the owner):** `offline-reading` (+ a no-network start), `smoke`, `switch-downloads`,
+`switch-download-queue`, `resume-progress`, `updates-history` (its Switch goldens got WP-18's "Switch downloads" tab),
+`offline-errors`, `reader-webtoon` green; the device steps (sleep / wake offline, HOME and back) and the numbers are in D61
+"Console". Three fixes came from the console: the no-network shelf, the wake message, the queue write on a worker. Open:
+the owner's try away from home.

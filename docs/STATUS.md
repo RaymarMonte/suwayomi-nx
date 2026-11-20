@@ -1,25 +1,22 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-18b desktop done; Switch runs next** (`docs/wp/WP-18b-read-away-from-home.md`, D61). Not done.
-**Next:** WP-18b's Switch runs + the owner's away-from-home try (below) → 21 → 16 → 25 → 19; WP-18d (the split) after
-WP-18b; nice to have: 08b, 26, 27, 28.
-Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 18c, 23, 24, 22; v0.2.0 (13…24; 17, 18, 18c, 18b unreleased).
-## Last session (2026-11-20, WP-18b build, Opus) – desktop done, no Switch runs
-- Built (D61 "As built"): `core/Offline` + the conflict rule, `ui/main/Connection` (start / 30 s timer / focus / wake /
-  suspicion / network checks), `progress.json` + `refreshProgress`, held waiting saves, the offline Library ("On this
-  Switch"), details and reader (their saves go to the queue, sent once the server is back).
-- **Split → WP-18d** (ROADMAP): gone chapters (online merge, tag, local saves), the gap line, the offline text of Updates /
-  History / Browse / Server downloads, the e2e `offline-sync` scenario.
-- Nothing on the Switch and offline: today's errors + Retry; going offline keeps the server's Library on screen, and a
-  manga not on the Switch opens the normal way (both found by `offline-errors`).
-- Green on the PC: `build.sh tests` (7/7, contract, write gate), fuzz (4 × 60 s), `npm test`, typecheck, integration (3
-  modes, + the new offline-sync test), desktop + Switch builds (gate PASS, 0 warnings), desktop e2e `offline-reading`,
-  `offline-errors`, `smoke`, `switch-downloads`, `switch-download-queue`, `server-downloads`, `resume-progress`, `updates-history`,
-  `reader-webtoon` (failed once at the band, `read: true`, then passed: a flake to watch). Test server left running (auth none).
-- **Next step (Switch; the owner readies the console: on, Spelunky 2 first on HOME):** `tools/e2e.sh switch offline-reading`,
-  then `smoke`, `switch-downloads`, `switch-download-queue`, `resume-progress`, `updates-history`, `offline-errors`,
-  `reader-webtoon`; by hand: HOME and back while offline (`connection` by focus), sleep / wake offline, the WP's numbers.
-- **Then the owner's try away from home** (or airplane mode): download a few chapters, start offline, read, come home,
-  the server has the pages. Only then is WP-18b done (ROADMAP row, STATUS); don't start WP-21 before.
+**Phase 3 – Features. Now:** **WP-18b: desktop + Switch runs green; the owner's away-from-home try next**
+(`docs/wp/WP-18b-read-away-from-home.md`, D61). Not done until that try.
+**Next:** the owner's try (below) → WP-18b done → 21 → 16 → 25 → 19; WP-18d (the split) after WP-18b; nice to have: 08b,
+26, 27, 28. Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 18c, 23, 24, 22; v0.2.0 (17, 18, 18c, 18b unreleased).
+## Last session (2026-11-20 evening, WP-18b Switch runs, Opus, with the owner)
+- Switch green: `offline-reading` (+ a new no-network start step), `smoke`, `switch-downloads`, `switch-download-queue`,
+  `resume-progress`, `updates-history`, `offline-errors`, `reader-webtoon` (no band flake). Desktop green again for the
+  changed ones. Numbers + device steps (sleep / wake offline by the owner, HOME and back) in D61 "Console".
+- Found on the console and fixed: (1) no network: the check ended before the downloads were read, so error + Retry showed
+  instead of the shelf; (2) the wake hook never ran since WP-08 (`appletSetRestartMessageEnabled(true)` was missing);
+  (3) the 500-entry queue write took 51 ms on the main thread → now on one pthread worker (`std::thread` crashed the app on
+  the console: it threw; S8 says pthreads). Unit test for the worker path added.
+- e2e fixes: `switch-downloads` read a stale "loaded" event after deleting leftovers; the Switch `updates-history` goldens
+  lacked WP-18's "Switch downloads" tab (updated); `offline-reading` cleans its Switch downloads up and tolerates leftovers.
+- The numbers came from a one-off script (not committed). Test server left running (auth none). Console put to sleep.
+- **Next step, the owner:** away from home (or airplane mode at home): download a few chapters at home, start the app
+  away, read, come home, check the server has the pages (and that "Connected to the server" shows). Then WP-18b is done
+  (ROADMAP row, STATUS, memory) and WP-21 may start (D57).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

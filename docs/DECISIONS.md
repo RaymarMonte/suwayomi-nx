@@ -1426,3 +1426,16 @@ the reader still gets its start page from the details screen (the merged one), `
 strip spot. **Moved to WP-18d** (the split point): gone chapters (the online merge, the tag, their local saves; the
 refresh already marks them gone in progress.json), the gap line, the Updates / History / Browse offline text (they show
 "connect first" as before), and the e2e `offline-sync` scenario's conflict steps.
+**Console (2026-11-20, v1 Erista, application mode, test server stopped / no network):** offline start to the shelf 5.2-5.4 s
+with the server stopped (the 5 s connect timeout + ~0.2 s) and 0.2-0.4 s with no network; an offline downloaded chapter's
+first page 92-95 ms after the reader screen opened; back online 3.07 s after the previous check (`offlineCheckMs` 3000, the
+check itself 23 ms); clock offset server − console +35 s (the server's clock ahead: the "later" rule needs it); memory flat
+over 10 rounds offline Library <-> details (34.69-34.72 MB); HOME and back while offline: a check by focus; a 500-entry
+`progress-queue.json` (128 KB) took **51 ms** on the main thread, so (as planned) the write moved to a worker: the text is
+made on the main thread in 14 ms, written in 86 ms on one pthread worker (`workerThreadStackBytes`; `std::thread` threw
+on the console, S8). Found and fixed on the console: (1) with no network the check ended before the Switch's downloads
+were read from the SD card, so the error + Retry showed instead of the shelf (MainActivity now swaps the shelf in once they
+are); (2) the wake hook (D37, WP-08) never ran: libnx sends `AppletMessage_Resume` only after
+`appletSetRestartMessageEnabled(true)`; now it runs ("app: woke from sleep"), and at waking a check runs at once (the
+30 s timer, held during sleep, fires first; the wake check is then the same check). Device steps passed: sleep / wake
+offline (the owner), HOME and back.

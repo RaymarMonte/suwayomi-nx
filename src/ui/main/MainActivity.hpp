@@ -83,6 +83,7 @@ class MainActivity : public brls::Activity {
     std::unique_ptr<LibraryModel> offlineLibrary_;  // WP-18b: shown while offline with chapters on the Switch
     net::CancelToken backgroundCancel_;             // the connection's check under way
     int connectionListener_ = 0;
+    int switchListener_ = 0;  // WP-18b: the Switch's downloads finished loading after an offline check
     bool wasOffline_ = false;  // the next Online says "Connected to the server"
     std::unique_ptr<SourcesModel> sources_;  // WP-14: the Browse tab's list, made when the tab first opens once connected
     // WP-15: the Updates and History rows and the library update, made when their tab first opens once connected,

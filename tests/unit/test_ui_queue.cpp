@@ -11,6 +11,7 @@
 
 #include <cstdlib>
 #include <functional>
+#include <thread>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -177,6 +178,8 @@ struct Harness {
     std::vector<int> heard;  // listeners: the chapters gone (sent, already, dropped in a round)
     std::vector<int> added;  // listeners: the chapters added
     std::unique_ptr<WaitingSaves> queue;
+    bool offThread = false;                    // WP-18b: the file write goes to `writes` (the test plays the worker)
+    std::vector<std::function<void()>> writes;
 
     explicit Harness(const platform::SafeFs* fs = nullptr) {
         http.setHandler([this](const Request& request) { return server.answer(request); });
@@ -227,6 +230,9 @@ struct Harness {
         hooks.online = [this] { return online; };
         hooks.later = [this](int ms, std::function<void()> fn) { timers.emplace_back(ms, std::move(fn)); };
         hooks.post = main.deliver();
+        if (offThread) {
+            hooks.writeOffThread = [this](std::function<void()> job) { writes.push_back(std::move(job)); };
+        }
         hooks.report = [this](const char* what, const core::WaitingSave& e, const std::string& reason, std::size_t waiting,
                               bool held) {
             reports.push_back({what, e.chapterId, e.page, reason, waiting, held});
@@ -736,3 +742,34 @@ TEST_CASE("queue: a restart (a new queue on the same folder) still has it; a bro
 }
 
 }  // TEST_SUITE
+
+TEST_CASE("queue: the file is written on a worker, one write at a time; flush waits for it (WP-18b, D61)") {
+    TempRoot temp;
+    const platform::SafeFs fs(temp.root);
+    Harness h(&fs);
+    h.offThread = true;
+    h.makeQueue(&fs);
+    h.queue->load();
+    h.queue->add(h.entry(101, 4));
+    h.now += 10000;
+    h.queue->onFrame(false);  // due: the text is made here, the write goes to the worker
+    REQUIRE(h.writes.size() == 1);
+    CHECK_FALSE(fs.exists(WaitingSaves::kFile));
+    h.queue->add(h.entry(102, 6));  // a change while the write is under way
+    h.now += 10000;
+    h.queue->onFrame(false);  // still under way: no second write
+    CHECK(h.writes.size() == 1);
+    h.writes[0]();  // the worker writes
+    CHECK(fs.readFile(WaitingSaves::kFile, 65536)->find("\"chapterId\":101") != std::string::npos);
+    CHECK(fs.readFile(WaitingSaves::kFile, 65536)->find("\"chapterId\":102") == std::string::npos);
+    h.queue->onFrame(false);  // its result taken; the change since is due: the next write
+    REQUIRE(h.writes.size() == 2);
+    std::thread worker(h.writes[1]);
+    CHECK(h.queue->flush());  // HOME / exit: waits for the write under way
+    worker.join();
+    CHECK(fs.readFile(WaitingSaves::kFile, 65536)->find("\"chapterId\":102") != std::string::npos);
+    h.queue->add(h.entry(103, 1));
+    CHECK(h.queue->flush());  // nothing under way: written at once, on this thread
+    CHECK(h.writes.size() == 2);
+    CHECK(fs.readFile(WaitingSaves::kFile, 65536)->find("\"chapterId\":103") != std::string::npos);
+}
