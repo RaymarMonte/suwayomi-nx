@@ -97,7 +97,8 @@ STATUS.md; this doc; D59 in DECISIONS.md; `docs/wp/WP-18-download-to-switch.md` 
   checked by a pixel diff), and `server-downloads` still green (its known state changed). The memory rounds: + < 16 MiB.
 
 ## As built (2026-11-20)
-Built as planned above, with these differences (also in D59's "as built", WP-18c):
+Desktop and console green the same day (`switch-download-queue`, `switch-downloads`, `server-downloads` on the Switch; the
+301-row memory rounds 34.6 → 34.6 MiB). Built as planned above, with these differences (also in D59's "as built", WP-18c):
 - `core::addServerUrl(urls, url, keep)`: the address the cap never drops is passed in (the saved one).
 - The e2e steps use other chapters and numbers than the plan: `delayMs` 6000; the failed page and Retry on Chapter 1, the
   quit on Chapter 2 (the queue's own steps leave 1 and 2 free); "Same server?" uses the test server's LAN address (WSL

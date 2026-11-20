@@ -1,8 +1,8 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-18c built** (the rest of WP-18, D59); its **Switch runs are open** (below).
-**Next:** WP-18c's console runs → 18b → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28.
-Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 23, 24, 22; v0.2.0 (13…24; 17, 18 and 18c unreleased).
-## Last session (2026-11-20, WP-18c, Opus) – desktop done, console runs open
+**Phase 3 – Features. Now:** **WP-18c done** (the rest of WP-18, D59; its Switch runs green 2026-11-20).
+**Next:** **WP-18b** (offline 2: read away from home) → 21 → 16 → 25 → 19; nice to have: 08b, 26, 27, 28.
+Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 18c, 23, 24, 22; v0.2.0 (13…24; 17, 18 and 18c unreleased).
+## Last session (2026-11-20, WP-18c, Opus) – done (desktop, then the console the same day)
 - Built: the "Same server?" question when a new server address is saved while chapters are downloaded (owner's words,
   Same server / Another server; "Another" is remembered, the first setup never asks); the tab's `keep_awake` event; rows
   in `switch_downloads`; the ui_login token-expiry download (integration); new e2e `switch-download-queue` (slowed queue,
@@ -16,10 +16,9 @@ Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 23, 24, 22; v0.2.0
 - Green: unit, contract, fuzz (5 targets), npm test + typecheck, integration (3 modes; the token test: 1 refresh, no new
   login), all desktop e2e, Switch build + gate PASS. Flaky, server-bound (as before): desktop `server-downloads`'s
   "resume ≤ 1 s" (1.5–1.9 s twice, then 0.5 s on a rerun).
-## Open: Switch runs (console on, Spelunky 2 first on HOME, application mode)
-- `tools/e2e.sh switch switch-download-queue --update-goldens` (new: goldens `switch-queue-paused`, `switch-failed`; check
-  them against desktop's), then `switch-downloads` (new steps, no new golden) and `server-downloads` (known state changed).
-  Step 4 ("Same server?") is desktop only. The memory rounds (301 rows, + < 16 MiB) run only on the Switch.
+- Console (no test server reset after integration): `switch-download-queue` (new Switch goldens, 0.1 % pixel diff to
+  desktop's: JPEG noise; 301 queued rows, 10 tab rounds: 34.6 → 34.6 MiB), `switch-downloads` (first downloaded page
+  165 ms; the 10-page chapter 1.2 s, was 0.7 s), `server-downloads` (slowest action 574 ms) all green. Console left asleep.
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set
@@ -28,7 +27,7 @@ Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 23, 24, 22; v0.2.0
 - Windows JDK: Temurin 21 (`C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot\bin`: java, javac, jar, jwebserver); WSL has none.
 - Builds: unit tests ~10 s, desktop ~50 s, Switch ~55 s (+ gate ~5 s), 0 warnings. Backups: `C:\Users\JohnDoe\SwitchBackup\2026-10-22\`.
 - Test server: `reset` + `start` ~10 s, the test site (4569) with it (desktop e2e needs it running); won't start ("null cannot be cast"): `reset`, start again.
-- Device: e2e `smoke` ~1 min, `touch-pass` ~50 s, `manga-details` ~67 s, `reader-paged` ~2 min, `switch-downloads` ~2.5 min, `server-downloads` ~3.7 min,
+- Device: e2e `smoke` ~1 min, `touch-pass` ~50 s, `manga-details` ~67 s, `reader-paged` ~2 min, `switch-downloads` ~3.5 min, `switch-download-queue` ~3.7 min, `server-downloads` ~3.8 min,
   `reader-webtoon` ~6.5 min, `reader-zoom` ~7 min, `updates-history` ~4.7 min, `offline-errors` ~2.7 min, `browse` ~5 min, `crash-drills` ~9 min.
   The desktop text dialog ignores Enter: tap its OK. A start-up crash leaves no log: use breadcrumb writes (WP-03c).
 ## Console facts
