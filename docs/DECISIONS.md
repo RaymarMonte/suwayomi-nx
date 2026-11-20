@@ -1439,3 +1439,8 @@ are); (2) the wake hook (D37, WP-08) never ran: libnx sends `AppletMessage_Resum
 `appletSetRestartMessageEnabled(true)`; now it runs ("app: woke from sleep"), and at waking a check runs at once (the
 30 s timer, held during sleep, fires first; the wake check is then the same check). Device steps passed: sleep / wake
 offline (the owner), HOME and back.
+**Owner's try (2026-11-20, test build, the owner's own server):** the app started offline (`cant_reach`, known 0.9 s after
+start), the owner read two downloaded chapters (one to the end, so read; one to page 2), the saves waited in the queue
+(written on the worker in 22-94 ms each), and back home a check by focus found the server: "back online", both waiting
+saves sent within 0.6 s, the queue empty. The owner: "went through all those steps and everything looks good" (the web UI
+showed the pages). WP-18b done.

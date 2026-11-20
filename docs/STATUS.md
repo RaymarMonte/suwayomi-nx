@@ -1,9 +1,9 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-18b: desktop + Switch runs green; the owner's away-from-home try next**
-(`docs/wp/WP-18b-read-away-from-home.md`, D61). Not done until that try.
-**Next:** the owner's try (below) → WP-18b done → 21 → 16 → 25 → 19; WP-18d (the split) after WP-18b; nice to have: 08b,
-26, 27, 28. Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 18c, 23, 24, 22; v0.2.0 (17, 18, 18c, 18b unreleased).
-## Last session (2026-11-20 evening, WP-18b Switch runs, Opus, with the owner)
+**Phase 3 – Features. Now:** **WP-18b done** (2026-11-20, `docs/wp/WP-18b-read-away-from-home.md`, D61).
+**Next:** **WP-21** (applet mode; no WP file yet, plan it first, D57) → 16 → 25 → 19; WP-18d (the split) after WP-18b; nice
+to have: 08b, 26, 27, 28. Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 18b, 18c, 23, 24, 22; v0.2.0 (17, 18,
+18c, 18b unreleased).
+## Last session (2026-11-20 evening, WP-18b Switch runs + the owner's try, Opus, with the owner)
 - Switch green: `offline-reading` (+ a new no-network start step), `smoke`, `switch-downloads`, `switch-download-queue`,
   `resume-progress`, `updates-history`, `offline-errors`, `reader-webtoon` (no band flake). Desktop green again for the
   changed ones. Numbers + device steps (sleep / wake offline by the owner, HOME and back) in D61 "Console".
@@ -14,9 +14,8 @@
 - e2e fixes: `switch-downloads` read a stale "loaded" event after deleting leftovers; the Switch `updates-history` goldens
   lacked WP-18's "Switch downloads" tab (updated); `offline-reading` cleans its Switch downloads up and tolerates leftovers.
 - The numbers came from a one-off script (not committed). Test server left running (auth none). Console put to sleep.
-- **Next step, the owner:** away from home (or airplane mode at home): download a few chapters at home, start the app
-  away, read, come home, check the server has the pages (and that "Connected to the server" shows). Then WP-18b is done
-  (ROADMAP row, STATUS, memory) and WP-21 may start (D57).
+- **The owner's try passed** (D61 "Owner's try"): started offline, read two downloaded chapters, and back home both waiting
+  saves went to the server by themselves. The console still runs this test build (SD `test/` folder: `commands`, `events.jsonl`).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

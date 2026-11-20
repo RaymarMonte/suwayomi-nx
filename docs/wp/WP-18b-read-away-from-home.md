@@ -267,5 +267,7 @@ offline-reading helpers stayed in the scenario (no `lib/offline.ts`).
 **Switch runs (2026-11-20, with the owner):** `offline-reading` (+ a no-network start), `smoke`, `switch-downloads`,
 `switch-download-queue`, `resume-progress`, `updates-history` (its Switch goldens got WP-18's "Switch downloads" tab),
 `offline-errors`, `reader-webtoon` green; the device steps (sleep / wake offline, HOME and back) and the numbers are in D61
-"Console". Three fixes came from the console: the no-network shelf, the wake message, the queue write on a worker. Open:
-the owner's try away from home.
+"Console". Three fixes came from the console: the no-network shelf, the wake message, the queue write on a worker.
+
+**Done (2026-11-20):** the owner's try away from home passed (D61 "Owner's try"): the app started offline, two downloaded
+chapters were read, and their progress reached the server by itself once the Switch was back home.
