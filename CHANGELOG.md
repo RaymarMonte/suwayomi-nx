@@ -6,6 +6,12 @@ with 0, any release may change things.
 ## [Unreleased]
 
 ### Added
+- **Read away from home:** started without your server (or when it can't be reached), the Library shows the manga
+  downloaded to this Switch ("Offline: showing what's on this Switch"; X tries the server again), their details and
+  chapters come from the SD card, and the reader reads them at once. The progress you read offline is kept on the SD card
+  and goes to the server by itself when it is back ("Connected to the server"); the app checks every 30 seconds, when it
+  comes back to the front and after sleep. Marks, bookmarks and the other server actions say "This needs the server.".
+  A chapter you finished offline stays read; otherwise the later reading wins (by the server's clock).
 - **Download to Switch:** chapters can be saved on this Switch's SD card and read from there, with no page coming over the
   network (the reader still asks the server for your progress). On a manga's page, a chapter's menu has Download to Switch,
   Cancel download to Switch, Retry download to Switch or Delete from Switch, and MINUS → Download to Switch... queues the

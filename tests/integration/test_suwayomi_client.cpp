@@ -13,6 +13,7 @@
 #include <fstream>
 #include <future>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -20,6 +21,8 @@
 #include "ApiTestKit.hpp"
 #include "MainQueue.hpp"
 #include "api/SuwayomiClient.hpp"
+#include "core/Offline.hpp"
+#include "core/ProgressQueue.hpp"
 #include "core/RuntimeProfile.hpp"
 #include "core/UpdatesHistory.hpp"
 #include "image/ImageLoader.hpp"
@@ -937,6 +940,53 @@ TEST_CASE("ui_login (WP-18c): a Switch download across the 20 s token expiry ren
     rig.checkPagesEqualServer(chapters.back().id);
     rig.model->deleteManga(glass);
     REQUIRE(rig.drive([&] { return rig.model->downloadedManga().empty(); }, 10s));
+}
+
+TEST_CASE("offline sync (WP-18b, D61): DownloadedProgress answers many chapters at once and leaves out a gone id; the Date "
+          "header gives a clock offset near 0; a waiting save decided against the server's real stamps") {
+    Live live;
+    const int alpha = libraryId(live, "Alpha");
+    const auto chapters = must(live->chapters(alpha, 0, CancelToken()));
+    REQUIRE(chapters.nodes.size() == 3);
+    const int chapterId = chapters.nodes[2].id;  // Alpha chapter 1
+    REQUIRE(must(live->pages(chapterId, PageFormat::AsStored, CancelToken())).pages.size() == 10);
+    const snx::core::ReadProgress saved = must(live->setProgress(chapterId, 6, false, CancelToken()));
+    REQUIRE(saved.lastReadAt > 0);
+
+    std::vector<int> ids;
+    for (const snx::core::Chapter& c : chapters.nodes) {
+        ids.push_back(c.id);
+    }
+    ids.push_back(999999);  // a chapter the server doesn't have: "gone"
+    const auto progress = must(live->downloadedProgress(ids, CancelToken()));
+    CHECK(progress.size() == 3);
+    CHECK(progress.count(999999) == 0);
+    REQUIRE(progress.count(chapterId) == 1);
+    CHECK(progress.at(chapterId).page == 6);
+    CHECK(progress.at(chapterId).lastReadAt == saved.lastReadAt);  // the same stamp chapterState reads
+
+    // The server's clock: its Date header against this PC's (the same machine: within a few seconds).
+    const snx::net::HttpResult answer = live.get("/api/graphql");
+    REQUIRE(answer.ok());
+    const std::optional<std::int64_t> serverNow = snx::core::parseHttpDate(answer.value().header("date"));
+    REQUIRE(serverNow.has_value());
+    CHECK(std::llabs(*serverNow - static_cast<std::int64_t>(std::time(nullptr))) <= 5);
+
+    // A waiting save made from page 0 while the server moved on to page 6: made before the server's stamp it is dropped
+    // ("server later"), made after it it is sent ("later"); read here while the server's isn't: sent ("finished").
+    snx::core::WaitingSave entry;
+    entry.chapterId = chapterId;
+    entry.page = 2;
+    entry.madeAt = saved.lastReadAt - 60;
+    const snx::core::ServerProgress& server = progress.at(chapterId);
+    CHECK(snx::core::decideWaitingSave(entry, server, 0) == snx::core::WaitingDecision::ServerLater);
+    entry.madeAt = saved.lastReadAt + 60;
+    CHECK(snx::core::decideWaitingSave(entry, server, 0) == snx::core::WaitingDecision::Later);
+    entry.madeAt = saved.lastReadAt - 60;
+    entry.read = true;
+    CHECK(snx::core::decideWaitingSave(entry, server, 0) == snx::core::WaitingDecision::Finished);
+
+    CHECK(must(live->setProgress(chapterId, 0, false, CancelToken())).lastPageRead == 0);  // back to the start
 }
 
 TEST_CASE("errors from the real server: unknown id, wrong sub-path, nobody listening") {

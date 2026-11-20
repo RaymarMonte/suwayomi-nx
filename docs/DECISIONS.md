@@ -1415,3 +1415,14 @@ planned 2026-11-20; the owner's answers the same day; `wp/WP-18b-read-away-from-
 Rejected: a separate offline screen, offline categories (more to store and keep in step), going online only by a button,
 "the server always wins" (D53's old rule: it dropped chapters finished offline), stopping at a gap, keeping finished
 chapters until the read reached the server, a second queue for offline progress beside D53's.
+**As built (WP-18b, 2026-11-20, desktop; Switch runs next):** `core/Offline` (`parseHttpDate`, `progress.json`'s reader /
+writer / `fitProgressFile`, `offlineChapter` / `offlineManga`, `chaptersSkipped`, `titleMatches`), the decision
+(`WaitingDecision` Already / Send / Finished / Later / ServerLater, with the clock offset), `ui/main/Connection`,
+`WaitingSaves` holds (counted: the paged reader and the strip may both hold a chapter), `SwitchDownloads`' progress.json and
+`refreshProgress` (DownloadedProgress, 500 ids a request), the offline Library (`LibraryModel`'s offline mode), details
+(`MangaModel::setOffline`) and reader (`PageSource::merged`, `ReaderOptions::offline`). Two details settled while building:
+a waiting entry keeps `read` once set (offline every save is an entry, and the one after the last page says read = false);
+the reader still gets its start page from the details screen (the merged one), `merged` gives the base, the stamp and the
+strip spot. **Moved to WP-18d** (the split point): gone chapters (the online merge, the tag, their local saves; the
+refresh already marks them gone in progress.json), the gap line, the Updates / History / Browse offline text (they show
+"connect first" as before), and the e2e `offline-sync` scenario's conflict steps.

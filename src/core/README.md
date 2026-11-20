@@ -50,10 +50,16 @@
   `stripScreensBehind` / `stripScreensAhead`. WP-13d, D50, zoom in the strip: `StripZoomView` (zoom, left edge, top),
   `clampStripLeft`, `stripZoomAround`, `StripPinchStart` / `stripPinchView`, `isStripDoubleTap`, `stripSharpPages` (the
   pages on screen that decode again sharper), `stripZoomDecodeBox`; profile `stripZoomPages`. Tests: `test_core_strip.cpp`.
+- `Offline.hpp` (WP-18b, D61): reading away from home. `parseHttpDate` (the `Date` header, RFC 1123, ≤ 64 bytes),
+  `progress.json` (`SwitchProgress`: per downloaded chapter the server's progress as last seen, `gone`, local progress;
+  `readProgressFile` tolerant with S6 limits, `writeProgressFile`, `fitProgressFile`), `offlineChapter` (a downloaded
+  chapter + what the Switch knows + a waiting save → the chapter the offline screens show), `offlineManga`, `mangaFrom`,
+  `chaptersSkipped`, `titleMatches` (the offline search).
 - `ProgressQueue.hpp` (WP-15b, D53): the waiting-save queue's rules. `WaitingSave` (one per server + user + chapter, with
   its **base**: the server's page / read / `lastReadAt` the reader knew), `addWaitingSave` (replace, keep the older base, the
   cap), the file (`loadProgressQueue` tolerant with S6 limits, `saveProgressQueue` one entry per line, `fitProgressQueue`),
-  `decideWaitingSave` (already / send / server moved). `ServerProgress` (models/ReadProgress.hpp), `ReadProgress::lastReadAt`,
+  `decideWaitingSave` (WP-18b, D61: already / send / finished / later / server later, with the server clock's offset;
+  `sendsWaitingSave`). `ServerProgress` (models/ReadProgress.hpp), `ReadProgress::lastReadAt`,
   `ProgressSync`'s base (`serverAnswered`, `notSaved`, `adopt`). Profile `pendingSavesMax`, `progressQueueFileBytes`.
   Document `ChapterState`. Tests: `test_core_queue.cpp`; fuzz `fuzz_progress_queue`.
 - `UpdatesHistory.hpp` (WP-15, D52): Updates and History. `isNewChapter` (`fetchedAt` > the manga's `inLibraryAt`),

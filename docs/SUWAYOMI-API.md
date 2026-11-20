@@ -293,6 +293,14 @@ Alpha (Local), SNX Test chapters and the test source's switch file:
   makes no source call: the reader asks it for a downloaded chapter instead of `fetchChapterPages`.
 - `aboutServer` has no server id: downloads are filed by the server's address (`switchServerKey`).
 
+## Offline sync ✅ (test server v2.4.2366, 2026-11-20, for WP-18b, D61)
+- Every answer carries a **`Date` header** (RFC 1123, the server's clock): the app keeps the offset server − console from
+  it and compares a waiting save's `madeAt` + offset with the server's `lastReadAt` (seconds, the same stamp `chapterState`
+  and a progress save return; the integration test checks the decision against real stamps).
+- **`DownloadedProgress`** (`chapters(filter: {id: {in: $ids}})`, `lastPageRead isRead lastReadAt isBookmarked` + the
+  strip note): many chapters per request (400 in ~26 ms); an id the server no longer has is simply **left out** (the app
+  marks that chapter gone). The app asks 500 ids at a time after each check that works.
+
 ## Useful for tests ✅
 - The test server: `tools/test-server/` (README there, D29). Fixture manga: docs/TESTING.md.
 - Jar: `java -Dsuwayomi.tachidesk.config.server.rootDir=<dir> -Dsuwayomi.tachidesk.config.server.port=4568 … -jar Suwayomi-Server-*.jar`.
