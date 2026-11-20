@@ -89,6 +89,18 @@ class MangaModel {
     // Called after every change of what the screen shows (through the client's deliver: the main thread in the app).
     void setListener(std::function<void()> listener);
 
+    // WP-18b (D61), offline: the manga's details (its manga.json) and its downloaded chapters with the merged progress come
+    // from `source` (at start(), retry() and reloadChapters()); nothing from it (the manga isn't on the Switch): Failed with
+    // `notOnSwitch` (its error + Retry). Sort, Show and Continue work; act() and refreshFromSource() do nothing (the screen
+    // answers "This needs the server."). No request. Call before start().
+    struct OfflineContent {
+        core::Manga manga;
+        std::vector<core::Chapter> chapters;
+    };
+    using OfflineSource = std::function<std::optional<OfflineContent>()>;
+    void setOffline(OfflineSource source, api::ApiError notOnSwitch);
+    bool offline() const { return static_cast<bool>(offlineSource_); }
+
     void start();  // the details and the chapters. Only once; later calls do nothing.
     void retry();  // after Failed: everything again
     // The chapter list again from the server (after reading). The list on screen stays until the new one is complete;
@@ -161,6 +173,7 @@ class MangaModel {
     };
 
     void load();  // details + chapters (start, retry)
+    void loadOffline();  // WP-18b: from the Switch, at once
     void fetchFromSource();  // WP-14: refreshManga, then load()
     void maybeFromSource();  // after an answer: the source first after all? (see loadingFromSource)
     void onDetails(const api::ApiResult<core::Manga>& result);
@@ -177,6 +190,8 @@ class MangaModel {
     void changed();
 
     api::SuwayomiClient& client_;
+    OfflineSource offlineSource_;  // WP-18b: set = offline
+    api::ApiError offlineError_;
     core::Manga manga_;
     std::size_t maxChapters_;
     std::function<void()> listener_;

@@ -686,4 +686,68 @@ TEST_CASE("manga: reload keeps the list until the new one is in; refresh from so
     CHECK(capped.asked("Chapters") == 2);
 }
 
+TEST_CASE("manga (WP-18b): offline, the details and the downloaded chapters come from the Switch; sort, Show and Continue "
+          "work; the actions and Refresh from source do nothing; not on the Switch: its error") {
+    Harness h;
+    auto model = h.model();
+    int calls = 0;
+    std::vector<Chapter> onSwitch;
+    for (int order : {1, 3, 2}) {
+        Chapter c;
+        c.id = 100 + order;
+        c.sourceOrder = order;
+        c.name = "Chapter " + std::to_string(order);
+        c.isRead = order == 1;
+        c.lastPageRead = order == 2 ? 4 : 0;
+        c.lastReadAt = order == 2 ? 200 : (order == 1 ? 100 : 0);
+        onSwitch.push_back(c);
+    }
+    model->setOffline(
+        [&]() -> std::optional<MangaModel::OfflineContent> {
+            ++calls;
+            core::Manga m;
+            m.id = 1;
+            m.title = "From manga.json";
+            return MangaModel::OfflineContent{m, onSwitch};
+        },
+        api::makeApiError(api::ApiErrorKind::Offline, "away"));
+    CHECK(model->offline());
+    model->start();
+    CHECK(calls == 1);
+    CHECK(model->state() == State::Ready);
+    CHECK(model->detailsLoaded());
+    CHECK(model->manga().title == "From manga.json");
+    CHECK(model->manga().unreadCount == 2);
+    CHECK(model->complete());
+    REQUIRE(model->items().size() == 3);
+    CHECK(model->items()[0].sourceOrder == 3);  // newest first
+    model->setSort(ChapterSort::OldestFirst);
+    CHECK(model->items()[0].sourceOrder == 1);
+    model->setFilter(ChapterFilter::Unread);
+    CHECK(model->items().size() == 2);
+    model->setFilter(ChapterFilter::All);
+    const ContinuePoint point = model->continuePoint();
+    CHECK(point.kind == ContinuePoint::Kind::Continue);
+    CHECK(point.chapterId == 102);
+    CHECK(point.page == 4);
+    CHECK_FALSE(model->act(0, Action::MarkRead));
+    model->refreshFromSource();
+    CHECK_FALSE(model->refreshing());
+    // Back from the reader: the list is read again from the Switch.
+    onSwitch[2].lastPageRead = 7;
+    model->reloadChapters();
+    CHECK(calls == 2);
+    CHECK(model->chapter(102)->lastPageRead == 7);
+    CHECK(h.http.requests().empty());
+
+    // A manga that isn't on the Switch: the error and Retry.
+    auto other = h.model();
+    other->setOffline([]() -> std::optional<MangaModel::OfflineContent> { return std::nullopt; },
+                      api::makeApiError(api::ApiErrorKind::Offline, "away"));
+    other->start();
+    CHECK(other->state() == State::Failed);
+    CHECK(other->error().kind == api::ApiErrorKind::Offline);
+    CHECK(h.http.requests().empty());
+}
+
 }  // TEST_SUITE

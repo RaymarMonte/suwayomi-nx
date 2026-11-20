@@ -3,6 +3,7 @@
 // library, paged like the real one.
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <cctype>
 #include <map>
 #include <memory>
@@ -621,6 +622,70 @@ TEST_CASE("library: mangaCategoriesChanged (WP-24) moves the manga between shelv
         model->mangaCategoriesChanged(11, {done});  // Beta is in Done, as loaded
         CHECK(model->revision() == now);
     }
+}
+
+TEST_CASE("library (WP-18b): the offline Library: one shelf from the Switch, sorted by the library's sort, a search on the "
+          "console, no request; the saved category stays") {
+    Harness h;
+    int calls = 0;
+    auto make = [](int id, const std::string& title, int unread, std::int64_t lastReadAt) {
+        core::Manga m;
+        m.id = id;
+        m.title = title;
+        m.unreadCount = unread;
+        m.lastReadAt = lastReadAt;
+        return m;
+    };
+    std::vector<core::Manga> onSwitch{make(3, "Paper Garden", 2, 100), make(1, "comet courier", 0, 300),
+                                      make(2, "Alpha", 5, 0)};
+    core::LibrarySettings start;
+    start.categoryId = 7;  // the online Library's tab
+    LibraryModel model(*h.client, start, [&] {
+        ++calls;
+        return onSwitch;
+    });
+    int changes = 0;
+    model.setListener([&changes] { ++changes; });
+    CHECK(model.offline());
+    model.start();
+    CHECK(calls == 1);
+    CHECK(model.state() == LibraryModel::State::Ready);
+    REQUIRE(model.categories().size() == 1);
+    CHECK(model.categories()[0].name == LibraryModel::kOfflineShelfName);
+    REQUIRE(model.items().size() == 3);
+    CHECK(model.items()[0].title == "Alpha");  // by title, any case
+    CHECK(model.totalCount() == 3);
+    CHECK(changes > 0);
+    model.setSort(LibrarySort::LastRead);
+    CHECK(model.items()[0].id == 1);
+    model.setSort(LibrarySort::Unread);
+    CHECK(model.items()[0].id == 2);
+    // Search: on the console, any case.
+    model.search("COMET");
+    CHECK(model.searching());
+    REQUIRE(model.items().size() == 1);
+    CHECK(model.items()[0].id == 1);
+    model.search("nothing like it");
+    CHECK(model.state() == LibraryModel::State::Empty);
+    CHECK_FALSE(model.libraryEmpty());
+    model.clearSearch();
+    CHECK(model.items().size() == 3);
+    // Try again (X) reads the Switch again; the details screen's changes reach the shelf.
+    onSwitch.pop_back();
+    model.refresh();
+    CHECK(calls == 2);
+    CHECK(model.items().size() == 2);
+    core::Manga read = make(3, "Paper Garden", 0, 400);
+    model.updateManga(read);
+    CHECK(std::find_if(model.items().begin(), model.items().end(), [](const core::Manga& m) {
+              return m.id == 3 && m.unreadCount == 0;
+          }) != model.items().end());
+    CHECK(model.settings().categoryId == 7);
+    CHECK(h.http.requests().empty());
+    // Nothing on the Switch: Empty (the main screen shows the error and Retry instead).
+    onSwitch.clear();
+    model.refresh();
+    CHECK(model.state() == LibraryModel::State::Empty);
 }
 
 }  // TEST_SUITE

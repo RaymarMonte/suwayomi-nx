@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <utility>
 
+#include "core/Offline.hpp"
+
 namespace snx::ui {
 
 void sortLibrary(std::vector<core::Manga>& manga, core::LibrarySort sort) {
@@ -25,6 +27,9 @@ void sortLibrary(std::vector<core::Manga>& manga, core::LibrarySort sort) {
 
 LibraryModel::LibraryModel(api::SuwayomiClient& client, core::LibrarySettings start, int pageSize)
     : client_(client), settings_(start), nearEnd_(static_cast<std::size_t>(std::max(1, pageSize / 2))) {}
+
+LibraryModel::LibraryModel(api::SuwayomiClient& client, core::LibrarySettings start, OfflineSource source)
+    : client_(client), offlineSource_(std::move(source)), settings_(start), nearEnd_(1) {}
 
 LibraryModel::~LibraryModel() {
     cancel_.cancel();
@@ -66,6 +71,10 @@ void LibraryModel::refresh() {
 }
 
 void LibraryModel::loadCategories() {
+    if (offlineSource_) {
+        loadOffline();
+        return;
+    }
     state_ = State::Loading;
     loading_ = true;
     changed();
@@ -113,7 +122,62 @@ void LibraryModel::categoriesReady() {
     showCurrent();
 }
 
+void LibraryModel::loadOffline() {
+    core::Category shelfCategory;
+    shelfCategory.id = 0;
+    shelfCategory.name = kOfflineShelfName;
+    categories_ = {shelfCategory};
+    current_ = 0;
+    shelves_.clear();
+    fillOffline(0);
+    showCurrent();
+}
+
+void LibraryModel::fillOffline(int shelfId) {
+    Shelf& target = shelf(shelfId);
+    const std::size_t focus = target.focus;
+    target = Shelf{};
+    target.focus = focus;
+    if (shelfId == kSearchShelf) {
+        if (shelves_.count(0) == 0 || !shelves_[0].complete) {
+            fillOffline(0);
+        }
+        for (const core::Manga& m : shelf(0).loaded) {
+            if (core::titleMatches(m.title, searchText_)) {
+                target.loaded.push_back(m);
+            }
+        }
+    } else {
+        target.loaded = offlineSource_();
+        // No server order offline: by title, ASCII letters without case, then id (what the Title sort keeps).
+        const auto lower = [](std::string text) {
+            for (char& c : text) {
+                if (c >= 0x41 && c <= 0x5A) {
+                    c = static_cast<char>(c + 32);
+                }
+            }
+            return text;
+        };
+        std::stable_sort(target.loaded.begin(), target.loaded.end(), [&lower](const core::Manga& a, const core::Manga& b) {
+            const std::string x = lower(a.title);
+            const std::string y = lower(b.title);
+            return x != y ? x < y : a.id < b.id;
+        });
+    }
+    for (const core::Manga& m : target.loaded) {
+        target.ids.insert(m.id);
+    }
+    target.total = static_cast<int>(target.loaded.size());
+    target.started = true;
+    target.complete = true;
+}
+
 void LibraryModel::loadPage(int shelfId) {
+    if (offlineSource_) {
+        fillOffline(shelfId);  // at once: showCurrent() shows it
+        showCurrent();
+        return;
+    }
     loading_ = true;
     Shelf& target = shelf(shelfId);
     const net::CancelToken token = cancel_;

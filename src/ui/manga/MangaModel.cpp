@@ -151,12 +151,39 @@ void MangaModel::changed() {
     }
 }
 
+void MangaModel::setOffline(OfflineSource source, api::ApiError notOnSwitch) {
+    offlineSource_ = std::move(source);
+    offlineError_ = std::move(notOnSwitch);
+}
+
+void MangaModel::loadOffline() {
+    std::optional<OfflineContent> content = offlineSource_();
+    if (!content) {
+        fail(offlineError_);
+        return;
+    }
+    manga_ = std::move(content->manga);
+    detailsLoaded_ = true;
+    loaded_ = std::move(content->chapters);
+    std::stable_sort(loaded_.begin(), loaded_.end(),
+                     [](const core::Chapter& a, const core::Chapter& b) { return a.sourceOrder > b.sourceOrder; });
+    total_ = static_cast<int>(loaded_.size());
+    firstPage_ = true;
+    complete_ = true;
+    moreFailed_ = false;
+    state_ = State::Loading;  // updateState() decides Ready or Empty
+    rebuildItems(true);
+    updateUnreadCount();
+    updateState();
+    changed();
+}
+
 void MangaModel::start() {
     if (started_) {
         return;
     }
     started_ = true;
-    if (!manga_.initialized) {
+    if (!manga_.initialized && !offlineSource_) {
         fetchFromSource();  // a bare row from browsing: the source's details first (WP-14, Mihon's rule)
         return;
     }
@@ -212,6 +239,10 @@ void MangaModel::setInLibrary(bool inLibrary, std::vector<core::Category> catego
 
 void MangaModel::retry() {
     started_ = true;
+    if (offlineSource_) {
+        loadOffline();
+        return;
+    }
     if (sourceFailed_) {
         fetchFromSource();
         return;
@@ -226,6 +257,10 @@ void MangaModel::retry() {
 }
 
 void MangaModel::load() {
+    if (offlineSource_) {
+        loadOffline();
+        return;
+    }
     loadCancel_.cancel();
     loadCancel_ = net::CancelToken();
     state_ = State::Loading;
@@ -335,6 +370,10 @@ void MangaModel::reloadChapters() {
     if (busy_ || (state_ != State::Ready && state_ != State::Empty)) {
         return;
     }
+    if (offlineSource_) {
+        loadOffline();  // the progress read meanwhile (the queue, progress.json)
+        return;
+    }
     busy_ = true;
     changed();
     beginReload();
@@ -362,7 +401,7 @@ void MangaModel::finishReload(bool ok, const api::ApiError& error) {
 }
 
 void MangaModel::refreshFromSource() {
-    if (busy_ || (state_ != State::Ready && state_ != State::Empty)) {
+    if (offlineSource_ || busy_ || (state_ != State::Ready && state_ != State::Empty)) {
         return;
     }
     busy_ = true;
@@ -512,8 +551,8 @@ std::vector<int> MangaModel::previousIds(const core::Chapter& target, bool wantR
 }
 
 bool MangaModel::act(std::size_t index, Action action) {
-    if (busy_ || index >= items_.size()) {
-        return false;
+    if (offlineSource_ || busy_ || index >= items_.size()) {
+        return false;  // offline: "This needs the server." (the screen says it)
     }
     const core::Chapter& target = items_[index];
     std::vector<int> ids;

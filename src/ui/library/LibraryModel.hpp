@@ -39,6 +39,14 @@ class LibraryModel {
     // `start`: the category and sort the user left the screen with. pageSize: RuntimeProfile::libraryPageSize (the client
     // asks for that many per page; this model uses it for when to ask for the next one).
     LibraryModel(api::SuwayomiClient& client, core::LibrarySettings start, int pageSize);
+    // WP-18b (D61), the offline Library: a second model the main screen shows while the server can't be reached. One shelf
+    // "On this Switch" (category id 0) from `source` (the downloaded manga with their merged badges and stamps, called at
+    // start(), refresh() and when a shelf is forgotten), sorted by the library's sort; search() filters its titles on the
+    // console (core::titleMatches). It never makes a request. `start`'s category stays what settings() keeps.
+    using OfflineSource = std::function<std::vector<core::Manga>()>;
+    LibraryModel(api::SuwayomiClient& client, core::LibrarySettings start, OfflineSource source);
+    static constexpr const char* kOfflineShelfName = "On this Switch";
+    bool offline() const { return static_cast<bool>(offlineSource_); }
     ~LibraryModel();  // cancels what is under way
 
     LibraryModel(const LibraryModel&) = delete;
@@ -117,6 +125,8 @@ class LibraryModel {
     static constexpr int kSearchShelf = -1;
 
     void loadCategories();
+    void loadOffline();             // WP-18b: the offline shelf, at once
+    void fillOffline(int shelfId);  // ... a shelf of it (the downloaded manga, or the search's matches)
     void onCategories(const api::ApiResult<std::vector<core::Category>>& result);
     void loadPage(int shelfId);  // a category id or kSearchShelf
     void onPage(int shelfId, const api::ApiResult<core::NodeList<core::Manga>>& result);
@@ -131,6 +141,7 @@ class LibraryModel {
     const Shelf* currentShelf() const;
 
     api::SuwayomiClient& client_;
+    OfflineSource offlineSource_;  // WP-18b: set = the offline Library
     core::LibrarySettings settings_;
     std::size_t nearEnd_;  // ask for the next page when the grid is this close to the end of what is loaded
     std::function<void()> listener_;
