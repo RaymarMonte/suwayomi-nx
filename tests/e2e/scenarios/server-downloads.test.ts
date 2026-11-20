@@ -118,8 +118,10 @@ async function pressUntilFocus(s: Scenario, button: 'UP' | 'DOWN' | 'LEFT' | 'RI
     for (let i = 0; i < max && !focusedView(s).includes(part); i++) {
         const mark = s.events.mark();
         await s.driver.press(button);
-        await s.events.waitForEvent('focus', {}, { from: mark, timeoutMs: 3_000 }).catch(() => undefined);
-        await s.events.waitForEvent('idle', {}, { from: mark });
+        const moved = await s.events.waitForEvent('focus', {}, { from: mark, timeoutMs: 3_000 }).catch(() => undefined);
+        // WP-18: on the console a press toward a row below the visible part of a list is sometimes lost (borealis):
+        // nothing changes, so no "idle" comes either. The next press moves on.
+        if (moved) await s.events.waitForEvent('idle', {}, { from: mark });
     }
     expect(focusedView(s), `${button}: the focus reaches ${part}`).toContain(part);
 }
@@ -227,7 +229,7 @@ async function readToEnd(s: Scenario, row: number, chapterId: number): Promise<A
 async function setDeleteAfterReading(s: Scenario, on: boolean): Promise<void> {
     await tapUntil(s, tab('Settings'), 'the Settings tab', isEv('screen', { name: 'Settings' }));
     await pressUntilFocus(s, 'RIGHT', 'settings/', 3);
-    await pressUntilFocus(s, 'DOWN', 'settings/delete_after_reading', 16);
+    await pressUntilFocus(s, 'DOWN', 'settings/delete_after_reading', 20);
     await pressUntil(s, 'A', `delete after reading: ${on}`, isEv('setting', { name: 'deleteAfterReading', value: on }));
 }
 

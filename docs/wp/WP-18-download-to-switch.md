@@ -113,7 +113,7 @@ downloads/<server key>/m<mangaId>/c<chapterId>/0000.jpg ...   the pages, index +
 the cover, delete chapters / a manga, write the queue (debounced `configSaveDelayMs`, at once at HOME / sleep / exit:
 `flush()`), used bytes, free bytes (`SafeFs::freeBytes`). Its pure parts (paths, file formats, rules) live in
 `core/SwitchDownloads.hpp`. **The build measures `freeBytes()` on the console**: if one call takes over 20 ms, ask it once per
-chapter and count what was written since.
+chapter and count what was written since. **Measured 2026-11-20: 0–1 ms**, so it is asked each time.
 
 **The queue model: `ui/downloads/SwitchDownloads`** (no borealis, like `ServerDownloads`: the client, the store, `Limits`
 from the profile, a clock and a schedule hook, several listeners). One for the app, `AppContext::switchDownloads`, made in
@@ -302,6 +302,10 @@ handler, the exit steps); SAFETY.md S4–S6, S9, S10; `tests/e2e/README.md`, `li
   page turns make no page request; a Local 10-page chapter downloads in ≤ 20 s (record pages per second); `queue.json`
   written at most once per `configSaveDelayMs` while downloading; HOME pauses within 1 s and it goes on after; memory flat
   (+< 16 MiB) over the 10 rounds; `freeBytes()`'s time on the console recorded.
+- **Met (2026-11-20):** every layer above green, and all ten Switch scenarios. Console numbers: first page 165 ms; a Local
+  10-page chapter 666 ms (15 pages/s); no page requests on page turns; `freeBytes()` 0–1 ms; HOME pauses in the frame the
+  app loses focus and it goes on ~150 ms after. The queue.json write rate is checked by unit tests only; the 100-entry memory
+  rounds went to WP-18c with that step.
 
 ## Split point
 If it runs long: **Move to top / bottom**, **delete after reading** (the setting, the reader's part, its steps), **the "Same

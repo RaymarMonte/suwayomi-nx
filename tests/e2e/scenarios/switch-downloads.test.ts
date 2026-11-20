@@ -20,6 +20,9 @@
 // chapters unread, at page 0, without bookmarks, the test source's switch file cleared.
 // Needs the test server (tools/test-server/test-server.sh start).
 
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { expect } from 'vitest';
 
 import { mangaIds } from '../lib/chapters.ts';
@@ -31,6 +34,7 @@ import { patchChapters, serverChapters } from '../lib/server-downloads.ts';
 import { appServerUrl, optionsFromEnv, SuwayomiClient } from '../lib/suwayomi.ts';
 import { chapterPageFiles, removeTestServerFolders, serverPageBytes, serverPages, testServerFolders } from '../lib/switch-downloads.ts';
 import { clearTestSourceControl } from '../lib/test-source.ts';
+import { playTouches, tapFrames } from '../lib/touches.ts';
 
 /** The tab mirrors the Server downloads tab's layout: the button and Clear... on top, rows below. */
 const SWITCH_TAB = { primary: SERVER_DOWNLOADS.primary, clear: SERVER_DOWNLOADS.clear };
@@ -42,6 +46,8 @@ const SPACE_MASK = { x: 785, y: 105, w: 490, h: 70, why: 'the space line: free s
 const Y_HINT = { x: 812, y: 683 };
 const STATE_MASK = { x: 1000, y: 190, w: 280, h: 460, why: 'state text and progress (timing)' };
 const PAGES = 10;
+/** D59's numbers (on the app's own clock, D54): a downloaded chapter's first page from the played tap; a 10-page Local chapter. */
+const LIMITS = { firstPageMs: 300, localChapterMs: 20_000 };
 
 const isEv = (name: string, fields: Record<string, unknown> = {}) => (e: AppEvent) =>
     e.ev === name && Object.entries(fields).every(([k, v]) => e[k] === v);
@@ -84,7 +90,10 @@ async function pressUntilFocus(s: Scenario, button: 'UP' | 'DOWN' | 'LEFT' | 'RI
         if (i === max) break;
         const mark = s.events.mark();
         await s.driver.press(button);
-        await s.events.waitForEvent('idle', {}, { from: mark });
+        // On the console a press toward a row below the visible part of a list is sometimes lost (borealis): nothing
+        // changes, so no "focus" and no "idle" come. The next press moves on.
+        const moved = await s.events.waitForEvent('focus', {}, { from: mark, timeoutMs: 3_000 }).catch(() => undefined);
+        if (moved) await s.events.waitForEvent('idle', {}, { from: mark });
     }
     throw new Error(`no focus on ${part} after ${max} presses of ${button} (last: ${focusedView(s)})`);
 }
@@ -239,6 +248,8 @@ scenario('switch-downloads', async (s) => {
         expect(details.switch).toEqual({ onSwitch: 0, damaged: 0, queued: 0, downloading: 0, failed: 0 });
         const first = await downloadRow(s, 2, one);
         expect(first.pages).toBe(PAGES);
+        const numbers: Record<string, number> = { localChapterMs: Number(first.ms), localChapterBytes: Number(first.bytes) };
+        numbers.pagesPerSecond = Math.round((PAGES * 1000 / Math.max(1, numbers.localChapterMs)) * 10) / 10;
         const [key] = await testServerFolders(s.driver, url);
         expect(key, 'the test server has its own downloads folder with a server.json').toBeTruthy();
         const files = await chapterPageFiles(s.driver, key, alpha, one);
@@ -251,7 +262,16 @@ scenario('switch-downloads', async (s) => {
 
         // 2. The reader opens Chapter 1 from its files: no page request, also over 2 page turns.
         let mark = s.events.mark();
-        const opened = await readerAfter(s, () => s.driver.touch(MANGA.row(2).x, MANGA.row(2).y), { shown: 'page', chapterId: one, page: 0 });
+        // A played tap (D54): the time from the tap's first frame to the first page shown, on the app's clock.
+        const played = await playTouches(s, tapFrames(MANGA.row(2)));
+        const opened = await s.events.waitFor('Chapter 1 from its files', isEv('reader', { shown: 'page', chapterId: one, page: 0 }),
+            { from: mark, timeoutMs: 30_000 });
+        await s.events.waitForEvent('idle', {}, { from: mark });
+        numbers.firstPageMs = Math.max(0, Number(opened.t) - Number(played.started ?? played.t));
+        writeFileSync(join(s.out, 'numbers.json'), JSON.stringify(numbers, null, 2));
+        console.log(`[switch-downloads] ${JSON.stringify(numbers)}`);
+        expect(numbers.firstPageMs, 'a downloaded chapter\'s first page (ms from the tap)').toBeLessThanOrEqual(LIMITS.firstPageMs);
+        expect(numbers.localChapterMs, 'a 10-page Local chapter downloaded (ms)').toBeLessThanOrEqual(LIMITS.localChapterMs);
         await readerAfter(s, () => s.driver.touch(nextPage(opened).x, nextPage(opened).y), { shown: 'page', page: 1 });
         await readerAfter(s, () => s.driver.touch(nextPage(opened).x, nextPage(opened).y), { shown: 'page', page: 2 });
         const since = s.events.events.slice(mark);

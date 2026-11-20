@@ -1342,10 +1342,12 @@ Switch"; amends D58's tab name and SAFETY.md S9 (owner OK).
   address of the same server gets a folder of its own). Move to top / bottom, delete after reading and the keep-awake are
   built. The filter's event name is `on_switch`. The `switch_downloads` event has the view, wait, counts, bytes and the
   queue's chapter ids (no per-row list, no `keepAwake` yet), `switch_download_action` has no `ms`. The integration test
-  downloads Alpha chapter 1 (Local) and Paper Garden chapter 1 (SNX Test) into a temp folder (byte for byte the server's
+  downloads Alpha chapter 1 (Local) and Comet Courier chapter 1 (SNX Test; not Paper Garden, whose pages the server-downloads e2e needs uncached) into a temp folder (byte for byte the server's
   pages) and fails Missing Page Mansion at page 2; the ui_login token-expiry download and the e2e list's slowed-queue,
   Retry, restart, strip, server-stopped, `sdFreeBytes` and 100-entry steps went to **WP-18c** (unit tests cover their
   rules). The tabs moved: Switch downloads is tab 5 (index 4); Server downloads and Settings one place down.
+  On the console (2026-11-20): first downloaded page 165 ms after the tap, a Local 10-page chapter in 666 ms, `freeBytes()`
+  0–1 ms (so no once-per-chapter caching), HOME pauses at once and downloads go on ~150 ms after coming back.
 Rejected: plain "Download" words (the owner chose to name the Switch), one submenu for both kinds, no limit (only the
 1 GB floor), deleting read chapters by itself when full, one switch for both "delete after reading" rules, a queue-only tab,
 downloading at the HOME menu (S5), the tab after Library, a network fall-back for damaged pages, folders by title.

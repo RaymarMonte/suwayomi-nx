@@ -826,7 +826,7 @@ struct SwitchRig {
     }
 };
 
-TEST_CASE("Switch downloads (WP-18, D59): Local and SNX Test chapters onto a temp SD card equal the server's pages") {
+TEST_CASE("Switch downloads (WP-18, D59): Alpha (Local) and Comet Courier (SNX Test) onto a temp SD card equal the server's pages") {
     using State = snx::ui::SwitchDownloads::ChapterState;
     setSwitchFile("");
     SwitchRig rig;
@@ -849,16 +849,20 @@ TEST_CASE("Switch downloads (WP-18, D59): Local and SNX Test chapters onto a tem
     MESSAGE("Alpha chapter 1 (" << local.pages << " pages) downloaded in " << localMs << " ms");
     rig.checkPagesEqualServer(alphaChapters.back().id);
 
-    // Paper Garden (SNX Test EN, the first Latest), its chapters fetched from the source first.
-    const auto latest = rig.mustOnMain(rig.live->browseSource(kSnxEn, snx::core::gql::BrowseKind::Latest, 1, "",
+    // Comet Courier (SNX Test EN, its own JPEG pages), its chapters fetched from the source first. Not Paper Garden: the
+    // server keeps the pages it served in its own cache, and the server-downloads e2e needs Paper Garden's pages slow.
+    const auto comets = rig.mustOnMain(rig.live->browseSource(kSnxEn, snx::core::gql::BrowseKind::Search, 1, "Comet Courier",
                                                               nlohmann::json::array(), CancelToken()));
-    REQUIRE_FALSE(latest.manga.empty());
-    const int garden = latest.manga[0].id;
-    rig.mustOnMain(rig.live->refreshManga(garden, CancelToken()));
-    const auto gardenChapters = rig.mustOnMain(rig.live->chapters(garden, 0, CancelToken())).nodes;
-    REQUIRE_FALSE(gardenChapters.empty());
-    REQUIRE(rig.download(garden, gardenChapters.back()).state == State::OnSwitch);
-    rig.checkPagesEqualServer(gardenChapters.back().id);
+    int comet = 0;
+    for (const auto& manga : comets.manga) {
+        if (manga.title == "Comet Courier") comet = manga.id;
+    }
+    REQUIRE(comet > 0);
+    rig.mustOnMain(rig.live->refreshManga(comet, CancelToken()));
+    const auto cometChapters = rig.mustOnMain(rig.live->chapters(comet, 0, CancelToken())).nodes;
+    REQUIRE_FALSE(cometChapters.empty());
+    REQUIRE(rig.download(comet, cometChapters.back()).state == State::OnSwitch);
+    rig.checkPagesEqualServer(cometChapters.back().id);
 
     // Missing Page Mansion: chapter 1's page 2 answers 404 → Failed at page 2 (index 1), nothing of it on the Switch.
     const auto found = rig.mustOnMain(rig.live->browseSource(kSnxEn, snx::core::gql::BrowseKind::Search, 1,
@@ -876,7 +880,7 @@ TEST_CASE("Switch downloads (WP-18, D59): Local and SNX Test chapters onto a tem
 
     // Delete: the manga go from the model's view (the folders on the store's thread).
     rig.model->deleteManga(alpha);
-    rig.model->deleteManga(garden);
+    rig.model->deleteManga(comet);
     rig.model->clear();
     REQUIRE(rig.drive([&] { return rig.model->downloadedManga().empty(); }, 10s));
 }
