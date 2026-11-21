@@ -19,7 +19,8 @@
 // - while the Library tab shows, no polls (the next tab's first answer counts at most one more poll than before);
 // - Switch only: 100 rows queued by GraphQL (slowed by 10 s) → the tab: a status of 100 rows applied ≤ 50 ms; 10 rounds
 //   tab ↔ Library: the memory in use grows by less than 16 MiB; then Clear;
-// - D58: every action → its answer on screen ≤ 1 s (the event's ms, the app's own clock, D54).
+// - D58: every action → its answer on screen ≤ 1 s (the event's ms, the app's own clock, D54). Resume's answer is
+//   "Starting..." (the server starts on its next 1 s beat): the queue running ≤ 2 s (D62, owner 2026-11-21).
 // Known state first and at the end, also after a failure: an empty, stopped queue, none of the touched manga's chapters
 // downloaded on the server, Paper Garden's chapters unread and without bookmarks, the switch file cleared.
 // Needs the test server (tools/test-server/test-server.sh start).
@@ -40,7 +41,7 @@ import { clearServerPageCache, clearTestSourceControl, setTestSourceControl, TES
 const MiB = 1024 * 1024;
 const ROUNDS = 10;
 /** D58's limits (WP-17 Acceptance), on the app's own clock. */
-const LIMITS = { actionMs: 1_000, status100Ms: 50, roundsBytes: 16 * MiB };
+const LIMITS = { actionMs: 1_000, status100Ms: 50, roundsBytes: 16 * MiB, resumeRunningMs: 2_000 };
 /** The slowdown while the queue must stand still long enough to look at it: every source call waits this long. */
 const SLOW_MS = 8_000;
 
@@ -316,8 +317,16 @@ scenario('server-downloads', async (s) => {
 
         // 4. Resume (the same button); the slowdown off → the queue empties (golden "server-empty"): 1, 3, 4, 5, 6 on the server's disk.
         mark = s.events.mark();
-        await tapUntil(s, SERVER_DOWNLOADS.primary, 'resumed', isEv('server_download_action', { action: 'resume' }));
-        expect(lastOf(s, 'server_download_action')?.ok).toBe(true);
+        const resumed = await tapUntil(s, SERVER_DOWNLOADS.primary, 'resumed', isEv('server_download_action', { action: 'resume' }));
+        expect(resumed.ok).toBe(true);
+        // D58 as amended (D62, owner 2026-11-21): the server starts its downloader only on its next 1 s beat, so the queue
+        // can show running 0–1 s after the tap, plus the app's next look. The tap's answer on screen is "Starting...".
+        const tappedAt = Number(resumed.t) - Number(resumed.ms);
+        const starting = s.events.events.slice(mark).find((e) => isEv('server_downloads', { view: 'starting' })(e));
+        expect(starting, '"Starting..." after Resume').toBeDefined();
+        console.log(`[server-downloads] Resume: "Starting..." after ${Number(starting!.t) - tappedAt} ms, running after ${resumed.ms} ms`);
+        expect(Number(starting!.t) - tappedAt, 'Resume → "Starting..." on screen (ms)').toBeLessThanOrEqual(LIMITS.actionMs);
+        expect(Number(resumed.ms), 'Resume → the queue running (ms)').toBeLessThanOrEqual(LIMITS.resumeRunningMs);
         clearTestSourceControl();
         const emptied = await s.events.waitFor('the queue empty',
             (e) => e.ev === 'server_downloads' && e.view === 'idle' && e.rows === 0, { from: mark, timeoutMs: 90_000 });
@@ -462,8 +471,10 @@ scenario('server-downloads', async (s) => {
             clearTestSourceControl();
         }
 
-        // D58: every action's answer on screen ≤ 1 s (delete after reading runs in the background, after the reader closed).
-        const actions = s.events.events.filter((e) => e.ev === 'server_download_action' && e.action !== 'delete_after_reading');
+        // D58: every action's answer on screen ≤ 1 s (delete after reading runs in the background, after the reader closed;
+        // Resume's answer is "Starting...", checked in step 4).
+        const actions = s.events.events.filter((e) => e.ev === 'server_download_action' &&
+            e.action !== 'delete_after_reading' && e.action !== 'resume');
         const slowest = Math.max(...actions.map((e) => Number(e.ms)));
         console.log(`[server-downloads] ${s.driver.name}: ${actions.length} actions, the slowest ${slowest} ms`);
         expect(slowest, 'the slowest action → its answer (ms)').toBeLessThanOrEqual(LIMITS.actionMs);

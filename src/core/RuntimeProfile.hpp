@@ -10,7 +10,7 @@
 // Every memory budget, prefetch count, concurrency and input limit the app uses (D12, D62, ARCHITECTURE.md "Launch modes and
 // runtime profiles"). Modules read their limits from here, never from constants of their own.
 // Full's numbers come from WP-00's measurements (application mode: a 3,184 MiB heap), tuned in WP-07 and WP-12. Lite's
-// (applet mode, from the Album: other homebrew report a 380-400 MiB heap) are first guesses until WP-21 measures them.
+// (applet mode, from the Album: a 259.7 MiB heap on the console) from WP-21's console measurements (D62).
 namespace snx::core {
 
 inline constexpr std::uint64_t kMiB = 1024 * 1024;

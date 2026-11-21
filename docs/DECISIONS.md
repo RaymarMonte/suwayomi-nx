@@ -1303,6 +1303,8 @@ read chapter's download, Sorayomi's step-by-step reordering, Mihon's "Bookmarked
   mode, handheld):** `server-downloads` green; 13 actions, the slowest 573 ms (resume, through the check read); a status of
   100 rows applied in ≤ 38 ms; memory under the 16 MiB limit over the 10 tab rounds; `smoke`, `manga-details`,
   `touch-pass`, `browse`, `updates-history`, `reader-paged`, `resume-progress` green.
+- **Amended by D62 (owner, 2026-11-21): Resume's answer on screen is "Starting..."** (shown at once, ≤ 1 s); the queue
+  running may take ≤ 2 s, because the server starts its downloader only on its next 1-second beat (D62 has the runs).
 
 **D59 Download to Switch: chapters on the SD card, a Switch downloads tab, the reader reads them first** (WP-18, planned
 2026-11-19; the owner's answers the same day; `wp/WP-18-download-to-switch.md`). Carries out D47's "Download means to the
@@ -1523,6 +1525,44 @@ in safe mode. The exit request (HOME while the app runs in the Album) reaches `O
 harness's guess of the Album cursor). After a crash the HOME menu keeps its cursor on the Album: the driver knows that
 screen (`home-album-cursor`, the word "Album" under the icon). `SNX_APPLET_CONSOLE=1` is gone (answer 3). Seen: from the
 Album the app gets **259 MiB** on this console (not the guessed 380): the Lite numbers step uses that.
+**The console checks (2026-11-21, owner watching; a one-off script, not kept):** from the Album the heap is **259.7 MiB**
+(272,314,368 bytes; 0.7 MiB in use when the profile is made), **the same with Spelunky 2 suspended behind the Album** (no
+fatal, hbloader started fine): a game doesn't take from the Album's memory on this console, so the low-memory screen
+(160 MiB) stays a guard for other consoles and cases. app_start to the library: 275-365 ms. Delta Big's turns (2-page
+chapters): 18-33 ms within a chapter, 87-148 ms into the next one (Lite fetches nothing of it). The library search's system
+keyboard opened with the reader's pages cached, stayed open 13 s (main loop still: the watchdog waits, D45), no crash; it
+never failed to open, so no failure text and borealis unchanged. HOME in the reader (the exit request): the main loop ended
+0.4 s later and the page was on the server right after (the reader saves as it closes; the download queue is written after
+the main loop, the same path as PLUS). **Sleep and wake from the Album:** OnResume comes
+(`appletSetRestartMessageEnabled` works for the library applet too): "woke from sleep", the wake check online in 16-29 ms;
+the owner's Joy-Con turns the page after unlocking, and the harness's virtual controller comes back with its next press (a
+press while the lock screen shows goes to the lock screen). **The screen stays on:** the reader 4 min untouched with
+auto-sleep at 3 min: no dimming, no sleep (libnx's `SetMediaPlaybackState` for a library applet). **Docked:** not checked
+(no dock that day; the owner's try). **The Lite numbers:** the shares stay; the image cache's cap goes 64 → **48 MiB**
+(the heap is two thirds of the guess): at 259.7 MiB 48 + 13 (covers) + 39 (textures) + 26 (one decode) MiB, under half the
+heap, so borealis (~45 MiB) and a download page stay below the pressure line (85 %, 221 MiB). In use: 64.5 MiB after 40
+turns, 70 MiB at the peak. `ALBUM_HEAP_MB` (desktop `--mem-limit`) = 260.
+**Every Switch scenario from the Album (2026-11-21, the 48 MiB build):** `soak`: 500 turns, 167 chapters, memory 41 → 96 MiB
+after 100 turns, **99 MiB at the peak** (38 % of the heap; the pressure line is 221), 93 at the end, no `mem_pressure`;
+prefetched turns median 18 / p90 32 / max 33 ms (application mode 17 / 18 / 21). `reader-paged`: 100 prefetched turns median
+32 / p90 33 ms (application mode 19 / 32), growth 5.8 MiB. One 10-page chapter to the SD card in 1.09 s, 9.2 pages/s
+(application mode 0.67 s, 15 pages/s: Lite fetches one page at a time over 2 sockets). `touch-pass`, `keyboard-wait`, the
+9 crash drills and the rest green. Found: **one decode's budget (26 MiB) is less than a very tall strip page** (the fixture's
+800 × 12,000 WebP, 38.4 MB decoded): from the Album it decodes scaled down to fit (672 wide: enough for the landscape strip,
+a little soft in the portrait strip and when zoomed). An 800-wide page up to ~8,480 px tall still decodes whole. Kept as it
+is: 15 % (39 MiB) would put the worst case at the pressure line. `reader-webtoon` and `image-bench` now check the budget,
+not the full size, and its strip goldens get Album versions (`perMode`: the scaled-down pages look a little different).
+The same pages at a full stick push: the 48 MiB cache holds one of them (27 MB each), so from the Album the second and
+third pass catch pages still loading (276 frames; application mode none), memory flat at 94.7 MiB.
+HOME from the Album ends the app, so `switch-downloads`' step 7 checks there that the queue it saved comes back at the next
+start. `library-browse`'s and `library-tools`' Switch goldens were still from before WP-18's tab: updated.
+**`server-downloads` from the Album on the PC:** Resume took 1.6–1.9 s in 4 of 5 runs (application mode 57–805 ms in 6).
+The server starts its downloader only on its next 1-second beat (its log's `Running: …, Queued: …` lines tick at a fixed
+offset), so the queue can show running 0–1 s after the tap; the app's one check at 0.5 s misses a late beat and the next
+poll (~1.5 s) sees it. The test's earlier steps line up with that beat and from the Album take a little longer, so the tap
+lands late in it. Not the app's to fix (a check every 0.5 s would still pass 1 s on a beat near the end of the second), so
+**D58 amended (owner, 2026-11-21):** Resume's answer on screen is "Starting..." (0–1 ms in the runs), the queue running
+≤ 2 s. After it: green twice from the Album (running after 503 / 1795 ms) and in application mode (503 ms).
 Rejected: handing control back to hbloader after a crash (D35: hbmenu then crashed over what the crash left behind, from
 the Album that's a fatal too); changing Atmosphère's hbloader settings for more memory (a system file, D14, and users
 wouldn't); a one-time tip (the owner wants it at every start, with a way to turn it off); applet mode with only a warning if

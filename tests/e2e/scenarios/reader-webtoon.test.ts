@@ -234,9 +234,11 @@ const STRIP_END = ch2Page(3) + BAND - 1280;
  * down the strip turned left) and L back; ZR / ZL zoom steps with a sideways
  * D-pad glide (WP-13d); then three passes down and up the whole strip at a full push: memory grows by less
  * than 16 MiB after the first pass, and from the second pass on nothing waits (`waitFrames` 0). Frame intervals of every
- * gesture with 3 frames or more (drags, flicks, glides, scrolls): p90 <= 17 ms, none over 34 ms.
+ * gesture with 3 frames or more (drags, flicks, glides, scrolls): p90 <= 17 ms, none over 34 ms. `whole`: Gamma's pages
+ * decode whole (false from the Album, WP-21: one decode's budget is smaller, so 2 x can't be sharp, and the cache holds
+ * too few of them for the passes not to wait).
  */
-async function switchControls(s: Scenario, g1: number): Promise<void> {
+async function switchControls(s: Scenario, g1: number, whole: boolean): Promise<void> {
     const push = (x: number, ms: number) => () => s.driver.stick('left', x, 0, ms);
     await switchManga(s, LIBRARY_MORE.longSeries, 1);
     let ev = await openChapter(s, 1, { mode: 'strip', shown: 'strip' });
@@ -266,7 +268,7 @@ async function switchControls(s: Scenario, g1: number): Promise<void> {
     // stops at the strip's edge, 360 away either way; the top stays. ZL twice goes back to 1.
     ev = await readerAfter(s, () => s.driver.press('ZR'), { mode: 'strip', zoom: 1.5 });
     ev = await readerAfter(s, () => s.driver.press('ZR'), { mode: 'strip', zoom: 2 });
-    expect(ev).toMatchObject({ x: -360, sharp: true, sharpPages: 0 });
+    expect(ev).toMatchObject(whole ? { x: -360, sharp: true, sharpPages: 0 } : { x: -360, sharp: false });
     top = Number(ev.top);
     ev = await readerAfter(s, () => s.driver.press('UP'), { mode: 'strip', zoom: 2 });
     expect(Math.abs(Number(ev.x) + 360), `a zoomed sideways glide: x -360 -> ${ev.x}`).toBe(360);
@@ -300,7 +302,9 @@ async function switchControls(s: Scenario, g1: number): Promise<void> {
     console.log(`[reader-webtoon] memory after the passes: ${memory.map((m) => (m / MiB).toFixed(1)).join(', ')} MiB; ` +
         `growth after the first ${(growth / MiB).toFixed(1)} MiB; waitFrames from the second pass ${waits}`);
     expect(growth, 'memory growth after the first pass').toBeLessThan(16 * MiB);
-    expect(waits, 'frames that showed a page still loading, from the second pass on').toBe(0);
+    // From the Album (WP-21) Lite's 48 MiB cache holds one of Gamma's scaled-down pages (27 MB each): every pass decodes
+    // them again, so a full push catches pages still loading (276 frames on the console, D62). Memory stays flat.
+    if (whole) expect(waits, 'frames that showed a page still loading, from the second pass on').toBe(0);
 
     // The frame times while the strip moved (the console's numbers, D17).
     const gestures = s.events.events.filter((e) => e.ev === 'gesture' && Number(e.frames) >= 3);
@@ -330,7 +334,9 @@ scenario('reader-webtoon', async (s) => {
     const view = PORTRAIT_LEFT;
 
     try {
-        await s.launch({ testConfig: { server: { url } } });
+        const start = await s.launch({ testConfig: { server: { url } } });
+        // Gamma's 800 x 12000 pages (38.4 MB decoded) fit one decode's budget, except from the Album (WP-21, below).
+        const wholeDecode = GAMMA.width * GAMMA.height * 4 <= Number(start.maxDecode);
         await waitForLibrary(s);
 
         // Gamma ch1: a strip by itself (the shape of its first page), turned left (the strip's own orientation, fresh).
@@ -397,10 +403,17 @@ scenario('reader-webtoon', async (s) => {
 
         // Zoom in the strip (WP-13d). A double tap in the middle band: 2 x around the tapped point (200, 640). The strip is
         // 1440 wide then, wider than the screen: its left edge at 200 - 2 x 200 = -200; the tapped height stays (the top
-        // moves down 640 / 2). Gamma's 800-wide decode has all the detail 2 x wants: sharp, nothing decodes again.
+        // moves down 640 / 2). Gamma's 800-wide decode has all the detail 2 x wants: sharp, nothing decodes again. From
+        // the Album (WP-21) one decode may take Lite's maxDecode (26 MiB of the console's 259.7 MiB heap), less than the
+        // whole 800 x 12000 page (38.4 MB): it decodes scaled down, so 2 x isn't sharp and nothing sharper can come.
         top = Number(ev.top);
         ev = await readerAfter(s, doubleTap(s, { x: 200, y: 640 }, view.at), { mode: 'strip', zoom: 2 });
-        expect(ev).toMatchObject({ x: -200, sharp: true, sharpPages: 0, decW: GAMMA.width, menu: false });
+        if (wholeDecode) {
+            expect(ev).toMatchObject({ x: -200, sharp: true, sharpPages: 0, decW: GAMMA.width, menu: false });
+        } else {
+            expect(ev).toMatchObject({ x: -200, sharp: false, sharpPages: 0, menu: false });
+            expect(Number(ev.decW), 'decoded scaled down').toBeLessThan(GAMMA.width);
+        }
         expect(near(ev.top, top + 320), `a double tap at 2 x: top ${top} -> ${ev.top}`).toBe(true);
         // A zoomed drag pans sideways (150 to the right): the left edge follows the finger, the top stays.
         top = Number(ev.top);
@@ -437,7 +450,7 @@ scenario('reader-webtoon', async (s) => {
         ev = await scrollTo(s, view, ch1Page(1) + 40 - 640);
         expect(ev).toMatchObject({ chapterId: g1, page: 1 });
         await expectCodes(s, ev, view);
-        await s.expectGolden('webtoon-seam');
+        await s.expectGolden('webtoon-seam', { perMode: true });  // from the Album the strip's pages decode scaled down (above)
 
         // Further into page 2: the server gets lastPageRead 1 and the spot note within progressSyncMs (5 s).
         mark = s.events.mark();
@@ -453,7 +466,7 @@ scenario('reader-webtoon', async (s) => {
         mark = s.events.mark();
         ev = await scrollTo(s, view, CH1_END + BAND / 2 - 640);
         expect(ev).toMatchObject({ read: true });
-        await s.expectGolden('webtoon-band');
+        await s.expectGolden('webtoon-band', { perMode: true });
         await s.events.waitForEvent('progress', { chapterId: g1, read: true, ok: true }, { from: mark, timeoutMs: 15_000 });
         expect((await chaptersOf(client, gamma))[0]).toMatchObject({ id: g1, isRead: true });
         ev = await scrollTo(s, view, ch2Page(0) + 1000 - 640);
@@ -504,7 +517,7 @@ scenario('reader-webtoon', async (s) => {
         await waitForSave(s, mark);
         ev = await readerAfter(s, tap(s, MIDDLE), { mode: 'strip', menu: false });
         await expectCodes(s, ev, LANDSCAPE);
-        await s.expectGolden('webtoon-landscape');
+        await s.expectGolden('webtoon-landscape', { perMode: true });
 
         // "Strip width: Full" (entry 1, choice 3 of 3): 1280 wide.
         mark = s.events.mark();
@@ -541,7 +554,7 @@ scenario('reader-webtoon', async (s) => {
 
         if (s.driver.name === 'switch') {
             await closeReader(s, LANDSCAPE);
-            await switchControls(s, g1);
+            await switchControls(s, g1, wholeDecode);
         }
 
         // Memory: the tiles kept stay within 64 MiB; no memory pressure, no error.

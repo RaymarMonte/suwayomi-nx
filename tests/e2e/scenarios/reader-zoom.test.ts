@@ -9,7 +9,8 @@
 // - "Zoom on page turn: Keep the zoom": a turn keeps 2 x at the reading start (the top); the setting survives a restart;
 // - turned right (portrait): the same double tap, pinch (golden "portrait-zoom3") and drag on the portrait screen.
 // From the Album (`--mode applet`, WP-21) Lite's maxZoom is 2: the pinches out at 2 x change nothing, the pinch in stops at
-// 2 x, the landscape drag turns at once (the page is narrower than the screen) and the portrait one stops at the edge.
+// 2 x, the landscape drag turns at once (the page is narrower than the screen) and the portrait one stops at the edge; on
+// the Switch ZR stops at 2 x, where the stick's and the D-pad's first push turns (the page can't move sideways).
 // The Switch adds: ZR / ZL steps; a stick pan to the edge and a fresh push there turns; D-pad glides and the edge press;
 // not zoomed, a stick held 2 s turns one page; in portrait the D-pad held turns one page; the frame times while gestures
 // run (p90 <= 17 ms, none over 34 ms) and sharpMs (p90 <= 350 ms); 50 zoom cycles and 100 turns from zoomed pages with
@@ -202,7 +203,7 @@ scenario('reader-zoom', async (s) => {
         s.expectNoErrorEvents();
 
         if (onSwitch) {
-            await switchControls(s, ch1);
+            await switchControls(s, ch1, lite);
         }
         s.expectNoErrorEvents();
         await s.driver.quit();
@@ -213,9 +214,10 @@ scenario('reader-zoom', async (s) => {
 
 /**
  * The Switch's controller part (the desktop can't press ZL / ZR / L / R / Y or push a stick). Starts in portrait turned
- * right at zoom 3 with "Keep the zoom"; turns back to landscape and "Back to whole page" first.
+ * right at zoom 3 (Lite 2) with "Keep the zoom"; turns back to landscape and "Back to whole page" first. `lite`: from the
+ * Album (WP-21), maxZoom 2.
  */
-async function switchControls(s: Scenario, ch1: number): Promise<void> {
+async function switchControls(s: Scenario, ch1: number, lite: boolean): Promise<void> {
     const press = (btn: Parameters<Scenario['driver']['press']>[0], ms?: number) => () => s.driver.press(btn, ms);
     const stick = (x: number, ms: number) => () => s.driver.stick('left', x, 0, ms);
 
@@ -236,18 +238,25 @@ async function switchControls(s: Scenario, ch1: number): Promise<void> {
     expect(shown).toMatchObject({ x: 400, y: 0 });
 
     // ZR three times (3 x, 1440 wide around the middle: x -80). The stick pushed left pans to the left edge (x 0) without
-    // turning; a fresh push there turns (right to left: the next page), back at the fit.
-    for (const zoom of [1.5, 2, 3]) await readerAfter(s, press('ZR'), { shown: 'page', zoom });
-    shown = await readerAfter(s, stick(-1, 400), { shown: 'page', page, x: 0 });
-    expect(shown.zoom).toBe(3);
+    // turning; a fresh push there turns (right to left: the next page), back at the fit. Lite: ZR twice (2 x, 960 wide, x
+    // 160): the page can't move sideways, so the first push turns.
+    const steps = lite ? [1.5, 2] : [1.5, 2, 3];
+    for (const zoom of steps) await readerAfter(s, press('ZR'), { shown: 'page', zoom });
+    if (!lite) {
+        shown = await readerAfter(s, stick(-1, 400), { shown: 'page', page, x: 0 });
+        expect(shown.zoom).toBe(3);
+    }
     shown = await readerAfter(s, stick(-1, 300), { shown: 'page', page: page + 1 });
     expect(shown.zoom).toBe(1);
     page += 1;
 
-    // The D-pad zoomed: LEFT glides the page right (0.75 of the screen, to the edge here), the next fresh LEFT turns.
-    for (const zoom of [1.5, 2, 3]) await readerAfter(s, press('ZR'), { shown: 'page', zoom });
-    await readerAfter(s, press('RIGHT'), { shown: 'page', page, x: -160 });
-    await readerAfter(s, press('LEFT'), { shown: 'page', page, x: 0 });
+    // The D-pad zoomed: LEFT glides the page right (0.75 of the screen, to the edge here), the next fresh LEFT turns. Lite
+    // (2 x): LEFT turns at once.
+    for (const zoom of steps) await readerAfter(s, press('ZR'), { shown: 'page', zoom });
+    if (!lite) {
+        await readerAfter(s, press('RIGHT'), { shown: 'page', page, x: -160 });
+        await readerAfter(s, press('LEFT'), { shown: 'page', page, x: 0 });
+    }
     shown = await readerAfter(s, press('LEFT'), { shown: 'page', page: page + 1 });
     expect(shown.zoom).toBe(1);
     page += 1;
@@ -270,12 +279,15 @@ async function switchControls(s: Scenario, ch1: number): Promise<void> {
     page += 1;
     await readerAfter(s, press('Y'), { shown: 'page', orientation: 'landscape' });
 
-    // 50 zoom cycles (ZR up to 4 x, ZL back to the fit): memory flat after the fifth, the textures back to the fit's.
+    // 50 zoom cycles (ZR up to 4 x, Lite 2 x; ZL back to the fit): memory flat after the fifth, the textures back to the
+    // fit's.
+    const cycleUp = lite ? [1.5, 2] : [1.5, 2, 3, 4];
+    const cycleDown = [...cycleUp.slice(0, -1).reverse(), 1];
     const fit = Number(lastReader(s)?.texUsed);
     const memory: number[] = [];
     for (let i = 0; i < 50; i++) {
-        for (const zoom of [1.5, 2, 3, 4]) await readerAfter(s, press('ZR'), { shown: 'page', zoom });
-        for (const zoom of [3, 2, 1.5, 1]) await readerAfter(s, press('ZL'), { shown: 'page', zoom });
+        for (const zoom of cycleUp) await readerAfter(s, press('ZR'), { shown: 'page', zoom });
+        for (const zoom of cycleDown) await readerAfter(s, press('ZL'), { shown: 'page', zoom });
         // Back at 1 x the zoomed image stays on screen until the fit image is swapped in (150 ms later, before "idle"):
         // the last "reader" event is the settled one.
         const settled = lastReader(s);

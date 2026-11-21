@@ -39,8 +39,10 @@ crash ending through `ILibraryAppletSelfAccessor` command 10 (the findings: D62,
   A process that ends without it is "exited abnormally" for the applet manager (D41's `0x290` from the Album, D35's note in application mode).
   `appletGetServiceSession_LibraryAppletSelfAccessor()` is public (libnx 4.12.0). hbloader never opens the applet service itself.
 - **hbloader's heap from the Album** (`setupHbHeap`): total − used − 2 MiB, minus `applet_heap_reservation_size` (134 MiB default, left for other
-  applets such as the keyboard) unless `applet_heap_size` is set; the owner's console keeps both defaults. Others report ~380-400 MB in applet mode.
-  Checkpoint's notes: in applet mode low memory sometimes kept the system keyboard (a library applet of its own) from showing.
+  applets such as the keyboard) unless `applet_heap_size` is set; the owner's console keeps both defaults. Others report ~380-400 MB in applet mode;
+  the owner's console (FW 22.5.0, AMS 1.11.2) gives **259.7 MiB**, the same with a game suspended behind the Album (WP-21, D62).
+  Checkpoint's notes: in applet mode low memory sometimes kept the system keyboard (a library applet of its own) from showing
+  (WP-21: it always opened here, also with the reader's pages cached).
 - **borealis on an exit request** calls `Application::quit()` and leaves the exit mode at 0 (`Platform::exitToHomeMode(bool)` sets it).
 
 ## Crash / brick safety (researched 2026-10-21, details in SAFETY.md)

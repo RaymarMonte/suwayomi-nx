@@ -130,19 +130,19 @@ TEST_SUITE("core") {
     }
 
     TEST_CASE("RuntimeProfile: Lite, applet mode from the Album (WP-21, D62)") {
-        // Other homebrew report a 380-400 MiB heap from the Album; a few dozen MiB are in use at start-up.
-        constexpr std::uint64_t kAlbumHeap = 380 * kMiB;
-        constexpr std::uint64_t kAlbumUsed = 30 * kMiB;
+        // The console from the Album (WP-21, D62): a 259.7 MiB heap, 0.7 MiB in use when the profile is made.
+        constexpr std::uint64_t kAlbumHeap = 272314368;
+        constexpr std::uint64_t kAlbumUsed = 693920;
         const std::uint64_t free = kAlbumHeap - kAlbumUsed;
         const RuntimeProfile lite = makeRuntimeProfile(LaunchMode::Applet, kAlbumHeap, kAlbumUsed);
         CHECK(lite.name == "lite");
         CHECK_FALSE(lite.safeMode);
         CHECK(lite.freeMem == free);
         // Shares of the free memory, with Lite's caps.
-        CHECK(lite.imageCacheBytes == 64 * kMiB);            // 25 % would be 87 MiB
-        CHECK(lite.coverCacheBytes == 16 * kMiB);            // 5 % would be 17 MiB
-        CHECK(lite.textureBudgetBytes == free / 100 * 15);  // 52 MiB
-        CHECK(lite.maxDecodeBytes == free / 100 * 10);      // 35 MiB
+        CHECK(lite.imageCacheBytes == 48 * kMiB);            // 25 % would be 65 MiB
+        CHECK(lite.coverCacheBytes == free / 100 * 5);       // 13 MiB
+        CHECK(lite.textureBudgetBytes == free / 100 * 15);  // 39 MiB
+        CHECK(lite.maxDecodeBytes == free / 100 * 10);      // 26 MiB
         CHECK(lite.maxZoom == doctest::Approx(2.0));
         CHECK(lite.maxDecodeScale == doctest::Approx(2.0));
         // The biggest zoomed box fits one decode's budget, even at the floor.
@@ -194,10 +194,16 @@ TEST_SUITE("core") {
         const RuntimeProfile safe = makeRuntimeProfile(LaunchMode::Applet, 380 * kMiB, 30 * kMiB, true);
         CHECK(safe.name == "lite");
         CHECK(safe.safeMode);
-        CHECK(safe.imageCacheBytes == 32 * kMiB);
+        CHECK(safe.imageCacheBytes == 24 * kMiB);     // half of 48
         CHECK(safe.coverCacheBytes == 8 * kMiB);
         CHECK(safe.textureBudgetBytes == 32 * kMiB);  // half would be 26 MiB: the floor
         CHECK(safe.maxDecodeBytes == lite.maxDecodeBytes / 2);
+        // The console's Album heap (259.7 MiB): every budget but the image cache's at its floor.
+        const RuntimeProfile album = makeRuntimeProfile(LaunchMode::Applet, 272314368, 693920, true);
+        CHECK(album.imageCacheBytes == 24 * kMiB);
+        CHECK(album.coverCacheBytes == 8 * kMiB);
+        CHECK(album.textureBudgetBytes == 32 * kMiB);
+        CHECK(album.maxDecodeBytes == 16 * kMiB);
         CHECK(safe.prefetchBehind == 0);
         CHECK(safe.prefetchAhead == 0);
         CHECK_FALSE(safe.coverRowPrefetch);

@@ -15,7 +15,8 @@
 // 6. relaunch with a 1-byte space for downloads (test config switchDownloadLimitBytes): MINUS → Download to Switch... → All
 //    → the queue waits "limit_full" (golden "switch-queue", state text masked); the button → Paused, → Resume (waiting
 //    again); Clear... → the question → Clear queue → empty;
-// 7. Switch only: with that queue waiting, HOME → "background"; HOME again → back to "limit_full".
+// 7. Switch only: with that queue waiting, HOME → "background"; HOME again → back to "limit_full". From the Album (WP-21)
+//    HOME ends the app (an exit request); started again, the tab shows the saved queue waiting ("limit_full", 3 chapters).
 // Known state first and at the end, also after a failure: none of the test server's downloads on the SD card (desktop: its
 // folder deleted, found by its server.json; Switch: deleted through the app's tab, never another server's folder), Alpha's
 // and Gamma's chapters unread, at page 0, without bookmarks (Gamma: without strip spots), the switch file cleared.
@@ -418,8 +419,16 @@ scenario('switch-downloads', async (s) => {
         await tapUntil(s, SWITCH_TAB.primary, 'resumed', isEv('switch_download_action', { action: 'resume' }));
         await untilState(s, 'waiting again', (e) => e.view === 'waiting' && e.wait === 'limit_full', mark);
 
-        // 7. Switch only: HOME pauses the downloads (S5), HOME again goes back.
-        if (s.driver.name === 'switch') {
+        // 7. Switch only: HOME pauses the downloads (S5), HOME again goes back. From the Album (WP-21) HOME asks the app to
+        // exit: it ends normally, and the queue it saved comes back at the next start, still waiting.
+        if (s.driver.name === 'switch' && s.mode === 'applet') {
+            await s.driver.requestExit();
+            await s.driver.waitForExit(15_000);
+            await s.launch({ testConfig: { server: { url }, switchDownloadLimitBytes: 1 }, keepConfig: true });
+            await waitForLibrary(s);
+            await openTab(s);
+            await untilState(s, 'the saved queue, waiting again', (e) => e.view === 'waiting' && e.wait === 'limit_full' && e.queued === 3);
+        } else if (s.driver.name === 'switch') {
             mark = s.events.mark();
             await s.driver.press('HOME');
             await untilState(s, 'in the background', (e) => e.wait === 'background', mark, 10_000);

@@ -64,7 +64,7 @@ scenario(
         const client = new SuwayomiClient(optionsFromEnv());
         const paths = [await firstPagePath(client, 'Alpha'), await firstPagePath(client, 'Gamma Webtoon')];
         const url = appServerUrl(s.driver.name);
-        await s.launch({ testConfig: { server: { url }, imageBench: { paths, repeat: REPEAT } } });
+        const start = await s.launch({ testConfig: { server: { url }, imageBench: { paths, repeat: REPEAT } } });
         const summary = await s.events.waitForEvent('image_bench', {}, { timeoutMs: 240_000 });
         expect(summary).toMatchObject({ loads: paths.length * REPEAT * 2, ok: paths.length * REPEAT * 2, failed: 0 });
 
@@ -89,7 +89,15 @@ scenario(
         writeFileSync(join(s.out, 'summary.json'), `${JSON.stringify(result, null, 2)}\n`);
         console.log(`image-bench (${s.driver.name}): ${JSON.stringify(result)}`);
         expect(result.webpStrip.loads).toBe(REPEAT);
-        expect(result.webpStrip.size).toBe('800x12000');
+        // The whole strip (38.4 MB decoded) fits one decode's budget in Full. From the Album (WP-21) Lite's maxDecode (26 MiB of
+        // the console's 259.7 MiB heap) is smaller: it decodes scaled down to fit.
+        const [stripW, stripH] = result.webpStrip.size.split('x').map(Number);
+        if (800 * 12000 * 4 <= Number(start.maxDecode)) {
+            expect(result.webpStrip.size).toBe('800x12000');
+        } else {
+            expect(stripW, 'the strip decoded scaled down').toBeLessThan(800);
+            expect(stripW * stripH * 4, 'within maxDecode').toBeLessThanOrEqual(Number(start.maxDecode));
+        }
         expect(result.jpegPage.loads).toBe(REPEAT);
 
         s.expectNoErrorEvents();

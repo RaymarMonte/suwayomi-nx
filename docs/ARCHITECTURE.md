@@ -112,7 +112,7 @@ From the Album it uses the smaller `Lite` profile.
 |---|---|---|
 | How the user gets there | Album icon → hbmenu → our app | Hold **R** while launching any installed game/app → hbmenu → our app (or an hbmenu forwarder) |
 | `appletGetAppletType()` | `AppletType_LibraryApplet` (anything except the two on the right) | `AppletType_Application` / `AppletType_SystemApplication` |
-| Memory | Much smaller, and smaller still if a game is suspended behind the Album. Atmosphère reserves memory for other applets (`[hbloader] applet_heap_reservation_size`, default 0x8600000) | Nearly all RAM a game would get |
+| Memory | Much smaller: **259.7 MiB** on the owner's console, the same with a game suspended behind the Album (WP-21, D62). Atmosphère reserves memory for other applets (`[hbloader] applet_heap_reservation_size`, default 0x8600000) | Nearly all RAM a game would get |
 | Network sockets | borealis sets **2** BSD sessions, `sb_efficiency=1` | **12** BSD sessions, `sb_efficiency=8` |
 
 **How it works.** At startup `platform::runtimeInfo()` returns `{mode, totalMem, usedMem}`. On Switch that's `appletGetAppletType()`, the heap size
@@ -124,9 +124,9 @@ turns that into a `RuntimeProfile`
 (pure, unit-tested). Every module reads its limits from the profile instead of from constants. Safe mode after a crash (SAFETY.md S1)
 halves the memory budgets and turns prefetch off.
 
-| Setting (initial guesses, tuned in WP-07/12 from real measurements) | Lite (WP-21: first guesses for a 380 MiB heap; the console gives 259 MiB, the Lite numbers step sets them) | Full |
+| Setting (initial guesses, tuned in WP-07/12 from real measurements) | Lite (WP-21: set from the console's 259.7 MiB heap, D62) | Full |
 |---|---|---|
-| Decoded-image memory cache | ~25% of free heap at start, capped low (e.g. ≤ 64 MB) | ~40% of free heap (e.g. 256–512 MB) |
+| Decoded-image memory cache | 25% of free heap at start, ≤ 48 MiB (259.7 MiB: 48; covers 13, textures 39, one decode 26 MiB: under half the heap) | ~40% of free heap (e.g. 256–512 MB) |
 | Reader prefetch window | current ±1 page | current −1/+3 pages, plus first 2 pages of next chapter |
 | Concurrent HTTP transfers | 2 (matches the socket sessions) | 6 |
 | Decode threads | 1 | 2 |

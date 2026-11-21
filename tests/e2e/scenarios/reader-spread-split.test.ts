@@ -11,8 +11,8 @@
 //   (480 x 720, the right half first); left to right shows the left half first; "Never" shows it whole in portrait (720 x 540).
 // The Switch adds the measurement that chose RuntimeProfile::maxDecodeScale (D48): ZR to 4 x on the split half, then the
 // decoded size, sharpMs, the upload and the zoom steps' frames and memory are logged. Run it at another cap with
-// SNX_MAX_DECODE_SCALE=2 (the test config's "maxDecodeScale"). Needs the test server; Beta RTL's chapters are reset before
-// and after.
+// SNX_MAX_DECODE_SCALE=2 (the test config's "maxDecodeScale"). From the Album (`--mode applet`, WP-21) the Lite profile's
+// maxZoom and maxDecodeScale are 2: ZR goes to 2 x there. Needs the test server; Beta RTL's chapters are reset before and after.
 
 import { expect } from 'vitest';
 
@@ -85,7 +85,8 @@ scenario('reader-spread-split', async (s) => {
         expect(shown).toMatchObject({ page: SPREAD, half: 0, w: 720, h: 1080 });
 
         if (s.driver.name === 'switch') {
-            await measureZoom(s, scale ?? 4);
+            // From the Album (WP-21) Lite stops at 2 x and decodes up to 2 x the screen.
+            await measureZoom(s, scale ?? (s.mode === 'applet' ? 2 : 4), s.mode === 'applet' ? 2 : 4);
         }
 
         // The next step: its left half (no page code there); then page 5.
@@ -158,32 +159,33 @@ scenario('reader-spread-split', async (s) => {
 });
 
 /**
- * The Switch only (the desktop can't press ZR / ZL): ZR four times to 4 x on the split half, the sharper decode if the cap
- * allows one, then ZL back to the fit. Logs what D48's maxDecodeScale choice needs: the decoded size at 4 x, sharpMs and the
+ * The Switch only (the desktop can't press ZR / ZL): ZR up to `top` (4 x, Lite 2 x) on the split half, the sharper decode
+ * if the cap allows one, then ZL back to the fit. Logs what D48's maxDecodeScale choice needs: the decoded size at 4 x, sharpMs and the
  * upload, the zoom steps' frame intervals, the memory and the GPU budget used.
  */
-async function measureZoom(s: Scenario, scale: number): Promise<void> {
+async function measureZoom(s: Scenario, scale: number, top: 2 | 4): Promise<void> {
+    const zooms = [1.5, 2, 3, 4].filter((zoom) => zoom <= top);
     const press = (btn: Parameters<Scenario['driver']['press']>[0]) => () => s.driver.press(btn);
     const fit = lastReader(s);
     expect(fit).toMatchObject({ zoom: 1, half: 0 });
     const mark = s.events.mark();
-    for (const zoom of [1.5, 2, 3, 4]) {
+    for (const zoom of zooms) {
         await readerAfter(s, press('ZR'), { shown: 'page', zoom, half: 0 });
     }
-    // The decode for 4 x has settled (the reader is idle only then); it is sharp as far as the cap allows.
+    // The decode for the top zoom has settled (the reader is idle only then); it is sharp as far as the cap allows.
     const zoomed = lastReader(s);
-    expect(zoomed).toMatchObject({ zoom: 4, split: true, half: 0, sharp: true });
+    expect(zoomed).toMatchObject({ zoom: top, split: true, half: 0, sharp: true });
     const after = s.events.events.slice(mark);
     const sharp = after.filter((e) => e.ev === 'reader' && e.sharpMs !== undefined).at(-1);
     const steps = after.filter((e) => e.ev === 'gesture' && e.kind === 'zoom_step');
     const worst = Math.max(...steps.map((e) => Number(e.maxMs)));
     const p90 = Math.max(...steps.map((e) => Number(e.p90Ms)));
-    console.log(`[reader-spread-split] maxDecodeScale ${scale}: at 4 x decoded ${zoomed?.decW} x ${zoomed?.decH}, ` +
+    console.log(`[reader-spread-split] maxDecodeScale ${scale}: at ${top} x decoded ${zoomed?.decW} x ${zoomed?.decH}, ` +
         `sharpMs ${sharp?.sharpMs ?? 'none (no sharper decode)'}, upload ${sharp?.uploadMs ?? '-'} ms, zoom steps p90 ` +
         `${p90} / max ${worst} ms, memory ${(Number(fit?.memUsed) / MiB).toFixed(1)} -> ` +
         `${(Number(zoomed?.memUsed) / MiB).toFixed(1)} MiB, textures ${(Number(fit?.texUsed) / MiB).toFixed(1)} -> ` +
         `${(Number(zoomed?.texUsed) / MiB).toFixed(1)} MiB`);
-    for (const zoom of [3, 2, 1.5, 1]) {
+    for (const zoom of [...zooms.slice(0, -1).reverse(), 1]) {
         await readerAfter(s, press('ZL'), { shown: 'page', zoom, half: 0 });
     }
     // Back at the fit: the split decode's textures again.

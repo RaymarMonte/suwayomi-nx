@@ -37,10 +37,11 @@ RuntimeProfile makeRuntimeProfile(LaunchMode mode, std::uint64_t totalMem, std::
         p.textureBudgetBytes = share(p.freeMem, 15, kTextureFloor, 256 * kMiB);
         p.maxDecodeBytes = share(p.freeMem, 10, kDecodeFloor, 128 * kMiB);
     } else {
-        // Lite (WP-21, D62): from the Album, with about an eighth of the memory. First guesses for a ~380 MiB heap until the
-        // console's measurement; every limit not set here is Full's.
+        // Lite (WP-21, D62): from the Album, with a twelfth of the memory: 259.7 MiB on the console (the first guesses were
+        // for 380). There the budgets come to 48 + 13 + 39 + 26 MiB, under half the heap: with borealis (~45 MiB) and one
+        // download page they stay below the pressure line (85 %). Every limit not set here is Full's.
         p.name = "lite";
-        p.imageCacheBytes = share(p.freeMem, 25, kImageFloor, 64 * kMiB);
+        p.imageCacheBytes = share(p.freeMem, 25, kImageFloor, 48 * kMiB);
         p.coverCacheBytes = share(p.freeMem, 5, kCoverFloor, 16 * kMiB);
         p.textureBudgetBytes = share(p.freeMem, 15, kTextureFloor, 64 * kMiB);
         p.maxDecodeBytes = share(p.freeMem, 10, kDecodeFloor, 64 * kMiB);

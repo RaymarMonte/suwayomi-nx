@@ -12,9 +12,9 @@ export type Button =
 
 /**
  * WP-21 (D62): the Album's heap as the desktop pretends to have it in applet mode (--mem-limit), so its budgets match the
- * console's. A first guess (other homebrew report 380-400 MB) until WP-21's console measurement sets it.
+ * console's: 259.7 MiB there (WP-21's console checks; the first guess was 380).
  */
-export const ALBUM_HEAP_MB = 380;
+export const ALBUM_HEAP_MB = 260;
 
 export interface LaunchOptions {
     /**
