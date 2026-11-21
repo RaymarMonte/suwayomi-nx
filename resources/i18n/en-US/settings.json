@@ -26,7 +26,7 @@
     "version": "App version",
     "mode": "Launch mode",
     "mode_application": "Application mode",
-    "mode_applet": "Opened from the Album (applet mode) · Lite profile",
+    "mode_applet": "Album (applet mode) · Lite profile",
     "applet_tip": "Show the Album tip",
     "profile": "profile",
     "memory": "Memory in use",

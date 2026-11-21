@@ -34,10 +34,10 @@ const NXLINK_TARGET = 'suwayomi-nx/suwayomi-nx.nro'; // relative to sdmc:/switch
 const APP_ARGS = ['-d', '--log-file'];
 
 /**
- * Applet mode (from the Album) is opt-in: SNX_APPLET_CONSOLE=1 (D41). Any crash of ours there is a system fatal, whatever the
- * crash handler does: Horizon's HOME menu (qlaunch) stops the whole system when the Album's process ends abnormally
- * (0x290 = la::ResultLibraryAppletExitedAbnormally, seen in WP-08 with the owner watching). Only the applet-guard scenario
- * uses it, and on the console only for the refusal screen, never a drill. Run it only with the owner watching.
+ * Applet mode (from the Album) is opt-in: SNX_APPLET_CONSOLE=1 (D41). Before WP-21 any crash of ours there was a system fatal:
+ * Horizon's HOME menu (qlaunch) stops the whole system when the Album's process ends abnormally (0x290 =
+ * la::ResultLibraryAppletExitedAbnormally, WP-08). WP-21's crash ending tells the system first (D62; P1 passed 2026-11-21);
+ * until the whole drill set passed from the Album (P2), applet-mode console runs need the owner watching.
  */
 const APPLET_MODE_READY = process.env.SNX_APPLET_CONSOLE === '1';
 
@@ -111,7 +111,7 @@ export class SwitchDriver implements Driver {
         if (opts.memLimitMb) throw new NotSupportedError('--mem-limit is desktop only (TESTING.md: low memory is tested on the PC)');
         const applet = opts.mode === 'applet';
         if (applet && !APPLET_MODE_READY) {
-            throw new NotSupportedError('applet mode on the Switch waits for the crash handler (WP-03b) and the guard (WP-08), D21');
+            throw new NotSupportedError('applet mode on the Switch needs SNX_APPLET_CONSOLE=1 and the owner watching until P2 (D41, D62)');
         }
         if (this.launched) throw new Error('the app is already running: quit() first');
         await this.checkReachable();
@@ -334,7 +334,11 @@ export class SwitchDriver implements Driver {
         if (await this.screenIs('hbmenu-applet-badge')) throw new Error('hbmenu says "Applet Mode" although it was started with R held');
     }
 
-    /** HOME → Album → hbmenu with the "Applet Mode" badge (profile.json toHbmenuAppletMode). Only for the applet-guard scenario. */
+    /**
+     * HOME → close the software that runs → Album → hbmenu with the "Applet Mode" badge (profile.json toHbmenuAppletMode).
+     * recover() closes what runs: after an application-mode scenario "Spelunky 2" is hbloader with hbmenu or the app, and a
+     * game suspended behind the Album takes its memory (some even crash hbloader there, SAFETY.md finding 6).
+     */
     private async toHbmenuAppletMode(): Promise<void> {
         await this.recover();
         await this.autopilot.touch(550, 544); // the Album icon: the first tap selects it

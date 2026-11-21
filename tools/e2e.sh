@@ -2,9 +2,11 @@
 # Runs E2E scenarios (docs/TESTING.md, tests/e2e/README.md) against a fresh test build. Runs inside WSL:
 #   wsl.exe -d Ubuntu --exec bash -lc '<repo>/tools/e2e.sh desktop smoke'
 #
-# Usage:  tools/e2e.sh desktop|switch [scenario] [--update-goldens] [--visible] [--no-build]
+# Usage:  tools/e2e.sh desktop|switch [scenario] [--mode application|applet] [--update-goldens] [--visible] [--no-build]
 #         tools/e2e.sh switch --restore-config
 #   scenario          file name in tests/e2e/scenarios/ without .test.ts (default: all of them)
+#   --mode applet     every launch from the Album (WP-21): desktop --simulate-applet-mode with the Album's heap as --mem-limit,
+#                     the Switch through the Album (needs SNX_APPLET_CONSOLE=1 until P2). Default: application
 #   --update-goldens  write the golden screenshots instead of comparing (only for intended UI changes; say so in the commit)
 #   --visible         desktop: show the window on the WSLg screen instead of the hidden Xvfb one
 #   --no-build        use the last test build as it is
@@ -24,9 +26,12 @@ usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' 
 DRIVER="${1:-}"; [ -n "$DRIVER" ] || usage; shift
 case "$DRIVER" in desktop | switch) ;; *) usage ;; esac
 SCENARIO=""
-UPDATE=0; VISIBLE=0; BUILD=1; RESTORE_ONLY=0
+UPDATE=0; VISIBLE=0; BUILD=1; RESTORE_ONLY=0; MODE=application
 while [ $# -gt 0 ]; do
     case "$1" in
+        --mode)
+            shift
+            case "${1:-}" in application | applet) MODE="$1" ;; *) echo "--mode takes application or applet"; usage ;; esac ;;
         --update-goldens) UPDATE=1 ;;
         --visible) VISIBLE=1 ;;
         --no-build) BUILD=0 ;;
@@ -59,6 +64,8 @@ fi
 cd "$REPO"
 [ -d node_modules ] || npm ci
 export SNX_E2E_DRIVER="$DRIVER" SNX_E2E_BUILD="$TARGET" SNX_E2E_VISIBLE="$VISIBLE" SNX_UPDATE_GOLDENS="$UPDATE"
+export SNX_E2E_MODE="$MODE"
+echo "[e2e] launch mode: $MODE"
 FILTER=()
 [ -n "$SCENARIO" ] && FILTER=("tests/e2e/scenarios/$SCENARIO.test.ts")
 if [ "$DRIVER" = desktop ]; then exec npx vitest run -c vitest.e2e.config.ts "${FILTER[@]}"; fi

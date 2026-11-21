@@ -19,7 +19,7 @@ import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { EventStream, type EventSource } from '../lib/events.ts';
-import { NotSupportedError, startEventFor, type Button, type Driver, type LaunchOptions } from './Driver.ts';
+import { ALBUM_HEAP_MB, NotSupportedError, startEventFor, type Button, type Driver, type LaunchOptions } from './Driver.ts';
 import { CONFIG_FILES } from './ownerConfig.ts';
 
 const run = promisify(execFile);
@@ -86,7 +86,8 @@ export class DesktopDriver implements Driver {
 
         const args = ['-d', '--log-file'];
         if (opts.mode === 'applet') args.push('--simulate-applet-mode');
-        if (opts.memLimitMb) args.push(`--mem-limit=${opts.memLimitMb}`);
+        const memLimitMb = opts.memLimitMb ?? (opts.mode === 'applet' ? ALBUM_HEAP_MB : undefined); // WP-21: the Album's heap
+        if (memLimitMb) args.push(`--mem-limit=${memLimitMb}`);
         args.push(...(opts.args ?? []));
 
         this.runtimeDir = mkdtempSync(join(tmpdir(), 'snx-runtime-'));

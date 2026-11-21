@@ -10,12 +10,26 @@ export type Button =
     | 'A' | 'B' | 'X' | 'Y' | 'L' | 'R' | 'ZL' | 'ZR' | 'PLUS' | 'MINUS'
     | 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'LSTICK' | 'RSTICK' | 'HOME';
 
+/**
+ * WP-21 (D62): the Album's heap as the desktop pretends to have it in applet mode (--mem-limit), so its budgets match the
+ * console's. A first guess (other homebrew report 380-400 MB) until WP-21's console measurement sets it.
+ */
+export const ALBUM_HEAP_MB = 380;
+
 export interface LaunchOptions {
     /**
-     * 'application' (default) for every scenario (D21). 'applet' only for the applet-guard scenario (WP-08):
-     * desktop passes --simulate-applet-mode, the Switch goes through the Album.
+     * 'application' or 'applet' (from the Album, WP-21). Scenario.launch() fills in the run's mode (tools/e2e.sh --mode,
+     * SNX_E2E_MODE) when a scenario doesn't name one. Applet: desktop passes --simulate-applet-mode and
+     * --mem-limit=ALBUM_HEAP_MB (unless memLimitMb is given), the Switch goes through the Album (SNX_APPLET_CONSOLE=1, D41).
      */
     mode?: 'application' | 'applet';
+    /**
+     * WP-21: the app is expected not to start (applet mode with too little free memory: the low-memory screen), so launch()
+     * waits for launch_refused instead of app_start.
+     */
+    refused?: boolean;
+    /** Scenario.launch() only: in applet mode, leave the Album tip to config.json (no "appletTip": false in the test config). */
+    appletTipFromConfig?: boolean;
     /** Written to test/config.json before the start (server URL, auth, no animations, ...). Without it, that file is removed. */
     testConfig?: object;
     /** Desktop only: start with --mem-limit=<MB> (low-memory runs). The Switch driver refuses it. */
@@ -30,9 +44,9 @@ export interface LaunchOptions {
     keepConfig?: boolean;
 }
 
-/** WP-08: in applet mode the app writes only this event (D21), so launch() waits for it instead of app_start. */
+/** A refused start writes only launch_refused (SAFETY.md S12), so launch() waits for it instead of app_start. */
 export function startEventFor(opts: LaunchOptions = {}): 'app_start' | 'launch_refused' {
-    return opts.mode === 'applet' ? 'launch_refused' : 'app_start';
+    return opts.refused ? 'launch_refused' : 'app_start';
 }
 
 export interface Driver {

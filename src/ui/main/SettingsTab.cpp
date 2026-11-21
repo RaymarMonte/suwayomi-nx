@@ -34,7 +34,7 @@ std::string authText(core::AuthMode mode) {
 
 std::string modeText(const app::AppContext& context) {
     if (context.runtime.mode == core::LaunchMode::Applet) {
-        return "settings/mode_applet"_i18n;  // WP-21: "Opened from the Album (applet mode) · Lite profile"
+        return "settings/mode_applet"_i18n;  // WP-21: "Album (applet mode) · Lite profile" (a longer text hit the label)
     }
     return "settings/mode_application"_i18n + ", " + std::string(context.profile.name) + " " + "settings/profile"_i18n;
 }
