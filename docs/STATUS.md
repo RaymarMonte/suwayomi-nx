@@ -1,30 +1,24 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-21 Stage A done, P1 passed** (2026-11-21, `docs/wp/WP-21-applet-mode.md`, D62).
-**Next:** **WP-21** Stage B (PC), then Stage C (P2 with the owner watching) → 16 → 25 → 19; WP-18d (the split) after WP-18b;
-nice to have: 08b, 26, 27, 28. Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 18b, 18c, 23, 24, 22;
-v0.2.0 (17, 18, 18c, 18b unreleased). **Open issues:** none (`docs/ISSUES.md`, D63).
-## Last session (2026-11-21, WP-21 P1, Opus; the owner watching)
-- **P1 passed** (the null-pointer drill from the Album, Stage A's command-10 ending): 2 runs, no fatal, no new
-  `fatal_*` / `crash_reports` file, the HOME menu came back with no note, our record parsed, the Album opened again.
-  The ending note had only the "sending command 10" line: the system ends the process inside the call. D62 "P1 passed".
-- Run 1's test failed only on its last step (UP + 12 × LEFT missed the first tile); `applet-guard`'s `backToTheFirstTile`
-  now presses HOME; run 2 green end to end (`SNX_APPLET_CONSOLE=1 SNX_APPLET_DRILL=1 tools/e2e.sh switch applet-guard`).
-- The console now has the **test build** of this commit (P1 put it there) and is **asleep**. A normal build goes back at
-  the end of WP-21 (or when the owner asks).
-## Stage B (PC only, no console): in progress
-- Done (unit tests, desktop + Switch builds green, gate PASS): the `lite` profile (`tooLittleMemoryForLite`,
-  `liteMinFreeBytes` 160 MiB), the guard = the low-memory screen (`refuseLowMemory`, `launch_refused` `reason`), the
-  exit-request hook (`platform::setLeaveOnExitRequest`, and on the guard's screen), the Album tip (`general.appletTip`
-  in config.json, `showAppletTip`, test config `appletTip`, `applet_tip` event, MainActivity before setup/login/the
-  crash note, Settings → "Show the Album tip" from the Album only, About's words).
-- Also done (8539d7b): `tools/e2e.sh … --mode applet`, `applet-start` (replaces `applet-guard`, green on the desktop,
-  goldens `goldens/desktop/applet-start/`), `low-memory` applet variant, D62 "As built, Stage B".
-- Applet mode on the desktop: scenarios that check a Full number read `s.mode` (offline-errors, reader-paged, browse,
-  smoke, crash-drills, switch-downloads, reader-webtoon, reader-zoom; `readerSettled` in lib/reader.ts; D62). It found
-  one app bug, fixed for both modes: a spread from the memory cache wasn't checked (blurry on Continue;
-  `ReaderModel::startLoad`, new unit test). Every desktop scenario passed in both modes (reader-zoom once lost a drag in
-  application mode, then passed twice). Last check: one full run of both modes on the final build, then tick Stage B.
-- Stage C still has to make the Switch-only zoom parts Lite-aware (`reader-zoom` controls, `reader-spread-split`'s 4 x).
+**Phase 3 – Features. Now:** **WP-21 Stages A + B done, P1 passed** (2026-11-21, `docs/wp/WP-21-applet-mode.md`, D62).
+**Next:** **WP-21** Stage C (P2 with the owner watching, the console checks, Lite numbers, Switch scenarios from the
+Album), docs → 16 → 25 → 19; WP-18d after WP-18b; nice to have: 08b, 26, 27, 28. Done: WP-00a … 13, 13b, 13c, 13d, 14,
+14b, 15, 15b, 17, 18, 18b, 18c, 23, 24, 22; v0.2.0 (17, 18, 18c, 18b unreleased). **Open issues:** none (D63).
+## Last session (2026-11-21, WP-21 P1 + Stage B, Opus; the owner watched P1)
+- **P1 passed** (the null-pointer drill from the Album, command 10): 2 runs, no fatal, no crash report, the HOME menu came
+  back with no note, our record parsed. D62 "P1 passed". The console has P1's **test build** and is **asleep**.
+- **Stage B done** (0584cf7, 8539d7b, 678b3e6 + this commit): the `lite` profile, the low-memory screen
+  (`refuseLowMemory`), the exit-request hook (`platform::setLeaveOnExitRequest`), the Album tip (`general.appletTip`,
+  Settings switch from the Album only, About's words), `tools/e2e.sh … --mode applet`, `applet-start` (replaces
+  `applet-guard`), D62 "As built, Stage B".
+- Scenarios that check a Full number read `s.mode` and check Lite's (D62 lists them; `readerSettled` in lib/reader.ts).
+  Applet mode found one reader bug, fixed for both modes: a spread from the memory cache was never checked (blurry on
+  Continue; `ReaderModel::startLoad`, unit test, CHANGELOG).
+- Tests: unit green; Switch build + gate PASS; **desktop: all 30 scenarios green in both modes** (each on its own: 78
+  passed, 4 Switch-only skips). One-off flakes seen and passed on rerun: reader-zoom's drag down lost once; server-downloads'
+  slowest action 1.8 s (desktop bound 1 s); the test server not restarting mid offline-errors (the harness's reset → 404s).
+- **Next (Stage C, owner + console):** first make the Switch-only zoom parts Lite-aware (`reader-zoom`'s controls zoom to
+  4 x, `reader-spread-split`'s measurement); then **P2** `SNX_APPLET_CONSOLE=1 tools/e2e.sh switch crash-drills --mode
+  applet` (owner watching, the test build goes on first), then the console checks (WP file step 6).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

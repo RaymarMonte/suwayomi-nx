@@ -191,7 +191,7 @@ WP-08b's "all controllers merged" stays its own WP.
 - [x] Exit request from the Album → exit mode 1 (a platform hook beside the resume hook; Switch only).
 - [x] The tip (model + dialog), `appletTip` in config (unit tests for the config field and the "show it?" rule), the Settings
       switch, About's words, the `applet_tip` event.
-- [ ] e2e: `--mode applet` for both drivers, the "close running software" step, `applet-start` (replaces `applet-guard`),
+- [x] e2e: `--mode applet` for both drivers, the "close running software" step, `applet-start` (replaces `applet-guard`),
       applet goldens where screens differ. **Desktop: every scenario green in both modes.**
 
 **Stage C: the console from the Album**
