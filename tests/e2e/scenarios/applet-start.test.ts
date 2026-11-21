@@ -6,7 +6,7 @@
 // - Desktop only: with too little free memory (--mem-limit far below Lite's 160 MiB) the low-memory screen (launch_refused,
 //   reason low_memory, exit code 0). The null-pointer drill inside it leaves a crash record, the ending note and exit code 1,
 //   and the next start from the Album runs in safe mode.
-// The console: only with SNX_APPLET_CONSOLE=1 and the owner watching, until WP-21's P2 (D41, D62).
+// The console too since WP-21's P2 passed (D62).
 
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -138,7 +138,7 @@ scenario(
         await s.events.waitForEvent('idle');
         await s.driver.quit();
     },
-    { drivers: process.env.SNX_APPLET_CONSOLE === '1' ? ['desktop', 'switch'] : ['desktop'], timeoutMs: 300_000 },
+    { timeoutMs: 300_000 },
 );
 
 // Settings -> About's values that change from run to run (desktop 1280x720, the About section scrolled into view).

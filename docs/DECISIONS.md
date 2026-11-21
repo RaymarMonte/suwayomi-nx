@@ -1513,6 +1513,14 @@ the pinch in stops at 2 x; `readerSettled`; no `portrait-zoom3` golden from the 
 fixed for both modes: a page from the memory cache was never checked for a spread, so a spread whose plain-box image was
 cached (Lite's prefetch of 1 loads it in portrait first) showed blurry when the reader opened again at it
 (`ReaderModel::startLoad`, unit test "a spread opened again from the memory cache's plain-box image").
+**P2 passed (2026-11-21, owner watching):** `crash-drills --mode applet` on the console, 2 runs: all 9 drills (main thread,
+misaligned, terminate, GPU abort, watchdog, worker null write, worker stack overflow, main-loop exception, out of memory)
+end at the HOME menu with no note, no new fatal / crash report file, the record parses, the next start from the Album runs
+in safe mode. The exit request (HOME while the app runs in the Album) reaches `OnExitRequest`, the app ends normally within
+0.5 s, the half-written cache file is gone, and the HOME menu comes back on the first tile (run 1 failed only on the
+harness's guess of the Album cursor). After a crash the HOME menu keeps its cursor on the Album: the driver knows that
+screen (`home-album-cursor`, the word "Album" under the icon). `SNX_APPLET_CONSOLE=1` is gone (answer 3). Seen: from the
+Album the app gets **259 MiB** on this console (not the guessed 380): the Lite numbers step uses that.
 Rejected: handing control back to hbloader after a crash (D35: hbmenu then crashed over what the crash left behind, from
 the Album that's a fatal too); changing Atmosphère's hbloader settings for more memory (a system file, D14, and users
 wouldn't); a one-time tip (the owner wants it at every start, with a way to turn it off); applet mode with only a warning if

@@ -6,7 +6,7 @@
 #         tools/e2e.sh switch --restore-config
 #   scenario          file name in tests/e2e/scenarios/ without .test.ts (default: all of them)
 #   --mode applet     every launch from the Album (WP-21): desktop --simulate-applet-mode with the Album's heap as --mem-limit,
-#                     the Switch through the Album (needs SNX_APPLET_CONSOLE=1 until P2). Default: application
+#                     the Switch through the Album (WP-21, D62). Default: application
 #   --update-goldens  write the golden screenshots instead of comparing (only for intended UI changes; say so in the commit)
 #   --visible         desktop: show the window on the WSLg screen instead of the hidden Xvfb one
 #   --no-build        use the last test build as it is

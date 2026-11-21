@@ -195,7 +195,7 @@ WP-08b's "all controllers merged" stays its own WP.
       applet goldens where screens differ. **Desktop: every scenario green in both modes.**
 
 **Stage C: the console from the Album**
-- [ ] **P2: `crash-drills` in applet mode, owner watching**; then drop `SNX_APPLET_CONSOLE=1` (answer 3).
+- [x] **P2: `crash-drills` in applet mode, owner watching**; then drop `SNX_APPLET_CONSOLE=1` (answer 3). (2026-11-21: passed, 2 runs, D62.)
 - [ ] The console checks (step 6), owner watching for the game-behind-the-Album case and docking; numbers into D62. What
       they find gets fixed here (the keyboard's failure text if it can fail, the wake signal, the exit request).
 - [ ] Lite numbers set from the measurement; `soak` from the Album: memory flat, peak below the pressure line (85 % of the

@@ -14,6 +14,7 @@
     "hbmenu-applet-badge":  { "region": "340x60+700+18",  "screen": "hbmenu opened from the Album: red 'Applet Mode' badge. Must NOT match in application mode" },
     "close-dialog":         { "region": "420x60+530+285", "screen": "HOME menu after X: 'Close the software you are currently using?' (Close preselected)" },
     "software-closed":      { "region": "660x50+310+305", "screen": "after the app ended with svcExitProcess (watchdog, a crash before the handler is set up): 'The software was closed because an error occurred.' with one OK button (WP-03c)" },
+    "home-album-cursor":    { "region": "100x34+500+593", "screen": "HOME menu, cursor on the Album icon: the word 'Album' under it (only shown there; the ring pulses, so it is left out). Where the Album leaves it when it closed (WP-21: a crash or an exit from the Album)" },
     "demo-header":          { "region": "520x90+40+0",    "screen": "borealis demo running ('Borealis Demo App')" },
     "demo-pokedex":         { "region": "600x150+460+100","screen": "borealis demo, Pokedex tab open (Bulbasaur, Charmander rows)" },
     "files": "tests/e2e/device/local/<name>.png (git-ignored). To recreate: take a screenshot of the described screen and crop the region."

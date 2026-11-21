@@ -1,11 +1,14 @@
 # Status (handoff note, overwrite each session, ≤ 40 lines)
-**Phase 3 – Features. Now:** **WP-21 Stages A + B done, P1 passed** (2026-11-21, `docs/wp/WP-21-applet-mode.md`, D62).
-**Next:** **WP-21** Stage C (P2 with the owner watching, the console checks, Lite numbers, Switch scenarios from the
-Album), docs → 16 → 25 → 19; WP-18d after WP-18b; nice to have: 08b, 26, 27, 28. Done: WP-00a … 13, 13b, 13c, 13d, 14,
-14b, 15, 15b, 17, 18, 18b, 18c, 23, 24, 22; v0.2.0 (17, 18, 18c, 18b unreleased). **Open issues:** none (D63).
-## Last session (2026-11-21, WP-21 P1 + Stage B, Opus; the owner watched P1)
-- **P1 passed** (the null-pointer drill from the Album, command 10): 2 runs, no fatal, no crash report, the HOME menu came
-  back with no note, our record parsed. D62 "P1 passed". The console has P1's **test build** and is **asleep**.
+**Phase 3 – Features. Now:** **WP-21 Stages A + B done, P1 + P2 passed** (2026-11-21, `docs/wp/WP-21-applet-mode.md`, D62).
+**Next:** **WP-21** Stage C rest (the console checks, Lite numbers, Switch scenarios from the Album), docs → 16 → 25 →
+19; WP-18d after WP-18b; nice to have: 08b, 26, 27, 28. Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 18b,
+18c, 23, 24, 22; v0.2.0 (17, 18, 18c, 18b unreleased). **Open issues:** none (D63).
+## Last session (2026-11-21, WP-21 P1 + Stage B + P2, Opus; the owner watched P1 and P2)
+- **P1 passed** (the null-pointer drill from the Album, command 10). **P2 passed** (every crash drill from the Album, 2
+  runs; the exit request ends the app normally): D62 "P2 passed". `SNX_APPLET_CONSOLE=1` is gone: applet-mode console runs
+  go like any Switch run now. The driver knows "HOME menu, cursor on the Album" (`home-album-cursor`, crop in
+  `tests/e2e/device/local/`, made from P1's screenshot). From the Album the app gets **259 MiB** (guess was 380).
+- The console has the **test build** of this commit and is **asleep**.
 - **Stage B done** (0584cf7, 8539d7b, 678b3e6 + this commit): the `lite` profile, the low-memory screen
   (`refuseLowMemory`), the exit-request hook (`platform::setLeaveOnExitRequest`), the Album tip (`general.appletTip`,
   Settings switch from the Album only, About's words), `tools/e2e.sh … --mode applet`, `applet-start` (replaces
@@ -16,9 +19,10 @@ Album), docs → 16 → 25 → 19; WP-18d after WP-18b; nice to have: 08b, 26, 2
 - Tests: unit green; Switch build + gate PASS; **desktop: all 30 scenarios green in both modes** (each on its own: 78
   passed, 4 Switch-only skips). One-off flakes seen and passed on rerun: reader-zoom's drag down lost once; server-downloads'
   slowest action 1.8 s (desktop bound 1 s); the test server not restarting mid offline-errors (the harness's reset → 404s).
-- **Next (Stage C, owner + console):** first make the Switch-only zoom parts Lite-aware (`reader-zoom`'s controls zoom to
-  4 x, `reader-spread-split`'s measurement); then **P2** `SNX_APPLET_CONSOLE=1 tools/e2e.sh switch crash-drills --mode
-  applet` (owner watching, the test build goes on first), then the console checks (WP file step 6).
+- **Next (Stage C):** the console checks (WP file step 6; owner watching for the game-behind-the-Album case and docking);
+  the Lite numbers from 259 MiB (`ALBUM_HEAP_MB`, Lite's table, `soak` from the Album); make the Switch-only zoom parts
+  Lite-aware (`reader-zoom`'s controls zoom to 4 x, `reader-spread-split`'s measurement); then every Switch scenario from
+  the Album (`tools/e2e.sh switch --mode applet`).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

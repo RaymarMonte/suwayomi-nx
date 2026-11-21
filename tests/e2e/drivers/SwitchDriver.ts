@@ -33,13 +33,13 @@ const NRO_SD = `${APP_DIR}/suwayomi-nx.nro`;
 const NXLINK_TARGET = 'suwayomi-nx/suwayomi-nx.nro'; // relative to sdmc:/switch/ (hbmenu adds that), so always inside our folder
 const APP_ARGS = ['-d', '--log-file'];
 
-/**
- * Applet mode (from the Album) is opt-in: SNX_APPLET_CONSOLE=1 (D41). Before WP-21 any crash of ours there was a system fatal:
- * Horizon's HOME menu (qlaunch) stops the whole system when the Album's process ends abnormally (0x290 =
- * la::ResultLibraryAppletExitedAbnormally, WP-08). WP-21's crash ending tells the system first (D62; P1 passed 2026-11-21);
- * until the whole drill set passed from the Album (P2), applet-mode console runs need the owner watching.
+/*
+ * Applet mode (from the Album): before WP-21 any crash of ours there was a system fatal (Horizon's HOME menu stops the whole
+ * system when the Album's process ends abnormally, 0x290 = la::ResultLibraryAppletExitedAbnormally, WP-08), so it was
+ * opt-in (SNX_APPLET_CONSOLE=1, D41). WP-21's crash ending tells the system first (D62): P1 and P2 (every crash drill from the
+ * Album, 2026-11-21) passed with the owner watching, so applet-mode runs go like any Switch run (answer 3). A fatal still
+ * stops the harness (STOP-console-fatal.txt).
  */
-const APPLET_MODE_READY = process.env.SNX_APPLET_CONSOLE === '1';
 
 /** A new fatal error file appeared on the console. Nothing may carry on until the owner has checked it. */
 export class FatalConsoleError extends Error {}
@@ -83,6 +83,7 @@ export class SwitchDriver implements Driver {
     private crashBefore: CrashLists | null = null; // set at launch, cleared once checked
     private firstCrashBefore: CrashLists | null = null; // from the first launch: dispose() compares once more (late reports)
     private launched = false; // the app was started and hasn't quit yet
+    private fromAlbum = false; // the last launch was from the Album (applet mode, WP-21)
     private touched = false; // the console was moved away from the HOME menu by this driver
     private readonly ownerConfig: OwnerConfigBackup;
     private ownerConfigSaved = false; // this driver made sure the owner's config.json is backed up (dispose() puts it back)
@@ -110,15 +111,13 @@ export class SwitchDriver implements Driver {
         if (!this.nroPath) throw new Error('deploy() first: the driver needs the .nro');
         if (opts.memLimitMb) throw new NotSupportedError('--mem-limit is desktop only (TESTING.md: low memory is tested on the PC)');
         const applet = opts.mode === 'applet';
-        if (applet && !APPLET_MODE_READY) {
-            throw new NotSupportedError('applet mode on the Switch needs SNX_APPLET_CONSOLE=1 and the owner watching until P2 (D41, D62)');
-        }
         if (this.launched) throw new Error('the app is already running: quit() first');
         await this.checkReachable();
         this.crashBefore = await this.crashLists();
         this.firstCrashBefore ??= this.crashBefore;
 
         this.touched = true;
+        this.fromAlbum = applet;
         if (applet) await this.toHbmenuAppletMode();
         else await this.toHbmenuApplicationMode();
 
@@ -191,12 +190,22 @@ export class SwitchDriver implements Driver {
         return this.autopilot.screenshot();
     }
 
-    /** An exit request like the user's: HOME, then X → "Close the software?" → A (profile.json closeSoftware). */
+    /**
+     * An exit request like the user's: HOME, then X → "Close the software?" → A (profile.json closeSoftware). From the Album
+     * (WP-21) HOME alone closes the Album, which asks the app to exit; the HOME menu comes back on the first tile.
+     */
     async requestExit(): Promise<void> {
         if (!this.launched) throw new Error('the app is not running');
         await this.autopilot.clearInput();
         await this.autopilot.tap(['HOME']);
         await sleep(1_500);
+        if (this.fromAlbum) {
+            // P2 (2026-11-21): the app got the exit request at once and ended; the HOME menu had its cursor on the first tile.
+            if (!(await this.waitForScreen('home-first-tile', 10_000))) {
+                throw new Error('HOME from the Album did not bring back the HOME menu (first tile). Please check the console.');
+            }
+            return;
+        }
         await this.closeSoftware();
     }
 
@@ -414,6 +423,8 @@ export class SwitchDriver implements Driver {
         }
         if (await this.screenIs('hbmenu-header', shot)) return ENDED_IN_HBMENU;
         if (await this.screenIs('home-first-tile', shot)) return ENDED_AT_HOME;
+        // The Album closed (a crash or an exit from the Album, WP-21): the HOME menu keeps its cursor on the Album icon.
+        if (this.fromAlbum && (await this.screenIs('home-album-cursor', shot))) return ENDED_AT_HOME;
         if (await this.screenIs('software-closed', shot)) return ENDED_SOFTWARE_CLOSED;
         return null;
     }

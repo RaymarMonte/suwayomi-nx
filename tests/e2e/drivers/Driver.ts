@@ -20,7 +20,7 @@ export interface LaunchOptions {
     /**
      * 'application' or 'applet' (from the Album, WP-21). Scenario.launch() fills in the run's mode (tools/e2e.sh --mode,
      * SNX_E2E_MODE) when a scenario doesn't name one. Applet: desktop passes --simulate-applet-mode and
-     * --mem-limit=ALBUM_HEAP_MB (unless memLimitMb is given), the Switch goes through the Album (SNX_APPLET_CONSOLE=1, D41).
+     * --mem-limit=ALBUM_HEAP_MB (unless memLimitMb is given), the Switch goes through the Album (WP-21, D62).
      */
     mode?: 'application' | 'applet';
     /**
