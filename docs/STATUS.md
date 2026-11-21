@@ -2,7 +2,7 @@
 **Phase 3 – Features. Now:** **WP-21 Stage A built** (2026-11-20, `docs/wp/WP-21-applet-mode.md`, D62); **P1 waits for the owner**.
 **Next:** **WP-21** P1 on the console (owner watching), then Stage B/C → 16 → 25 → 19; WP-18d (the split) after WP-18b;
 nice to have: 08b, 26, 27, 28. Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 18b, 18c, 23, 24, 22;
-v0.2.0 (17, 18, 18c, 18b unreleased).
+v0.2.0 (17, 18, 18c, 18b unreleased). **Open issues:** none (`docs/ISSUES.md`, D63).
 ## Last session (2026-11-20, WP-21 Stage A, Opus; the owner away, so no console step)
 - Built the applet-mode crash ending: `platform::setExitMode` + `exitProcessNow` (Switch, applet mode) sends
   `ILibraryAppletSelfAccessor` command 10, waits ≤ `crashExitWaitMs` (5 s, new profile value), then `svcExitProcess`.

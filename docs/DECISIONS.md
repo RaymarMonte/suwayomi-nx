@@ -1484,3 +1484,23 @@ Rejected: handing control back to hbloader after a crash (D35: hbmenu then crash
 the Album that's a fatal too); changing Atmosphère's hbloader settings for more memory (a system file, D14, and users
 wouldn't); a one-time tip (the owner wants it at every start, with a way to turn it off); applet mode with only a warning if
 the ending can't be proven (owner's answer 1); a core set of console scenarios only (answer 4).
+
+**D63 Issues: small investigations and changes get their own record, like a small WP** (owner OK 2026-11-21; how we
+work, no code)
+- **What:** a bug the owner reports, an investigation (also one that ends with no code change) or a small change that
+  fits in one session, outside a WP, is an **issue**: a row in `docs/ISSUES.md` and one file
+  `docs/issues/IS-xxx-<name>.md` from `docs/issues/_TEMPLATE.md` (Report, What we checked, Cause, What changed, For the
+  owner, If it comes back). Commits `IS-xxx: <summary>`. How it works: `docs/ISSUES.md`; the short rule: CLAUDE.md "Issues".
+- **Why:** the Weeb Central fix (D60) was written up only inside its decision, and the WebtoonXYZ investigation
+  (2026-11-20, no code changed) left nothing in the repo: its findings were only in the chat. The next time a source
+  failed, a session would have started from zero. Both are back-filled as IS-001 and IS-002.
+- **Rules:** Claude opens one by itself when a request fits (not for questions, planning or docs chores); findings go
+  into the file as they come; an issue never overwrites STATUS's "Last session" (the running WP's handoff) and keeps one
+  "Open issues" line there; one that outgrows a session (or needs a new screen, product questions, or touches threading,
+  the reader, progress sync or the safety layer) becomes a WP proposal; a D-entry only when a fix sets a rule; while a
+  WP session runs, an issue goes on its own branch; the repo is public (D23), so placeholders only and no screenshots of
+  the owner's library or config.
+- **Usage limit:** issues go ahead above 92 %, like the owner's quick requests (owner's answer).
+Rejected: GitHub Issues (outside the repo's files, `gh` from WSL for every read and write, and a fix and its write-up
+can't land in one commit); one shared file for every issue (it grows long, and a session reads past entries to find its
+own); the 92 % pause for issues (owner's answer).

@@ -9,6 +9,7 @@ explain decisions in plain words, keep code simple and well-named, and never ass
 
 1. Read `docs/STATUS.md`, then the one work-package file you were given (`docs/wp/WP-xx-*.md`).
    Do **not** read other WP files, the whole roadmap, or modules your WP does not touch.
+   (A bug, an investigation or a small change outside a WP is an issue instead: see "Issues" below.)
 2. Read only the *interfaces* (`*.hpp` + the module's `README.md`) of modules you depend on, not their `.cpp`.
 3. Do exactly one WP. If it turns out too big, stop at a clean, green point, split the rest into `WP-xxb`
    in `docs/ROADMAP.md`, and say so in STATUS.
@@ -29,8 +30,18 @@ edit you are in the middle of, and let a running command end (stop it if it woul
 `docs/STATUS.md`: what's done, what's half-done, the exact next step, and when the limit resets. Commit
 (`WP-xx: WIP, paused at usage limit`) only if your last test run was green; don't start a new run just for that.
 Then stop, tell the owner, and resume only when they say so. Side sessions check for themselves.
-The pause is for WP work only. The owner keeps the last 8 % for their own quick requests (a question, a small docs chore), so those go ahead above 92 %.
+The pause is for WP work only. The owner's own requests go ahead above 92 %: quick ones (a question, a small docs chore) and issues (D63).
 If the tool is missing or says "unavailable", say so once and check again at the next point; don't stop for that alone.
+
+## Issues (small investigations and changes, D63)
+
+A bug the owner reports, an investigation (also one that ends with no code change) or a small change that fits in one
+session, outside a WP, gets an **issue**: a row in `docs/ISSUES.md` and a file `docs/issues/IS-xxx-<name>.md` from
+`docs/issues/_TEMPLATE.md`. Read `docs/ISSUES.md` "How it works" first. In short: open one yourself when a request fits
+(not for questions, planning or docs chores), write findings into its file as you go, commit `IS-xxx: <summary>`.
+An issue never overwrites STATUS's "Last session"; it keeps STATUS's "Open issues" line current. If it outgrows one session
+(or needs a new screen, product questions, or touches threading, the reader, progress sync or the safety layer),
+write up what you found and propose a WP.
 
 ## Layout (target, created in WP-01)
 
@@ -52,7 +63,7 @@ tools/sys-autopilot-nx/  our slim sys-autopilot fork with touch (C, MIT, own Mak
 library/borealis/   git submodule, pinned commit (D1)
 library/libwebp/    git submodule, pinned tag v1.6.0 (D39): the WebP decoder, built from source on both platforms
 third_party/   vendored single headers: doctest, nlohmann/json
-docs/          plan, architecture, testing, research, decisions, status, work packages
+docs/          plan, architecture, testing, research, decisions, status, work packages, issues
 ```
 
 ## Rules for code
@@ -117,5 +128,5 @@ push from WSL, where `gh` is logged in (SETUP.md C). `<repo>` below = the repo p
 
 ## Docs index
 
-`docs/PLAN.md` overview · `docs/ROADMAP.md` WP list and models · `docs/ARCHITECTURE.md` · `docs/TESTING.md` ·
+`docs/PLAN.md` overview · `docs/ROADMAP.md` WP list and models · `docs/ISSUES.md` issues (small investigations and changes) · `docs/ARCHITECTURE.md` · `docs/TESTING.md` ·
 `docs/SUWAYOMI-API.md` · `docs/SAFETY.md` crash/brick safety · `docs/SETUP.md` install checklist · `docs/RESEARCH.md` references · `docs/DECISIONS.md` · `docs/STATUS.md`
