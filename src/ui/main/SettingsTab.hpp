@@ -6,7 +6,8 @@
 #include "app/AppContext.hpp"
 
 // The Settings tab (WP-08): Server (address -> the setup screen, login mode, "Log out" for ui_login, the server's version)
-// and About (app version, launch mode and profile, memory in use, safe mode, crash logs -> CrashLogsActivity).
+// and About (app version, launch mode and profile, from the Album "Show the Album tip" (WP-21), memory in use, safe mode,
+// crash logs -> CrashLogsActivity).
 // Layout: resources/xml/tabs/settings.xml.
 namespace snx::ui {
 
@@ -35,6 +36,7 @@ class SettingsTab : public brls::Box {
     BRLS_BIND(brls::BooleanCell, deleteAfterReading, "settings/delete_after_reading");  // WP-17
     BRLS_BIND(brls::DetailCell, version, "settings/version");
     BRLS_BIND(brls::DetailCell, mode, "settings/mode");
+    BRLS_BIND(brls::BooleanCell, appletTip, "settings/applet_tip");  // WP-21: from the Album only
     BRLS_BIND(brls::DetailCell, memory, "settings/memory");
     BRLS_BIND(brls::DetailCell, safeMode, "settings/safe_mode");
     BRLS_BIND(brls::DetailCell, crashLogs, "settings/crash_logs");

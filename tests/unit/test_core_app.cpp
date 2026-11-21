@@ -129,10 +129,11 @@ TEST_CASE("test events: launch_refused, mem, screen params, app_start budgets") 
     runtime.appletType = 2;
     runtime.totalMem = 1000;
     runtime.usedMem = 400;
-    auto refused = nlohmann::json::parse(testevents::launchRefused(40, runtime));
+    auto refused = nlohmann::json::parse(testevents::launchRefused(40, runtime, "low_memory"));
     CHECK(refused["ev"] == "launch_refused");
     CHECK(refused["mode"] == "applet");
     CHECK(refused["appletType"] == 2);
+    CHECK(refused["reason"] == "low_memory");
 
     auto mem = nlohmann::json::parse(testevents::mem(9000, runtime));
     CHECK(mem["ev"] == "mem");

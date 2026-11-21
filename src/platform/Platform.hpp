@@ -41,6 +41,14 @@ bool networkConnected();
 // nullptr removes it (main() does that before it returns). Main thread only.
 void setResumeHandler(void (*handler)());
 
+// Applet mode (WP-21, D62): when the system asks the app to close (a game started from HOME, the Album closed), the process
+// leaves the way hbmenu's own quit does: libnx's exit tells the system "I'm leaving" (ILibraryAppletSelfAccessor command 10)
+// instead of handing back to hbloader, which would load hbmenu again into an Album the system is closing. borealis's own hook
+// ends the main loop as before; this one only sets libnx's exit mode (__nx_applet_exit_mode = 1) on the exit request. A normal
+// quit (PLUS) still returns to hbmenu. main() turns it on from the Album only; false removes it (before main() returns).
+// Desktop: nothing. Main thread only.
+void setLeaveOnExitRequest(bool on);
+
 // Keep the screen on (WP-11): while the reader is open, the console neither dims the screen nor goes to sleep by itself. The
 // reader turns it on and off again when it closes. Switch: appletSetMediaPlaybackState (the setting ends with the app; it
 // changes nothing on the system). Desktop: nothing. Main thread only.
@@ -54,8 +62,10 @@ bool handheldMode();
 // libnx's time service, timeToCalendarTimeWithMyRule (read only: it only converts). Desktop: localtime_r. 0 if unknown.
 std::int64_t utcOffsetSeconds(std::int64_t utcSeconds);
 
-// The applet-mode guard's screen (D21, SAFETY.md S12): shows `text` until any button, a new tap, an exit request or
-// `timeoutMs`, then returns. Switch: libnx's text console (a plain framebuffer: no GPU set-up, no fonts to load). Desktop:
+// The applet-mode guard's screen (SAFETY.md S12; since WP-21 the low-memory screen): shows `text` until any button, a new tap,
+// an exit request or `timeoutMs`, then returns. An exit request also sets libnx's exit mode like setLeaveOnExitRequest()
+// (the screen only shows in applet mode). Switch: libnx's text console (a plain framebuffer: no GPU set-up, no fonts to
+// load). Desktop:
 // prints the text and returns at once. `onShown`, if not nullptr, runs once right after the text is first on screen (test
 // builds: the crash drill inside the screen). False if the screen couldn't be set up (then nothing was shown and onShown
 // didn't run). Never throws, never aborts. `text` uses "\n" for line breaks (at most 76 characters a line).

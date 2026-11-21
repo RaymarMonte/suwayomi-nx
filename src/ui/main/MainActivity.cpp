@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <initializer_list>
+#include <optional>
 #include <utility>
 
 #include "app/TestHooks.hpp"
@@ -131,6 +132,43 @@ MainActivity::~MainActivity() {
 void MainActivity::onContentAvailable() {
     for (std::size_t i = 0; i < MainModel::tabs().size(); ++i) {
         tabs->addTab(brls::getStr(kTabLabels[i]), [this, i] { return makeTab(i); });
+    }
+    // WP-21 (D62): from the Album, the tip first (test builds: the test config may say otherwise). It goes on top once this
+    // screen is on screen, like the setup screen.
+    core::GeneralSettings general = context_.config.config().general;
+    if (const std::optional<bool> forced = app::testhooks::appletTip()) {
+        general.appletTip = *forced;
+    }
+    if (core::showAppletTip(context_.runtime.mode, general)) {
+        brls::sync([this] { openAppletTip(); });
+    } else {
+        startUp();
+    }
+}
+
+void MainActivity::openAppletTip() {
+    auto* dialog = new brls::Dialog("main/applet_tip"_i18n);
+    dialog->setCancelable(false);  // one of the two answers: the start waits for it
+    dialog->addButton("main/applet_tip_ok"_i18n, [this] { appletTipClosed(false); });
+    dialog->addButton("main/applet_tip_hide"_i18n, [this] { appletTipClosed(true); });
+    dialog->open();
+    app::testhooks::write("applet_tip", nlohmann::ordered_json{{"what", "shown"}});
+}
+
+void MainActivity::appletTipClosed(bool hide) {
+    if (hide) {
+        core::GeneralSettings general = context_.config.config().general;
+        general.appletTip = false;  // Settings -> "Show the Album tip" brings it back
+        context_.config.setGeneral(general);
+    }
+    brls::Logger::info("app: the Album tip closed ({})", hide ? "don't show again" : "OK");
+    app::testhooks::write("applet_tip", nlohmann::ordered_json{{"what", hide ? "hidden" : "ok"}});
+    startUp();
+}
+
+void MainActivity::startUp() {
+    if (context_.lastRun.crashed) {
+        brls::Application::notify("crash/last_time"_i18n);
     }
     if (context_.config.serverSetUp()) {
         startCheck();

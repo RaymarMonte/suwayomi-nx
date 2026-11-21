@@ -37,29 +37,25 @@ RuntimeProfile makeRuntimeProfile(LaunchMode mode, std::uint64_t totalMem, std::
         p.textureBudgetBytes = share(p.freeMem, 15, kTextureFloor, 256 * kMiB);
         p.maxDecodeBytes = share(p.freeMem, 10, kDecodeFloor, 128 * kMiB);
     } else {
-        // Not used (D21): small and safe, roughly ARCHITECTURE.md's Lite column.
-        p.name = "applet";
+        // Lite (WP-21, D62): from the Album, with about an eighth of the memory. First guesses for a ~380 MiB heap until the
+        // console's measurement; every limit not set here is Full's.
+        p.name = "lite";
         p.imageCacheBytes = share(p.freeMem, 25, kImageFloor, 64 * kMiB);
         p.coverCacheBytes = share(p.freeMem, 5, kCoverFloor, 16 * kMiB);
         p.textureBudgetBytes = share(p.freeMem, 15, kTextureFloor, 64 * kMiB);
         p.maxDecodeBytes = share(p.freeMem, 10, kDecodeFloor, 64 * kMiB);
-        p.maxDecodeScale = 1.0f;
+        p.maxDecodeScale = 2.0f;  // ARCHITECTURE.md's Lite column; 1 made zoomed pages blurry
         p.maxZoom = 2.0f;
-        p.prefetchAhead = 1;
+        p.prefetchAhead = 1;  // -1 / +1 pages
         p.nextChapterPrefetchPages = 0;
         p.backgroundPrefetch = false;
         p.webtoonTilesAround = 1;
         p.stripScreensBehind = 0;
         p.stripScreensAhead = 1;
         p.stripZoomPages = 1;
-        p.coverRowPrefetch = false;
-        p.maxChapters = 3000;
-        p.maxUpdateRows = 1000;
-        p.maxHistoryRows = 250;
-        p.browseMaxItems = 500;
         p.globalSearchConcurrency = 1;
-        p.switchDownloadPagesAtOnce = 1;  // WP-21 settles Lite's downloads
-        p.httpConcurrency = 2;
+        p.switchDownloadPagesAtOnce = 1;  // one page at a time (D57): the peak stays at one page
+        p.httpConcurrency = 2;            // borealis gives applet mode 2 sockets
         p.decodeThreads = 1;
         p.heavyUiEffects = false;
     }
@@ -84,6 +80,10 @@ RuntimeProfile makeRuntimeProfile(LaunchMode mode, std::uint64_t totalMem, std::
         p.switchDownloadPagesAtOnce = 1;
     }
     return p;
+}
+
+bool tooLittleMemoryForLite(LaunchMode mode, const RuntimeProfile& profile) {
+    return mode == LaunchMode::Applet && profile.freeMem < profile.liteMinFreeBytes;
 }
 
 }  // namespace snx::core

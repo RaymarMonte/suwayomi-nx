@@ -33,9 +33,10 @@ std::string authText(core::AuthMode mode) {
 }
 
 std::string modeText(const app::AppContext& context) {
-    const bool application = context.runtime.mode == core::LaunchMode::Application;
-    return (application ? "settings/mode_application"_i18n : "settings/mode_applet"_i18n) + ", " +
-           std::string(context.profile.name) + " " + "settings/profile"_i18n;
+    if (context.runtime.mode == core::LaunchMode::Applet) {
+        return "settings/mode_applet"_i18n;  // WP-21: "Opened from the Album (applet mode) · Lite profile"
+    }
+    return "settings/mode_application"_i18n + ", " + std::string(context.profile.name) + " " + "settings/profile"_i18n;
 }
 
 std::string memoryText() {
@@ -140,6 +141,17 @@ SettingsTab::SettingsTab(MainActivity& main) : main_(main) {
                              });
     version->setDetailText(core::versionLabel());
     mode->setDetailText(modeText(context));
+    // WP-21 (D62): the Album tip's switch, only where the tip shows (from the Album); "Don't show again" turned it off.
+    if (context.runtime.mode == core::LaunchMode::Applet) {
+        appletTip->init("settings/applet_tip"_i18n, context.config.config().general.appletTip, [&context](bool on) {
+            core::GeneralSettings general = context.config.config().general;
+            general.appletTip = on;
+            context.config.setGeneral(general);
+            app::testhooks::write("setting", nlohmann::ordered_json{{"name", "appletTip"}, {"value", on}});
+        });
+    } else {
+        appletTip->setVisibility(brls::Visibility::GONE);
+    }
     memory->setDetailText(memoryText());
     memory->registerClickAction([this](brls::View*) {
         memory->setDetailText(memoryText());  // tap for a fresh reading

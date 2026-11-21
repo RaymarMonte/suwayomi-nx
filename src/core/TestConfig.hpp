@@ -78,6 +78,9 @@ struct TestConfig {
     // or short to see the timer reconnect). Nothing = not given.
     std::optional<bool> networkConnected;
     std::optional<int> offlineCheckMs;
+    // WP-21: "appletTip": false: no Album tip at this start, whatever config.json says (the harness sets it for every
+    // applet-mode launch except the scenarios that test the tip). true shows it. Nothing = config.json's setting.
+    std::optional<bool> appletTip;
     std::vector<std::string> problems;  // what couldn't be understood, in plain words (logged, otherwise ignored)
 };
 

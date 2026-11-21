@@ -30,10 +30,10 @@ void start(const platform::SafeFs& fs);
 void appStart(const core::RuntimeInfo& runtime, const core::RuntimeProfile& profile, bool safeMode,
               std::string_view lastCrash);
 
-// The applet-mode guard (D21): {"ev":"launch_refused",...}. appletGuardDrill() is the test config's null-pointer drill to run
-// inside the guard's screen (after writing its "drill" event), or nullptr. flushNow() makes sure what is waiting reaches the
-// file before the screen shows (it tries for about 100 ms).
-void launchRefused(const core::RuntimeInfo& runtime);
+// The applet-mode guard (S12, D62): {"ev":"launch_refused",...,"reason":"low_memory"}. appletGuardDrill() is the test config's
+// null-pointer drill to run inside the guard's screen (after writing its "drill" event), or nullptr. flushNow() makes sure
+// what is waiting reaches the file before the screen shows (it tries for about 100 ms).
+void launchRefused(const core::RuntimeInfo& runtime, std::string_view reason);
 void (*appletGuardDrill())();
 void flushNow();
 
@@ -63,6 +63,9 @@ std::optional<std::uint64_t> sdFreeBytes();
 // builds: always nothing.
 std::optional<bool> networkConnected();
 std::optional<int> offlineCheckMs();
+// WP-21: the test config's "appletTip" (show the Album tip at this start or not, instead of config.json's setting).
+// Nothing when not given; release builds: always nothing.
+std::optional<bool> appletTip();
 
 // Writes a {"ev":"net",...} event for every request the client finishes (WP-05). The observer runs on the network thread and
 // hands the event to the main thread with brls::sync. Release builds: nothing.

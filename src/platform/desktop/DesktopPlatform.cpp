@@ -88,6 +88,10 @@ void setResumeHandler(void (*)()) {
     // A PC doesn't sleep under the app the way the Switch does.
 }
 
+void setLeaveOnExitRequest(bool) {
+    // No Album and no exit requests on the PC: SIGTERM quits like PLUS (installQuitSignalHandlers).
+}
+
 void keepScreenOn(bool) {
     // The PC's screen saver is the PC owner's business.
 }

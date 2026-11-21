@@ -127,6 +127,10 @@
                 id="settings/mode"
                 title="@i18n/settings/mode" />
 
+            <brls:BooleanCell
+                minHeight="72"
+                id="settings/applet_tip" />
+
             <brls:DetailCell
                 minHeight="72"
                 id="settings/memory"

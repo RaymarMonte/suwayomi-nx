@@ -431,7 +431,14 @@ ConfigLoad loadAppConfig(std::string_view text, const JsonLimits& limits, const 
             problems.push_back("config: switchDownloads.limitGb " + std::to_string(limit) + " is not a choice, ignored");
         }
     }
+
+    SectionReader g(root, "general", problems);
+    g.flag("appletTip", load.config.general.appletTip);
     return load;
+}
+
+bool showAppletTip(LaunchMode mode, const GeneralSettings& general) {
+    return mode == LaunchMode::Applet && general.appletTip;
 }
 
 int sourceWaitMs(const BrowseSettings& browse, int profileDefaultMs) {
@@ -494,6 +501,9 @@ std::string saveAppConfig(const AppConfig& config) {
     if (config.switchDownloads.limitGb) {
         root["switchDownloads"]["limitGb"] = *config.switchDownloads.limitGb;  // only once chosen
     }
+    root["general"] = {
+        {"appletTip", config.general.appletTip},
+    };
     return root.dump(2, ' ', false, nlohmann::ordered_json::error_handler_t::replace) + "\n";
 }
 

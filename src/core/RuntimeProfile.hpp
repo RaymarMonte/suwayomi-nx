@@ -7,16 +7,17 @@
 #include "core/RetryPolicy.hpp"
 #include "core/RuntimeInfo.hpp"
 
-// Every memory budget, prefetch count, concurrency and input limit the app uses (D12 amended by D21, ARCHITECTURE.md
-// "Launch modes and runtime profiles"). Modules read their limits from here, never from constants of their own.
-// The numbers are first guesses from WP-00's measurements (application mode: a 3,184 MiB heap); WP-07 and WP-12 tune them.
+// Every memory budget, prefetch count, concurrency and input limit the app uses (D12, D62, ARCHITECTURE.md "Launch modes and
+// runtime profiles"). Modules read their limits from here, never from constants of their own.
+// Full's numbers come from WP-00's measurements (application mode: a 3,184 MiB heap), tuned in WP-07 and WP-12. Lite's
+// (applet mode, from the Album: other homebrew report a 380-400 MiB heap) are first guesses until WP-21 measures them.
 namespace snx::core {
 
 inline constexpr std::uint64_t kMiB = 1024 * 1024;
 inline constexpr std::uint64_t kGiB = 1024 * kMiB;
 
 struct RuntimeProfile {
-    std::string_view name = "full";  // "full" (application mode, the only one used, D21) or "applet" (see makeRuntimeProfile)
+    std::string_view name = "full";  // "full" (application mode) or "lite" (applet mode, from the Album; WP-21, D62)
     bool safeMode = false;           // the last run crashed (SAFETY.md S1): memory budgets halved, prefetch off
 
     // What it was made from.
@@ -29,7 +30,7 @@ struct RuntimeProfile {
     std::uint64_t textureBudgetBytes = 0;  // GPU textures alive at once (SAFETY.md S7)
     std::uint64_t maxDecodeBytes = 0;      // one decoded image, width x height x 4; checked from the header first (S6)
     float maxDecodeScale = 4.0f;           // decode up to this many times the screen size (or the original, if smaller);
-                                           // 4 from WP-13c's console measurement (D48), safe mode 2, the applet profile 1
+                                           // 4 from WP-13c's console measurement (D48), safe mode and Lite 2
     float maxZoom = 4.0f;                  // the reader zooms a page up to this many times its fit (WP-13; safe mode: 2)
 
     // Reader prefetch.
@@ -156,6 +157,10 @@ struct RuntimeProfile {
     // Crash ending (WP-21, D62): in applet mode a crash first tells the system "I'm leaving", then waits at most this long for
     // the system to end the process before ending it itself. Unused in application mode (the process ends at once, D35).
     int crashExitWaitMs = 5000;
+    // Applet mode (WP-21, D62): with less free memory than this at start (a game open behind the Album takes some), the app
+    // doesn't start: the guard's low-memory screen (SAFETY.md S12) says so. Enough for borealis plus the budget floors below.
+    // Unused in application mode.
+    std::uint64_t liteMinFreeBytes = 160 * kMiB;
 
     bool heavyUiEffects = true;  // extra fonts, animations
 };
@@ -164,10 +169,17 @@ struct RuntimeProfile {
 // - Application mode: the "full" profile. Budgets are shares of the free memory with floors and caps:
 //   image cache 40% (24 MiB .. 256 MiB, WP-12), covers 5% (8 .. 64 MiB), textures 15% (32 .. 256 MiB), one decode 10% (16 .. 128 MiB).
 //   The floors are what showing one page needs; below them the memory-pressure guard has to cope.
-// - safeMode: memory budgets halved (not below the floors), prefetch off, webtoon tiles +-1.
-// - Applet mode: the app refuses to run there (D21) and exits before using a profile, but this still returns something small
-//   and safe ("applet": 2 transfers like the 2 sockets, 1 decode thread, +-1 page, caps of 64 MiB). WP-21 turns it into Lite.
+// - Applet mode (from the Album, WP-21, D62): the "lite" profile. Image cache 25% (24 .. 64 MiB), covers 5% (8 .. 16 MiB),
+//   textures 15% (32 .. 64 MiB), one decode 10% (16 .. 64 MiB); zoom and decode scale 2; the reader fetches one page ahead,
+//   nothing of the next chapter; the strip keeps +-1 tile row and decodes 1 screen below; 2 transfers (borealis gives
+//   applet mode 2 sockets), 1 decode thread, Search all one source at a time, downloads one page at a time; no extra UI
+//   effects. Every other limit is Full's.
+// - safeMode: memory budgets halved (not below the floors), prefetch off, webtoon tiles +-1. The same for both profiles.
 // - Absurd input (used > total, total 0) gives the floors.
 RuntimeProfile makeRuntimeProfile(LaunchMode mode, std::uint64_t totalMem, std::uint64_t usedMem, bool safeMode = false);
+
+// Applet mode with less free memory at start than profile.liteMinFreeBytes: the app shows the guard's low-memory screen
+// instead of starting (WP-21, D62, SAFETY.md S12). Always false in application mode.
+bool tooLittleMemoryForLite(LaunchMode mode, const RuntimeProfile& profile);
 
 }  // namespace snx::core

@@ -211,6 +211,14 @@ TestConfig parse(std::string_view json) {
             config.problems.push_back("test config: \"offlineCheckMs\" must be a whole number from 1000 to 3600000");
         }
     }
+    // WP-21: the Album tip at this start, instead of config.json's setting.
+    if (const auto tip = root.find("appletTip"); tip != root.end()) {
+        if (tip->is_boolean()) {
+            config.appletTip = tip->get<bool>();
+        } else {
+            config.problems.push_back("test config: \"appletTip\" must be true or false");
+        }
+    }
     if (const auto bench = root.find("imageBench"); bench != root.end()) {
         parseBench(*bench, config);
         config.diagnostics = config.diagnostics || config.benchRepeat > 0;

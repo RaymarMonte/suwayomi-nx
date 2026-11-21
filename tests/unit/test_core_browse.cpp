@@ -298,9 +298,10 @@ TEST_CASE("browse: profile limits") {
     CHECK(full.globalSearchConcurrency == 3);
     CHECK(full.globalSearchCovers == 5);
     CHECK(full.globalSearchSourcesMax == 100);
-    const RuntimeProfile applet = makeRuntimeProfile(LaunchMode::Applet, 400 * kMiB, 100 * kMiB);
-    CHECK(applet.globalSearchConcurrency == 1);
-    CHECK(applet.browseMaxItems < full.browseMaxItems);
+    // Lite (WP-21, D62): Search all asks one source at a time; the grid's cap is Full's (covers live in the capped cache).
+    const RuntimeProfile lite = makeRuntimeProfile(LaunchMode::Applet, 400 * kMiB, 100 * kMiB);
+    CHECK(lite.globalSearchConcurrency == 1);
+    CHECK(lite.browseMaxItems == full.browseMaxItems);
 }
 
 TEST_CASE("browse: documents and requests") {

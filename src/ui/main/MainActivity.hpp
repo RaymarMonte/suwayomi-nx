@@ -52,6 +52,11 @@ class MainActivity : public brls::Activity {
 
   private:
     brls::View* makeTab(std::size_t index);
+    // WP-21 (D62): from the Album the tip comes first (OK / Don't show again); setup, login and the "closed unexpectedly"
+    // note come after it, from startUp().
+    void openAppletTip();
+    void appletTipClosed(bool hide);
+    void startUp();  // the "closed unexpectedly" note, then the server check, or the setup screen on the first run
     void startCheck(Connection::By by = Connection::By::Start);
     void onCheck(const api::ApiResult<core::ServerInfo>& result, const char* where);
     // WP-18b (D61): the connection's own checks (the offline timer, focus, waking, a suspicion, the network back). Online

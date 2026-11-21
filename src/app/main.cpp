@@ -1,7 +1,9 @@
-// suwayomi-nx entry point. The order matters (SAFETY.md S1, S12, D21):
+// suwayomi-nx entry point. The order matters (SAFETY.md S1, S12, D21 as amended by D62):
 //   1. crash containment (WP-03b), first of all,
-//   2. the logger (WP-08), so even the applet-mode guard's one line is kept,
-//   3. the applet-mode guard (WP-08): in applet mode the app shows D21's text and leaves, before anything else runs,
+//   2. the runtime profile (Full in application mode, Lite from the Album) and the logger (WP-08), so even the guard's one
+//      line is kept,
+//   3. the applet-mode guard (WP-08, WP-21): from the Album with too little free memory the app shows the low-memory screen
+//      and leaves, before anything else runs,
 //   4. config, borealis, the HTTP client (WP-05), the Suwayomi client (WP-06), the image loader (WP-07), all gathered in one
 //      AppContext that every screen gets (WP-08), then the main screen and the main loop.
 
@@ -307,8 +309,8 @@ int main(int argc, char* argv[]) {
     const snx::core::RuntimeInfo runtime = snx::platform::runtimeInfo();
     const crash::LastRun lastRun = crash::install(fs, runtime.mode);
 
-    // 2. The logger. The profile is pure math on what was just measured; it's built once and used everywhere (D21: Full).
-    // Safe mode after a crash (S1): memory budgets halved, prefetch off.
+    // 2. The logger. The profile is pure math on what was just measured; it's built once and used everywhere (Full in
+    // application mode, Lite from the Album, D62). Safe mode after a crash (S1): memory budgets halved, prefetch off.
     snx::core::RuntimeProfile profile =
         snx::core::makeRuntimeProfile(runtime.mode, runtime.totalMem, runtime.usedMem, lastRun.crashed);
     crash::setExitWaitMs(profile.crashExitWaitMs);  // D62: how long an applet-mode crash waits for the system to end it
@@ -319,8 +321,9 @@ int main(int argc, char* argv[]) {
         brls::Logger::warning("app: the last crash's ending (applet mode, D62): {}", lastRun.ending);
     }
 
-    // 3. The applet-mode guard (D21, SAFETY.md S12): nothing else runs in applet mode, and nothing is written after it.
-    if (app::refuseAppletMode(runtime, fs)) {
+    // 3. The applet-mode guard (SAFETY.md S12, D62): from the Album with too little free memory, nothing else runs and nothing
+    // is written after it.
+    if (app::refuseLowMemory(runtime, profile, fs)) {
         return EXIT_SUCCESS;
     }
 
@@ -541,13 +544,13 @@ int main(int argc, char* argv[]) {
     gResumeHttp = &http;
     gResumeConnection = &connection;
     snx::platform::setResumeHandler(onResumeFromSleep);
+    // From the Album, a close asked by the system (a game started, the Album closed) leaves like hbmenu's quit (D62).
+    snx::platform::setLeaveOnExitRequest(runtime.mode == snx::core::LaunchMode::Applet);
 
+    // The main screen also shows the "closed unexpectedly" note (after the Album tip, WP-21).
     brls::Application::pushActivity(new snx::ui::MainActivity(context));
     if (testhooks::diagnostics()) {
         brls::sync([&context] { openDiagnostics(context); });
-    }
-    if (lastRun.crashed) {
-        brls::Application::notify("crash/last_time"_i18n);
     }
     crash::startWatchdog();
 
@@ -584,6 +587,7 @@ int main(int argc, char* argv[]) {
     switchStore.stop();          // the file thread: the task under way ends, the rest are dropped
     images.shutdown();  // its loads end, its threads stop, no more cache writes (S5)
     snx::platform::setResumeHandler(nullptr);
+    snx::platform::setLeaveOnExitRequest(false);  // the exit mode it set (if any) stays
     gResumeHttp = nullptr;
     gResumeConnection = nullptr;
     http.shutdown();    // ends what is still queued or running, and the network thread

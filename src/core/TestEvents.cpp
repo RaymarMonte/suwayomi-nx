@@ -54,10 +54,11 @@ std::string idle(std::int64_t tMs) {
     return line(tMs, "idle");
 }
 
-std::string launchRefused(std::int64_t tMs, const RuntimeInfo& runtime) {
+std::string launchRefused(std::int64_t tMs, const RuntimeInfo& runtime, std::string_view reason) {
     nlohmann::ordered_json fields = nlohmann::ordered_json::object();
     fields["mode"] = std::string(launchModeName(runtime.mode));
     fields["appletType"] = runtime.appletType;
+    fields["reason"] = std::string(reason);
     return line(tMs, "launch_refused", fields);
 }
 

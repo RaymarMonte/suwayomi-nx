@@ -11,5 +11,8 @@
     "connect_first": "Not connected to your server yet. The Library tab shows the connection.",
     "not_set_up": "No server set up yet",
     "back_online": "Connected to the server",
-    "needs_server": "This needs the server."
+    "needs_server": "This needs the server.",
+    "applet_tip": "Opened from the Album, Suwayomi NX has less memory, so pages load a little slower and fewer are kept ready. For the full app: on the HOME Menu, hold R and start any game. Keep holding R until the Homebrew Menu appears, then choose Suwayomi NX.",
+    "applet_tip_ok": "OK",
+    "applet_tip_hide": "Don't show again"
 }

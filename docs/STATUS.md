@@ -11,10 +11,15 @@ v0.2.0 (17, 18, 18c, 18b unreleased). **Open issues:** none (`docs/ISSUES.md`, D
   now presses HOME; run 2 green end to end (`SNX_APPLET_CONSOLE=1 SNX_APPLET_DRILL=1 tools/e2e.sh switch applet-guard`).
 - The console now has the **test build** of this commit (P1 put it there) and is **asleep**. A normal build goes back at
   the end of WP-21 (or when the owner asks).
-## Next step: Stage B (PC only, no console)
-- WP file "Stage B": main() starts applet mode with the Lite profile (the guard only for low memory), the Lite profile +
-  unit tests, the exit-request hook, the tip + `appletTip` + Settings switch, e2e `--mode applet` and `applet-start`.
-  P2 (`crash-drills` from the Album, owner watching) comes after the Lite start exists.
+## Stage B (PC only, no console): in progress
+- Done (unit tests, desktop + Switch builds green, gate PASS): the `lite` profile (`tooLittleMemoryForLite`,
+  `liteMinFreeBytes` 160 MiB), the guard = the low-memory screen (`refuseLowMemory`, `launch_refused` `reason`), the
+  exit-request hook (`platform::setLeaveOnExitRequest`, and on the guard's screen), the Album tip (`general.appletTip`
+  in config.json, `showAppletTip`, test config `appletTip`, `applet_tip` event, MainActivity before setup/login/the
+  crash note, Settings → "Show the Album tip" from the Album only, About's words).
+- Left: e2e `--mode applet` (both drivers, Switch "close running software" step), `applet-start` replacing
+  `applet-guard` (desktop: low-memory screen + drill), applet goldens, every desktop scenario in both modes, D62 notes.
+  Until then the desktop `applet-guard` scenario fails (applet mode no longer refuses). Then P2 (owner watching).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

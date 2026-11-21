@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "core/Json.hpp"
+#include "core/RuntimeInfo.hpp"
 #include "core/models/Category.hpp"
 
 // The app's settings (config.json in the app's folder, D10): server, login, reader preferences. Core only turns them into text
@@ -161,6 +162,16 @@ struct SwitchDownloadSettings {
 // Settings' choices for SwitchDownloadSettings::limitGb, in its order (0 = "No limit", last).
 inline constexpr std::array<int, 6> kSwitchLimitChoicesGb = {2, 4, 8, 16, 32, 0};
 
+// The app as a whole (WP-21). A new section, so old files simply don't have it (no migration).
+struct GeneralSettings {
+    // The tip at every start from the Album (D62, owner's answer 2): "Don't show again" turns it off, Settings ("Show the Album
+    // tip") back on. Shared with application mode, where it is never shown.
+    bool appletTip = true;
+};
+
+// Show the Album tip at this start? Only in applet mode, and only while the setting is on.
+bool showAppletTip(LaunchMode mode, const GeneralSettings& general);
+
 // At most this many hidden languages are read back, each at most kMaxLanguageCodeBytes long (S6: the file stays small).
 inline constexpr std::size_t kMaxHiddenLanguages = 200;
 inline constexpr std::size_t kMaxLanguageCodeBytes = 32;
@@ -173,6 +184,7 @@ struct AppConfig {
     BrowseSettings browse;
     ServerDownloadSettings serverDownloads;
     SwitchDownloadSettings switchDownloads;
+    GeneralSettings general;  // WP-21
 };
 
 struct ConfigLoad {

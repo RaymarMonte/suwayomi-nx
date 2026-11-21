@@ -47,6 +47,7 @@ class ConfigStore {
     // Downloads on the server (WP-17): delete after reading. Saved a moment later, if it changed.
     void setServerDownloads(const core::ServerDownloadSettings& settings);
     void setSwitchDownloads(const core::SwitchDownloadSettings& settings);  // WP-18
+    void setGeneral(const core::GeneralSettings& general);                  // WP-21: the Album tip
     // The test config's server (test builds): used as if it had been saved, but not written unless something changes it.
     void useServer(const core::ServerSettings& server);
 

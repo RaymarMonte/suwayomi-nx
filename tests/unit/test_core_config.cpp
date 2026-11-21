@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 
 #include "core/AppConfig.hpp"
+#include "core/TestConfig.hpp"
 
 using namespace snx::core;
 
@@ -130,6 +131,42 @@ TEST_SUITE("core") {
         const ConfigLoad sections = loadAppConfig(R"({"schemaVersion": 1, "server": "http://x", "reader": null})");
         CHECK(mentions(sections.problems, "server is not an object"));
         CHECK(sections.problems.size() == 1);
+    }
+
+    TEST_CASE("AppConfig: the Album tip setting (WP-21)") {
+        // On by default, also for files written before WP-21 (no "general" section).
+        CHECK(AppConfig{}.general.appletTip);
+        const ConfigLoad old = loadAppConfig(R"({"schemaVersion": 1, "server": {"url": "http://x"}})");
+        CHECK(old.problems.empty());
+        CHECK(old.config.general.appletTip);
+        // "Don't show again" is saved and read back.
+        AppConfig hidden;
+        hidden.general.appletTip = false;
+        const std::string text = saveAppConfig(hidden);
+        CHECK(nlohmann::json::parse(text)["general"]["appletTip"] == false);
+        const ConfigLoad back = loadAppConfig(text);
+        CHECK(back.problems.empty());
+        CHECK_FALSE(back.config.general.appletTip);
+        // A wrong type keeps the default and says why.
+        const ConfigLoad wrong = loadAppConfig(R"({"schemaVersion": 1, "general": {"appletTip": "no"}})");
+        CHECK(wrong.config.general.appletTip);
+        CHECK(mentions(wrong.problems, "general.appletTip must be true or false"));
+    }
+
+    TEST_CASE("AppConfig: the Album tip shows only from the Album, while the setting is on") {
+        GeneralSettings on;
+        GeneralSettings off;
+        off.appletTip = false;
+        CHECK(showAppletTip(LaunchMode::Applet, on));
+        CHECK_FALSE(showAppletTip(LaunchMode::Applet, off));
+        CHECK_FALSE(showAppletTip(LaunchMode::Application, on));  // never in application mode
+        CHECK_FALSE(showAppletTip(LaunchMode::Application, off));
+        // Test builds: the test config's "appletTip" stands in for the setting (the harness keeps the tip away with false).
+        CHECK(testconfig::parse(R"({"appletTip": false})").appletTip == false);
+        CHECK(testconfig::parse(R"({"appletTip": true})").appletTip == true);
+        CHECK_FALSE(testconfig::parse("{}").appletTip);
+        CHECK(testconfig::parse("{}").problems.empty());
+        CHECK_FALSE(testconfig::parse(R"({"appletTip": 0})").problems.empty());
     }
 
     TEST_CASE("AppConfig: schemaVersion missing, too old, too new") {

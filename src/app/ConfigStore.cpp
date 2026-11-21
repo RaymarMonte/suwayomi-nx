@@ -90,6 +90,14 @@ void ConfigStore::setSwitchDownloads(const core::SwitchDownloadSettings& setting
     scheduler_.changed(appClockMs());
 }
 
+void ConfigStore::setGeneral(const core::GeneralSettings& general) {
+    if (general.appletTip == config_.general.appletTip) {
+        return;
+    }
+    config_.general = general;
+    scheduler_.changed(appClockMs());
+}
+
 void ConfigStore::setMangaReader(const core::MangaReaderSettings& settings) {
     const core::MangaReaderSettings now = core::readerSettingsFor(config_.reader, settings.mangaId);
     const bool own = std::any_of(config_.reader.manga.begin(), config_.reader.manga.end(),

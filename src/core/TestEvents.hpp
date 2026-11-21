@@ -38,8 +38,9 @@ std::string screen(std::int64_t tMs, std::string_view name);
 // {"ev":"screen","name":"Settings","params":{...}}: with what the screen shows that a test checks (WP-08).
 std::string screen(std::int64_t tMs, std::string_view name, const nlohmann::ordered_json& params);
 std::string idle(std::int64_t tMs);
-// {"ev":"launch_refused","mode":"applet","appletType":2}: the only event a run in applet mode writes (D21, WP-08).
-std::string launchRefused(std::int64_t tMs, const RuntimeInfo& runtime);
+// {"ev":"launch_refused","mode":"applet","appletType":2,"reason":"low_memory"}: the only event a run the guard stops writes
+// (S12; WP-08, WP-21: applet mode with too little free memory).
+std::string launchRefused(std::int64_t tMs, const RuntimeInfo& runtime, std::string_view reason);
 // {"ev":"mem","used":...,"total":...,"free":...}: the allocator's in-use bytes, every 10 s in test builds (WP-08).
 std::string mem(std::int64_t tMs, const RuntimeInfo& runtime);
 // {"ev":"drill","name":"null-write","phase":"start"}: a crash drill starts (phase "start"), or the cache-write drill is

@@ -332,8 +332,8 @@ void appStart(const core::RuntimeInfo& runtime, const core::RuntimeProfile& prof
     append(core::testevents::appStart(nowMs(), info));
 }
 
-void launchRefused(const core::RuntimeInfo& runtime) {
-    append(core::testevents::launchRefused(nowMs(), runtime));
+void launchRefused(const core::RuntimeInfo& runtime, std::string_view reason) {
+    append(core::testevents::launchRefused(nowMs(), runtime, reason));
 }
 
 void (*appletGuardDrill())() {
@@ -408,6 +408,10 @@ std::optional<bool> networkConnected() {
 
 std::optional<int> offlineCheckMs() {
     return gConfig.offlineCheckMs;
+}
+
+std::optional<bool> appletTip() {
+    return gConfig.appletTip;
 }
 
 void watchNet(net::HttpClient& http) {
@@ -559,7 +563,7 @@ namespace snx::app::testhooks {
 
 void start(const platform::SafeFs&) {}
 void appStart(const core::RuntimeInfo&, const core::RuntimeProfile&, bool, std::string_view) {}
-void launchRefused(const core::RuntimeInfo&) {}
+void launchRefused(const core::RuntimeInfo&, std::string_view) {}
 void (*appletGuardDrill())() {
     return nullptr;
 }
@@ -601,6 +605,9 @@ std::optional<bool> networkConnected() {
     return std::nullopt;
 }
 std::optional<int> offlineCheckMs() {
+    return std::nullopt;
+}
+std::optional<bool> appletTip() {
     return std::nullopt;
 }
 void watchNet(net::HttpClient&) {}

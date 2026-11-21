@@ -9,6 +9,9 @@
 // The heap libnx set up before main(): everything between these two is ours to allocate from (D12 amendment, WP-00).
 extern "C" char* fake_heap_start;
 extern "C" char* fake_heap_end;
+// libnx's exit mode (applet.c): 1 = at exit, tell the system "I'm leaving" instead of returning to the loader (hbmenu's quit
+// sets it; borealis's Platform::exitToHomeMode too). D62: set from the Album on an exit request.
+extern "C" u32 __nx_applet_exit_mode;
 
 namespace snx::platform {
 
@@ -82,6 +85,30 @@ void setResumeHandler(void (*handler)()) {
     }
 }
 
+namespace {
+
+AppletHookCookie gExitCookie;
+bool gExitHooked = false;
+
+// Beside borealis's own hook, which calls Application::quit() on the same message (both run from appletMainLoop()).
+void onExitHook(AppletHookType hook, void*) {
+    if (hook == AppletHookType_OnExitRequest) {
+        __nx_applet_exit_mode = 1;
+    }
+}
+
+}  // namespace
+
+void setLeaveOnExitRequest(bool on) {
+    if (on && !gExitHooked) {
+        appletHook(&gExitCookie, onExitHook, nullptr);
+        gExitHooked = true;
+    } else if (!on && gExitHooked) {
+        appletUnhook(&gExitCookie);
+        gExitHooked = false;
+    }
+}
+
 void keepScreenOn(bool on) {
     // "Media playback": no dimming and no auto-sleep for this application while it is set (what video players use).
     appletSetMediaPlaybackState(on);
@@ -125,7 +152,12 @@ bool showLaunchRefused(const char* text, int timeoutMs, void (*onShown)()) {
     bool touching = hidGetTouchScreenStates(&touch, 1) > 0 && touch.count > 0;
     const u64 start = armGetSystemTick();
     const u64 limit = armNsToTicks(static_cast<u64>(timeoutMs > 0 ? timeoutMs : 0) * 1000000ULL);
-    while (appletMainLoop()) {  // false on an exit request (HOME -> close)
+    for (;;) {
+        if (!appletMainLoop()) {
+            // An exit request (HOME -> start a game, the Album closed): leave like hbmenu's quit, not back to hbloader (D62).
+            __nx_applet_exit_mode = 1;
+            break;
+        }
         padUpdate(&pad);
         if (padGetButtonsDown(&pad) != 0) {
             break;

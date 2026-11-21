@@ -129,28 +129,103 @@ TEST_SUITE("core") {
         CHECK(safe.decodeThreads == full.decodeThreads);
     }
 
-    TEST_CASE("RuntimeProfile: applet mode still gets something small and safe (the app exits before using it, D21)") {
-        const RuntimeProfile applet = makeRuntimeProfile(LaunchMode::Applet, 400 * kMiB, 30 * kMiB);
-        CHECK(applet.name == "applet");
-        CHECK(applet.httpConcurrency == 2);
-        CHECK(applet.decodeThreads == 1);
-        CHECK(applet.prefetchAhead == 1);
-        CHECK(applet.stripScreensBehind == 0);  // WP-13b
-        CHECK(applet.stripScreensAhead == 1);
-        CHECK(applet.stripZoomPages == 1);  // WP-13d
-        CHECK(applet.maxUpdateRows == 1000);  // WP-15: the row caps halved
-        CHECK(applet.maxHistoryRows == 250);
-        CHECK(applet.updatesPageSize == 50);
-        CHECK_FALSE(applet.backgroundPrefetch);
-        CHECK(applet.imageCacheBytes <= 64 * kMiB);
-        CHECK(applet.maxDecodeBytes <= 64 * kMiB);
-        CHECK(applet.maxDecodeScale == doctest::Approx(1.0));
-        CHECK_FALSE(applet.heavyUiEffects);
-        CHECK(applet.crashExitWaitMs == 5000);  // WP-21 (D62): an applet-mode crash waits at most 5 s to be ended
-        CHECK(makeRuntimeProfile(LaunchMode::Applet, 400 * kMiB, 30 * kMiB, true).crashExitWaitMs == 5000);  // safe mode too
+    TEST_CASE("RuntimeProfile: Lite, applet mode from the Album (WP-21, D62)") {
+        // Other homebrew report a 380-400 MiB heap from the Album; a few dozen MiB are in use at start-up.
+        constexpr std::uint64_t kAlbumHeap = 380 * kMiB;
+        constexpr std::uint64_t kAlbumUsed = 30 * kMiB;
+        const std::uint64_t free = kAlbumHeap - kAlbumUsed;
+        const RuntimeProfile lite = makeRuntimeProfile(LaunchMode::Applet, kAlbumHeap, kAlbumUsed);
+        CHECK(lite.name == "lite");
+        CHECK_FALSE(lite.safeMode);
+        CHECK(lite.freeMem == free);
+        // Shares of the free memory, with Lite's caps.
+        CHECK(lite.imageCacheBytes == 64 * kMiB);            // 25 % would be 87 MiB
+        CHECK(lite.coverCacheBytes == 16 * kMiB);            // 5 % would be 17 MiB
+        CHECK(lite.textureBudgetBytes == free / 100 * 15);  // 52 MiB
+        CHECK(lite.maxDecodeBytes == free / 100 * 10);      // 35 MiB
+        CHECK(lite.maxZoom == doctest::Approx(2.0));
+        CHECK(lite.maxDecodeScale == doctest::Approx(2.0));
+        // The biggest zoomed box fits one decode's budget, even at the floor.
+        const auto capW = static_cast<std::uint64_t>(lite.maxDecodeScale * 1280);
+        const auto capH = static_cast<std::uint64_t>(lite.maxDecodeScale * 720);
+        CHECK(capW * capH * 4 <= lite.maxDecodeBytes);
+        CHECK(capW * capH * 4 <= 16 * kMiB);
+        // Prefetch: one page each way, nothing of the next chapter.
+        CHECK(lite.prefetchBehind == 1);
+        CHECK(lite.prefetchAhead == 1);
+        CHECK(lite.nextChapterPrefetchPages == 0);
+        CHECK_FALSE(lite.backgroundPrefetch);
+        CHECK(lite.webtoonTilesAround == 1);
+        CHECK(lite.stripScreensBehind == 0);
+        CHECK(lite.stripScreensAhead == 1);
+        CHECK(lite.stripZoomPages == 1);
+        // Work in parallel: borealis's 2 sockets, one decode thread, one source and one page at a time.
+        CHECK(lite.httpConcurrency == 2);
+        CHECK(lite.decodeThreads == 1);
+        CHECK(lite.globalSearchConcurrency == 1);
+        CHECK(lite.switchDownloadPagesAtOnce == 1);
+        CHECK_FALSE(lite.heavyUiEffects);
+        CHECK(lite.crashExitWaitMs == 5000);  // an applet-mode crash waits at most 5 s to be ended
+        CHECK(lite.liteMinFreeBytes == 160 * kMiB);
+        // The budgets together leave most of the heap to everything else (borealis, the keyboard's share is outside it).
+        CHECK(lite.imageCacheBytes + lite.coverCacheBytes + lite.textureBudgetBytes + lite.maxDecodeBytes * lite.decodeThreads <
+              lite.freeMem / 2);
+        CHECK(lite.maxDecodeBytes <= lite.imageCacheBytes);
+
+        // Every other limit is Full's.
+        const RuntimeProfile full = makeRuntimeProfile(LaunchMode::Application, kSwitchHeap, kStartUsed);
+        CHECK(lite.coverRowPrefetch == full.coverRowPrefetch);
+        CHECK(lite.maxChapters == full.maxChapters);
+        CHECK(lite.maxUpdateRows == full.maxUpdateRows);
+        CHECK(lite.maxHistoryRows == full.maxHistoryRows);
+        CHECK(lite.browseMaxItems == full.browseMaxItems);
+        CHECK(lite.maxImageBytes == full.maxImageBytes);  // 32 MiB: one page at a time keeps the peak at one page
+        CHECK(lite.maxImageSide == full.maxImageSide);
+        CHECK(lite.pressurePercent == full.pressurePercent);
+        CHECK(lite.diskCacheBytes == full.diskCacheBytes);  // on the SD card, shared with application mode
+        CHECK(lite.switchDownloadLimitBytes == full.switchDownloadLimitBytes);
+        CHECK(lite.pendingSavesMax == full.pendingSavesMax);
+        CHECK(lite.httpTimeoutMs == full.httpTimeoutMs);
+        CHECK(lite.decodeThreadStackBytes == full.decodeThreadStackBytes);
+    }
+
+    TEST_CASE("RuntimeProfile: Lite in safe mode halves the budgets, never below the floors") {
+        const RuntimeProfile lite = makeRuntimeProfile(LaunchMode::Applet, 380 * kMiB, 30 * kMiB);
+        const RuntimeProfile safe = makeRuntimeProfile(LaunchMode::Applet, 380 * kMiB, 30 * kMiB, true);
+        CHECK(safe.name == "lite");
+        CHECK(safe.safeMode);
+        CHECK(safe.imageCacheBytes == 32 * kMiB);
+        CHECK(safe.coverCacheBytes == 8 * kMiB);
+        CHECK(safe.textureBudgetBytes == 32 * kMiB);  // half would be 26 MiB: the floor
+        CHECK(safe.maxDecodeBytes == lite.maxDecodeBytes / 2);
+        CHECK(safe.prefetchBehind == 0);
+        CHECK(safe.prefetchAhead == 0);
+        CHECK_FALSE(safe.coverRowPrefetch);
+        CHECK(safe.maxDecodeScale == doctest::Approx(2.0));
+        CHECK(safe.httpConcurrency == 2);
+        CHECK(safe.crashExitWaitMs == 5000);
+        // Nothing known: the floors.
         const RuntimeProfile tiny = makeRuntimeProfile(LaunchMode::Applet, 0, 0, true);
         CHECK(tiny.imageCacheBytes == 24 * kMiB);
+        CHECK(tiny.coverCacheBytes == 8 * kMiB);
+        CHECK(tiny.textureBudgetBytes == 32 * kMiB);
+        CHECK(tiny.maxDecodeBytes == 16 * kMiB);
         CHECK(tiny.prefetchAhead == 0);
+    }
+
+    TEST_CASE("RuntimeProfile: too little memory for Lite (the low-memory screen, WP-21)") {
+        // Free at start = total - used, compared with liteMinFreeBytes (160 MiB).
+        CHECK_FALSE(tooLittleMemoryForLite(LaunchMode::Applet, makeRuntimeProfile(LaunchMode::Applet, 380 * kMiB, 30 * kMiB)));
+        CHECK_FALSE(tooLittleMemoryForLite(LaunchMode::Applet, makeRuntimeProfile(LaunchMode::Applet, 170 * kMiB, 10 * kMiB)));
+        CHECK(tooLittleMemoryForLite(LaunchMode::Applet, makeRuntimeProfile(LaunchMode::Applet, 170 * kMiB, 11 * kMiB)));
+        CHECK(tooLittleMemoryForLite(LaunchMode::Applet, makeRuntimeProfile(LaunchMode::Applet, 100 * kMiB, 5 * kMiB)));
+        CHECK(tooLittleMemoryForLite(LaunchMode::Applet, makeRuntimeProfile(LaunchMode::Applet, 0, 0)));
+        CHECK(tooLittleMemoryForLite(LaunchMode::Applet, makeRuntimeProfile(LaunchMode::Applet, 100 * kMiB, 200 * kMiB)));
+        CHECK(tooLittleMemoryForLite(LaunchMode::Applet, makeRuntimeProfile(LaunchMode::Applet, 100 * kMiB, 5 * kMiB, true)));
+        // Application mode never: there the memory-pressure guard copes.
+        CHECK_FALSE(tooLittleMemoryForLite(LaunchMode::Application, makeRuntimeProfile(LaunchMode::Application, 0, 0)));
+        CHECK_FALSE(tooLittleMemoryForLite(LaunchMode::Application,
+                                           makeRuntimeProfile(LaunchMode::Application, 100 * kMiB, 5 * kMiB)));
     }
 
     TEST_CASE("RuntimeProfile: pure, the same input gives the same profile") {
