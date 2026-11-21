@@ -129,8 +129,9 @@ Windows Node would cross the WSL boundary on every step and need path translatio
 Upstream sys-autopilot's `tests/run.sh` also runs a Node test when `node` is on the path.
 Rejected: Windows Node (boundary crossing, path translation), Ubuntu's apt `nodejs` (v18, too old), NodeSource apt repo (another root apt repo, sudo for every upgrade).
 
-**D21 Application mode only. The app refuses to run in applet mode** (owner OK 2026-10-22). Amends D12. Owner: "Making the app available in
-applet mode seems to make things complex. Let's leave it off for now and make it nice to have."
+**D21 Application mode only. The app refuses to run in applet mode** (owner OK 2026-10-22). Amends D12. **Amended by D62 (WP-21,
+2026-11-21): the app runs from the Album again (Lite profile); the refusal stays only for too little memory.**
+Owner: "Making the app available in applet mode seems to make things complex. Let's leave it off for now and make it nice to have."
 - The app supports only application mode: hold R while starting an installed game → hbmenu → Suwayomi NX (or an hbmenu forwarder).
   All tuning, budgets and device tests use this mode. Applet mode (from the Album) becomes a later nice-to-have, WP-21 in ROADMAP.md.
 - **Applet-mode guard.** Right after the logger and the crash handler's set-up, `main()` asks `platform::runtimeInfo()` for the mode.
@@ -586,7 +587,8 @@ Rejected: setup as the first screen (see above), keeping the log file open (S5, 
 now for "all controllers merged" (WP-08b: its `getControllersConnectedCount` stops at the first empty slot, so a controller in
 slot 2 with slot 1 empty is ignored; the fix replaces one borealis file and needs a second real controller to check).
 
-**D41 A crash in applet mode is always a system fatal; the console checks only the refusal screen** (WP-08, owner OK
+**D41 A crash in applet mode is always a system fatal; the console checks only the refusal screen** (**amended by D62:
+WP-21's command-10 ending makes a crash from the Album end at the HOME menu, P1 + P2 passed 2026-11-21**) (WP-08, owner OK
 2026-10-27; amends D21 and SAFETY.md S12). Found on the console with the owner watching (applet-guard, 2026-10-26):
 - The refusal screen works from the Album: the text shows, a button closes it, the app returns to hbmenu, only
   `launch_refused` is written, no fatal. Its golden is `tests/e2e/goldens/switch/applet-guard/refused.png`.

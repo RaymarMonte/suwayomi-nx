@@ -6,6 +6,10 @@ with 0, any release may change things.
 ## [Unreleased]
 
 ### Added
+- **Opens from the Album too:** no need to hold R on a game. From the Album the app has less memory, so it uses smaller
+  caches and fetches fewer pages ahead (zoom goes up to 2x). A tip at every start says so, with "Don't show again"
+  (Settings → "Show the Album tip" brings it back). If the Album leaves too little memory, the app says how to open it with
+  R instead. A crash from the Album returns to the HOME menu like any other app.
 - **Read away from home:** started without your server (or when it can't be reached), the Library shows the manga
   downloaded to this Switch ("Offline: showing what's on this Switch"; X tries the server again), their details and
   chapters come from the SD card, and the reader reads them at once. The progress you read offline is kept on the SD card

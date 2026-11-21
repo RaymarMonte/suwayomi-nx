@@ -103,12 +103,12 @@ That README plus the public headers *is* the contract other sessions read.
 Main thread: borealis loop and all UI/texture work. Net: 1 thread (curl multi). Decode pool: 2 threads (from the profile).
 Results come back to the UI with `brls::sync([]{…})`. No locks in UI code. Shared caches use one mutex each, held briefly.
 
-## Launch modes and runtime profiles (D12, amended by D21)
+## Launch modes and runtime profiles (D12, amended by D21 and D62)
 
-Homebrew on the Switch starts one of two ways. **For now the app supports only application mode** (D21). In applet mode it shows a short
-message and exits. Applet support (`Lite`) comes with WP-21 (after WP-17, WP-18 and WP-18b, D57), so this section keeps its design as a reference.
+Homebrew on the Switch starts one of two ways, and the app runs in both (WP-21, D62; D21 had kept it to application mode).
+From the Album it uses the smaller `Lite` profile.
 
-| | **Applet mode** → not supported yet: message + exit (later: profile `Lite`) | **Application mode** → profile `Full` |
+| | **Applet mode** (Album) → profile `Lite` | **Application mode** → profile `Full` |
 |---|---|---|
 | How the user gets there | Album icon → hbmenu → our app | Hold **R** while launching any installed game/app → hbmenu → our app (or an hbmenu forwarder) |
 | `appletGetAppletType()` | `AppletType_LibraryApplet` (anything except the two on the right) | `AppletType_Application` / `AppletType_SystemApplication` |
@@ -118,12 +118,13 @@ message and exits. Applet support (`Lite`) comes with WP-21 (after WP-17, WP-18 
 **How it works.** At startup `platform::runtimeInfo()` returns `{mode, totalMem, usedMem}`. On Switch that's `appletGetAppletType()`, the heap size
 (`fake_heap_end - fake_heap_start`) and the allocator's in-use bytes (`mallinfo().uordblks`); not `svcGetInfo(UsedMemorySize)`, which counts the
 whole reserved heap from the start (D12 amendment, WP-00).
-On desktop it's application mode unless the test flag `--simulate-applet-mode` is set, and `--mem-limit=<MB>` caps memory. In applet mode the
-guard below runs and the app exits. Otherwise `core::makeRuntimeProfile()` turns that into a `RuntimeProfile`
+On desktop it's application mode unless the test flag `--simulate-applet-mode` is set, and `--mem-limit=<MB>` caps memory. In applet mode
+with too little memory for Lite (`liteMinFreeBytes`, 160 MiB) the guard below runs and the app exits. Otherwise `core::makeRuntimeProfile()`
+turns that into a `RuntimeProfile`
 (pure, unit-tested). Every module reads its limits from the profile instead of from constants. Safe mode after a crash (SAFETY.md S1)
 halves the memory budgets and turns prefetch off.
 
-| Setting (initial guesses, tuned in WP-07/12 from real measurements) | Lite (later, WP-21: not built now) | **Full (used now)** |
+| Setting (initial guesses, tuned in WP-07/12 from real measurements) | Lite (WP-21: first guesses for a 380 MiB heap; the console gives 259 MiB, the Lite numbers step sets them) | Full |
 |---|---|---|
 | Decoded-image memory cache | ~25% of free heap at start, capped low (e.g. ≤ 64 MB) | ~40% of free heap (e.g. 256–512 MB) |
 | Reader prefetch window | current ±1 page | current −1/+3 pages, plus first 2 pages of next chapter |
@@ -138,19 +139,22 @@ halves the memory budgets and turns prefetch off.
 | Disk cache (SD) | same (it's on SD, not RAM) | same |
 
 **What the user sees.** In application mode, nothing special. Settings → About shows the current mode and memory.
-Opened from the Album (applet mode), the app doesn't start. It shows one plain text screen (exact text in D21): it can't run from the Album yet,
-and how to open it by holding R while starting a game. Any button, a tap, or 60 s closes it, and the user is back in hbmenu.
+Opened from the Album, a tip comes first at every start (less memory, smaller caches, hold R for more; "Don't show again" =
+`general.appletTip` in config.json, Settings → "Show the Album tip" brings it back), and About says "Album (applet mode) · Lite
+profile". An exit request from the Album (HOME) ends the app normally through exit mode 1 (`platform::setLeaveOnExitRequest`).
 
-**Applet-mode guard (D21, SAFETY.md S12).** In applet mode any crash is a system fatal, so this path is kept tiny. It runs first in `main()`
-(only the logger and the crash handler's set-up start before it), before borealis, GPU, network, images or config. It logs one line
-(plus a `launch_refused` test event), then `platform::showLaunchRefused()` draws the text with libnx's text console (Switch) or prints it
-(desktop), then `main()` returns normally. If any step fails, it skips the screen and exits.
+**Low-memory guard (D21 → D62, SAFETY.md S12).** From the Album with too little memory for Lite (`refuseLowMemory`), the app shows
+one plain text screen (the low-memory text: how to open it with R) instead of starting. The path stays tiny: it runs first in
+`main()` (only the logger and the crash handler's set-up start before it), before borealis, GPU, network, images or config. It logs
+one line (plus `launch_refused` `reason: "low_memory"`), then `platform::showLaunchRefused()` draws the text with libnx's text
+console (Switch) or prints it (desktop), then `main()` returns normally. A crash there ends through command 10 like any other.
 
 **Memory-pressure guard.** Every 2 s the app checks used vs total memory. Above 85% of the budget, caches shrink to 50%,
 prefetch is paused, and a `mem_pressure` event is logged. The app should degrade (slower page turns), never crash.
 
 ## Memory budget (to verify in WP-00/WP-12)
-WP-00 measures total/used memory in application mode (applet-mode numbers wait for WP-21).
+WP-00 measures total/used memory in application mode. From the Album the app gets 259 MiB on the owner's console (WP-21's P2,
+nothing suspended behind the Album); WP-21's console checks measure the rest.
 Those numbers go into STATUS.md and drive the defaults above. The app logs `mem` events every 10 s in test builds,
 and the soak test asserts memory stays within the profile's budget.
 

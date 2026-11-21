@@ -85,7 +85,7 @@ Items marked 👤 need you (hardware, admin prompts, SD card). Claude runs every
    `SWITCH_HOST` in `tests/e2e/device/.env` and is written `<switch-ip>` in these docs (the repo is public, D23). Ping works from Windows and WSL.
 7. Controllers: ✅ 2026-10-25 (WP-00): **not needed**. HOME, hbmenu and borealis react to the virtual Pro Controller with the Joy-Cons attached
    (handheld) and with them detached, so leave them on. Turning off *other* wireless controllers is still a good idea, so nobody presses anything mid-run.
-8. **Application mode must work.** The app runs only in application mode (D21):
+8. **Application mode must work** (the main way to run it; since WP-21 it also opens from the Album with less memory, D62):
    - Application mode: hold **R** while launching any installed title, which needs at least one installed game/app (a free demo is fine).
      This is Atmosphère's default `override_any_app=true`, `override_any_app_key=R` in `atmosphere/config/override_config.ini`.
      The owner's title is **Spelunky 2** (if it's a cartridge, the cartridge must be inserted). The game itself doesn't start. hbmenu takes its place.

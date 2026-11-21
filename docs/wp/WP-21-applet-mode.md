@@ -208,7 +208,8 @@ WP-08b's "all controllers merged" stays its own WP.
       `src/app/crash/README.md`, `src/platform/README.md`; TESTING.md "Modes" (the two-mode matrix, `--mode applet`),
       scenario 11 → `applet-start`; `tests/e2e/README.md` point 6; RESEARCH.md's applet section updated; CLAUDE.md's "Rules
       for code" line about application mode only; ROADMAP's "Application mode only (D21)" paragraph; CHANGELOG.md ("opens
-      from the Album").
+      from the Album"). (2026-11-21: all of it done for Stages A, B, P1, P2; still to add: the console checks, the Lite
+      numbers from 259 MiB in ARCHITECTURE and D62.)
 
 ## Acceptance
 - P1 and P2 passed on the console with the owner watching: no new file in `atmosphere/fatal_errors`, `fatal_reports` or

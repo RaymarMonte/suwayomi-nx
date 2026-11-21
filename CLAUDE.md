@@ -72,9 +72,10 @@ docs/          plan, architecture, testing, research, decisions, status, work pa
 - libnx/Switch-only code lives in `platform/switch/` behind an interface. Desktop gets a stub or real equivalent.
 - UI code is only touched on the main thread. Background results come back through `brls::sync`.
 - Every network or decode task takes a cancellation token, so leaving a screen cancels its work.
-- Never hard-code memory sizes, cache budgets, prefetch counts or concurrency. Read them from `RuntimeProfile`. For now the app runs only in
-  application mode (hold R on a game, profile `Full`) and refuses applet mode (Album) with a short message (D21, amends D12). Keep every limit
-  in the profile anyway, so applet support (WP-21, after WP-17, WP-18 and WP-18b, D57) can come back. Device tests run in application mode.
+- Never hard-code memory sizes, cache budgets, prefetch counts or concurrency. Read them from `RuntimeProfile`. The app runs in
+  application mode (hold R on a game, profile `Full`) and, since WP-21 (D62, amends D21), from the Album (applet mode, profile `Lite`:
+  smaller budgets; a crash there ends through command 10, never a fatal). Too little memory from the Album → the low-memory screen.
+  Every scenario runs in both modes (`--mode applet`); a check of a profile number reads `s.mode` and checks that mode's value.
 - No GPL code gets copied in (wiliwili, komga-switch are GPL). Apache/MIT code (borealis, switchfin,
   mangadex-reader) may be adapted, with a credit in `CREDITS.md`.
 - Log with the app logger, not printf. In test builds the app also writes events (see `docs/TESTING.md`).
@@ -120,7 +121,8 @@ push from WSL, where `gh` is logged in (SETUP.md C). `<repo>` below = the repo p
 - Fixtures: `npm run gen-fixtures -- --out <dir>` (the test server does this itself). Schema: `npm run dump-schema` →
   `tests/fixtures/schema.graphql`. Recorded answers: `tools/record-fixtures/record-all.sh` → `tests/fixtures/responses/`.
 - E2E (D32, `tests/e2e/README.md` = how to write a scenario): `<repo>/tools/e2e.sh desktop|switch [scenario]` builds the test build, then
-  runs `tests/e2e/scenarios/<scenario>.test.ts` (all of them without a name). Flags: `--update-goldens`, `--visible` (desktop in WSLg),
+  runs `tests/e2e/scenarios/<scenario>.test.ts` (all of them without a name). Flags: `--mode applet` (every launch from the Album; desktop:
+  `--simulate-applet-mode` + `--mem-limit`), `--update-goldens`, `--visible` (desktop in WSLg),
   `--no-build`. Output: `tests/e2e/out/<scenario>/`. Desktop smoke ~1 s; Switch smoke ~20 s (console on, HOME menu's first tile = Spelunky 2).
   A new console fatal file writes `tests/e2e/out/STOP-console-fatal.txt`: the Switch driver refuses to run until the owner deletes it.
   Switch runs copy the owner's `config.json` (+ `.bak`) to `tests/e2e/out/owner-config/` and put it back after every scenario and the run;

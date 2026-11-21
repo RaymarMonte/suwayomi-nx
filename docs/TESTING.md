@@ -352,19 +352,26 @@ interface Driver {
     also after a failure or Ctrl+C; `tools/e2e.sh switch --restore-config` does only that. A leftover `pending.json` is never
     overwritten (it holds the owner's files, the console the tests'). After a new fatal file the copy waits for the owner.
 
-## Launch mode (application mode only, D21)
+## Launch modes (both, WP-21, D62)
 
-Every scenario runs in **application mode** with the `Full` profile. Applet mode isn't supported yet: the app shows a short
-"open it by holding R" screen and exits. The `applet-guard` scenario is the only one that launches in applet mode.
+Every scenario runs in both modes: **application mode** (`Full`, the default) and from the **Album** (applet mode, `Lite`,
+`tools/e2e.sh <driver> [scenario] --mode applet`, env `SNX_E2E_MODE`).
 
-| Driver | Every scenario (application mode, `Full`) | `applet-guard` only (applet mode) |
+| Driver | Application mode (`Full`) | `--mode applet` (`Lite`) |
 |---|---|---|
-| Desktop | default. Add `--mem-limit=<MB>` for low-memory runs | `--simulate-applet-mode` |
-| Switch | HOME → first tile (Spelunky 2) → **hold R** (`POST /input/hold {"buttons":["R"]}`) + A → A on the user picker → hbmenu → release R → app | HOME → Album → hbmenu ("Applet Mode" badge) → app |
+| Desktop | default. Add `--mem-limit=<MB>` for low-memory runs | `--simulate-applet-mode --mem-limit=ALBUM_HEAP_MB` (Driver.ts; until the Lite numbers step: 380, the console gives 259) |
+| Switch | HOME → first tile (Spelunky 2) → **hold R** (`POST /input/hold {"buttons":["R"]}`) + A → A on the user picker → hbmenu → release R → app | HOME (closes what runs) → Album → hbmenu ("Applet Mode" badge) → app |
 
-- `app_start` reports `mode`/`profile`. The first assertion of every scenario is that it says `application`/`full`.
-- `tools/e2e.sh <driver> <scenario>` always launches in application mode. Low memory is tested on desktop with `--mem-limit`.
-- Applet mode comes back only with WP-21 (after WP-17, WP-18 and WP-18b, D57; it also runs their download and offline scenarios in applet mode). Then this section gets the two-profile matrix from D12 back.
+- `app_start` reports `mode`/`profile`; the harness checks they match the run's mode (`application`/`full` or `applet`/`lite`).
+- A step that checks a profile number reads `s.mode` and checks that mode's value (prefetch, Search all, zoom cap, …; D62
+  lists them). Goldens: one set where the screen looks the same; `expectGolden(step, { perMode: true })` keeps
+  `<step>.applet.png` where it differs. Every applet-mode launch turns the Album tip off (test config `appletTip`) except
+  `applet-start`'s.
+- From the Album a crash ends at the HOME menu with no note and the cursor on the Album (`home-album-cursor`); an exit
+  request is HOME alone (the HOME menu comes back on the first tile). P1 and P2 passed with the owner watching (D62), so
+  applet-mode console runs go like any Switch run; a fatal still stops the harness.
+- Low memory is tested on the desktop with `--mem-limit` (`low-memory`: application mode degrades, applet mode shows the
+  low-memory screen).
 
 ## Scenarios (written once, run on both drivers)
 
@@ -447,18 +454,19 @@ driver can't delete there), and a leftover from a stopped run is deleted and dow
     events, every `mem` sample within the profile's cache budgets (+ 64 MiB) above the first, a clean quit (no crash report or
     fatal file). Writes `out/soak/summary.json` (memory first / after 100 turns / peak / last, turn times) for the profile
     tuning (D45). Desktop ~1.5 min
-11. `applet-guard` (desktop `--simulate-applet-mode`, device via the Album) – the "can't run from the Album yet" screen shows, `launch_refused`
-    is the only event, a button press or tap closes it and the app is back in hbmenu, no new crash report or fatal file. Desktop also runs
-    the null-pointer drill inside that screen (SAFETY.md S12) and checks the ending note `logs/crash-ending.tmp` (WP-21). The console:
-    opt-in `SNX_APPLET_CONSOLE=1` with the owner watching, the refusal screen (golden `refused`). The drill there only with
-    `SNX_APPLET_DRILL=1` too: WP-21's proof **P1** (D62, at most 3 tries, owner watching): screenshots every second for 15 s
-    (`out/applet-guard/ending-*.jpg`), then the HOME menu (a "software was closed" note allowed, `ended.txt`), no new fatal or crash
-    report, the record parses, the note shows command 10 was sent (`crash-ending.txt`), and the Album opens again. Green on both in WP-08.
-12. `low-memory` (desktop) – a `--mem-limit` run triggers `mem_pressure` without a crash, and About shows the mode and memory. Green since WP-08.
-13. `crash-drills` (device and desktop, application mode) – every drill in SAFETY.md ends in a clean exit + crash log + safe mode next launch,
+11. `applet-start` (WP-21, replaces WP-08's `applet-guard`; desktop and Switch, always from the Album) – the Lite profile; the
+    Album tip at every start (golden `tip`): OK carries on, "Don't show again" writes `general.appletTip` false and the next
+    start has no tip; Settings → "Show the Album tip" (only from the Album) brings it back; About says "Album (applet mode) ·
+    Lite profile" (golden `settings-about`). Desktop also: the low-memory screen (a tiny `--mem-limit`, `launch_refused`
+    `reason: "low_memory"`, exit 0) and the null-pointer drill inside it (the ending note, safe mode at the next start).
+    (`applet-guard` held WP-21's proof P1, 2026-11-21, D62.) Desktop green; the Switch in WP-21 Stage C.
+12. `low-memory` (desktop) – application mode: a `--mem-limit` run triggers `mem_pressure` without a crash, and About shows the mode
+    and memory. Applet mode: 48 MB is too little for Lite, the low-memory screen is all (WP-21). Green since WP-08.
+13. `crash-drills` (device and desktop, both modes) – every drill in SAFETY.md ends in a clean exit + crash log + safe mode next launch,
     with zero system fatals. One test per drill (`crash-drill-<name>`); the drills and what each should end in: `src/app/crash/README.md`.
     Desktop green since WP-03b; the console twice in a row since WP-03c (every crash there ends with the HOME menu's
-    "software was closed" note, D35)
+    "software was closed" note, D35). From the Album (WP-21's P2, twice, 2026-11-21): the HOME menu with no note, cursor on
+    the Album; the exit request (HOME) ends the app normally
 14. `net-hello` (device and desktop, WP-05) – the diagnostics screen (WP-08; was the Hello screen) asks the test server for its version through the curl client, then sends 20
     requests at once; all 21 `net` events must be HTTP 200 (the 20 queue behind 6 transfers, none fails). Saves a screenshot to look at.
     Needs the test server; the Switch reaches it at the PC's LAN address (`lib/suwayomi.ts` `appServerUrl`). Setup's "Test connection" is the user-facing version check.

@@ -78,11 +78,13 @@ Switch: closes the software and goes back to the HOME menu), and the logs land i
    NotSupportedError there); no sticks. Touch works on both (desktop: the mouse is one finger).
 5. **An app that ends by itself** (crash drills, `scenarios/crash-drills.test.ts`): `waitForExit(ms)` instead of `quit()`; it
    says how it ended (desktop "exited with code 1", Switch one of `SwitchDriver`'s `ENDED_*`). `requestExit()` is the system's exit request (desktop SIGTERM, Switch HOME →
-   Close software). `listFiles('logs')` lists a folder of the data folder; `lib/crashrecord.ts` reads crash records.
-6. **Low memory and applet mode:** `launch({ memLimitMb })` is desktop only. `launch({ mode: 'applet' })` is only for the
-   applet-guard scenario (WP-08: it waits for `launch_refused`, the only event then). On the Switch it is opt-in
-   (`SNX_APPLET_CONSOLE=1`, owner watching) and runs no drill, except WP-21's proof P1 with `SNX_APPLET_DRILL=1` as well (D62):
-   until that proof passed, a crash from the Album can be a system fatal (D41).
+   Close software; from the Album HOME alone). `listFiles('logs')` lists a folder of the data folder; `lib/crashrecord.ts` reads crash records.
+6. **Low memory and applet mode:** `launch({ memLimitMb })` is desktop only. Every scenario runs in both launch modes
+   (WP-21, D62): `tools/e2e.sh … --mode applet` makes every `launch()` start from the Album (`s.mode` is `'applet'`; desktop:
+   `--simulate-applet-mode` + `--mem-limit=ALBUM_HEAP_MB`). Write each step once; where it checks a profile number (prefetch,
+   concurrency, zoom cap) check the Lite value when `s.mode === 'applet'`. `launch({ refused: true })` waits for
+   `launch_refused` (the low-memory screen); `appletTipFromConfig` keeps the Album tip on (only `applet-start`). Since P2
+   passed, applet-mode console runs need no opt-in; a fatal still stops the harness (`STOP-console-fatal.txt`).
 7. Fixture manga and the test server: `docs/TESTING.md` "Fixture manga", `tools/test-server/README.md`. Read the page on screen with
    `findPageCodes()` from `lib/pagecode.ts` (decode the screenshot with sharp first), not by looking at the picture.
    WP-15: `addNewChapter()` / `removeNewChapter()` (`lib/suwayomi.ts`) put Epsilon Weekly's held-back chapter 3 on the

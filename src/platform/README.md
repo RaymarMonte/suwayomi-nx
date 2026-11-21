@@ -27,7 +27,9 @@
     messages: cheap every frame, read-only). Desktop: true unless `--simulate-docked`. The reader is always landscape docked.
   - `utcOffsetSeconds(utc)` (WP-15): the console's time zone in seconds east of UTC, for the Updates / History days. Switch:
     `timeToCalendarTimeWithMyRule` (the system's own zone rule); desktop: `localtime_r`'s `tm_gmtoff`. Logged at start.
-  - `showLaunchRefused(text, timeoutMs, onShown)` (WP-08, D21, S12): the applet-mode guard's screen. Switch: libnx text console until a new button/tap, an exit request or the timeout. Desktop: prints the text.
+  - `showLaunchRefused(text, timeoutMs, onShown)` (WP-08, S12): the guard's screen, since WP-21 the low-memory screen from the Album. Switch: libnx text console until a new button/tap, an exit request (then exit mode 1, WP-21) or the timeout. Desktop: prints the text.
+  - `setLeaveOnExitRequest(on)` (WP-21, D62): from the Album, an exit request (HOME closes the Album) sets libnx's exit mode 1, so the
+    normal exit leaves through command 10 like hbmenu's quit. Switch: its own applet hook beside borealis's. Desktop: nothing.
 - `SafeFs.hpp` (WP-03b, SAFETY.md S4/S5, D14): the write jail. **Every** file create, write, rename, delete and mkdir in the app
   goes through a `SafeFs` rooted at `dataDir()`; `tools/safety/check-writes.sh` fails the build on raw calls anywhere else in
   `src/`. Each path is checked by `core::jailPath()` first (relative to the root or absolute inside it; `..`, `//`, case, the

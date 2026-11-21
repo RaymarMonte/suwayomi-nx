@@ -18,7 +18,8 @@
 No Suwayomi/Tachidesk client for Switch exists (GitHub repo search, 2026-10-21).
 
 ## Applet mode vs application mode (researched 2026-10-21)
-Since D21 (2026-10-22) the app supports only application mode and refuses applet mode. These notes stay for the later WP-21.
+D21 (2026-10-22) kept the app to application mode; WP-21 (D62, 2026-11-21) brought the Album back with the `Lite` profile and a
+crash ending through `ILibraryAppletSelfAccessor` command 10 (the findings: D62, `src/app/crash/README.md`). The notes below are the 2026-10-21 research.
 - **Detection** (libnx `applet.h`): `AppletType appletGetAppletType()`. Enum: `Application=0, SystemApplet=1, LibraryApplet=2, OverlayApplet=3, SystemApplication=4`.
   hbmenu's "Applet Mode" warning (`nx-hbmenu/common/menu.c`) uses `at != AppletType_Application && at != AppletType_SystemApplication`.
   xfangfang/borealis has the same check as `SwitchPlatform::isApplicationMode()`.

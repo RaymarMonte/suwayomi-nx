@@ -1,6 +1,6 @@
 # app
 
-**Purpose:** `main()` and the wiring (D40): crash containment first (`crash/`, its own README), then the logger, the applet-mode
+**Purpose:** `main()` and the wiring (D40): crash containment first (`crash/`, its own README), then the logger, the low-memory
 guard, config, borealis, the HTTP client, the Suwayomi client, the image loader, one `AppContext`, the main screen, the main loop.
 
 **Files:**
@@ -15,12 +15,14 @@ guard, config, borealis, the HTTP client, the Suwayomi client, the image loader,
   on HOME/sleep/exit, falls back to the `.bak` when the file is unreadable; a due save waits while the reader moves
   (`postponeSaveThisFrame()`, D49: a save costs 20–33 ms on the console; `postponedThisFrame()` tells the queue the same).
   `appClockMs()`: the app's steady clock.
-- `AppletGuard.hpp/.cpp`: D21's refusal in applet mode (log line, `launch_refused`, the text console screen, nothing written after).
+- `AppletGuard.hpp/.cpp`: since WP-21 (D62) `refuseLowMemory`: from the Album with too little memory for Lite
+  (`core::tooLittleMemoryForLite`) the low-memory screen (log line, `launch_refused` `reason: "low_memory"`, the text console
+  screen, nothing written after). Before, D21's refusal of every start from the Album.
 - `TestHooks.hpp/.cpp`: test events and the test config (docs/TESTING.md). Release builds compile it to nothing.
 
 **Threading:** main thread, except where a comment says otherwise (the logger's buffer takes lines from any thread).
 
 **Tests:** the pure parts are in core (`LogBuffer`, `SaveScheduler`, `TestConfig`, `TestEvents`: `tests/unit/test_core_app.cpp`).
-The rest by the E2E scenarios (`applet-guard`, `setup-first-run`, `auth-matrix`, `low-memory`, `crash-drills`).
+The rest by the E2E scenarios (`applet-start`, `setup-first-run`, `auth-matrix`, `low-memory`, `crash-drills`).
 
 **Status:** WP-01 … WP-08.

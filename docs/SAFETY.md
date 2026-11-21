@@ -20,8 +20,10 @@ but it should exit cleanly and leave a log behind.
    - **Application mode** (hold R on a game): an unhandled CPU crash stays at level 1. It's already fairly safe.
    - **Applet mode** (Album): we run inside a library applet, which isn't an application, so a CPU exception (null pointer, use-after-free,
      stack overflow, misalignment) **becomes level 2**. This is the main way a homebrew app "crashes the OS".
-   - **Since D21 (2026-10-22) the app runs only in application mode.** Opened from the Album it only shows a short "open it with R" screen
-     and exits, so that screen is the only code of ours that still runs in applet mode. S12 keeps it tiny.
+   - **D21 (2026-10-22) kept the app to application mode; WP-21 (D62, 2026-11-21) brought the Album back.** Every crash of ours from
+     the Album now ends through `ILibraryAppletSelfAccessor` command 10 (`ExitProcessAndReturn`): the system is told first, so the
+     HOME menu carries on with no note. Proven on the console with the owner watching: P1 (the drill inside the old refusal screen)
+     and P2 (every drill, twice). S1 and S12 below.
 2. **libnx lets an app catch its own CPU exceptions** by defining `__libnx_exception_handler` plus a dedicated `__nx_exception_stack`.
    Established homebrew does this: nxdumptool, Goldleaf, OpenMW, melonDS, and Atmosphère's own modules. nxdumptool logs registers and a stack
    trace (as offsets from the app's base address, so they can be symbolized on the PC), shows a borealis crash screen, and then calls `exit()`.
@@ -50,7 +52,9 @@ but it should exit cleanly and leave a log behind.
 - The handler has a re-entrancy guard (second entry → `svcExitProcess()` immediately). It writes a small crash record (type, PC/LR/SP/FAR
   relative to module base, ~32-frame stack trace, build id, mode, last 64 log lines from an in-memory ring buffer) to `logs/crash-<time>.txt`
   using a file descriptor opened at start-up (no allocation in the handler). Then the process ends with `svcExitProcess()`
-  (D35, amends D13's `exit()`; the desktop keeps `exit(EXIT_FAILURE)`). A crash on another thread parks that thread and the main
+  (D35, amends D13's `exit()`; the desktop keeps `exit(EXIT_FAILURE)`). **From the Album** (WP-21, D62) the process ends through
+  `ILibraryAppletSelfAccessor` command 10 (`ExitProcessAndReturn`) instead, with a bounded wait and `svcExitProcess()` as the last
+  resort: the system is told first, so the HOME menu carries on (P1 + P2 on the console). A crash on another thread parks that thread and the main
   thread shows the crash screen first. None of them reaches creport; the HOME menu then says "The software was closed because an
   error occurred." (WP-03c found on the console that `exit()` back to hbmenu let hbmenu crash over what the crash left behind.)
 - **Applet mode (WP-21, D62; built, console proof P1 pending):** from the Album `svcExitProcess()` alone is a system fatal (D41),
@@ -132,8 +136,9 @@ under `/switch/suwayomi-nx/`. **Never**: `/install`, `POST /settings/*`, `POST /
 **S11 No self-update in the MVP.** If we add it later: download to a temp file, verify size + SHA-256, atomic rename, keep the previous
 `.nro` as `.bak`, and touch nothing else.
 
-**S12 Applet-mode guard** (D21, built in WP-08). The app refuses applet mode, but the refusal screen itself runs in applet mode, where a crash
-would be a system fatal. So that path stays tiny:
+**S12 Applet-mode guard, now the low-memory screen** (D21, built in WP-08; since WP-21, D62, it only stops a start from the Album
+with too little memory for the Lite profile, `liteMinFreeBytes`; before, it refused every start from the Album). The path stays
+tiny as before:
 - It runs first in `main()`. Only the logger and S1's set-up (pre-opened crash-log file, log ring buffer) start before it.
   No borealis, GPU (deko3d), network, image or config code runs.
 - It writes its one log line (and the `launch_refused` test event) *before* showing anything, and writes nothing after. So closing the app
@@ -141,12 +146,13 @@ would be a system fatal. So that path stays tiny:
 - It draws with libnx's text console (a plain framebuffer, no GPU setup, no fonts to load), reads buttons and touch, closes on any button,
   a tap, or after 60 s, and then returns from `main()` normally.
 - If any step fails (console or input setup), it skips the screen and exits. Nothing in it may abort, throw or call `fatalThrow`.
-- S1's crash handler is linked in and active from the first instruction, but in applet mode it can't prevent the system fatal
-  (D41, seen on the console in WP-08): however it ends the process, the HOME menu (qlaunch) stops the system when the Album's
-  process ends abnormally (`0x290`, `la::ResultLibraryAppletExitedAbnormally`). So the guard's only protection is being tiny
-  and verified. A safer crash ending for applet mode is WP-21's.
-- Tested by the `applet-guard` scenario: desktop (`--simulate-applet-mode`, with a null-pointer drill inside the screen) and the console
-  via the Album (refusal screen only, opt-in, owner watching; verified in WP-08). The release build is checked from the Album in WP-12.
+- S1's crash handler is linked in and active from the first instruction. Before WP-21 it couldn't prevent the system fatal in
+  applet mode (D41: the HOME menu stops the system when the Album's process ends abnormally, `0x290`,
+  `la::ResultLibraryAppletExitedAbnormally`); WP-21's command-10 ending (S1) tells the system first. P1 proved it on the
+  console with the null-pointer drill inside this screen (owner watching, 2026-11-21). An exit request on the screen leaves
+  the same way (exit mode 1).
+- Tested by `applet-start` (desktop: the low-memory screen with a tiny `--mem-limit` and the drill inside it) and `low-memory`
+  in applet mode; WP-08's `applet-guard` held P1.
 
 ## How safety is tested
 
@@ -156,18 +162,18 @@ would be a system fatal. So that path stays tiny:
 | SafeFs + allowlist unit tests (S4/S10) | unit | can't write outside our folder; harness can't call dangerous endpoints |
 | Fuzz targets (S6) | host, 60 s each in CI, longer on demand | parsers/decoders survive garbage |
 | Atomic-write kill test (S5) | desktop | kill the app mid-save 100× → config always loads |
-| **Crash drills** | device, **application mode** (the drill inside the S12 guard: desktop only, D41) | see below |
+| **Crash drills** | device and desktop, **both launch modes** (from the Album since WP-21's P2) | see below |
 | fatal-errors gate | every device scenario | any new file in `atmosphere/fatal_errors/` or `atmosphere/fatal_reports/` = **hard failure, stop the run, tell the owner** (the harness writes `tests/e2e/out/STOP-console-fatal.txt` and won't run again until the owner deletes it) |
 
 **Crash drills** (test builds only, triggered through the test config): null-pointer write, misaligned access, stack overflow on a
 worker thread, `std::terminate`, `diagAbortWithResult` (simulated GPU error), 2 GB allocation, and an exit request in the middle of a cache write.
-For each one, in application mode (D21), the drill passes only if: the app exits, `logs/crash-*.txt` exists and can be parsed,
-**no new `atmosphere/fatal_errors` or `fatal_reports` file appears**, no new `atmosphere/crash_reports` file appears (not even a moment
-later: the driver compares once more at the end of the scenario), the HOME menu shows "The software was closed because an error
-occurred." (screenshot check, D35), sys-autopilot still answers,
-and the next launch enters safe mode. The null-pointer drill inside the applet-mode guard screen (S12) runs on desktop only: on the console a
-crash in applet mode is a system fatal whatever the handler does (D41, seen in WP-08 with the owner watching).
+For each one, in both launch modes, the drill passes only if: the app exits, `logs/crash-*.txt` exists and can be parsed (its mode
+the run's), **no new `atmosphere/fatal_errors` or `fatal_reports` file appears**, no new `atmosphere/crash_reports` file appears (not
+even a moment later: the driver compares once more at the end of the scenario), the HOME menu shows "The software was closed because
+an error occurred." in application mode (screenshot check, D35) or comes back with no note, cursor on the Album, from the Album
+(D62), sys-autopilot still answers, and the next launch (same mode) enters safe mode. From the Album: P2 passed twice
+(2026-11-21, owner watching). The null-pointer drill inside the low-memory screen (S12) runs on the desktop; on the console it was P1.
 **Optional control case**, only with the owner's explicit OK and the owner watching: the same null-pointer drill with our handler
 disabled, in application mode. It's expected to leave a new `atmosphere/crash_reports` file and *no* `logs/crash-*.txt` of ours, and no reboot
 screen (creport doesn't fatal applications), which proves our handler is what catches the crash. It's run only once, with nothing else writing to the SD.
-(Before D21 this ran in applet mode and was expected to show the reboot screen. That version moves to WP-21.)
+(Before D21 this ran in applet mode and was expected to show the reboot screen. WP-21 didn't run it: P1 + P2 proved the ending.)

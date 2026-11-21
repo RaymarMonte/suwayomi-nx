@@ -49,7 +49,7 @@ In applet mode `install()` also opens `logs/crash-ending.tmp`, and the ending wr
 ms: <step>: 0x<value> (<value>)`: "sending ... applet type", the call's result, "still running after the wait"), because the
 process may end any moment. The next start reads it into `LastRun::ending` (logged as "the last crash's ending") and empties it
 (applet mode) or deletes it (application mode). The desktop writes one line there in `--simulate-applet-mode` ("no system to
-tell"), so the note is tested on the PC. **Status:** built; P1 (the console proof, the owner watching) is next.
+tell"), so the note is tested on the PC. **Status:** built; P1 and P2 passed on the console with the owner watching (2026-11-21, D62): every drill from the Album ends at the HOME menu with no note.
 
 Why not `exit()` on the Switch (D35, found on the console in WP-03c): `exit()` hands the CPU back to hbloader, which starts
 hbmenu in the same process and with the same heap. Whatever a crash leaves behind is then hbmenu's problem: after a main-thread
