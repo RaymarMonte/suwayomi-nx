@@ -42,6 +42,19 @@ export async function readerAfter(s: Scenario, action: () => Promise<void>, fiel
     return shown;
 }
 
+/**
+ * Does `action`, waits for the app to settle and returns the last "reader" event, new or not: for an action that may change
+ * nothing on screen (then no new event comes), e.g. a pinch out at the profile's maxZoom (Lite from the Album, WP-21).
+ */
+export async function readerSettled(s: Scenario, action: () => Promise<void>): Promise<AppEvent> {
+    const mark = s.events.mark();
+    await action();
+    await s.events.waitForEvent('idle', {}, { from: mark });
+    const last = s.events.events.filter((e) => e.ev === 'reader').at(-1);
+    expect(last, 'a "reader" event before the action').toBeDefined();
+    return last as AppEvent;
+}
+
 /** Opens chapter row `row` of the details screen (newest first) and waits until the reader shows something settled. */
 export async function openChapter(s: Scenario, row: number, fields: Record<string, unknown> = {}): Promise<AppEvent> {
     return readerAfter(s, () => s.driver.touch(MANGA.row(row).x, MANGA.row(row).y), fields);

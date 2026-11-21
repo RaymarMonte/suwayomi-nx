@@ -15,9 +15,9 @@
 // - WP-14b: Languages (golden "languages"): Japanese hidden → its row goes; the last shown language can't be unticked;
 //   Japanese shown again;
 // - WP-14b: Search all "comet" with every test-source call slowed by 2 s: Local, SNX Mature (EN), SNX Test (EN), SNX Test
-//   (JA) (the list's order, Last used not twice), 3 searching and 1 waiting at first; done (golden "search-all"): only SNX
-//   Test (EN) found, its 3 comets; a move into an empty place lands on the next row's card; A on SNX Test (EN)'s card →
-//   its search for "comet". Then over the 3 sources (SNX Mature uninstalled), unslowed: done ≤ 3 s;
+//   (JA) (the list's order, Last used not twice), 3 searching and 1 waiting at first (Lite: 1 and 3); done (golden
+//   "search-all"): only SNX Test (EN) found, its 3 comets; a move into an empty place lands on the next row's card; A on
+//   SNX Test (EN)'s card → its search for "comet". Then over the 3 sources (SNX Mature uninstalled), unslowed: done ≤ 3 s;
 // - the Library's Reading tab has Comet Courier; Remove from its preview's menu → the confirm (golden "remove-confirm") → out;
 // - WP-14b: Tick for new manga on the Categories screen (golden "categories-ticked"): Long series gets the server's
 //   "default" flag, and a preview's Add then opens the picker with Long series ticked;
@@ -551,7 +551,10 @@ scenario('browse', async (s) => {
         const started = await s.events.waitForEvent('global_search', { query: 'comet' }, { from: mark, timeoutMs: 30_000 });
         expect(searchRows(started).map((r) => r.id)).toEqual(
             ['0', TEST_SOURCE_IDS.matureEn, TEST_SOURCE_IDS.en, TEST_SOURCE_IDS.ja]);
-        expect(searchRows(started).map((r) => r.state)).toEqual(['searching', 'searching', 'searching', 'waiting']);
+        // RuntimeProfile.globalSearchConcurrency: Full 3 sources at a time, Lite (from the Album, WP-21) 1.
+        const atOnce = s.mode === 'applet' ? 1 : 3;
+        expect(searchRows(started).map((r) => r.state)).toEqual(
+            [0, 1, 2, 3].map((i) => (i < atOnce ? 'searching' : 'waiting')));
         const searched = await s.events.waitFor('Search all done', (e) => e.ev === 'global_search' && e.finished === true,
             { from: mark, timeoutMs: 60_000 });
         await s.events.waitForEvent('idle', {}, { from: s.events.events.indexOf(searched) });

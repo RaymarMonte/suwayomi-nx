@@ -1,5 +1,5 @@
-// smoke (TESTING.md scenario 1, extended in WP-08): with the test server set up (test config), the app starts in application
-// mode, opens the main screen on the Library tab, connects to the server (server_check), settles (idle), matches the golden
+// smoke (TESTING.md scenario 1, extended in WP-08): with the test server set up (test config), the app starts (in the run's
+// launch mode, WP-21), opens the main screen on the Library tab, connects to the server (server_check), settles (idle), matches the golden
 // screenshot, opens the Settings tab by touch (About shows the launch mode and profile), writes no error events and quits
 // cleanly with no crash. Needs the test server (tools/test-server/test-server.sh start).
 
@@ -23,7 +23,7 @@ scenario('smoke', async (s) => {
     const settings = tab('Settings');
     await s.driver.touch(settings.x, settings.y);
     const screen = await s.events.waitForEvent('screen', { name: 'Settings' }, { from: mark });
-    expect(screen.params).toMatchObject({ mode: 'application', profile: 'full', safeMode: false });
+    expect(screen.params).toMatchObject({ mode: s.mode, profile: s.mode === 'applet' ? 'lite' : 'full', safeMode: false });
     await s.events.waitForEvent('idle', {}, { from: mark });
 
     s.expectNoErrorEvents();

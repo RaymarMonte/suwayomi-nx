@@ -17,9 +17,14 @@ v0.2.0 (17, 18, 18c, 18b unreleased). **Open issues:** none (`docs/ISSUES.md`, D
   exit-request hook (`platform::setLeaveOnExitRequest`, and on the guard's screen), the Album tip (`general.appletTip`
   in config.json, `showAppletTip`, test config `appletTip`, `applet_tip` event, MainActivity before setup/login/the
   crash note, Settings → "Show the Album tip" from the Album only, About's words).
-- Left: e2e `--mode applet` (both drivers, Switch "close running software" step), `applet-start` replacing
-  `applet-guard` (desktop: low-memory screen + drill), applet goldens, every desktop scenario in both modes, D62 notes.
-  Until then the desktop `applet-guard` scenario fails (applet mode no longer refuses). Then P2 (owner watching).
+- Also done (8539d7b): `tools/e2e.sh … --mode applet`, `applet-start` (replaces `applet-guard`, green on the desktop,
+  goldens `goldens/desktop/applet-start/`), `low-memory` applet variant, D62 "As built, Stage B".
+- Applet mode on the desktop: scenarios that check a Full number read `s.mode` (offline-errors, reader-paged, browse,
+  smoke, crash-drills, switch-downloads, reader-webtoon, reader-zoom; `readerSettled` in lib/reader.ts; D62). It found
+  one app bug, fixed for both modes: a spread from the memory cache wasn't checked (blurry on Continue;
+  `ReaderModel::startLoad`, new unit test). Every desktop scenario passed in both modes (reader-zoom once lost a drag in
+  application mode, then passed twice). Last check: one full run of both modes on the final build, then tick Stage B.
+- Stage C still has to make the Switch-only zoom parts Lite-aware (`reader-zoom` controls, `reader-spread-split`'s 4 x).
 ## Known facts about the environment
 - Windows 10 19044, 32 GB RAM. WSL Ubuntu 24.04 + WSLg; devkitPro + Node 22 in WSL. Run WSL commands with
   `wsl.exe -d Ubuntu --exec bash -lc '…'` (complex quoting: a script file + `bash -l <file>`; from Git Bash set

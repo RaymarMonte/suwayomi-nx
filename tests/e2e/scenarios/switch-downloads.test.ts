@@ -155,7 +155,9 @@ async function closeReader(s: Scenario): Promise<void> {
     const mark = s.events.mark();
     await s.driver.touch(READER.close.x, READER.close.y);
     await s.events.waitForEvent('screen', { name: 'Manga' }, { from: mark });
-    await s.events.waitForEvent('idle', {}, { from: mark });
+    // With the server stopped the details screen's reload fails after the 5 s connect timeout; with Lite's 2 transfers
+    // (WP-21) it waits behind the progress save, so its note (and then idle) comes about 10 s later.
+    await s.events.waitForEvent('idle', {}, { from: mark, timeoutMs: 30_000 });
 }
 
 /** Opens Alpha from the Library's Reading tab (the first of 3 there) and waits until its details screen is complete. */

@@ -25,8 +25,8 @@ import { expect } from 'vitest';
 import { chaptersOf, clearStripSpots, mangaIds, resetChapters, stripSpots } from '../lib/chapters.ts';
 import type { AppEvent } from '../lib/events.ts';
 import type { FoundPageCode } from '../lib/pagecode.ts';
-import { chooseSetting, codesOnScreen, expectPage, middleCode, openChapter, openManga, readerAfter, stats, tap,
-    waitForLibrary } from '../lib/reader.ts';
+import { chooseSetting, codesOnScreen, expectPage, middleCode, openChapter, openManga, readerAfter, readerSettled,
+    stats, tap, waitForLibrary } from '../lib/reader.ts';
 import { driverName, type Scenario, scenario } from '../lib/scenario.ts';
 import { LIBRARY_MORE, MANGA, type Orientation, PORTRAIT, portraitPoint, READER } from '../lib/screens.ts';
 import { appServerUrl, optionsFromEnv, SuwayomiClient } from '../lib/suwayomi.ts';
@@ -409,10 +409,18 @@ scenario('reader-webtoon', async (s) => {
         expect(near(ev.top, top), 'and the top stays').toBe(true);
         // A pinch from 200 to 300 apart around the middle: 3 x, the point between the fingers stays (strip x 205 stays at
         // 360: the left edge at 360 - 3 x 205); then back from 300 to 200: 2 x again.
-        ev = await readerAfter(s, pinch(s, { x: 360, y: 640 }, 200, 300, view.at), { mode: 'strip', zoom: 3 });
-        expect(near(ev.x, -255, 3), `a pinch to 3 x: x ${ev.x}`).toBe(true);
-        ev = await readerAfter(s, pinch(s, { x: 360, y: 640 }, 300, 200, view.at), { mode: 'strip', zoom: 2 });
-        expect(near(ev.x, -50, 3), `and back to 2 x: x ${ev.x}`).toBe(true);
+        // From the Album (WP-21) Lite's maxZoom is 2: the same pinch stays at 2 x and nothing moves.
+        if (s.mode === 'applet') {
+            ev = await readerSettled(s, pinch(s, { x: 360, y: 640 }, 200, 300, view.at));
+            expect(ev).toMatchObject({ mode: 'strip', zoom: 2 });
+            expect(near(ev.x, -50, 3), `a pinch at Lite's 2 x cap: x ${ev.x}`).toBe(true);
+            expect(near(ev.top, top), 'and the top stays').toBe(true);
+        } else {
+            ev = await readerAfter(s, pinch(s, { x: 360, y: 640 }, 200, 300, view.at), { mode: 'strip', zoom: 3 });
+            expect(near(ev.x, -255, 3), `a pinch to 3 x: x ${ev.x}`).toBe(true);
+            ev = await readerAfter(s, pinch(s, { x: 360, y: 640 }, 300, 200, view.at), { mode: 'strip', zoom: 2 });
+            expect(near(ev.x, -50, 3), `and back to 2 x: x ${ev.x}`).toBe(true);
+        }
         // Scrolling keeps the zoom: a 400 drag moves the strip 200 (a screen unit is half a strip unit at 2 x).
         top = Number(ev.top);
         ev = await readerAfter(s, heldDrag(s, view, 400), { mode: 'strip', zoom: 2 });

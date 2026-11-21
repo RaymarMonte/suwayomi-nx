@@ -8,6 +8,8 @@
 //   the double tap's wait; an edge tap turns at once;
 // - "Zoom on page turn: Keep the zoom": a turn keeps 2 x at the reading start (the top); the setting survives a restart;
 // - turned right (portrait): the same double tap, pinch (golden "portrait-zoom3") and drag on the portrait screen.
+// From the Album (`--mode applet`, WP-21) Lite's maxZoom is 2: the pinches out at 2 x change nothing, the pinch in stops at
+// 2 x, the landscape drag turns at once (the page is narrower than the screen) and the portrait one stops at the edge.
 // The Switch adds: ZR / ZL steps; a stick pan to the edge and a fresh push there turns; D-pad glides and the edge press;
 // not zoomed, a stick held 2 s turns one page; in portrait the D-pad held turns one page; the frame times while gestures
 // run (p90 <= 17 ms, none over 34 ms) and sharpMs (p90 <= 350 ms); 50 zoom cycles and 100 turns from zoomed pages with
@@ -17,7 +19,8 @@ import { expect } from 'vitest';
 
 import { mangaIds, resetChapters } from '../lib/chapters.ts';
 import type { AppEvent } from '../lib/events.ts';
-import { chooseSetting, openChapter, openManga, readerAfter, stats, swipe, tap, waitForLibrary } from '../lib/reader.ts';
+import { chooseSetting, openChapter, openManga, readerAfter, readerSettled, stats, swipe, tap, waitForLibrary }
+    from '../lib/reader.ts';
 import { driverName, type Scenario, scenario } from '../lib/scenario.ts';
 import { LIBRARY_MORE, PORTRAIT, portraitPoint, READER } from '../lib/screens.ts';
 import { appServerUrl, optionsFromEnv, SuwayomiClient } from '../lib/suwayomi.ts';
@@ -63,6 +66,9 @@ scenario('reader-zoom', async (s) => {
     const chapters = await resetChapters(client, alpha);
     const ch1 = chapters[0].id;
     const onSwitch = s.driver.name === 'switch';
+    // From the Album (WP-21) the Lite profile's maxZoom is 2: the pinches to 3 x stop there.
+    const lite = s.mode === 'applet';
+    const top = lite ? 2 : 3;
 
     try {
         await s.launch({ testConfig: { server: { url } } });
@@ -89,20 +95,30 @@ scenario('reader-zoom', async (s) => {
         shown = await readerAfter(s, swipe(s, { x1: 640, y1: 250, x2: 640, y2: 650 }), { shown: 'page', page: 0, y: 0 });
         expect(shown).toMatchObject({ zoom: 2, x: 160 });
 
-        // A played pinch (two fingers from 200 to 300 apart around the screen's middle): 3 x. Now 1440 wide: x -80.
-        shown = await readerWhere(s, pinch(s, { x: 640, y: 360 }, 200, 300), 'zoom 3 after the pinch', zoomNear(3));
-        expect(shown).toMatchObject({ page: 0, w: 1440, h: 2160, x: -80, y: -180 });
+        if (lite) {
+            // Lite (from the Album, WP-21): maxZoom 2, so the same pinch changes nothing. The 960-wide page can't move
+            // sideways, so the drag to the right turns at once (right to left: the next page), back at the fit.
+            shown = await readerSettled(s, pinch(s, { x: 640, y: 360 }, 200, 300));
+            expect(shown).toMatchObject({ shown: 'page', page: 0, zoom: 2, w: 960, h: 1440, x: 160, y: 0 });
+            shown = await readerAfter(s, swipe(s, READER.swipeToRight), { shown: 'page', page: 1 });
+        } else {
+            // A played pinch (two fingers from 200 to 300 apart around the screen's middle): 3 x. Now 1440 wide: x -80.
+            shown = await readerWhere(s, pinch(s, { x: 640, y: 360 }, 200, 300), 'zoom 3 after the pinch', zoomNear(3));
+            expect(shown).toMatchObject({ page: 0, w: 1440, h: 2160, x: -80, y: -180 });
 
-        // A drag to the right: the page moves 600 units, but stops at its left edge (x 0). The same drag again at the edge
-        // turns (right to left: the next page), back at the fit.
-        shown = await readerAfter(s, swipe(s, READER.swipeToRight), { shown: 'page', page: 0, x: 0 });
-        expect(zoomNear(3)(shown), `zoom ${shown.zoom}`).toBe(true);
-        shown = await readerAfter(s, swipe(s, READER.swipeToRight), { shown: 'page', page: 1 });
+            // A drag to the right: the page moves 600 units, but stops at its left edge (x 0). The same drag again at the
+            // edge turns (right to left: the next page), back at the fit.
+            shown = await readerAfter(s, swipe(s, READER.swipeToRight), { shown: 'page', page: 0, x: 0 });
+            expect(zoomNear(3)(shown), `zoom ${shown.zoom}`).toBe(true);
+            shown = await readerAfter(s, swipe(s, READER.swipeToRight), { shown: 'page', page: 1 });
+        }
         expect(shown).toMatchObject({ zoom: 1, w: 480, x: 400, y: 0 });
 
-        // A pinch in (100 -> 300 apart: 3 x) and back out (300 -> 100): it snaps to the fit.
-        shown = await readerWhere(s, pinch(s, { x: 640, y: 360 }, 100, 300), 'zoom 3 after the pinch in', zoomNear(3));
-        expect(shown).toMatchObject({ page: 1, x: -80, y: -720 });
+        // A pinch in (100 -> 300 apart: 3 x, Lite's cap 2 x) and back out (300 -> 100): it snaps to the fit. At 2 x the
+        // 960-wide page stays centred sideways (x 160); the pinched height stays put either way.
+        shown = await readerWhere(s, pinch(s, { x: 640, y: 360 }, 100, 300), `zoom ${top} after the pinch in`,
+            zoomNear(top));
+        expect(shown).toMatchObject(lite ? { page: 1, x: 160, y: -360 } : { page: 1, x: -80, y: -720 });
         shown = await readerAfter(s, pinch(s, { x: 640, y: 360 }, 300, 100), { shown: 'page', page: 1, zoom: 1 });
         expect(shown).toMatchObject({ w: 480, x: 400, y: 0 });
 
@@ -157,23 +173,32 @@ scenario('reader-zoom', async (s) => {
         // Portrait 2 x wants 1440 x 2160 of a 1000 x 1500 source: sharp at the whole source (the cap is 2560 each way).
         shown = await sharpAfter(s, mark, { zoom: 2 });
         expect(shown).toMatchObject({ decW: 1000, decH: 1500 });
-        // A pinch around the portrait screen's middle (360, 640) to 3 x: x 360 - 1080 = -720, y 640 - 1260 = -620.
-        shown = await readerWhere(s, pinch(s, { x: 360, y: 640 }, 200, 300, at), 'zoom 3 in portrait', zoomNear(3));
-        expect(shown).toMatchObject({ page, w: 2160, h: 3240, x: -720, y: -620 });
-        // The golden here, where the pinch puts the page exactly: after the console's swipe below the page sits one swipe step
-        // (37.5 units) further or not, so a picture there failed now and then (WP-13b).
-        await s.expectGolden('portrait-zoom3');
-        // A drag to the right on the portrait screen (450 units): the page follows, not at an edge yet.
         const right = PORTRAIT.swipeToRight;
         const a = at({ x: right.x1, y: right.y1 });
         const b = at({ x: right.x2, y: right.y2 });
         const turned: Move = { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
-        shown = await readerWhere(s, swipe(s, turned), 'the portrait drag', (e) => Number(e.x) > -720);
-        // borealis starts a pan only after the finger has moved a little, and the Switch's swipe steps vary: the page
-        // follows most of the 450 units (desktop ~413, console 375..450), without reaching an edge.
-        expect(Number(shown.x), 'x after the drag').toBeGreaterThanOrEqual(-720 + 300);
-        expect(Number(shown.x), 'x after the drag').toBeLessThanOrEqual(-720 + 451);
-        expect(shown).toMatchObject({ page, y: -620 });
+        if (lite) {
+            // Lite: the pinch stays at 2 x and changes nothing (no golden: "zoom2" has a zoomed page already). The drag to
+            // the right (450 units) stops at the page's left edge, 360 units away.
+            shown = await readerSettled(s, pinch(s, { x: 360, y: 640 }, 200, 300, at));
+            expect(shown).toMatchObject({ shown: 'page', page, zoom: 2, w: 1440, h: 2160, x: -360, y: -200 });
+            shown = await readerAfter(s, swipe(s, turned), { shown: 'page', page, x: 0 });
+            expect(shown).toMatchObject({ zoom: 2, y: -200 });
+        } else {
+            // A pinch around the portrait screen's middle (360, 640) to 3 x: x 360 - 1080 = -720, y 640 - 1260 = -620.
+            shown = await readerWhere(s, pinch(s, { x: 360, y: 640 }, 200, 300, at), 'zoom 3 in portrait', zoomNear(3));
+            expect(shown).toMatchObject({ page, w: 2160, h: 3240, x: -720, y: -620 });
+            // The golden here, where the pinch puts the page exactly: after the console's swipe below the page sits one swipe
+            // step (37.5 units) further or not, so a picture there failed now and then (WP-13b).
+            await s.expectGolden('portrait-zoom3');
+            // A drag to the right on the portrait screen (450 units): the page follows, not at an edge yet.
+            shown = await readerWhere(s, swipe(s, turned), 'the portrait drag', (e) => Number(e.x) > -720);
+            // borealis starts a pan only after the finger has moved a little, and the Switch's swipe steps vary: the page
+            // follows most of the 450 units (desktop ~413, console 375..450), without reaching an edge.
+            expect(Number(shown.x), 'x after the drag').toBeGreaterThanOrEqual(-720 + 300);
+            expect(Number(shown.x), 'x after the drag').toBeLessThanOrEqual(-720 + 451);
+            expect(shown).toMatchObject({ page, y: -620 });
+        }
         s.expectNoErrorEvents();
 
         if (onSwitch) {

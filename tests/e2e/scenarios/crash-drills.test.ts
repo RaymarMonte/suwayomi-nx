@@ -1,15 +1,15 @@
 // crash-drills (TESTING.md scenario 13, SAFETY.md "Crash drills", WP-03b): every deliberate crash ends in a crash record and a
 // clean exit, and the next launch runs in safe mode. What each drill should end in: src/app/crash/README.md "Drills".
-// Pass rules per drill (application mode, D21): the app exits, logs/crash-*.txt exists and parses, the next launch says
-// safeMode with that record (now filed in logs/crashes/). On the Switch the driver also checks that no new fatal file and no
-// Atmosphère crash report appeared, not even a moment later (a crash report would mean creport saw a crash, ours or hbmenu's
-// after us), and the HOME menu shows "The software was closed because an error occurred." (D35, WP-03c). One scenario per
-// drill, so a failure names it.
+// Pass rules per drill (both launch modes, WP-21): the app exits, logs/crash-*.txt exists and parses (its mode the run's),
+// the next launch says safeMode with that record (now filed in logs/crashes/). On the Switch the driver also checks that no
+// new fatal file and no Atmosphère crash report appeared, not even a moment later (a crash report would mean creport saw a
+// crash, ours or hbmenu's after us), and the HOME menu shows "The software was closed because an error occurred." (D35,
+// WP-03c); from the Album (P2, D62) the HOME menu comes back with no note. One scenario per drill, so a failure names it.
 
 import { expect } from 'vitest';
 
 import type { DriverName } from '../drivers/Driver.ts';
-import { ENDED_SOFTWARE_CLOSED } from '../drivers/SwitchDriver.ts';
+import { ENDED_AT_HOME, ENDED_SOFTWARE_CLOSED } from '../drivers/SwitchDriver.ts';
 import { isCrashFileName, parseCrashRecord, type CrashRecord } from '../lib/crashrecord.ts';
 import { scenario, type Scenario } from '../lib/scenario.ts';
 
@@ -62,7 +62,7 @@ async function newRecord(s: Scenario, drill: Drill): Promise<{ file: string; rec
     expect(r.type).toBe(drill.type);
     expect(r.thread).toBe(drill.thread);
     expect(r.platform).toBe(s.driver.name);
-    expect(r.mode).toBe('application');
+    expect(r.mode).toBe(s.mode);
     expect(r.buildId).toMatch(/^[0-9a-f]{40}$/);
     const what = drill.what?.[s.driver.name];
     if (what) expect(r.what).toMatch(what);
@@ -99,8 +99,9 @@ for (const drill of DRILLS) {
             }
             const ended = await s.driver.waitForExit(drill.exitMs ?? 15_000);
             if (s.driver.name === 'desktop') expect(ended, 'how the app ended').toBe('exited with code 1');
-            // Switch: every crash ends the process at once (D13 as amended in WP-03c), never back to hbmenu.
-            else expect(ended, 'how the app ended').toBe(ENDED_SOFTWARE_CLOSED);
+            // Switch: every crash ends the process at once (D13 as amended in WP-03c), never back to hbmenu. From the Album
+            // (WP-21, D62) the ending is command 10: back at the HOME menu with no note (P1).
+            else expect(ended, 'how the app ended').toBe(s.mode === 'applet' ? ENDED_AT_HOME : ENDED_SOFTWARE_CLOSED);
             const { file } = await newRecord(s, drill);
             await expectSafeModeNext(s, file);
         },

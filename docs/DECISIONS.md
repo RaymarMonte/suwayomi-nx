@@ -1489,6 +1489,30 @@ call**, before it returned, so neither the result line nor the 5 s wait ever ran
 Run 1's test failed only on its last step (UP + 12 × LEFT left the cursor on the third tile, so "HOME menu, first tile" never
 matched; the checks were done by hand, and the driver's clean-up compared the crash folders); `backToTheFirstTile` now
 presses HOME, and run 2 passed end to end. So D62's ending as built stands; none of the variants was needed.
+**As built, Stage B (2026-11-21, PC; console checks in Stage C):** `makeRuntimeProfile(Applet)` = `lite` with the plan's
+table (first guesses for a 380 MiB heap); every other limit is Full's, so the placeholder's smaller `maxChapters`,
+`maxUpdateRows`, `maxHistoryRows`, `browseMaxItems` and the cover-row prefetch off went back to Full's. The guard
+(`refuseLowMemory`) only stops a start with `freeMem < liteMinFreeBytes` (160 MiB, measured before borealis), with the
+planner's text, `launch_refused` `reason: "low_memory"`. An exit request from the Album sets `__nx_applet_exit_mode = 1`
+(`platform::setLeaveOnExitRequest`, its own applet hook beside borealis's, and on the guard's screen). The tip:
+`general.appletTip` in config.json (a new section), `core::showAppletTip`, a `brls::Dialog` (not cancelable: B would close
+it without an answer) opened from MainActivity before the server check, setup, login and the "closed unexpectedly" note
+(moved from main() into MainActivity::startUp()); the test config's `appletTip` overrides config.json, and the harness sets
+it false for every applet-mode launch except `applet-start`'s. Settings' switch "Show the Album tip" shows **only from the
+Album** (application-mode screens and goldens unchanged). About's words became **"Album (applet mode) · Lite profile"**:
+the planner's longer "Opened from the Album (applet mode) · Lite profile" ran into the row's label. e2e: `tools/e2e.sh …
+--mode applet` (`SNX_E2E_MODE`); desktop applet launches add `--mem-limit=380` (`ALBUM_HEAP_MB`, until measured);
+`expectGolden(step, { perMode: true })` keeps `<step>.applet.png` for a screen that differs; `applet-start` replaces
+`applet-guard`; `low-memory` in applet mode checks the low-memory screen (from the Album 48 MB never starts).
+"Runs unchanged in both modes" means the same steps; where a step checks a Full number it reads `s.mode` and checks
+Lite's: `offline-errors` (prefetch 1 page), `reader-paged` (the next chapter's first page not ready: nothing fetched
+ahead), `browse` (Search all 1 source at a time), `smoke` (About's mode and profile), `crash-drills` (the record's mode),
+`switch-downloads` (a longer idle wait: 2 transfers), `reader-webtoon` and `reader-zoom` (a pinch out at 2 x changes nothing,
+the pinch in stops at 2 x; `readerSettled`; no `portrait-zoom3` golden from the Album). The Switch-only parts that zoom to
+4 x (`reader-zoom`'s controls, `reader-spread-split`'s measurement) get theirs in Stage C. Applet mode found one app bug,
+fixed for both modes: a page from the memory cache was never checked for a spread, so a spread whose plain-box image was
+cached (Lite's prefetch of 1 loads it in portrait first) showed blurry when the reader opened again at it
+(`ReaderModel::startLoad`, unit test "a spread opened again from the memory cache's plain-box image").
 Rejected: handing control back to hbloader after a crash (D35: hbmenu then crashed over what the crash left behind, from
 the Album that's a fatal too); changing Atmosphère's hbloader settings for more memory (a system file, D14, and users
 wouldn't); a one-time tip (the owner wants it at every start, with a way to turn it off); applet mode with only a warning if

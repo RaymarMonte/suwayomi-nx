@@ -96,6 +96,7 @@ with 0, any release may change things.
 
 ### Fixed
 - Holding the D-pad (or a stick) turns only one page, also in portrait.
+- A two-page spread split in portrait no longer shows blurry when you open the chapter again at it (Continue).
 - Settings -> Server -> **Wait for sources** (30 seconds, 1, 2 or 5 minutes): how long browsing a source, refreshing a manga
   and opening a chapter wait for the server. A server that passes Cloudflare checks with FlareSolverr can need more than the
   default 30 seconds (seen with Weeb Central: "The server took too long to answer").

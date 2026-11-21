@@ -6,7 +6,7 @@
 //   code on screen confirms each page;
 // - the last page marks chapter 1 read on the server (GraphQL from the harness);
 // - past the last page the "next chapter" screen (golden "end"), then chapter 2 opens at once (its first pages were fetched
-//   ahead); back: the "previous chapter" screen, then chapter 1's last page;
+//   ahead; from the Album, Lite: loaded then); back: the "previous chapter" screen, then chapter 1's last page;
 // - fit width: the page is as wide as the screen;
 // - 100 page turns: memory stays flat (the "reader" events' memUsed), the turn times (turnMs of prefetched pages; the
 //   console must stay under 150 ms, D17);
@@ -80,7 +80,8 @@ scenario('reader-paged', async (s) => {
         expect(shown).toMatchObject({ chapterId: ch(1), page: 10, of: 10 });
         await s.expectGolden('end');
         shown = await readerAfter(s, () => s.driver.press('RIGHT'), { shown: 'page', chapterId: ch(2) });
-        expect(shown).toMatchObject({ page: 0, of: 10, ready: true });
+        // From the Album (WP-21) Lite fetches none of the next chapter's pages ahead (nextChapterPrefetchPages 0).
+        expect(shown).toMatchObject({ page: 0, of: 10, ready: s.mode !== 'applet' });
         await expectPage(s, 1, 2, 1);
 
         // Back: the "previous chapter" screen, then chapter 1 at its last page.

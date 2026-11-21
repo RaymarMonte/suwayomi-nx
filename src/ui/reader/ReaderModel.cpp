@@ -413,6 +413,12 @@ void ReaderModel::startLoad(Slot& slot, int chapterId, int index, net::Priority 
         slot.page.state = ReaderPage::State::Ready;
         slot.page.image = std::move(hit);
         slot.page.reloading = false;
+        if (!slot.spread && core::isSpread(slot.page.image->sourceSize())) {
+            // A spread's plain-box image from the memory cache (a reader opened again, WP-21): found only now, as in
+            // onLoaded, so one that splits loads again at its doubled box (most likely from the memory cache too).
+            slot.spread = true;
+            sharpenSpread(slot, chapterId, index, priority);
+        }
         return;
     }
     slot.cancel = net::CancelToken();

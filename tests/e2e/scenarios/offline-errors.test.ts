@@ -86,30 +86,33 @@ scenario(
             await openChapter(s, 2, { shown: 'page', chapterId: first, page: 0 });
 
             stopServer();
-            for (let page = 1; page <= 3; page++) {
+            // RuntimeProfile.prefetchAhead: Full 3 pages, Lite (from the Album, WP-21) 1. The page after them fails.
+            const ahead = s.mode === 'applet' ? 1 : 3;
+            const lost = ahead + 1;
+            for (let page = 1; page <= ahead; page++) {
                 await readerAfter(s, () => s.driver.press('LEFT'), { shown: 'page', page });  // prefetched: still there
             }
             mark = s.events.mark();
             await s.driver.press('LEFT');
-            const failed = await s.events.waitForEvent('reader', { shown: 'page_error', page: 4 }, { from: mark, ...SLOW });
+            const failed = await s.events.waitForEvent('reader', { shown: 'page_error', page: lost }, { from: mark, ...SLOW });
             expect(OFFLINE_KINDS).toContain(failed.error);
             await serverAwayError(s, 'reader', mark);
             await snapshot(s, '2-reader-offline');
-            const retried = await readerAfter(s, tap(s, READER.retry), { shown: 'page_error', page: 4, retries: 1 });
+            const retried = await readerAfter(s, tap(s, READER.retry), { shown: 'page_error', page: lost, retries: 1 });
             expect(OFFLINE_KINDS).toContain(retried.error);
-            await readerAfter(s, () => s.driver.press('X'), { shown: 'page_error', page: 4, retries: 2 });
+            await readerAfter(s, () => s.driver.press('X'), { shown: 'page_error', page: lost, retries: 2 });
 
             startServer();
-            await readerAfter(s, () => s.driver.press('X'), { shown: 'page', page: 4 });
-            await expectPage(s, 1, 1, 5);
+            await readerAfter(s, () => s.driver.press('X'), { shown: 'page', page: lost });
+            await expectPage(s, 1, 1, lost + 1);
             const turned = s.events.mark();
-            await readerAfter(s, () => s.driver.press('LEFT'), { shown: 'page', page: 5 });
-            await expectPage(s, 1, 1, 6);
+            await readerAfter(s, () => s.driver.press('LEFT'), { shown: 'page', page: lost + 1 });
+            await expectPage(s, 1, 1, lost + 2);
             mark = s.events.mark();
             await s.driver.press('B');
             await s.events.waitForEvent('screen', { name: 'Manga' }, { from: mark });
             // Saved when B closed the reader, or already by the 5 s save before it.
-            const saved = await s.events.waitForEvent('progress', { chapterId: first, page: 5 }, { from: turned, ...SLOW });
+            const saved = await s.events.waitForEvent('progress', { chapterId: first, page: lost + 1 }, { from: turned, ...SLOW });
             expect(saved.ok, 'the progress saved once the server was back').toBe(true);
             await s.events.waitForEvent('idle', {}, { from: mark });
 

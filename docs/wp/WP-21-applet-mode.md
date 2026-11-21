@@ -184,12 +184,12 @@ WP-08b's "all controllers merged" stays its own WP.
       D62 "P1 passed".)
 
 **Stage B: the app from the Album (PC first)**
-- [ ] main(): applet mode starts with the Lite profile; the guard only for too little memory (`liteMinFreeBytes`,
+- [x] main(): applet mode starts with the Lite profile; the guard only for too little memory (`liteMinFreeBytes`,
       `reason: "low_memory"`), S12's rules kept for that screen.
-- [ ] The Lite profile (`lite`), safe mode in Lite, the two new values; unit tests (suite `core`): budgets from Album-sized
+- [x] The Lite profile (`lite`), safe mode in Lite, the two new values; unit tests (suite `core`): budgets from Album-sized
       inputs, safe mode, floors, the low-memory threshold, Full unchanged.
-- [ ] Exit request from the Album → exit mode 1 (a platform hook beside the resume hook; Switch only).
-- [ ] The tip (model + dialog), `appletTip` in config (unit tests for the config field and the "show it?" rule), the Settings
+- [x] Exit request from the Album → exit mode 1 (a platform hook beside the resume hook; Switch only).
+- [x] The tip (model + dialog), `appletTip` in config (unit tests for the config field and the "show it?" rule), the Settings
       switch, About's words, the `applet_tip` event.
 - [ ] e2e: `--mode applet` for both drivers, the "close running software" step, `applet-start` (replaces `applet-guard`),
       applet goldens where screens differ. **Desktop: every scenario green in both modes.**

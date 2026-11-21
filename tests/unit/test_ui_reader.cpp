@@ -781,6 +781,32 @@ TEST_CASE("reader: rotating shows a split spread whole in landscape, and back in
     h.main.settle(50);
 }
 
+TEST_CASE("reader: a spread opened again from the memory cache's plain-box image is found again and shows sharp") {
+    // WP-21: Lite's prefetch of 1 decoded Beta's spread at the plain box first; Continue then got that image from the memory
+    // cache and showed it blurry, never knowing it was a spread.
+    Harness h;
+    h.server.spreadPages = {"1/3"};
+    {
+        auto first = h.model(ReadingDirection::RightToLeft);
+        first->setScreen(kPortrait, core::ReaderOrientation::PortraitLeft);
+        first->open(101, 2);
+        REQUIRE(h.settle(*first));  // page 3 at the plain box (720 x 540), then at the doubled one: both in the memory cache
+        REQUIRE(first->page(3).image);
+        CHECK(first->page(3).image->size() == core::ImageSize{1440, 1080});
+    }
+    h.main.settle(50);
+    const std::size_t requests = h.imageRequests(1).count(3);
+    auto model = h.model(ReadingDirection::RightToLeft);
+    model->setScreen(kPortrait, core::ReaderOrientation::PortraitLeft);
+    model->open(101, 3);
+    REQUIRE(h.settle(*model));
+    CHECK(model->split());
+    CHECK(model->half() == 0);
+    CHECK(model->current().image->size() == core::ImageSize{1440, 1080});
+    CHECK(h.imageRequests(1).count(3) == requests);  // both from the memory cache
+    h.main.settle(50);
+}
+
 TEST_CASE("reader: a split half zooms on its own; at maxDecodeScale 2 Beta's spread is as sharp as it gets, at 4 it isn't") {
     SUBCASE("maxDecodeScale 2: zoom 4 asks for 1440 wide, which the split decode has already") {
         Harness h;
