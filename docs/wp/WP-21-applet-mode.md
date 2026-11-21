@@ -179,7 +179,9 @@ WP-08b's "all controllers merged" stays its own WP.
       the mode from `crash::install`; `crashExitWaitMs` in the profile. Application mode and desktop unchanged. Gate PASS.
       (2026-11-20; plus the ending note `logs/crash-ending.tmp`, D62 "as built, Stage A". P1 =
       `SNX_APPLET_CONSOLE=1 SNX_APPLET_DRILL=1 tools/e2e.sh switch applet-guard`.)
-- [ ] **P1 on the console, owner watching** (above). Pass → go on. Fail → ≤ 2 more variants; all fail → stop (answer 1).
+- [x] **P1 on the console, owner watching** (above). Pass → go on. Fail → ≤ 2 more variants; all fail → stop (answer 1).
+      (2026-11-21: passed, 2 runs, no fatal, no note on the HOME menu; the system ends the process inside command 10.
+      D62 "P1 passed".)
 
 **Stage B: the app from the Album (PC first)**
 - [ ] main(): applet mode starts with the Lite profile; the guard only for too little memory (`liteMinFreeBytes`,

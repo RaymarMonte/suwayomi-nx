@@ -1479,7 +1479,16 @@ that difference is what the variants address. **The ending note** (an addition, 
 `logs/crash-ending.tmp` gets each step, synced at once; the next start logs it ("the last crash's ending"). Tests: unit
 (profile value, `CrashFile::sync`), desktop `applet-guard` (the note) and `crash-drills` green; Switch build and test build
 0 warnings, gate PASS. P1: `applet-guard` with `SNX_APPLET_CONSOLE=1 SNX_APPLET_DRILL=1` (screenshots every second for 15 s,
-the HOME menu reached with D-pad only, the note).
+then HOME to put the cursor back on the first tile, the note).
+**P1 passed (2026-11-21, owner watching, 2 runs, no fatal):** the null-pointer drill inside the refusal screen, from the
+Album. Both times the Album closed straight to the HOME menu (no "press POWER", **no note at all**, the cursor still on the
+Album icon), no new file in `fatal_errors`, `fatal_reports` or `crash_reports`, our record parsed (`cpu_exception`, `main`,
+`applet`, complete), sys-autopilot answered, the Album opened again (run 2). The ending note had only "sending
+ExitProcessAndReturn (command 10), applet type 2" (106 / 107 ms after the start): **the system ended the process inside the
+call**, before it returned, so neither the result line nor the 5 s wait ever ran; that is how hbmenu's own quit ends too.
+Run 1's test failed only on its last step (UP + 12 × LEFT left the cursor on the third tile, so "HOME menu, first tile" never
+matched; the checks were done by hand, and the driver's clean-up compared the crash folders); `backToTheFirstTile` now
+presses HOME, and run 2 passed end to end. So D62's ending as built stands; none of the variants was needed.
 Rejected: handing control back to hbloader after a crash (D35: hbmenu then crashed over what the crash left behind, from
 the Album that's a fatal too); changing Atmosphère's hbloader settings for more memory (a system file, D14, and users
 wouldn't); a one-time tip (the owner wants it at every start, with a way to turn it off); applet mode with only a warning if

@@ -45,20 +45,17 @@ async function watchTheEnding(s: Scenario, startedAt: number): Promise<void> {
 }
 
 /**
- * After the Album closed by itself the HOME menu may keep its cursor on the Album icon, where the driver's "HOME menu" check
- * (the first tile selected) doesn't match. UP then LEFT brings it to the first tile. D-pad only: on the HOME menu it only
- * moves the cursor, on hbmenu or our refusal screen it starts nothing (never A here: on the HOME menu A starts a game).
+ * After the Album closed by itself the HOME menu keeps its cursor on the Album icon, where the driver's "HOME menu" check
+ * (the first tile selected) doesn't match. HOME brings it to the first tile when nothing runs (the driver's recover() does the
+ * same). P1's first try (2026-11-21) used UP then 12 × LEFT: the cursor ended on the third tile, so the check never matched.
+ * Never A here: on the HOME menu A starts a game.
  */
 async function backToTheFirstTile(s: Scenario): Promise<string> {
     try {
         return await s.driver.waitForExit(4_000);
     } catch {
-        await s.driver.press('UP');
-        await sleep(500);
-        for (let i = 0; i < 12; i++) {
-            await s.driver.press('LEFT');
-            await sleep(250);
-        }
+        await s.driver.press('HOME');
+        await sleep(1_500);
         return s.driver.waitForExit(20_000);
     }
 }
