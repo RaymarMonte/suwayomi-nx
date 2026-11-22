@@ -164,6 +164,8 @@ struct Harness {
     }
 
     // WP-18: the loader reads downloaded pages from `fs` (a new loader; call it before making a model).
+    // Make the SdCard and `fs` before the Harness: its loader's disk thread reads through `fs`, so `fs` must be destroyed
+    // after the harness (C++ destroys locals in reverse order; IS-003, a ThreadSanitizer race).
     void useFiles(const platform::SafeFs& fs) {
         const core::RuntimeProfile profile =
             core::makeRuntimeProfile(core::LaunchMode::Application, 4 * core::kGiB, 100 * core::kMiB);
@@ -609,9 +611,9 @@ TEST_CASE("strip: zoomed, at most zoomPages pages, none whose own decode has all
 // --- WP-18: chapters downloaded to the Switch ---
 
 TEST_CASE("strip: a chapter on the Switch opens from its files, the chapter it joins too; a damaged page says so") {
-    Harness h;
     SdCard sd;
     const platform::SafeFs fs(sd.root);
+    Harness h;
     h.useFiles(fs);
     const std::vector<std::string> first = writeDownloadedChapter(fs, kMangaId, 101, 10);
     const std::vector<std::string> second = writeDownloadedChapter(fs, kMangaId, 102, 2, {1});
@@ -649,9 +651,9 @@ TEST_CASE("strip: a chapter on the Switch opens from its files, the chapter it j
 
 TEST_CASE("strip (WP-18b): offline, a downloaded chapter opens at the merged page and spot without a request; its saves go "
           "to the queue with the spot") {
-    Harness h;
     SdCard sd;
     const platform::SafeFs fs(sd.root);
+    Harness h;
     h.useFiles(fs);
     const std::vector<std::string> files = writeDownloadedChapter(fs, kMangaId, 101, 10);
     h.pages.files = [&files](int id) -> std::optional<std::vector<std::string>> {

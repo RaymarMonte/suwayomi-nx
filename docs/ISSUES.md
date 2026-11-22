@@ -35,5 +35,6 @@ Status: `open` · `waiting on owner` · `done`. Outcome: `fixed` · `not ours` �
 |---|---|---|---|---|---|
 | [IS-001](issues/IS-001-weeb-central-took-too-long.md) | Weeb Central: "The server took too long to answer" on the Switch | bug fix | 2026-11-19 | done | fixed: Settings → Server → "Wait for sources" (203cfea, D60) |
 | [IS-002](issues/IS-002-webtoonxyz-wont-load.md) | WebtoonXYZ won't load on the Switch | investigation | 2026-11-20 | done | not ours: the server's FlareSolverr got no answer from the site |
+| [IS-003](issues/IS-003-ci-red-tsan-race-in-tests.md) | CI red: ThreadSanitizer finds a race in the reader's offline unit tests | bug fix | 2026-11-22 | done | fixed: the tests destroy the SD-card helper after the harness (test-only) |
 
-Next number: **IS-003**.
+Next number: **IS-004**.

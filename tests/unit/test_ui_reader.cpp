@@ -158,6 +158,8 @@ struct Harness {
     }
 
     // WP-18: the loader reads downloaded pages from `fs` (a new loader; call it before making a model).
+    // Make the SdCard and `fs` before the Harness: its loader's disk thread reads through `fs`, so `fs` must be destroyed
+    // after the harness (C++ destroys locals in reverse order; IS-003, a ThreadSanitizer race).
     void useFiles(const platform::SafeFs& fs) {
         const core::RuntimeProfile profile =
             core::makeRuntimeProfile(core::LaunchMode::Application, 4 * core::kGiB, 100 * core::kMiB);
@@ -974,9 +976,9 @@ TEST_CASE("reader: park lets go of everything and saves, reopen opens again (WP-
 // --- WP-18: chapters downloaded to the Switch ---
 
 TEST_CASE("reader: a chapter on the Switch opens from its files with chapterState's progress, without a page request") {
-    Harness h;
     SdCard sd;
     const platform::SafeFs fs(sd.root);
+    Harness h;
     h.useFiles(fs);
     const std::vector<std::string> files = writeDownloadedChapter(fs, kMangaId, 101, 10, {3});
     std::vector<std::pair<int, int>> damaged;
@@ -1013,9 +1015,9 @@ TEST_CASE("reader: a chapter on the Switch opens from its files with chapterStat
 }
 
 TEST_CASE("reader: a downloaded chapter whose progress doesn't come in time opens with the chapter list's; a late answer is ignored") {
-    Harness h;
     SdCard sd;
     const platform::SafeFs fs(sd.root);
+    Harness h;
     h.useFiles(fs);
     const std::vector<std::string> files = writeDownloadedChapter(fs, kMangaId, 101, 10);
     std::vector<std::pair<int, std::function<void()>>> timers;
@@ -1065,9 +1067,9 @@ std::unique_ptr<ui::WaitingSaves> offlineQueue(api::SuwayomiClient& client) {
 
 TEST_CASE("reader (WP-18b): offline, a downloaded chapter opens at once at the merged position without a request; its saves "
           "go to the queue and count as saved; read stays read; the chapter is held until the reader has closed") {
-    Harness h;
     SdCard sd;
     const platform::SafeFs fs(sd.root);
+    Harness h;
     h.useFiles(fs);
     const std::vector<std::string> files = writeDownloadedChapter(fs, kMangaId, 101, 10);
     const std::vector<std::string> next = writeDownloadedChapter(fs, kMangaId, 102, 3);  // the next one is on it too
@@ -1144,9 +1146,9 @@ TEST_CASE("reader (WP-18b): offline, a downloaded chapter opens at once at the m
 
 TEST_CASE("reader (WP-18b): offline, a chapter the Switch knows nothing more of opens at the listed progress; a waiting "
           "entry is continued, not taken over") {
-    Harness h;
     SdCard sd;
     const platform::SafeFs fs(sd.root);
+    Harness h;
     h.useFiles(fs);
     const std::vector<std::string> files = writeDownloadedChapter(fs, kMangaId, 101, 10);
     h.pages.files = [&files](int id) -> std::optional<std::vector<std::string>> {
