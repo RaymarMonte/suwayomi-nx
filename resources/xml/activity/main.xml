@@ -1,6 +1,7 @@
 <!-- The main screen (src/ui/main/MainActivity, WP-08): a tab frame. The tabs are added in code, so each tab's view can get
      the app's context. -->
 <brls:AppletFrame
+    backgroundColor="@theme/brls/background"
     iconInterpolation="linear"
     footerHidden="false">
 

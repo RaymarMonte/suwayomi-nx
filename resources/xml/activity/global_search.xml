@@ -2,6 +2,7 @@
      below it a row per source (the grid, added in code: a card + up to 5 covers, 6 columns over the full width).
      Touch targets are at least 72 px high (D16). -->
 <brls:AppletFrame
+    backgroundColor="@theme/brls/background"
     iconInterpolation="linear"
     footerHidden="false">
 

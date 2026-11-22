@@ -3,6 +3,7 @@
      Refresh, and below them the chapter list or a status (loading, error + Retry, empty). The cover, the list and the status
      are added in code. Touch targets are at least 72 px high (D16). -->
 <brls:AppletFrame
+    backgroundColor="@theme/brls/background"
     iconInterpolation="linear"
     footerHidden="false">
 

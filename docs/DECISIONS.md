@@ -1593,3 +1593,18 @@ work, no code)
 Rejected: GitHub Issues (outside the repo's files, `gh` from WSL for every read and write, and a fix and its write-up
 can't land in one commit); one shared file for every issue (it grows long, and a session reads past entries to find its
 own); the 92 % pause for issues (owner's answer).
+
+**D64 Every full screen paints its own background** (IS-004, owner OK 2026-11-22)
+- **What:** the root of every screen layout (`resources/xml/activity/*.xml`, a `brls:AppletFrame`) has
+  `backgroundColor="@theme/brls/background"`. A screen built in code paints its own background too (the reader does,
+  `ReaderActivity::applyLook`). `tests/contract/screen-backgrounds.test.ts` (`npm test`) fails on a layout without it.
+- **Why:** borealis's screen change (`FADE`, the default) fades only the new screen in, over 200 ms, and draws the screen
+  under it at full strength meanwhile; on going back it shows the lower screen at once and fades the top one out. Our
+  screens had no background (the grey was the window being cleared), so the old screen showed through the new one and
+  then vanished in one frame (the owner: "the 2 UIs are just printed together for a split second"). With a solid
+  background the fading screen covers the old one more and more: a real cross-fade both ways. Same color as the window's
+  clear color (`brls/clear` = `brls/background` in both themes), so a finished screen looks exactly as before.
+- **Measured (desktop, 60 fps):** the largest frame-to-frame change went from 0.19 (RMSE; the old screen vanishing at the
+  end of opening, and appearing at full strength at the start of going back) to 0.06 (an ordinary fade step).
+Rejected: no animation (`TransitionAnimation::NONE` on ~30 calls plus borealis's built-in back: clean but abrupt, owner
+chose the cross-fade); fading the old screen out first and then the new one in (a change inside the pinned borealis, D1).

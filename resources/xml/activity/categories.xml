@@ -2,6 +2,7 @@
      (a one-column list, added in code) or a status (loading, error + Retry, none yet). Default isn't listed: it can't be
      changed. Touch targets are at least 72 px high (D16). -->
 <brls:AppletFrame
+    backgroundColor="@theme/brls/background"
     iconInterpolation="linear"
     footerHidden="false">
 

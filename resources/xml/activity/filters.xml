@@ -1,6 +1,7 @@
 <!-- A source's filters (src/ui/browse/FiltersActivity, WP-14, D56): Reset and Apply on top, the filters below (a one-column
      list, added in code) or a status. Touch targets are at least 72 px high (D16). -->
 <brls:AppletFrame
+    backgroundColor="@theme/brls/background"
     iconInterpolation="linear"
     footerHidden="false">
 

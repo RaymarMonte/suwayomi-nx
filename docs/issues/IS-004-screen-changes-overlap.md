@@ -1,8 +1,8 @@
 # IS-004 Opening a manga shows two screens on top of each other for a moment
 
 Kind: small change · Status: waiting on owner · Opened: 2026-11-22 · Closed: –
-Outcome: –
-Model: Opus · Owner: OK on the fix plan below; later, try it on the console
+Outcome: fixed on the PC (D64); the owner's try on the console is still to come
+Model: Opus · Owner: plan OK'd 2026-11-22 (cross-fade); try Library → a manga → back on the console (the build is on it)
 
 ## Report
 The owner, 2026-11-22, on the Switch, normal build, own server: "Whenever I'm navigating to a manga from the library. The
@@ -32,6 +32,43 @@ drawn over them. The screenshot shows the owner's library, so it stays out of th
 - borealis's theme: `brls/background` is the same color as `brls/clear` in both the dark and the light theme, so painting
   that color behind a screen changes nothing once the fade is over.
 - borealis applies the fade to everything a view draws, background and images included (`View::a()`, `Image::draw`).
+- 22:26 – 22:30, the owner's OK (cross-fade). Desktop test build, test server, Reading → Alpha and B back, recorded at
+  60 fps with ffmpeg on the hidden X screen (a throwaway probe scenario, kept in `tests/e2e/out/is-004/`). Size of each
+  frame-to-frame change (RMSE, 0 = same, 1 = all different):
+  - **Before:** opening fades over ~10 frames (steps ≤ 0.06), then **0.19** in one frame (the library vanishes). Going
+    back starts with **0.19** (the library appears at full strength under the details), then fades. Same look as the
+    owner's console screenshot.
+  - **After the fix:** both ways the biggest step is **0.06** (the first frame of the fade); the library fades out while
+    the details fade in. No pop.
+  - A step of ~0.035–0.05 two frames after the fade, both before and after: the bottom button hints light up again
+    (borealis greys them while it blocks input during the animation). Unrelated, left as it is.
+- 22:29 – 23:42, tests with the fix: unit tests, `npm test` (with the new check), typecheck green. Desktop e2e, every
+  scenario in both modes (`--bail 0`): application 26 / 29 files green, applet 28 / 29. Failing: **server-downloads**
+  (Resume → queue running 2012–2067 ms, limit 2000; the server's 1 s beat + the app's ~1.5 s poll, D58 / D62),
+  **soak** (a LEFT press lost: its key-down came in the same millisecond as the previous key-up, so the app, which reads
+  keys once per frame, saw no new press) and **updates-history** (the tap on Reading right after the Library tab tap was
+  lost). Without the fix (layouts stashed, rebuilt, 23:32 – 23:42): server-downloads failed the same way (2067 ms), so
+  that one is not ours; soak and updates-history passed twice.
+- 23:45, desktop frame rate (a temporary log line, not committed; Xvfb, software rendering): without the fix 614–690 fps,
+  with it 519–562 fps per screen (Library, Reading, details), i.e. ~1.55 → ~1.9 ms a frame: the one full-screen
+  rectangle the background adds, drawn by the CPU. On the Switch the GPU fills it in a few hundredths of a millisecond.
+  0.35 ms more per frame makes two inputs landing in one frame only ~20 % likelier, too little to explain the lost
+  inputs.
+- 23:49 – 00:08 (2026-11-23), A/B, application mode, alternating builds (with the fix, without, three rounds): soak and
+  updates-history **green all 12 times** (fix 3 / 3 each, without 3 / 3 each). So the earlier soak / updates-history
+  failures were the harness's input timing (desktop: `xdotool` key-up late, the next key-down or tap in the same frame),
+  not the fix. Those early runs were the first ones after WSL started (22:22), one alongside the Switch build.
+- 00:09 – 00:48, the whole desktop suite with the fix once more (`--bail 0`): **application mode all green** (29 files, 1
+  skipped as always); applet mode 28 green, server-downloads red again (2012 ms).
+- 00:49 – 00:55, A/B of server-downloads in applet mode (alternating, 3 rounds). The "queue running" time is two-valued:
+  ~503 ms (the app's first check after the tap sees the server started) or ~2010–2085 ms (one 1 s poll later), by where
+  the tap falls in the server's 1 s beat. Without the fix: 2083 (red), 503, 503. With it: red before Resume (the app
+  stayed busy > 15 s on a request while the test source was slowed on purpose), 504, 2022 (red). Over the whole session,
+  with the fix the slow case came 5 of 6 times in applet mode, without it 1 of 4, and in application mode without the fix
+  it also came (2067). A 2000 ms limit sits on the slow case's edge, so this check flips on timing alone; the scenario's
+  steps follow the server's beat (D62), so a fraction of a millisecond per frame on the PC can move the tap's phase. The
+  app's behaviour doesn't change (it has no say in when the server starts). Left as it is here; a follow-up for the
+  owner (D58's limit is the owner's call).
 
 **Where the owner sees it** (going in, and the reverse when going back with B):
 - Library → a manga's details (the report); Library → Categories, → "Move to category"
@@ -49,7 +86,7 @@ screen (borealis doesn't animate it).
 borealis's fade only fades the new screen in; it never fades the old one out. Because our screens have no background of
 their own, the old screen shows through the new one for the whole fade and then disappears in one frame.
 
-## Planned fix (waiting for the owner's OK)
+## Planned fix (the owner chose the cross-fade, 2026-11-22; done, see What changed)
 Small: about 13 one-line layout changes and one new check. It touches no threading, reader, progress sync or safety code,
 so it stays an issue (not a WP).
 
@@ -77,14 +114,26 @@ Other ways, not chosen:
 - **Fade the old screen out first, then the new one in:** needs a change inside borealis (pinned submodule, D1). Not worth it.
 
 ## What changed
-Nothing yet (findings and plan only).
+- `resources/xml/activity/*.xml` (13 layouts): `backgroundColor="@theme/brls/background"` on the root `brls:AppletFrame`.
+- `tests/contract/screen-backgrounds.test.ts` (new, `npm test`): fails, naming the file, if a layout's root lacks it
+  (checked: it fails on `source.xml` with the line taken out).
+- CHANGELOG (Unreleased → Fixed), D64 (the rule).
+- Tests: unit tests, `npm test`, typecheck green; desktop e2e: application mode all green, applet mode all green but
+  server-downloads' 2 s Resume limit (it fails without the fix too; What we checked). Switch: `tools/build.sh switch` (gate PASS), uploaded to
+  the console (SHA-256 matched). No Switch e2e run: the change is layout data only, and the console was the owner's.
 
 ## For the owner
-Say whether the cross-fade (the plan) is what you want, or an instant cut. After the fix: try Library → a manga → back on
-the console.
+Try Library → a manga → back on the console (the new build is on it): the library should fade out while the details
+fade in, with nothing popping at the end. Separately: server-downloads' "queue running ≤ 2 s after Resume" (D58 as
+amended by D62) flips between ~0.5 s and just over 2 s on the PC by the server's beat; a looser limit (or measuring it
+another way) is your call.
 
 ## If it comes back
 Open any screen and capture a frame within 200 ms (desktop build, or `sa.sh -o shot.jpg GET /screenshot` right after A on
 the Switch). If the old screen shows at full strength behind the new one, look for a layout root without
-`backgroundColor` (the check should have caught it) or a screen built in code without a background. The owner's screenshot
-is in `tests/e2e/out/is-004/` (git-ignored; may be gone later).
+`backgroundColor` (the check should have caught it) or a screen built in code without a background. On the PC:
+`tests/e2e/out/is-004/is004-fade-probe.test.ts.txt` (copy it into `tests/e2e/scenarios/` as `.test.ts`, run it with
+`SNX_PROBE_LABEL=<name> tools/e2e.sh desktop is004-fade-probe`) records the change at 60 fps; `steps.sh <frames dir> 20 34`
+next to it prints each frame-to-frame change (a single step near 0.19 = the pop is back). The owner's screenshot, the
+recordings (`before/`, `after/`), the test runs (`e2e-*`, `ab/`) and the frame-rate probe are in `tests/e2e/out/is-004/`
+(git-ignored; may be gone later).

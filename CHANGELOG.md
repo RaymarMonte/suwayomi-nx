@@ -100,6 +100,8 @@ with 0, any release may change things.
 - A single tap in the middle of the page opens the menu a quarter second later (it waits to see if it is a double tap).
 
 ### Fixed
+- Opening a screen (a manga from the library, a source, Settings' screens, ...) or going back cross-fades cleanly: the old
+  screen no longer stays on full strength under the new one and then vanishes at once.
 - Holding the D-pad (or a stick) turns only one page, also in portrait.
 - A two-page spread split in portrait no longer shows blurry when you open the chapter again at it (Continue).
 - Settings -> Server -> **Wait for sources** (30 seconds, 1, 2 or 5 minutes): how long browsing a source, refreshing a manga

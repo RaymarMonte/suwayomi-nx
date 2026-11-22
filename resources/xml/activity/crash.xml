@@ -3,6 +3,7 @@
      because borealis only handles buttons when some view has the focus. The record's name has its own line, so the E2E
      golden can mask just that (it changes every run). -->
 <brls:AppletFrame
+    backgroundColor="@theme/brls/background"
     footerHidden="false">
 
     <brls:Box

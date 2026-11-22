@@ -1,5 +1,6 @@
 <!-- Settings -> About -> Crash logs (src/ui/main/SettingsTab.hpp, CrashLogsActivity, WP-08). The rows are added in code. -->
 <brls:AppletFrame
+    backgroundColor="@theme/brls/background"
     iconInterpolation="linear"
     footerHidden="false">
 

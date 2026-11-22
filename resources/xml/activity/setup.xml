@@ -1,6 +1,7 @@
 <!-- The setup screen (src/ui/setup/SetupActivity, WP-08). Cells and buttons are at least 72 px high (D16: thumb-sized).
      TextFieldCell is our cell that opens the keyboard on a tap (src/ui/components/StatusView.hpp). -->
 <brls:AppletFrame
+    backgroundColor="@theme/brls/background"
     iconInterpolation="linear"
     footerHidden="false">
 

@@ -1,6 +1,7 @@
 <!-- The Languages checklist (src/ui/browse/LanguagesActivity, WP-14b, D56): a note and Done on top, the languages below (a
      one-column list, added in code). The category picker's layout. Touch targets are at least 72 px high (D16). -->
 <brls:AppletFrame
+    backgroundColor="@theme/brls/background"
     iconInterpolation="linear"
     footerHidden="false">
 

@@ -2,6 +2,7 @@
      not of the AppletFrame. The box is focusable (with the highlight hidden) because borealis only handles buttons,
      PLUS-to-quit included, when some view has the focus. -->
 <brls:AppletFrame
+    backgroundColor="@theme/brls/background"
     iconInterpolation="linear"
     footerHidden="false">
 
