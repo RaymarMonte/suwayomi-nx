@@ -1538,7 +1538,7 @@ the main loop, the same path as PLUS). **Sleep and wake from the Album:** OnResu
 the owner's Joy-Con turns the page after unlocking, and the harness's virtual controller comes back with its next press (a
 press while the lock screen shows goes to the lock screen). **The screen stays on:** the reader 4 min untouched with
 auto-sleep at 3 min: no dimming, no sleep (libnx's `SetMediaPlaybackState` for a library applet). **Docked:** not checked
-(no dock that day; the owner's try). **The Lite numbers:** the shares stay; the image cache's cap goes 64 → **48 MiB**
+(no dock that day; not in the owner's try either, see below). **The Lite numbers:** the shares stay; the image cache's cap goes 64 → **48 MiB**
 (the heap is two thirds of the guess): at 259.7 MiB 48 + 13 (covers) + 39 (textures) + 26 (one decode) MiB, under half the
 heap, so borealis (~45 MiB) and a download page stay below the pressure line (85 %, 221 MiB). In use: 64.5 MiB after 40
 turns, 70 MiB at the peak. `ALBUM_HEAP_MB` (desktop `--mem-limit`) = 260.
@@ -1563,6 +1563,12 @@ poll (~1.5 s) sees it. The test's earlier steps line up with that beat and from 
 lands late in it. Not the app's to fix (a check every 0.5 s would still pass 1 s on a beat near the end of the second), so
 **D58 amended (owner, 2026-11-21):** Resume's answer on screen is "Starting..." (0–1 ms in the runs), the queue running
 ≤ 2 s. After it: green twice from the Album (running after 503 / 1795 ms) and in application mode (503 ms).
+**The whole Switch matrix in application mode (2026-11-22, this code's test build):** green in one run (75 min; 28 scenario
+files, 37 tests; skipped only the 4 desktop-only ones: `low-memory`, two `harness` checks, the cache-write-killed drill).
+**The owner's try (2026-11-22, the normal build, the owner's own config):** opened the app from the Album on the console,
+read a chapter on the owner's server and quit back to hbmenu: all fine. **Docked from the Album was not tried**; the owner
+says it isn't a priority, so WP-21 doesn't wait for it and it stays unchecked on the console (on the PC `reader-portrait`
+covers the reader's docked rule, `--simulate-docked`, in both modes).
 Rejected: handing control back to hbloader after a crash (D35: hbmenu then crashed over what the crash left behind, from
 the Album that's a fatal too); changing Atmosphère's hbloader settings for more memory (a system file, D14, and users
 wouldn't); a one-time tip (the owner wants it at every start, with a way to turn it off); applet mode with only a warning if

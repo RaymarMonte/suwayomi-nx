@@ -198,14 +198,15 @@ WP-08b's "all controllers merged" stays its own WP.
 - [x] **P2: `crash-drills` in applet mode, owner watching**; then drop `SNX_APPLET_CONSOLE=1` (answer 3). (2026-11-21: passed, 2 runs, D62.)
 - [x] The console checks (step 6), owner watching for the game-behind-the-Album case and docking; numbers into D62. What
       they find gets fixed here (the keyboard's failure text if it can fail, the wake signal, the exit request).
-      (2026-11-21: all but docking, left for the owner's try; nothing to fix: D62 "The console checks".)
+      (2026-11-21: all but docking, left for the owner's try; nothing to fix: D62 "The console checks". 2026-11-22: the
+      owner didn't dock either and says it isn't a priority, so docking from the Album stays unchecked, D62.)
 - [x] Lite numbers set from the measurement; `soak` from the Album: memory flat, peak below the pressure line (85 % of the
       heap), no `mem_pressure`, no error; frames like application mode or the difference written down. (2026-11-21: image
       cache ≤ 48 MiB, `ALBUM_HEAP_MB` 260; soak peak 99 of 259.7 MiB, turns p90 32 ms; D62.)
 - [x] **Switch: every scenario green from the Album** (and still green in application mode for anything this WP touched).
       (2026-11-21: all 30, some after test fixes listed in D62; the touched ones green in application mode too.)
-- [ ] The whole Switch matrix once in application mode too (Acceptance, `tools/e2e.sh switch`, ~62 min). Open: the owner
-      couldn't ready the console on 2026-11-21. Until it runs WP-21 isn't done.
+- [x] The whole Switch matrix once in application mode too (Acceptance, `tools/e2e.sh switch`, ~62 min). (2026-11-22:
+      green in one run, 75 min, 28 files / 37 tests, the 4 desktop-only ones skipped; no fix needed. D62.)
 
 **Docs (as built)**
 - [x] D62 "as built" (with the console numbers); D21 and D41 marked amended; SAFETY.md S1 (the applet ending), S12 (now the
@@ -225,7 +226,8 @@ WP-08b's "all controllers merged" stays its own WP.
 - Numbers in D62: the Album heap (alone, with a game behind), start cost, the soak's peak, page times and one chapter
   download (both modes), the keyboard, HOME / sleep / exit-request / docked findings.
 - The owner's try: opened from the Album on the console, a chapter read on the owner's own server (the test build with the
-  owner's config, D18 rules, or a normal build afterwards), and quitting back to hbmenu.
+  owner's config, D18 rules, or a normal build afterwards), and quitting back to hbmenu. **Done 2026-11-22** (the normal
+  build; all fine; D62 "The owner's try"). Docking not tried (not a priority for the owner).
 
 ## Split point → WP-21b (only if one session can't finish)
 Stop at a clean, green point after Stage A, Stage B (desktop green in both modes), P2, the console checks, the Lite numbers
