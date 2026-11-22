@@ -1,7 +1,7 @@
 # IS-003 CI red: ThreadSanitizer finds a race in the reader's offline unit tests
 
 Kind: bug fix · Status: done · Opened: 2026-11-22 · Closed: 2026-11-22
-Outcome: fixed (test-only: the 6 tests make the SD card and SafeFs before the harness; commit "IS-003: ...")
+Outcome: fixed (test-only: the 6 tests make the SD card and SafeFs before the harness, 89355bb; the tests' wait gives up after 60 s, not 10, for CI's slow coverage build)
 Model: Opus · Owner: –
 
 ## Report
@@ -34,7 +34,19 @@ TSan sees it.
   No app code changed; no CHANGELOG line (the owner doesn't see it); no D-entry.
 - Also seen 2026-11-22: CI on 3e60f5b failed the same way in the other offline reader test (it starts at line 1065).
 - Tests (2026-11-22, ~19:50): `tools/build.sh tests` green (7/7, contract 57/57); `tools/build.sh tsan` green (7/7);
-  `unit.ui` under TSan repeated 10 times (`ctest --repeat until-fail:10`): 10 of 10 green. CI on the push: checked after.
+  `unit.ui` under TSan repeated 10 times (`ctest --repeat until-fail:10`): 10 of 10 green.
+- **CI on 89355bb (2026-11-22 ~20:15): the TSan step green, but the next step, Coverage, failed** (it had been skipped
+  since 5337d86, because TSan failed first): `tests/unit/test_ui_strip.cpp:522` `REQUIRE(h.settle(*model))` false
+  ("strip: the width follows the setting and the orientation"), after the switch to portrait some page was still
+  Loading when `MainQueue::runUntil`'s 10 s safety deadline ran out. The coverage build is `-O0` with atomic counters
+  (`-fprofile-update=atomic`, CMakeLists.txt), which the image workers make very slow: in CI `unit.ui` took 144 s under
+  coverage on the last green run (ea064ab; 7-8 s in the plain build, 27-30 s under TSan) and 176 s now (more tests since,
+  plus this 10 s wait). So a decode-heavy wait can pass 10 s there. No test expects `runUntil` (or the strip's `settle`,
+  its only wrapper) to time out, so the deadline is only a hang guard and a longer one costs a passing run nothing.
+  Locally (2026-11-22 ~20:25) the coverage build passes: `unit.ui` 53 s, that strip test 3.7 s in all (doctest
+  `--duration`), so on a ~3x slower CI runner its second wait gets close to 10 s. Not reproduced locally.
+- **Second change:** `tests/unit/MainQueue.hpp` `runUntil`'s deadline 10 s → 60 s, with a note why. Test-only again.
+  Local runs after it (~20:35): unit tests, tsan and coverage all green (coverage `unit.ui` 54 s, lines 91.3 %).
 
 ## For the owner
 Nothing.

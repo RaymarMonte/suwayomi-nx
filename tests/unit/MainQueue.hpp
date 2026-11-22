@@ -20,9 +20,11 @@ class MainQueue {
         };
     }
 
-    // Runs what is delivered until `done()`; false after 10 s without it.
+    // Runs what is delivered until `done()`; false after 60 s without it. The deadline only catches a hang (no test expects
+    // it to run out): the coverage build (-O0, atomic counters) on CI is ~20x slower than the plain build, and a strip test's
+    // decodes there once took over 10 s (IS-003).
     bool runUntil(const std::function<bool()>& done) {
-        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
         while (!done()) {
             std::vector<std::function<void()>> batch;
             {
