@@ -47,6 +47,8 @@ TSan sees it.
   `--duration`), so on a ~3x slower CI runner its second wait gets close to 10 s. Not reproduced locally.
 - **Second change:** `tests/unit/MainQueue.hpp` `runUntil`'s deadline 10 s → 60 s, with a note why. Test-only again.
   Local runs after it (~20:35): unit tests, tsan and coverage all green (coverage `unit.ui` 54 s, lines 91.3 %).
+- **CI on 0a3908b (2026-11-22): green**, every job (unit tests, TSan and coverage included), the first green run on `main`
+  since ea064ab.
 
 ## For the owner
 Nothing.
