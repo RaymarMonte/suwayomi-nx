@@ -2,8 +2,8 @@
 
 Kind: bug fix · Status: waiting on owner · Opened: 2026-11-23 · Closed: –
 Outcome: fixed on the PC (D65); the owner's try on the console is still to come
-Model: Opus · Owner: asked (2026-11-24) to fix every screen with the same kind of bug; to come: wake the console so the
-new build goes on it, then open a manga from the library
+Model: Opus · Owner: asked (2026-11-24) to fix every screen with the same kind of bug; to come: open a manga from the
+library on the console (the new build is on it)
 
 ## Report
 The owner, 2026-11-23, on the Switch, normal build, own server: "When selecting a manga in the library, there's this weird
@@ -78,6 +78,9 @@ Once the chapters are there, the bar looks right (e2e: Sort at x 942, Show at 11
   flaky scenario that this issue didn't cause. Left as it is here (a follow-up was offered).
 - 07:36, Switch build (`tools/build.sh switch`): 0 warnings, safety gate PASS. The console didn't answer
   (`sa.sh GET /status`: asleep), so the build isn't on it yet.
+- 07:48, the owner woke the console. HOME menu, nothing open (screenshot `console-before-upload.jpg`); the build (the
+  07:42 `tools/build.sh switch` of 37f6211's tree, gate PASS) uploaded to `/switch/suwayomi-nx/suwayomi-nx.nro`
+  (`deploy` in `tools/spike/lib.sh`), SHA-256 matched. The console was left on for the owner's try.
 
 ## Cause
 borealis measures an empty label as "as wide as possible", and the chapter count is empty while the chapters load (and
@@ -94,14 +97,13 @@ text-sized buttons were squeezed together. A long count line (offline) did the s
 - Test harness: `tools/test-server/test-server.ps1` starts Java with its temp folder in `root\tmp` (reset wipes the
   server's cover cache); `tools/test-server/README.md` says so.
 - Tests: unit tests, `npm test` (with the new check), typecheck green. Desktop e2e: applet mode all green; application
-  mode all green but `server-downloads` (an existing flaky step, What we checked). Switch build: gate PASS, not on the
-  console yet (asleep).
+  mode all green but `server-downloads` (an existing flaky step, What we checked). Switch build: gate PASS, on the
+  console (SHA-256 matched).
 
 ## For the owner
-Wake the console (and say so), and the new build goes on it. Then open a manga from the library whose chapters take a
-moment: Sort / Show / Refresh should keep their size while "Loading chapters..." shows. Optional: `server-downloads`
-fails now and then in the full PC suite (its "Move to top" step waits behind a deliberately slowed download); a separate
-look at it was offered.
+The new build is on the console: open a manga from the library whose chapters take a moment. Sort / Show / Refresh
+should keep their size while "Loading chapters..." shows. The `server-downloads` flake is being looked at in its own
+session.
 
 ## If it comes back
 Open a manga whose chapters load slowly and look at the bar. On the PC: `tests/e2e/out/is-006/probe.sh <label>` (copy
