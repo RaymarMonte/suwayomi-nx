@@ -7,7 +7,7 @@
          default ("natural") only scrolls while the button is held when the next row isn't fully on screen, so a short
          press could end before the focus moved (the press "lost" under "Delete Switch downloads after reading"). -->
     <brls:ScrollingFrame
-        width="auto"
+        width="0"
         height="auto"
         grow="1.0"
         scrollingBehavior="centered">

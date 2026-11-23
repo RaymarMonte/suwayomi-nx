@@ -11,6 +11,7 @@ this from WSL; it also works on its own from PowerShell. It never touches the ow
   test-server.ps1 stop                   stop both (only the java.exe and jwebserver.exe this script started)
   test-server.ps1 status                 one line of JSON: running, pid, auth, port, LAN addresses, the test site, ...
   test-server.ps1 reset                  stop, wipe root\ (only if it holds our marker file), copy fixtures\ into root\local\
+                                         (root\tmp\ is Java's temp folder, so the server's cover cache goes with it)
   test-server.ps1 build-source           compile the test extension (tools\test-source, WP-23) and pack one jar per extension and
                                          version into web\store\ (the list: web\store\build.json, written by gen-test-source.ts)
   test-server.ps1 paths                  one line of JSON with the folders (the WSL script uses it)
@@ -255,6 +256,12 @@ function Start-Server {
     $java = (Get-Command java -CommandType Application | Select-Object -First 1).Source
     $line = "`"$java`""
     foreach ($key in $props.Keys) { $line += " `"-Dsuwayomi.tachidesk.config.$key=$($props[$key])`"" }
+    # IS-006: the server keeps the covers of manga outside the library in <java temp>\Tachidesk\thumbnails\<manga id>.jpg.
+    # In Windows' %TEMP% that cache outlived every reset, and after a reset the same ids go to other manga: browse showed
+    # wrong covers. Inside root\ a reset wipes it with everything else (and it stays apart from any other Suwayomi).
+    $tmp = Join-Path $Root 'tmp'
+    New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+    $line += " `"-Djava.io.tmpdir=$tmp`""
     $line += " -jar `"$Jar`" > `"$OutLog`" 2> `"$ErrLog`""
 
     Write-Host "Starting Suwayomi-Server $($Cfg.version) on port $Port (auth $Auth) ..."

@@ -102,6 +102,8 @@ with 0, any release may change things.
 ### Fixed
 - Opening a screen (a manga from the library, a source, Settings' screens, ...) or going back cross-fades cleanly: the old
   screen no longer stays on full strength under the new one and then vanishes at once.
+- A manga's Sort, Show and Refresh buttons keep their size while its chapters load (they were squeezed together in the
+  corner), and offline. A long line next to buttons in a bar now wraps or ends in "..." instead of squeezing them.
 - Holding the D-pad (or a stick) turns only one page, also in portrait.
 - A two-page spread split in portrait no longer shows blurry when you open the chapter again at it (Continue).
 - Settings -> Server -> **Wait for sources** (30 seconds, 1, 2 or 5 minutes): how long browsing a source, refreshing a manga

@@ -115,7 +115,7 @@
         </brls:ScrollingFrame>
 
         <brls:Box
-            width="auto"
+            width="0"
             height="auto"
             axis="column"
             grow="1.0">
@@ -129,9 +129,12 @@
                 paddingLeft="20"
                 paddingRight="24">
 
+                <!-- IS-006: width 0 + grow: the count takes only the room the buttons leave. With width="auto" an empty
+                     count (while the chapters load, or after an error) measured as wide as the whole bar in borealis and
+                     squeezed the buttons; a long count now wraps instead. -->
                 <brls:Label
                     id="manga/count"
-                    width="auto"
+                    width="0"
                     grow="1.0"
                     fontSize="18" />
 

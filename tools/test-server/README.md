@@ -24,6 +24,7 @@ Run them in WSL (`wsl.exe -d Ubuntu --exec bash -lc '<repo>/tools/test-server/te
 | `.test-server/fixtures/` | pristine fixture manga, re-generated only when the generator changes (`fixtures.stamp`) |
 | `.test-server/fixtures-extra/` | `Epsilon Weekly` incl. the held-back Chapter 3. Kept out of `fixtures/` because `reset` copies that folder whole and the server numbers manga in folder order |
 | `.test-server/root/` | the server's data folder (`rootDir`). `reset` deletes it, but only if it holds the `.snx-test-root` marker |
+| `.test-server/root/tmp/` | Java's temp folder (`-Djava.io.tmpdir`, IS-006): the server's cover cache for manga outside the library (`Tachidesk/thumbnails/<manga id>.jpg`) is wiped with every reset, so a reused id never gets an old cover |
 | `.test-server/server.out.log`, `server.err.log` | Java's output. The server's own log is in `root/logs/` |
 | `.test-server/web/` | the test source's store (`store/`) and test site (`site/`), served by jwebserver on 127.0.0.1:4569 (WP-23, below) |
 | `.test-server/web-site.stamp`, `web-source.stamp` | when the site generator / the Java extension last changed; `reset` rebuilds only what changed |

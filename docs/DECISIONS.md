@@ -1614,3 +1614,19 @@ own); the 92 % pause for issues (owner's answer).
   end of opening, and appearing at full strength at the start of going back) to 0.06 (an ordinary fade step).
 Rejected: no animation (`TransitionAnimation::NONE` on ~30 calls plus borealis's built-in back: clean but abrupt, owner
 chose the cross-fade); fading the old screen out first and then the new one in (a change inside the pinned borealis, D1).
+
+**D65 A view that fills the rest of a row and shows text starts at width 0** (IS-006, 2026-11-24; the owner asked for
+every screen with the same bug)
+- **What:** in a layout, a view with `grow` inside a row (a `brls:Box` without `axis="column"`) that is a Label or holds
+  one gets `width="0"` (keeping `grow`), not `width="auto"`. `tests/contract/row-fill-width.test.ts` (`npm test`) fails,
+  naming the file and view, on one without it. Growing Buttons and boxes of Buttons (fixed words sharing a row on
+  purpose: setup, login, a source's Popular / Latest) are left as they are.
+- **Why:** with `width="auto"` the view starts at its content's width, and borealis measures an **empty** Label as wide
+  as all the room it's offered (`labelMeasureFunc`, pinned borealis), so the row's text-sized buttons got squeezed (the
+  manga screen's chapter count is empty while the chapters load: Sort / Show / Refresh crammed into the corner). A long
+  text did the same, less (the offline count line). With `width="0"` the view takes only what the other views leave; a
+  long text wraps or ends in "...". When everything fits the layout is identical (desktop goldens unchanged).
+- Bars built in code (Downloads, Updates / History headers) give their buttons a fixed width, which borealis also makes
+  the least width, so their growing status column can only shrink itself.
+Rejected: giving the count a placeholder text while loading (fixes one screen, not the pattern); patching borealis's
+measuring (pinned, D1).
