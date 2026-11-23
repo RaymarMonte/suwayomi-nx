@@ -20,7 +20,8 @@
 // - Switch only: 100 rows queued by GraphQL (slowed by 10 s) → the tab: a status of 100 rows applied ≤ 50 ms; 10 rounds
 //   tab ↔ Library: the memory in use grows by less than 16 MiB; then Clear;
 // - D58: every action → its answer on screen ≤ 1 s (the event's ms, the app's own clock, D54). Resume's answer is
-//   "Starting..." (the server starts on its next 1 s beat): the queue running ≤ 2 s (D62, owner 2026-11-21).
+//   "Starting..." (the server starts on its next 1 s beat): the queue running on screen ≤ 2 s (D62, owner 2026-11-21;
+//   timed by the tab's first "running", not by the server's answer to the start: IS-005, owner 2026-11-23).
 // Known state first and at the end, also after a failure: an empty, stopped queue, none of the touched manga's chapters
 // downloaded on the server, Paper Garden's chapters unread and without bookmarks, the switch file cleared.
 // Needs the test server (tools/test-server/test-server.sh start).
@@ -70,16 +71,16 @@ async function tapUntil(s: Scenario, at: { x: number; y: number }, what: string,
     timeoutMs = 30_000): Promise<AppEvent> {
     const mark = s.events.mark();
     await s.driver.touch(at.x, at.y);
+    const read = s.events.mark(); // desktop: the app has read the release by now (IS-005)
     const e = await s.events.waitFor(what, match, { from: mark, timeoutMs });
-    await s.events.waitForEvent('idle', {}, { from: mark });
+    await s.events.waitForIdleAfter(read, e);
     return e;
 }
 
 /** Taps (x, y) and waits for the screen to settle (a menu opening). */
 async function tapSettled(s: Scenario, at: { x: number; y: number }): Promise<void> {
-    const mark = s.events.mark();
     await s.driver.touch(at.x, at.y);
-    await s.events.waitForEvent('idle', {}, { from: mark });
+    await s.events.waitForIdleAfter(s.events.mark()); // desktop: after the app read the release (IS-005)
 }
 
 /** Presses `button`, waits for the first event that `match` accepts and for the screen to settle. */
@@ -88,7 +89,7 @@ async function pressUntil(s: Scenario, button: 'A' | 'B' | 'X' | 'RIGHT', what: 
     const mark = s.events.mark();
     await s.driver.press(button);
     const e = await s.events.waitFor(what, match, { from: mark, timeoutMs });
-    await s.events.waitForEvent('idle', {}, { from: mark });
+    await s.events.waitForIdleAfter(mark, e);
     return e;
 }
 
@@ -319,14 +320,19 @@ scenario('server-downloads', async (s) => {
         mark = s.events.mark();
         const resumed = await tapUntil(s, SERVER_DOWNLOADS.primary, 'resumed', isEv('server_download_action', { action: 'resume' }));
         expect(resumed.ok).toBe(true);
-        // D58 as amended (D62, owner 2026-11-21): the server starts its downloader only on its next 1 s beat, so the queue
-        // can show running 0–1 s after the tap, plus the app's next look. The tap's answer on screen is "Starting...".
+        // D58 as amended (D62, owner 2026-11-21): the tap's answer on screen is "Starting...". The server starts its
+        // downloader only on its next 1 s beat, so the queue shows running after the app's check read (0.5 s) or its next
+        // poll (~1.5 s). Timed on screen, by the tab's first "running" (IS-005, owner 2026-11-23): the server answers the
+        // start itself up to ~0.6 s after its own status already shows it started, which says nothing about the app.
         const tappedAt = Number(resumed.t) - Number(resumed.ms);
         const starting = s.events.events.slice(mark).find((e) => isEv('server_downloads', { view: 'starting' })(e));
         expect(starting, '"Starting..." after Resume').toBeDefined();
-        console.log(`[server-downloads] Resume: "Starting..." after ${Number(starting!.t) - tappedAt} ms, running after ${resumed.ms} ms`);
+        const shownRunning = await s.events.waitFor('the queue running after Resume', isEv('server_downloads', { view: 'running' }), { from: mark });
+        const runningMs = Number(shownRunning.t) - tappedAt;
+        console.log(`[server-downloads] Resume: "Starting..." after ${Number(starting!.t) - tappedAt} ms, running on screen after ` +
+            `${runningMs} ms (the server's answer after ${resumed.ms} ms)`);
         expect(Number(starting!.t) - tappedAt, 'Resume → "Starting..." on screen (ms)').toBeLessThanOrEqual(LIMITS.actionMs);
-        expect(Number(resumed.ms), 'Resume → the queue running (ms)').toBeLessThanOrEqual(LIMITS.resumeRunningMs);
+        expect(runningMs, 'Resume → the queue running on screen (ms)').toBeLessThanOrEqual(LIMITS.resumeRunningMs);
         clearTestSourceControl();
         const emptied = await s.events.waitFor('the queue empty',
             (e) => e.ev === 'server_downloads' && e.view === 'idle' && e.rows === 0, { from: mark, timeoutMs: 90_000 });

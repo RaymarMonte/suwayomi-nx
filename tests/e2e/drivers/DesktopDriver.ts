@@ -7,13 +7,19 @@
 //   window on the owner's screen. So the app gets an empty runtime folder and XDG_SESSION_TYPE=x11, and falls back to X11.
 // - borealis reads the keyboard and mouse once a frame, and only while its window has the focus. So every key and click is
 //   held for 100 ms, and the window gets the focus first.
+// - IS-005: when the app is busy for one long frame, two changes can reach it in that one frame: a press and its release
+//   (the press is never seen), or a release and the next press (it looks like one long hold, so no new press). So every
+//   key or button change waits until the app has read it, and only then the next one goes out (inputSeen). The proof is
+//   borealis's debug log ("Key: … / Code: 263 / Action: 1"; the app runs with -d, its stdout line by line). Mouse
+//   buttons aren't logged, so each one is followed by a key nothing reacts to (MARKER_KEY): X hands the app its input in
+//   the order it was sent, so once the marker's line is there, the button has been read too.
 // - borealis's desktop keyboard map has only: Enter = A, Escape = B, arrow keys = D-pad, middle mouse button = X. The other
 //   buttons (Y, L, R, ZL, ZR, PLUS, MINUS, sticks) can't be pressed on desktop yet; press() says so. The app quits on SIGTERM
 //   (WP-03), which replaces PLUS here.
 
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
-import { closeSync, existsSync, mkdtempSync, openSync, rmSync } from 'node:fs';
-import { mkdir, open, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { closeSync, existsSync, fstatSync, mkdtempSync, openSync, readSync, rmSync } from 'node:fs';
+import { mkdir, open, readdir, readFile, rm, writeFile, type FileHandle } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
@@ -28,6 +34,15 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** X key names for the buttons desktop borealis understands (glfw_input.cpp). */
 const KEYS: Partial<Record<Button, string>> = { A: 'Return', B: 'Escape', UP: 'Up', DOWN: 'Down', LEFT: 'Left', RIGHT: 'Right' };
 const MIDDLE_MOUSE_BUTTONS: Partial<Record<Button, true>> = { X: true };
+/**
+ * A key that nothing in borealis or the app reacts to: no button, no character, no shortcut (glfw_input.cpp,
+ * Application's watched keys). Sent right after a mouse button change, its log line shows that the app read the button.
+ */
+const MARKER_KEY = 'Pause';
+/** GLFW's numbers for the keys above: borealis logs each key GLFW hands it as "Key: … / Code: <number> / Action: 1|0". */
+const GLFW_CODES: Record<string, number> = { Return: 257, Escape: 256, Right: 262, Left: 263, Down: 264, Up: 265, Pause: 284 };
+/** How long an input waits for the app to read it. Longer means the app is stuck or its window lost the focus. */
+const SEEN_TIMEOUT_MS = 5_000;
 
 export interface DesktopDriverOptions {
     out: string; // the scenario's output folder: the app's stdout goes there
@@ -50,7 +65,8 @@ export class DesktopDriver implements Driver {
     private app: ChildProcess | null = null;
     private appExit: string | null = null; // "exited with code 0", "killed by SIGSEGV", ... once it ended
     private appExited: Promise<void> = Promise.resolve();
-    private stdoutFd: number | null = null;
+    private stdoutFd: number | null = null; // the app's stdout and stderr go here (every launch appends to the same file)
+    private stdoutRead: FileHandle | null = null; // the same file, read for borealis's key log lines (inputSeen)
     private runtimeDir = '';
     private windowId = '';
     private stream: EventStream | null = null;
@@ -94,8 +110,11 @@ export class DesktopDriver implements Driver {
         const env: NodeJS.ProcessEnv = { ...process.env, DISPLAY: this.display, XDG_RUNTIME_DIR: this.runtimeDir, XDG_SESSION_TYPE: 'x11' };
         delete env.WAYLAND_DISPLAY;
         await mkdir(this.out, { recursive: true });
-        this.stdoutFd = openSync(join(this.out, 'stdout.txt'), 'a');
-        const app = spawn('./suwayomi-nx', args, { cwd: this.buildDir, env, stdio: ['ignore', this.stdoutFd, this.stdoutFd] });
+        if (this.stdoutFd === null) this.stdoutFd = openSync(join(this.out, 'stdout.txt'), 'a');
+        if (this.stdoutRead === null) this.stdoutRead = await open(join(this.out, 'stdout.txt'), 'r');
+        // stdbuf -oL: stdout line by line. borealis flushes its log only on Windows, so into a file it would come in 4 KiB
+        // pieces, and inputSeen needs each key's line at once. stdbuf runs the app in its own place (same process id).
+        const app = spawn('stdbuf', ['-oL', './suwayomi-nx', ...args], { cwd: this.buildDir, env, stdio: ['ignore', this.stdoutFd, this.stdoutFd] });
         this.app = app;
         this.appExit = null;
         this.appExited = new Promise((resolve) => {
@@ -111,6 +130,7 @@ export class DesktopDriver implements Driver {
 
         const source: EventSource = {
             read: (offset) => this.readFile('test/events.jsonl', offset),
+            readNow: (offset) => this.readFileNow('test/events.jsonl', offset),
             appGone: async () => this.appExit,
         };
         this.stream = new EventStream(source, { pollMs: 100, gonePollMs: 100 });
@@ -150,13 +170,13 @@ export class DesktopDriver implements Driver {
     async press(btn: Button, ms = 100): Promise<void> {
         const key = KEYS[btn];
         if (key) {
-            await this.xdotool(['keydown', key]);
+            await this.inputSeen(['keydown', key], GLFW_CODES[key], [1]);
             await sleep(ms);
-            await this.xdotool(['keyup', key]);
+            await this.inputSeen(['keyup', key], GLFW_CODES[key], [0]);
         } else if (MIDDLE_MOUSE_BUTTONS[btn]) {
-            await this.xdotool(['mousedown', '2']);
+            await this.buttonSeen(['mousedown', '2']);
             await sleep(ms);
-            await this.xdotool(['mouseup', '2']);
+            await this.buttonSeen(['mouseup', '2']);
         } else {
             throw new NotSupportedError(`button ${btn} can't be pressed on desktop (borealis maps only A, B, X and the D-pad there)`);
         }
@@ -174,21 +194,21 @@ export class DesktopDriver implements Driver {
     }
 
     async touch(x: number, y: number, ms = 100): Promise<void> {
-        await this.xdotool(['mousemove', '--window', this.windowId, String(Math.round(x)), String(Math.round(y)), 'mousedown', '1']);
+        await this.buttonSeen(['mousemove', '--window', this.windowId, String(Math.round(x)), String(Math.round(y)), 'mousedown', '1']);
         await sleep(ms);
-        await this.xdotool(['mouseup', '1']);
+        await this.buttonSeen(['mouseup', '1']);
     }
 
     async swipe(x1: number, y1: number, x2: number, y2: number, ms: number, steps?: number): Promise<void> {
         const n = Math.max(1, steps ?? Math.round(ms / 16));
-        await this.xdotool(['mousemove', '--window', this.windowId, String(Math.round(x1)), String(Math.round(y1)), 'mousedown', '1']);
+        await this.buttonSeen(['mousemove', '--window', this.windowId, String(Math.round(x1)), String(Math.round(y1)), 'mousedown', '1']);
         for (let i = 1; i <= n; i++) {
             await sleep(ms / n);
             const x = Math.round(x1 + ((x2 - x1) * i) / n);
             const y = Math.round(y1 + ((y2 - y1) * i) / n);
             await this.xdotool(['mousemove', '--window', this.windowId, String(x), String(y)]);
         }
-        await this.xdotool(['mouseup', '1']);
+        await this.buttonSeen(['mouseup', '1']);
     }
 
     async screenshot(): Promise<Buffer> {
@@ -243,6 +263,26 @@ export class DesktopDriver implements Driver {
         }
     }
 
+    /** readFile(), but at once (the events' mark(), IS-005). The app writes each event straight to the file. */
+    private readFileNow(path: string, offset: number): Buffer {
+        let fd;
+        try {
+            fd = openSync(dataPath(this.dataDir, path), 'r');
+        } catch (e) {
+            if ((e as NodeJS.ErrnoException).code === 'ENOENT') return Buffer.alloc(0);
+            throw e;
+        }
+        try {
+            const { size } = fstatSync(fd);
+            const start = Math.min(offset, size);
+            const buffer = Buffer.alloc(size - start);
+            const got = readSync(fd, buffer, 0, buffer.length, start);
+            return buffer.subarray(0, got);
+        } finally {
+            closeSync(fd);
+        }
+    }
+
     async writeFile(path: string, data: Buffer | string): Promise<void> {
         const full = dataPath(this.dataDir, path);
         await mkdir(dirname(full), { recursive: true });
@@ -278,6 +318,10 @@ export class DesktopDriver implements Driver {
             closeSync(this.stdoutFd);
             this.stdoutFd = null;
         }
+        if (this.stdoutRead !== null) {
+            await this.stdoutRead.close();
+            this.stdoutRead = null;
+        }
         if (this.runtimeDir) rmSync(this.runtimeDir, { recursive: true, force: true });
         this.runtimeDir = '';
         if (this.xvfb) {
@@ -312,6 +356,53 @@ export class DesktopDriver implements Driver {
             xvfb.kill('SIGKILL');
         }
         throw new Error('could not start Xvfb on any display from :90 to :99');
+    }
+
+    /**
+     * Sends xdotool `args` (one key or button change) and waits until the app has read it: until borealis has logged GLFW
+     * key `code` with one of `actions` (1 = down, 0 = up) after this call began. Only then may the next change go out (IS-005).
+     */
+    private async inputSeen(args: string[], code: number, actions: (0 | 1)[]): Promise<void> {
+        const from = await this.stdoutSize();
+        await this.xdotool(args);
+        const lines = actions.map((action) => `/ Code: ${code} / Action: ${action}`);
+        const started = Date.now();
+        for (;;) {
+            const text = await this.stdoutFrom(from);
+            if (lines.some((line) => text.includes(line))) return;
+            if (this.appExit !== null) return; // the input ended the app (or it crashed): the scenario's next wait says so
+            if (Date.now() - started >= SEEN_TIMEOUT_MS) {
+                console.warn(`[desktop] the app did not read "xdotool ${args.join(' ')}" within ${SEEN_TIMEOUT_MS / 1000} s ` +
+                    '(stuck, or its window lost the focus): going on');
+                return;
+            }
+            await sleep(1);
+        }
+    }
+
+    /**
+     * A mouse button change (`args`), followed by the marker key (down and up at once) in the same xdotool call; waits
+     * until the app has read it. Either of the marker's lines will do: GLFW now and then drops the marker's press (7 in
+     * ~1,900, IS-005) and logs only its release, and both went out after the button.
+     */
+    private buttonSeen(args: string[]): Promise<void> {
+        return this.inputSeen([...args, 'key', '--delay', '0', MARKER_KEY], GLFW_CODES[MARKER_KEY], [1, 0]);
+    }
+
+    /** How long the app's stdout file is now (bytes). */
+    private async stdoutSize(): Promise<number> {
+        if (!this.stdoutRead) throw new Error('launch() first: there is no app output yet');
+        return (await this.stdoutRead.stat()).size;
+    }
+
+    /** The app's stdout from byte `from` to its end. */
+    private async stdoutFrom(from: number): Promise<string> {
+        if (!this.stdoutRead) throw new Error('launch() first: there is no app output yet');
+        const size = (await this.stdoutRead.stat()).size;
+        if (size <= from) return '';
+        const buffer = Buffer.alloc(size - from);
+        const { bytesRead } = await this.stdoutRead.read(buffer, 0, buffer.length, from);
+        return buffer.toString('utf8', 0, bytesRead);
     }
 
     private async xdotool(args: string[], timeoutMs = 5_000): Promise<string> {

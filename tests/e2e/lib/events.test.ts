@@ -115,4 +115,55 @@ describe('EventStream', () => {
         expect(stream.errors()).toHaveLength(1);
         expect(stream.text()).toBe(src.data);
     });
+
+    // IS-005: an "idle" written just before a tap, but not read yet, made the scenario's "wait for idle after the tap"
+    // return at once, and its next tap went into a menu that had only just opened.
+    it('with readNow, mark() counts what was written before it as before it', async () => {
+        const src = new FakeSource();
+        const withNow = Object.assign(src, { readNow: (offset: number) => Buffer.from(src.data, 'utf8').subarray(offset) });
+        const stream = new EventStream(withNow, fast);
+        src.data = '{"t":0,"ev":"app_start"}\n';
+        await stream.poll();
+        src.data += '{"t":5,"ev":"idle"}\n'; // written, but not polled yet
+        const mark = stream.mark();
+        expect(mark).toBe(2);
+        setTimeout(() => (src.data += '{"t":9,"ev":"idle"}\n'), 30);
+        expect((await stream.waitForEvent('idle', {}, { from: mark, timeoutMs: 2000 })).t).toBe(9);
+    });
+
+    it('waitForIdleAfter skips an idle from before the mark or before the cause', async () => {
+        const src = new FakeSource();
+        const stream = new EventStream(src, fast);
+        src.data = '{"t":0,"ev":"idle"}\n{"t":1,"ev":"focus"}\n{"t":2,"ev":"idle"}\n{"t":3,"ev":"screen","name":"Manga"}\n';
+        await stream.poll();
+        const cause = stream.events[3];
+        setTimeout(() => (src.data += '{"t":9,"ev":"idle"}\n'), 30);
+        expect((await stream.waitForIdleAfter(0, cause, { timeoutMs: 2000 })).t).toBe(9); // not t 0 or 2
+        expect((await stream.waitForIdleAfter(1)).t).toBe(2);
+        expect((await stream.waitForIdleAfter(4, stream.events[1])).t).toBe(9); // the cause before the mark: the mark counts
+    });
+
+    it('a poll that was waiting while a mark() read on takes nothing twice', async () => {
+        const src = new FakeSource();
+        let release: () => void = () => undefined;
+        const slowRead = src.read.bind(src);
+        let slow = true;
+        src.read = async (offset) => {
+            const chunk = await slowRead(offset);
+            if (slow) {
+                slow = false;
+                await new Promise<void>((r) => (release = r)); // the answer comes late, after the mark below
+            }
+            return chunk;
+        };
+        const withNow = Object.assign(src, { readNow: (offset: number) => Buffer.from(src.data, 'utf8').subarray(offset) });
+        const stream = new EventStream(withNow, fast);
+        src.data = '{"t":0,"ev":"app_start"}\n{"t":1,"ev":"idle"}\n';
+        const polling = stream.poll();
+        await new Promise((r) => setTimeout(r, 10));
+        expect(stream.mark()).toBe(2);
+        release();
+        await polling;
+        expect(stream.events.map((e) => e.t)).toEqual([0, 1]);
+    });
 });

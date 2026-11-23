@@ -37,5 +37,6 @@ Status: `open` · `waiting on owner` · `done`. Outcome: `fixed` · `not ours` �
 | [IS-002](issues/IS-002-webtoonxyz-wont-load.md) | WebtoonXYZ won't load on the Switch | investigation | 2026-11-20 | done | not ours: the server's FlareSolverr got no answer from the site |
 | [IS-003](issues/IS-003-ci-red-tsan-race-in-tests.md) | CI red: ThreadSanitizer finds a race in the reader's offline unit tests | bug fix | 2026-11-22 | done | fixed: the tests destroy the SD-card helper after the harness; the tests' wait has 60 s for the coverage build (test-only) |
 | [IS-004](issues/IS-004-screen-changes-overlap.md) | Opening a manga shows two screens on top of each other for a moment | small change | 2026-11-22 | waiting on owner | fixed on the PC: every screen paints its background, a clean cross-fade (D64); the owner's console try to come |
+| [IS-005](issues/IS-005-desktop-e2e-flakes.md) | Two desktop e2e checks fail now and then: Resume's 2 s, and a lost press or tap | bug fix | 2026-11-23 | done | fixed (test-only): Resume's 2 s timed on screen (D58/D62, owner); the desktop driver waits for the app to read each input; the scenarios wait for an idle after the input and its answer |
 
-Next number: **IS-005**.
+Next number: **IS-006**.

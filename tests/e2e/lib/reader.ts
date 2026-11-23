@@ -23,13 +23,15 @@ export async function openManga(s: Scenario, category: Point | null, cover: numb
     let mark = s.events.mark();
     if (category) {
         await s.driver.touch(category.x, category.y);
-        await s.events.waitForEvent('library', items === undefined ? { state: 'ready' } : { state: 'ready', items }, { from: mark });
-        await s.events.waitForEvent('idle', {}, { from: mark });
+        const read = s.events.mark(); // desktop: the app has read the release by now (IS-005)
+        const library = await s.events.waitForEvent('library', items === undefined ? { state: 'ready' } : { state: 'ready', items }, { from: mark });
+        await s.events.waitForIdleAfter(read, library);
     }
     mark = s.events.mark();
     await s.driver.touch(LIBRARY.cover(cover).x, LIBRARY.cover(cover).y);
+    const read = s.events.mark();
     const shown = await s.events.waitForEvent('manga', { state: 'ready', complete: true }, { from: mark, timeoutMs: 30_000 });
-    await s.events.waitForEvent('idle', {}, { from: mark });
+    await s.events.waitForIdleAfter(read, shown);
     return shown;
 }
 

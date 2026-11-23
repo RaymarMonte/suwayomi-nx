@@ -68,6 +68,24 @@ async function showTab(s: Scenario, name: 'Updates' | 'History', fields: Record<
     return shown;
 }
 
+/** The Reading category's id on the test server (its first category; 0 is Default). */
+const READING_CATEGORY_ID = 1;
+
+/**
+ * The Library tab, then its Reading category (3 manga), then cover `cover`; waits for the tab before the category tap
+ * (IS-005: sent at once, it was lost now and then). The tab keeps its category: when it still shows Reading, a tap on
+ * Reading changes nothing and brings no new "library" event, so then it goes straight to the cover.
+ */
+async function openFromReading(s: Scenario, cover: number): Promise<AppEvent> {
+    const mark = s.events.mark();
+    await s.driver.touch(tab('Library').x, tab('Library').y);
+    const read = s.events.mark();
+    const shown = await s.events.waitForEvent('library', { state: 'ready' }, { from: mark, timeoutMs: 30_000 });
+    await s.events.waitForIdleAfter(read, shown);
+    const onReading = shown.category === READING_CATEGORY_ID && shown.items === 3;
+    return openManga(s, onReading ? null : LIBRARY_MORE.reading, cover, 3);
+}
+
 /** Waits for a list event after `from` whose first row matches. */
 async function firstRow(s: Scenario, ev: 'updates' | 'history', from: number, what: string,
     match: (row: Row) => boolean): Promise<AppEvent> {
@@ -210,8 +228,7 @@ scenario('updates-history', async (s) => {
         expect(rowsOf(history)[0]).toMatchObject({ mangaId: EPSILON_MANGA_ID, chapterId: newChapter, page: 1, read: false });
 
         // 4. Alpha in the reader: chapter 1 to page 3, chapter 2 to page 2. History: one Alpha row, chapter 2.
-        await s.driver.touch(tab('Library').x, tab('Library').y);
-        await openManga(s, LIBRARY_MORE.reading, 0, 3);
+        await openFromReading(s, 0);
         await openChapter(s, 2, { shown: 'page', chapterId: alphaChapters[0].id, page: 0 });
         for (let page = 1; page <= 2; page++) {
             await readerAfter(s, () => s.driver.press('LEFT'), { shown: 'page', page });
@@ -310,8 +327,7 @@ scenario('updates-history', async (s) => {
 
         // 7. The waiting-save queue (WP-15b): Alpha chapter 3 to page 5 while the server is away; the next start sends it.
         const ch3 = alphaChapters[2].id;
-        await s.driver.touch(tab('Library').x, tab('Library').y);
-        await openManga(s, LIBRARY_MORE.reading, 0, 3);
+        await openFromReading(s, 0);
         await openChapter(s, 0, { shown: 'page', chapterId: ch3, page: 0 });
         await readAwayFrom(s, ch3, 0, 3, 4);
         await s.driver.quit();
@@ -332,8 +348,7 @@ scenario('updates-history', async (s) => {
 
         // 8. Server later (D61): chapter 3 to page 7 while the server is away, then another device sets it to page 2 later. The
         // next start drops ours (the newer change wins), and the server keeps page 2.
-        await s.driver.touch(tab('Library').x, tab('Library').y);
-        await openManga(s, LIBRARY_MORE.reading, 0, 3);
+        await openFromReading(s, 0);
         await openChapter(s, 0, { shown: 'page', chapterId: ch3, page: 4 });
         await readAwayFrom(s, ch3, 4, 5, 6);
         await s.driver.quit();

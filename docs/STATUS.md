@@ -3,8 +3,8 @@
 **Next:** WP-16 (extensions; no WP file yet, so a planning session with the owner's answers first) → 25 → 19; WP-18d after
 WP-18b; nice to have: 08b, 26, 27, 28. Done: WP-00a … 13, 13b, 13c, 13d, 14, 14b, 15, 15b, 17, 18, 18b, 18c, 21, 22, 23, 24;
 v0.2.0 (17, 18, 18c, 18b, 21 unreleased). **Open issues:** IS-004 (screen changes showed two screens at once;
-fixed and on the console, waits on the owner's try; desktop e2e green but server-downloads' 2 s Resume limit in
-applet mode, which flips without the fix too) (D63).
+fixed and on the console, waits on the owner's try; desktop e2e green) (D63). IS-005 done 2026-11-23 (desktop e2e flakes,
+test-only).
 ## Last session (2026-11-22, WP-21's last runs, Opus; the owner readied the console)
 - **The whole Switch matrix in application mode: green in one run** (75 min, 28 scenario files / 37 tests; the 4 skipped
   are desktop-only: `low-memory`, two `harness` checks, the cache-write-killed drill). No fix needed. D62 has the line.

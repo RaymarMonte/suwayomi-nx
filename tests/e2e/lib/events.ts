@@ -11,6 +11,13 @@ export interface AppEvent {
 export interface EventSource {
     /** The events file from byte `offset` on. Empty when nothing new was written or the file doesn't exist yet. */
     read(offset: number): Promise<Buffer>;
+    /**
+     * The same as read(), but right now (optional). With it, mark() first takes in what the app has written so far, so an
+     * event written just before an action, but not read yet, doesn't count as one that came after it (IS-005: a stale
+     * "idle" let a scenario tap into a menu that had only just opened). Desktop has it (a local file); the Switch doesn't
+     * (its file comes over the network), so there a mark can still be up to one poll behind.
+     */
+    readNow?(offset: number): Buffer;
     /** null while the app runs. Otherwise a short sentence saying why it's gone ("exited with code 1", ...). */
     appGone(): Promise<string | null>;
 }
@@ -48,12 +55,24 @@ export class EventStream {
 
     /** Index of the next event. Take it before an action, then `waitFor(..., { from: mark })` only looks at what came after. */
     mark(): number {
+        if (this.source.readNow) this.take(this.source.readNow(this.offset));
         return this.seen.length;
     }
 
     /** Reads whatever is new once. Throws if a complete line isn't a valid event (a bug in the app's event writer). */
     async poll(): Promise<void> {
-        const chunk = await this.source.read(this.offset);
+        for (;;) {
+            const from = this.offset;
+            const chunk = await this.source.read(from);
+            // A mark() or another poll read on while this one waited: its bytes are in already, so read from there again.
+            if (this.offset !== from) continue;
+            this.take(chunk);
+            return;
+        }
+    }
+
+    /** Takes in the bytes read from `offset` on: complete lines become events, a half-written one waits for the rest. */
+    private take(chunk: Buffer): void {
         if (chunk.length === 0) return;
         this.offset += chunk.length;
         const data = Buffer.concat([this.partial, chunk]);
@@ -113,6 +132,19 @@ export class EventStream {
     waitForEvent(ev: string, fields: Record<string, unknown> = {}, opts: { timeoutMs?: number; from?: number } = {}): Promise<AppEvent> {
         const what = Object.keys(fields).length ? `"${ev}" event with ${JSON.stringify(fields)}` : `"${ev}" event`;
         return this.waitFor(what, (e) => e.ev === ev && Object.entries(fields).every(([k, v]) => e[k] === v), opts);
+    }
+
+    /**
+     * Waits for the app to settle after an input: the first "idle" after both `from` and `cause` (the event the input
+     * brought, if any; a screen's event always gets an "idle" after it). For a tap, take `from` with mark() once the
+     * driver's touch() has returned: on desktop the app has read the release by then (IS-005), and borealis acts on the
+     * release. A key acts when it goes down, so for a press give the mark from before it and the cause. An "idle" from
+     * before these (the app still settling from something earlier, or between a tap and its answer) let the next tap
+     * go into a menu or screen that had only just opened (IS-005).
+     */
+    waitForIdleAfter(from: number, cause?: AppEvent, opts: { timeoutMs?: number } = {}): Promise<AppEvent> {
+        const after = cause === undefined ? from : Math.max(from, this.seen.indexOf(cause) + 1);
+        return this.waitForEvent('idle', {}, { from: after, timeoutMs: opts.timeoutMs });
     }
 
     /** Events named "error" (TESTING.md: a scenario normally expects none). */

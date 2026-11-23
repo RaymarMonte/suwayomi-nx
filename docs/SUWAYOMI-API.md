@@ -254,7 +254,9 @@ switch file's `delayMs`, polling every 250 ms. Our documents: `DownloadStatus`, 
 - **Stop** (`stopDownloader`): STOPPED at once; the downloading row goes back to QUEUED **with its progress kept**, and a
   start goes on with the pages left. **Start** (`startDownloader`) with QUEUED rows answers after ~1.2 s (once STARTED;
   measured 0.06–1.9 s, WP-21): the server starts its downloaders only on its next **1-second beat** (the log's `Running: …,
-  Queued: …` lines), so `downloadStatus` shows STARTED 0–1 s after the call;
+  Queued: …` lines), so `downloadStatus` shows STARTED 0–1 s after the call; **the start's own answer can come up to
+  ~0.6 s after `downloadStatus` already shows STARTED** (IS-005: 1.54–2.08 s after the call while a read at ~1.5 s
+  already had it);
   **with nothing QUEUED (empty, or only ERROR rows) it waits 30 s and fails**, so the app resumes only with a QUEUED row.
 - **Errors:** a chapter whose pages fail gets 3 tries within ~1 s, then stays as ERROR (`tries` 3). The downloader goes on
   with the next chapter and stops when only ERROR rows are left. **Retry = enqueue it again** (QUEUED, `tries` stays 3).

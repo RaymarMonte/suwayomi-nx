@@ -1305,6 +1305,8 @@ read chapter's download, Sorayomi's step-by-step reordering, Mihon's "Bookmarked
   `touch-pass`, `browse`, `updates-history`, `reader-paged`, `resume-progress` green.
 - **Amended by D62 (owner, 2026-11-21): Resume's answer on screen is "Starting..."** (shown at once, ≤ 1 s); the queue
   running may take ≤ 2 s, because the server starts its downloader only on its next 1-second beat (D62 has the runs).
+  **Timed on screen (IS-005, owner 2026-11-23):** from the tap to the first time the tab shows the queue running, not
+  to the server's answer to the start, which can come ~0.6 s after the tab already shows it running.
 
 **D59 Download to Switch: chapters on the SD card, a Switch downloads tab, the reader reads them first** (WP-18, planned
 2026-11-19; the owner's answers the same day; `wp/WP-18-download-to-switch.md`). Carries out D47's "Download means to the
@@ -1563,6 +1565,10 @@ poll (~1.5 s) sees it. The test's earlier steps line up with that beat and from 
 lands late in it. Not the app's to fix (a check every 0.5 s would still pass 1 s on a beat near the end of the second), so
 **D58 amended (owner, 2026-11-21):** Resume's answer on screen is "Starting..." (0–1 ms in the runs), the queue running
 ≤ 2 s. After it: green twice from the Album (running after 503 / 1795 ms) and in application mode (503 ms).
+**IS-005 (owner, 2026-11-23):** those times were the server's answer to the start, not the screen. When the 0.5 s check
+misses the beat, the tab shows running after the next poll (~1.51 s), but the server answers the start itself only
+0.03–0.57 s later (1542–2083 ms after the tap in 7 runs), so the check failed now and then by up to 85 ms. The 2 s is now
+timed on screen (the tab's first "running" after the tap): 0.50 or 1.51 s in every run kept.
 **The whole Switch matrix in application mode (2026-11-22, this code's test build):** green in one run (75 min; 28 scenario
 files, 37 tests; skipped only the 4 desktop-only ones: `low-memory`, two `harness` checks, the cache-write-killed drill).
 **The owner's try (2026-11-22, the normal build, the owner's own config):** opened the app from the Album on the console,

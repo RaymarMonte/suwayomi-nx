@@ -72,15 +72,15 @@ async function tapUntil(s: Scenario, at: { x: number; y: number }, what: string,
     timeoutMs = 30_000): Promise<AppEvent> {
     const mark = s.events.mark();
     await s.driver.touch(at.x, at.y);
+    const read = s.events.mark(); // desktop: the app has read the release by now (IS-005)
     const e = await s.events.waitFor(what, match, { from: mark, timeoutMs });
-    await s.events.waitForEvent('idle', {}, { from: mark });
+    await s.events.waitForIdleAfter(read, e);
     return e;
 }
 
 async function tapSettled(s: Scenario, at: { x: number; y: number }): Promise<void> {
-    const mark = s.events.mark();
     await s.driver.touch(at.x, at.y);
-    await s.events.waitForEvent('idle', {}, { from: mark });
+    await s.events.waitForIdleAfter(s.events.mark()); // desktop: after the app read the release (IS-005)
 }
 
 async function backTo(s: Scenario, screen: string): Promise<void> {

@@ -41,9 +41,10 @@ async function tapUntil(s: Scenario, at: { x: number; y: number }, what: string,
     const mark = s.events.mark();
     const started = Date.now();
     await s.driver.touch(at.x, at.y);
+    const read = s.events.mark(); // desktop: the app has read the release by now (IS-005)
     const e = await s.events.waitFor(what, match, { from: mark, timeoutMs: 30_000 });
     const ms = Date.now() - started;
-    await s.events.waitForEvent('idle', {}, { from: mark });
+    await s.events.waitForIdleAfter(read, e);
     return { e, ms };
 }
 
