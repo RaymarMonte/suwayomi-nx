@@ -266,7 +266,12 @@ switch file's `delayMs`, polling every 250 ms. Our documents: `DownloadStatus`, 
 - **Reorder** (`reorderChapterDownload(input: {chapterId, to})`): `to` is the 0-based place in the whole queue, the
   downloading row included (it goes on downloading wherever it lands). Top = 0, bottom = rows − 1. Works while STOPPED too.
   **Sometimes it answers only after 30 s with "Timed out waiting for 30000 ms", although the new order was there at once**
-  (seen in the e2e run: the server waits for the change's news and can miss it). So for remove, top, bottom, pause, resume
+  (seen in the e2e run: the server waits for the change's news and can miss it). Why (IS-007, `javap` on v2.4.2366):
+  every queue change waits in a set and goes out in one batch on the server's 1 s beat (the subscription
+  `downloadStatusChanged` shows them); the reorder answers from the first batch where the moved chapter's index **in
+  the batch's list of changes** is ≤ `to`. So a move to the top (`to` 0) that shares a batch with an earlier change of
+  another chapter (a move less than 1 s before, say) never passes, and in a stopped queue no more batches come. A
+  bottom always passes. The remove waits for any batch that names the chapter, stop and start for the state. So for remove, top, bottom, pause, resume
   and clear the app reads the queue once after `serverDownloadCheckMs` (500 ms) without an answer, and once more after a
   failed answer: when the queue shows the action done, that counts as ok and the late answer stays quiet.
 - **Clear** (`clearDownloader(input: {})`): empties the queue (ERROR rows too), STOPPED. **While a chapter sits in a

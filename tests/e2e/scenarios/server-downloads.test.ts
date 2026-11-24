@@ -34,7 +34,7 @@ import { driverName, scenario, type Scenario } from '../lib/scenario.ts';
 import { CLOCK_MASK, DIALOG, LIBRARY_MORE, MANGA, SERVER_DOWNLOADS, tab } from '../lib/screens.ts';
 import {
     clearServerQueue, downloadedOrders, enqueueOnServer, PAPER_GARDEN_KEY, patchChapters, serverChapters, serverDownloadsKnownState,
-    serverQueue, sourceMangaWithChapters, stopOnServer, untilServer,
+    ServerQueueNews, serverQueue, sourceMangaWithChapters, stopOnServer, untilServer,
 } from '../lib/server-downloads.ts';
 import { appServerUrl, optionsFromEnv, SuwayomiClient } from '../lib/suwayomi.ts';
 import { clearServerPageCache, clearTestSourceControl, setTestSourceControl, TEST_SOURCE_IDS } from '../lib/test-source.ts';
@@ -303,10 +303,20 @@ scenario('server-downloads', async (s) => {
         expect((await serverQueue(client)).state).toBe('STOPPED');
 
         // 3. While paused: Chapter 1 to the bottom, Chapter 3 to the top, Chapter 2 out. The server agrees each time.
-        mark = s.events.mark();
-        await rowAction(s, 0, 1, 4, 'bottom');
-        await rowsBecome(s, mark, [ch(2), ch(3), ch(4), ch(5), ch(6), ch(1)], 'Chapter 1 at the bottom');
-        expect((await serverQueue(client)).rows.map((r) => r.sourceOrder)).toEqual([2, 3, 4, 5, 6, 1]);
+        // Before the top, the server has sent the bottom's move out (its news, on its 1 s beat): a move to the top that
+        // goes out in one batch behind another chapter's change gets its answer only after 30 s (IS-007), and the app's
+        // request stays open that long, so no "idle" would come. The taps are < 1 s apart, so that happened now and then.
+        const news = await ServerQueueNews.open();
+        try {
+            mark = s.events.mark();
+            const beforeBottom = Date.now();
+            await rowAction(s, 0, 1, 4, 'bottom');
+            await rowsBecome(s, mark, [ch(2), ch(3), ch(4), ch(5), ch(6), ch(1)], 'Chapter 1 at the bottom');
+            expect((await serverQueue(client)).rows.map((r) => r.sourceOrder)).toEqual([2, 3, 4, 5, 6, 1]);
+            await news.waitFor("Chapter 1's move in the server's news", ch(1), 'POSITION', beforeBottom);
+        } finally {
+            news.close();
+        }
         mark = s.events.mark();
         await rowAction(s, 1, 0, 4, 'top');
         await rowsBecome(s, mark, [ch(3), ch(2), ch(4), ch(5), ch(6), ch(1)], 'Chapter 3 at the top');
