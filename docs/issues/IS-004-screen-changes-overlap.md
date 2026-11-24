@@ -1,8 +1,8 @@
 # IS-004 Opening a manga shows two screens on top of each other for a moment
 
-Kind: small change · Status: waiting on owner · Opened: 2026-11-22 · Closed: –
-Outcome: fixed on the PC (D64); the owner's try on the console is still to come
-Model: Opus · Owner: plan OK'd 2026-11-22 (cross-fade); try Library → a manga → back on the console (the build is on it)
+Kind: small change · Status: done · Opened: 2026-11-22 · Closed: 2026-11-24
+Outcome: fixed (e273d01, D64); the owner's console try passed
+Model: Opus · Owner: plan OK'd 2026-11-22 (cross-fade); tried Library → a manga → back on the console: looks good
 
 ## Report
 The owner, 2026-11-22, on the Switch, normal build, own server: "Whenever I'm navigating to a manga from the library. The
@@ -69,6 +69,8 @@ drawn over them. The screenshot shows the owner's library, so it stays out of th
   steps follow the server's beat (D62), so a fraction of a millisecond per frame on the PC can move the tap's phase. The
   app's behaviour doesn't change (it has no say in when the server starts). Left as it is here; a follow-up for the
   owner (D58's limit is the owner's call).
+- 2026-11-24, the owner (in IS-008's session): tried it on the console earlier, "they both look good" (this and
+  IS-006). Closed.
 
 **Where the owner sees it** (going in, and the reverse when going back with B):
 - Library → a manga's details (the report); Library → Categories, → "Move to category"
@@ -123,10 +125,9 @@ Other ways, not chosen:
   the console (SHA-256 matched). No Switch e2e run: the change is layout data only, and the console was the owner's.
 
 ## For the owner
-Try Library → a manga → back on the console (the new build is on it): the library should fade out while the details
-fade in, with nothing popping at the end. Separately: server-downloads' "queue running ≤ 2 s after Resume" (D58 as
-amended by D62) flips between ~0.5 s and just over 2 s on the PC by the server's beat; a looser limit (or measuring it
-another way) is your call.
+Nothing. Tried on the console (Library → a manga → back): looks good (the owner, 2026-11-24). The server-downloads
+"queue running ≤ 2 s after Resume" question went to IS-005 (the owner's call: timed on screen), and that scenario's
+remaining flake has its own issue on the `claude/wizardly-engelbart-c19dea` branch.
 
 ## If it comes back
 Open any screen and capture a frame within 200 ms (desktop build, or `sa.sh -o shot.jpg GET /screenshot` right after A on
