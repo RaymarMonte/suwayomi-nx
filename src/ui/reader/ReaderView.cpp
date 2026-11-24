@@ -622,11 +622,14 @@ void ReaderView::drawSpinner(NVGcontext* vg, float cx, float cy) {
     const float start = static_cast<float>(std::fmod(static_cast<double>(ms) / 1000.0 * 2 * kPi, 2 * kPi));
     nvgBeginPath(vg);
     nvgArc(vg, cx, cy, kSpinnerRadius, start, start + static_cast<float>(kPi * 1.5), NVG_CW);
-    nvgStrokeColor(vg, nvgRGB(150, 150, 150));
+    nvgStrokeColor(vg, a(nvgRGB(150, 150, 150)));
     nvgStrokeWidth(vg, 4);
     nvgStroke(vg);
 }
 
+// What we draw ourselves (the page, the strip, the spinner) takes the view's fade, like borealis's own views (D66): while
+// the reader screen fades in or out (200 ms, borealis's FADE) it's as see-through as the background. Drawn at full
+// strength instead, the page hung over the screen behind without its background, then vanished in one frame (IS-008).
 void ReaderView::draw(NVGcontext* vg, float x, float y, float width, float height, brls::Style style,
                       brls::FrameContext* ctx) {
     tick();
@@ -644,7 +647,7 @@ void ReaderView::draw(NVGcontext* vg, float x, float y, float width, float heigh
         nvgTranslate(vg, -x, -y);
     }
     if (strip_) {
-        strip_->draw(vg, x, y, screen);
+        strip_->draw(vg, x, y, screen, getAlpha());
     } else {
         drawPage(vg, x, y, screen);
     }
@@ -680,6 +683,7 @@ void ReaderView::drawPage(NVGcontext* vg, float x, float y, core::SizeF screen) 
         const float right = left + drawn_.width;
         const float bottom = top + drawn_.height;
         const auto& tiles = image_->tiles();
+        const float alpha = getAlpha();  // the screen's fade (D66)
         for (std::size_t i = 0; i < tiles.size() && i < textures_.size(); ++i) {
             const float tx = left + static_cast<float>(tiles[i].x - part.x) * sx;
             const float ty = top + static_cast<float>(tiles[i].y - part.y) * sy;
@@ -697,7 +701,7 @@ void ReaderView::drawPage(NVGcontext* vg, float x, float y, core::SizeF screen) 
             }
             nvgBeginPath(vg);
             nvgRect(vg, x0, y0, x1 - x0, y1 - y0);
-            nvgFillPaint(vg, nvgImagePattern(vg, tx, ty, tw, th, 0, textures_[i], 1.0f));
+            nvgFillPaint(vg, nvgImagePattern(vg, tx, ty, tw, th, 0, textures_[i], alpha));
             nvgFill(vg);
         }
     }

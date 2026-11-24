@@ -39,5 +39,6 @@ Status: `open` · `waiting on owner` · `done`. Outcome: `fixed` · `not ours` �
 | [IS-004](issues/IS-004-screen-changes-overlap.md) | Opening a manga shows two screens on top of each other for a moment | small change | 2026-11-22 | waiting on owner | fixed on the PC: every screen paints its background, a clean cross-fade (D64); the owner's console try to come |
 | [IS-005](issues/IS-005-desktop-e2e-flakes.md) | Two desktop e2e checks fail now and then: Resume's 2 s, and a lost press or tap | bug fix | 2026-11-23 | done | fixed (test-only): Resume's 2 s timed on screen (D58/D62, owner); the desktop driver waits for the app to read each input; the scenarios wait for an idle after the input and its answer |
 | [IS-006](issues/IS-006-manga-bar-squeezed-while-loading.md) | While a manga's chapters load, Sort / Show / Refresh are squeezed | bug fix | 2026-11-23 | waiting on owner | fixed on the PC: a view that fills a row and shows text starts at width 0, on all 12 such places (D65, with a check); the test server's cover cache now resets too; on the console, the owner's try to come |
+| [IS-008](issues/IS-008-reader-page-over-details.md) | Leaving the reader shows its page pasted over the manga's details for a moment | bug fix | 2026-11-24 | open | fixed on the PC: the reader's own drawing (page, strip, spinner) takes the screen's fade (D66, with a check); the owner's console try to come |
 
-Next number: **IS-007**.
+Next number: **IS-009** (IS-007 is taken on the `claude/wizardly-engelbart-c19dea` branch).

@@ -530,12 +530,17 @@ void StripCanvas::updateTextures(NVGcontext* vg) {
 
 // --- Drawing ---
 
+NVGcolor StripCanvas::faded(NVGcolor color) const {
+    color.a *= alpha_;
+    return color;
+}
+
 void StripCanvas::drawSpinner(NVGcontext* vg, float cx, float cy) {
     const auto ms = nowMs();
     const float start = static_cast<float>(std::fmod(static_cast<double>(ms) / 1000.0 * 2 * kPi, 2 * kPi));
     nvgBeginPath(vg);
     nvgArc(vg, cx, cy, kSpinnerRadius, start, start + static_cast<float>(kPi * 1.5), NVG_CW);
-    nvgStrokeColor(vg, nvgRGB(150, 150, 150));
+    nvgStrokeColor(vg, faded(nvgRGB(150, 150, 150)));
     nvgStrokeWidth(vg, 4);
     nvgStroke(vg);
 }
@@ -548,7 +553,7 @@ void StripCanvas::drawText(NVGcontext* vg, const std::vector<std::string>& lines
     nvgFontSize(vg, kFontSize);
     nvgTextLineHeight(vg, 1.2f);
     nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
-    nvgFillColor(vg, textColor_);
+    nvgFillColor(vg, faded(textColor_));
     std::vector<float> heights;
     float total = 0;
     for (const std::string& line : lines) {
@@ -588,7 +593,7 @@ void StripCanvas::drawItem(NVGcontext* vg, int item, float left, float top, floa
     if (page.state == ReaderPage::State::Failed) {
         nvgBeginPath(vg);
         nvgRect(vg, visibleLeft, visibleTop, visibleRight - visibleLeft, visibleBottom - visibleTop);
-        nvgFillColor(vg, kPlaceholder);
+        nvgFillColor(vg, faded(kPlaceholder));
         nvgFill(vg);
         if (textFor) {
             drawText(vg, textFor(item), cx, middle, textWidth);
@@ -599,7 +604,7 @@ void StripCanvas::drawItem(NVGcontext* vg, int item, float left, float top, floa
     if (page.state != ReaderPage::State::Ready || !page.image || found == held_.end()) {
         nvgBeginPath(vg);
         nvgRect(vg, visibleLeft, visibleTop, visibleRight - visibleLeft, visibleBottom - visibleTop);
-        nvgFillColor(vg, kPlaceholder);
+        nvgFillColor(vg, faded(kPlaceholder));
         nvgFill(vg);
         if (page.state != ReaderPage::State::Ready) {
             drawSpinner(vg, cx, middle);
@@ -624,19 +629,20 @@ void StripCanvas::drawItem(NVGcontext* vg, int item, float left, float top, floa
         nvgBeginPath(vg);
         nvgRect(vg, tx, ty, tw, th);
         if (tile == held.tiles.end()) {
-            nvgFillColor(vg, kPlaceholder);  // not uploaded yet (or no room): a placeholder this frame
+            nvgFillColor(vg, faded(kPlaceholder));  // not uploaded yet (or no room): a placeholder this frame
             waiting = true;
         } else {
-            nvgFillPaint(vg, nvgImagePattern(vg, tx, ty, tw, th, 0, tile->second.texture, 1.0f));
+            nvgFillPaint(vg, nvgImagePattern(vg, tx, ty, tw, th, 0, tile->second.texture, alpha_));
         }
         nvgFill(vg);
     }
 }
 
-void StripCanvas::draw(NVGcontext* vg, float x, float y, core::SizeF screen) {
+void StripCanvas::draw(NVGcontext* vg, float x, float y, core::SizeF screen, float alpha) {
     if (!ready()) {
         return;
     }
+    alpha_ = alpha;
     updateTextures(vg);
     const core::StripLayout& layout = model_.layout();
     // A strip unit is `zoom` reader units: the strip is drawn zoom times its width, from its left edge (centred while it

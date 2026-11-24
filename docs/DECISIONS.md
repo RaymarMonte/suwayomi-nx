@@ -1630,3 +1630,15 @@ every screen with the same bug)
   the least width, so their growing status column can only shrink itself.
 Rejected: giving the count a placeholder text while loading (fixes one screen, not the pattern); patching borealis's
 measuring (pinned, D1).
+
+**D66 What we draw ourselves takes the screen's fade** (IS-008, 2026-11-24; goes with D64)
+- **What:** every NanoVG fill or stroke in `src/` gets its color through the view's fade: `a(color)` in a borealis view,
+  `faded(color)` in `StripCanvas` (it draws for the reader view, which hands it `getAlpha()` each frame); an image pattern
+  gets the view's `getAlpha()` as its alpha, never a fixed `1.0f`. `tests/contract/faded-drawing.test.ts` (`npm test`)
+  fails, naming the file and line, on one that doesn't.
+- **Why:** borealis fades a screen in or out (200 ms, D64) by lowering its views' alpha, and only its own drawings use it.
+  The reader draws its page, the strip, the spinner and the strip's placeholders and text itself, and did so at full
+  strength. Going back, the reader's background faded away while the page stayed: the page hung over the details screen
+  with nothing around it, then vanished in one frame (the owner: "a jarring merging transition"). At rest the alpha is 1,
+  so a still screen looks exactly as before (desktop goldens unchanged).
+Rejected: no animation into and out of the reader (abrupt, and unlike every other screen since D64).

@@ -102,6 +102,8 @@ with 0, any release may change things.
 ### Fixed
 - Opening a screen (a manga from the library, a source, Settings' screens, ...) or going back cross-fades cleanly: the old
   screen no longer stays on full strength under the new one and then vanishes at once.
+- Opening the reader or going back from it cross-fades cleanly too: the page no longer hangs over the manga's page for a
+  moment and then vanishes.
 - A manga's Sort, Show and Refresh buttons keep their size while its chapters load (they were squeezed together in the
   corner), and offline. A long line next to buttons in a bar now wraps or ends in "..." instead of squeezing them.
 - Holding the D-pad (or a stick) turns only one page, also in portrait.

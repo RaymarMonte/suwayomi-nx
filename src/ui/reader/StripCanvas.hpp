@@ -44,8 +44,9 @@ class StripCanvas {
 
     // Once per frame, before draw(): the flick and the glide move on.
     void tick();
-    // The strip on the reader's screen (reader units from (x, y)).
-    void draw(NVGcontext* vg, float x, float y, core::SizeF screen);
+    // The strip on the reader's screen (reader units from (x, y)). `alpha` is the reader view's fade (borealis's
+    // View::getAlpha(): 1 at rest, less while the screen fades in or out); everything is drawn that see-through (D66).
+    void draw(NVGcontext* vg, float x, float y, core::SizeF screen, float alpha);
     bool ready() const { return model_.state() == StripModel::State::Ready; }
 
     // --- Touch (ReaderView) ---
@@ -164,6 +165,7 @@ class StripCanvas {
                   float x, float y, bool& waiting);
     void drawText(NVGcontext* vg, const std::vector<std::string>& lines, float cx, float cy, float maxWidth);
     void drawSpinner(NVGcontext* vg, float cx, float cy);
+    NVGcolor faded(NVGcolor color) const;  // `color` with this frame's fade applied (D66)
     void stopMotion();
     void endGlide();
     void restOnPixels();
@@ -176,6 +178,7 @@ class StripCanvas {
     int tilesAround_;
     std::map<PageKey, HeldPage> held_;
     NVGcolor textColor_ = nvgRGB(200, 200, 200);
+    float alpha_ = 1;  // the fade of the frame being drawn (draw()'s `alpha`)
     std::vector<core::TouchSample> samples_;  // the drag's last moments
     core::PointF dragOffset_;
     double dragLeft_ = 0;    // the left edge when the drag began
