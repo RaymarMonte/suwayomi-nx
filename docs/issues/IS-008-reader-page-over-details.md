@@ -1,8 +1,8 @@
 # IS-008 Leaving the reader shows its page pasted over the manga's details for a moment
 
-Kind: bug fix · Status: open · Opened: 2026-11-24 · Closed: –
-Outcome: –
-Model: Opus · Owner: try reading a chapter → B back on the console, once the new build is on it
+Kind: bug fix · Status: waiting on owner · Opened: 2026-11-24 · Closed: –
+Outcome: fixed on the PC (34a95d4, D66); the owner's try on the console is still to come
+Model: Opus · Owner: try reading a chapter → B back on the console (the build is on it)
 
 ## Report
 The owner, 2026-11-24, on the Switch, own server: "When transitioning from the reader back to the comics details,
@@ -42,6 +42,9 @@ owner's library, so it stays out of the repo: `tests/e2e/out/is-008/` (git-ignor
     at most 0.096. No jump either way; mid-fade the page is blended with the details.
   - A 0.045 step after the fade, both before and after: the bottom button hints lighting up again (borealis greys them
     while it blocks input during the animation; IS-004 saw it too). Not ours to change.
+- 08:29, the owner woke the console. HOME menu, nothing open (`console-before-upload.jpg`); the build (the 08:04
+  `tools/build.sh switch` of 34a95d4's code, gate PASS) uploaded to `/switch/suwayomi-nx/suwayomi-nx.nro`, SHA-256
+  matched (`5d1bfae3…`). The console was left on for the owner's try.
 
 ## Cause
 The reader's page, spinner, placeholders and strip text ignore the screen's fade (they are drawn with alpha 1 / fixed
@@ -74,11 +77,11 @@ reading, paging, threads, progress or the safety layer, so it stays an issue.
 - Tests: unit tests, `npm test` (151 passed), typecheck green; desktop build 0 warnings. Desktop e2e, 08:17 – 08:26:
   smoke and the reader scenarios (reader-paged, -webtoon, -zoom, -portrait, -rtl-spread, -spread-split,
   offline-reading, resume-progress) in both modes: **18 / 18 green**, goldens unchanged. Switch: `tools/build.sh
-  switch` (gate PASS). No Switch e2e run: the change only scales the alpha of what's drawn, and the desktop runs cover
+  switch` (gate PASS), uploaded to the console (SHA-256 matched). No Switch e2e run: the change only scales the alpha of what's drawn, and the desktop runs cover
   every reader path that draws.
 
 ## For the owner
-Try it on the console once the new build is on it: open a chapter, then B back. The page should fade out together with
+Try it on the console (the new build is on it): open a chapter, then B back. The page should fade out together with
 the reader, with nothing left hanging over the details screen. Opening a chapter should fade in the same way.
 
 ## If it comes back
