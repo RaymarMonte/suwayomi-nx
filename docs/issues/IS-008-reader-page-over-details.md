@@ -1,8 +1,8 @@
 # IS-008 Leaving the reader shows its page pasted over the manga's details for a moment
 
-Kind: bug fix · Status: waiting on owner · Opened: 2026-11-24 · Closed: –
-Outcome: fixed on the PC (34a95d4, D66); the owner's try on the console is still to come
-Model: Opus · Owner: try reading a chapter → B back on the console (the build is on it)
+Kind: bug fix · Status: done · Opened: 2026-11-24 · Closed: 2026-11-24
+Outcome: fixed (34a95d4, D66); the owner's console try passed
+Model: Opus · Owner: tried reading a chapter → B back on the console: "Looks clean"
 
 ## Report
 The owner, 2026-11-24, on the Switch, own server: "When transitioning from the reader back to the comics details,
@@ -45,6 +45,7 @@ owner's library, so it stays out of the repo: `tests/e2e/out/is-008/` (git-ignor
 - 08:29, the owner woke the console. HOME menu, nothing open (`console-before-upload.jpg`); the build (the 08:04
   `tools/build.sh switch` of 34a95d4's code, gate PASS) uploaded to `/switch/suwayomi-nx/suwayomi-nx.nro`, SHA-256
   matched (`5d1bfae3…`). The console was left on for the owner's try.
+- 2026-11-24, the owner's try on the console (own server): "Looks clean".
 
 ## Cause
 The reader's page, spinner, placeholders and strip text ignore the screen's fade (they are drawn with alpha 1 / fixed
@@ -81,8 +82,7 @@ reading, paging, threads, progress or the safety layer, so it stays an issue.
   every reader path that draws.
 
 ## For the owner
-Try it on the console (the new build is on it): open a chapter, then B back. The page should fade out together with
-the reader, with nothing left hanging over the details screen. Opening a chapter should fade in the same way.
+Nothing. Tried on the console 2026-11-24 (open a chapter, B back): "Looks clean".
 
 ## If it comes back
 Capture a frame within 200 ms of B in the reader (desktop build, or `sa.sh -o shot.jpg GET /screenshot` right after B on
